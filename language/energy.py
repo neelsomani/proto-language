@@ -19,7 +19,7 @@ class EnergyTerm(ABC):
         pass
 
     @abstractmethod
-    def compute(self, node, df: pd.DataFrame) -> float:
+    def compute(self, node, df: pd.Series) -> float:
         pass
 
 ############################
@@ -30,7 +30,7 @@ class ValidNucleotideCharacters(EnergyTerm):
     def __init__(self) -> None:
         super().__init__()
 
-    def compute(self, node, df: pd.DataFrame) -> float:
+    def compute(self, node, df: pd.Series) -> float:
         del node
 
         # Add information about invalid nucleotides to the dataframe
@@ -47,7 +47,7 @@ class GenomeLength(EnergyTerm):
         super().__init__()
         self.target_length = target_length
 
-    def compute(self, node, df: pd.DataFrame) -> float:
+    def compute(self, node, df: pd.Series) -> float:
         del node
         
         genome_length = len(df['sequence'])
@@ -75,7 +75,7 @@ class GCContent(EnergyTerm):
         if self.min_gc < 0 or self.max_gc > 100:
             raise ValueError("GC content range must be between 0 and 100 percent.")
 
-    def compute(self, node, df: pd.DataFrame) -> float:
+    def compute(self, node, df: pd.Series) -> float:
         del node
         
         seq = df['sequence'].upper()
@@ -116,7 +116,7 @@ class NucleotideHomopolymer(EnergyTerm):
         super().__init__()
         self.max_length = max_length
 
-    def compute(self, node, df: pd.DataFrame) -> float:
+    def compute(self, node, df: pd.Series) -> float:
         del node
         
         sequence = df['sequence'].upper()
@@ -153,7 +153,7 @@ class DinucleotideFrequency(EnergyTerm):
         # Precompute all dinucleotides
         self.dinucleotides = [''.join(pair) for pair in itertools.product('ACGT', repeat=2)]
         
-    def compute(self, node, df: pd.DataFrame) -> float:
+    def compute(self, node, df: pd.Series) -> float:
         del node
         
         seq = df['sequence'].upper()
@@ -213,7 +213,7 @@ class TetranucleotideUsage(EnergyTerm):
         if len(self.tetranucleotide) != 4:
             raise ValueError("Tetranucleotide must be a 4-base DNA sequence.")
     
-    def compute(self, node, df: pd.DataFrame) -> float:
+    def compute(self, node, df: pd.Series) -> float:
         del node
         
         seq = df['sequence'].upper()

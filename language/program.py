@@ -88,7 +88,7 @@ class ProgramNode:
 
     def get_energy_term_functions(
         self, name_prefix: str = ""
-    ) -> List[Tuple[str, float, Callable[[pd.DataFrame], float]]]:
+    ) -> List[Tuple[str, float, Callable[[pd.Series], float]]]:
         name_prefix = name_prefix if name_prefix else "root"
 
         terms = [

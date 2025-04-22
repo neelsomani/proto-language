@@ -264,3 +264,4 @@ class TetranucleotideUsageConstraint(ProgramConstraint):
                 deviation = (tetra_tud - self.max_tud) / self.max_tud
             
             return min(1.0, deviation)
+

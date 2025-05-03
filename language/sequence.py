@@ -58,6 +58,7 @@ class ProgramRNASequence(ProgramSequence):
             generator (ProgramGenerator): The generator that updates `sequence.`
             generator_output_idx (int): The index into the generator's output list.
             sequence (Optional[str]): The value of the RNA sequence string.
+            metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
             valid_chars (Optional[Set[str]]): A set of valid characters that the sequence
                                               can take on.
         """
@@ -91,6 +92,7 @@ class ProgramProteinSequence(ProgramSequence):
             generator (ProgramGenerator): The generator that updates `sequence.`
             generator_output_idx (int): The index into the generator's output list.
             sequence (Optional[str]): The value of the protein sequence string.
+            metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
             valid_chars (Optional[Set[str]]): A set of valid characters that the sequence
                                               can take on.
         """

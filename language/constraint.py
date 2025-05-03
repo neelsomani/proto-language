@@ -100,6 +100,7 @@ class GCContentConstraint(ProgramConstraint):
 
         # Calculate GC content
         gc_content = 100.0 * sum(nt in "GC" for nt in str(sequence).upper()) / max(len(sequence), 1)
+        sequence._metadata['gc_content'] = gc_content
             
         # return 0.0 if GC content is within the range
         if self.min_gc <= gc_content <= self.max_gc:

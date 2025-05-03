@@ -127,7 +127,7 @@ class ProgramConstraint(ABC):
     def __init__(
         self,
         inputs: ProgramSequence | List[ProgramSequence],
-        scoring_function: Callable[[ProgramSequence | List[ProgramSequence]], float],
+        scoring_function: Callable[List[ProgramSequence], float],
         **kwargs: Any,
     ) -> None:
         """
@@ -135,12 +135,12 @@ class ProgramConstraint(ABC):
 
         Args:
             inputs (ProgramSequence | List[ProgramSequence]): The input variables.
-            scoring_function (Callable[[ProgramSequence | List[ProgramSequence]], float]):
+            scoring_function (Callable[List[ProgramSequence], float]):
                 The scoring function to call on the inputs.
             **kwargs (Any): Arbitrary keyword arguments for configuration.
         """
         self.inputs: List[ProgramSequence] = inputs if isinstance(inputs, list) else [inputs]
-        self.scoring_function: Callable[[ProgramSequence | List[ProgramSequence]], float] = scoring_function
+        self.scoring_function: Callable[List[ProgramSequence], float] = scoring_function
         self.config: Dict[str, Any] = kwargs
 
     def evaluate(self) -> float:

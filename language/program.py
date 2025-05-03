@@ -1,78 +1,54 @@
-from copy import deepcopy
-from typing import Dict, List, Tuple, Union, Any, Optional
-import numpy as np
-import pandas as pd
-from .base import ProgramSequence, ProgramGenerator, ProgramConstraint
-from .sequence import ProgramDNASequence, ProgramRNASequence, ProgramProteinSequence
-import random
-import math
+from typing import Any, Dict, List, Optional
+
+from .base import ProgramEnergyBasedModel
+
 
 class Program:
     """
-    Toy Metropolis-Hastings MCMC example using:
-      - generator: list of ProgramGenerator instances (proposals)
-      - constraints: list of ProgramConstraint instances (energies)
+    Small wrapper class that samples from an EBM-typed generator. Can keep track of state across
+    multiple calls to `sample()`.
+
+    TODO(@brianhie): Decide if this class is even needed.
     """
-    def __init__(self,
-                 generators: List[ProgramGenerator],
-                 constraints: List[ProgramConstraint],
-                 **kwargs: Any,
+    def __init__(
+        self,
+        ebm: ProgramEnergyBasedModel,
+        num_mcmc_steps: Optional[int] = 100_000,
+        track_step_size: Optional[int] = 10,
+        **kwargs: Any,
     ) -> None:
-        self.generators: List[ProgramGenerator] = generators
-        self.constraints: List[ProgramConstraint] = constraints
+        self.ebm: ProgramEnergyBasedModel = ebm
+        self.num_mcmc_steps: int = num_steps
+        self.track_step_size: int = track_step_size
         self.config: Dict[str, Any] = kwargs
 
-
-    def score_energy(self) -> float:
+    def run(self) -> List[ProgramSequence]:
         """
-        Multiplicative energy
+        Run MCMC on an EBM generator while keeping track of state.
         """
-        energy = 1.0
-        for c in self.constraints:
-            energy *= c.evaluate()
-        return energy
+        sequence_history = [sequence.sequence]
+        energy_history = [program.score_energy()]
+        steps_history = [0]
+
+        print(f"Initial sequence: {sequence_history[0]}")
+        print(f"Initial energy: {energy_history[0]:.4f}")
+
+        for step in range(1, self.num_mcmc_steps + 1):
+            # Run a single MCMC step.
+            self.ebm.sample()
+
+            # Track sequence and energy periodically.
+            if step % self.track_step_size == 0:
+                current_sequence = self.ebm.get_outputs()[0].sequence
+                sequence_history.append(current_sequence)
+                energy_history.append(self.ebm.score_energy())
+                steps_history.append(step)
+
+        # Get the final sequence.
+        final_sequence = self.ebm.get_outputs()[0]
+
+        print(f"Final sequence: {final_sequence}")
+        print(f"Final energy: {self.ebm..score_energy():.4f}")
 
 
-    def sample(self,
-               num_steps: int) -> List[ProgramSequence]:
-        """
-        Metropolis-Hastings MCMC algorithm
-        """
-
-        # register all generators and initialize their ProgramSequence outputs
-        for g in self.generators:
-            if not g._is_initialized:
-                g.register()
-
-        # calculate initial energy
-        old_energy = self.score_energy()
-
-        # MCMC optimization algorithm
-        for t in range(num_steps):
-
-            # 1. pick pick a generator
-            generator = random.choice(self.generators)
-            # track old sequences x(t)
-            old_seqs = [s.sequence for s in generator.get_outputs()]
-
-            # 2. sample x' from generator
-            generator.sample()
-            # evaluate new energy for x'
-            new_energy = self.score_energy()
-
-            # 3. compute acceptance probability g(x') / g(x(t))
-            alpha = new_energy / (old_energy + 1e-12)
-            alpha = min(1.0, alpha)
-
-            # 4. accept/reject according to random number [0.0, 1.0)
-            if random.random() > alpha:
-                old_energy = new_energy
-            else:
-                for seq_obj, old in zip(generator.get_outputs(), old_seqs):
-                    seq_obj.sequence = old
-        # return the final sequences
-        final_sequences = []
-        for g in self.generators:
-            final_sequences.extend(g.get_outputs())
-        return final_sequences
 

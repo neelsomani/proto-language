@@ -6,6 +6,8 @@ ProgramSequence: The sequence variables.
 ProgramConstraint: The constraint scoring functions.
 
 ProgramGenerator: The generative models and samplers.
+
+ProgramEnergyBasedModel: A special generative model that implements an energy function.
 """
 from abc import ABC, abstractmethod
 import collections
@@ -107,17 +109,6 @@ class ProgramSequence:
         if self._sequence is None:
             return ""
         return self._sequence
-
-    def __hash__(self) -> int:
-        """
-        Computes hash based on the sequence string.
-
-        Returns:
-            int: The hash value.
-        """
-        if self._sequence is None:
-            return hash("")
-        return hash(self._sequence)
 
 
 class ProgramConstraint(ABC):
@@ -252,3 +243,55 @@ class ProgramGenerator(ABC):
                 "Call initialize() first."
             )
         raise NotImplementedError("Subclasses must implement the sample method.")
+
+
+class ProgramEnergyBasedModel(ProgramGenerator):
+    """
+    Special generative model that defines an energy function as a (weighted) combination
+    of constraint functions.
+    """
+    def _check_constraint_attributes(self) -> None:
+        """
+        Class must have a list of constraints.
+        """
+        if not hasattr(self, 'constraints'):
+            raise ValueError("ProgramEnergyBasedModel objects must have constraints.")
+
+        for constraint in self.constraints:
+            if not isinstance(constraint, ProgramConstraint):
+                raise ValueError(f"Found type {type(constraint)}, expected a ProgramConstraint")
+
+        if not hasattr(self, 'constraint_weights'):
+            self.constraint_weights = [1.] * len(self.constraints)
+
+    def score_energy(self) -> float:
+        """
+        Multiply the constraints to produce the energy function.
+
+        Returns:
+            float: The value of the energy function.
+        """
+        self._check_constraint_attributes()
+
+        assert len(self.constraints) == len(self.constraint_weights)
+
+        energy = 1.
+        for constraint, weight in zip(self.constraints, self.constraint_weights):
+            energy *= weight * constraint.evaluate()
+        return energy
+
+    def score_energy_additive(self) -> float:
+        """
+        Add the constraints to produce the energy function.
+
+        Returns:
+            float: The value of the energy function.
+        """
+        self._check_constraint_attributes()
+
+        assert len(self.constraints) == len(self.constraint_weights)
+
+        energy = 0.
+        for constraint, weight in zip(self.constraints, self.constraint_weights):
+            energy += weight * constraint.evaluate()
+        return energy

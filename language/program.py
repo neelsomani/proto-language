@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .base import ProgramEnergyBasedModel, ProgramSequence
 
@@ -18,16 +18,16 @@ class Program:
         **kwargs: Any,
     ) -> None:
         self.ebm: ProgramEnergyBasedModel = ebm
-        self.num_mcmc_steps: int = num_steps
+        self.num_mcmc_steps: int = num_mcmc_steps
         self.track_step_size: int = track_step_size
         self.config: Dict[str, Any] = kwargs
 
-    def run(self) -> List[ProgramSequence]:
+    def run(self) -> Tuple[List[str], List[float], List[int]]:
         """
         Run MCMC on an EBM generator while keeping track of state.
         """
-        sequence_history = [sequence.sequence]
-        energy_history = [program.score_energy()]
+        sequence_history = [self.ebm.get_outputs()[0].sequence]
+        energy_history = [self.ebm.score_energy()]
         steps_history = [0]
 
         print(f"Initial sequence: {sequence_history[0]}")
@@ -50,5 +50,5 @@ class Program:
         print(f"Final sequence: {final_sequence}")
         print(f"Final energy: {self.ebm.score_energy():.4f}")
 
-
+        return sequence_history, energy_history, steps_history
 

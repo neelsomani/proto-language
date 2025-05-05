@@ -182,7 +182,7 @@ class ProgramMCMCGenerator(ProgramEnergyBasedModel):
             "constraint_weights",
             [1.] * len(constraints),
         )
-        self.temperature: float = hyperparameters.get("temperature", 1.0)
+        self.temperature: float = hyperparameters.get("temperature", 1.0) # TODO: Implement temperature
         self.num_steps: int = hyperparameters.get("num_steps", 1000)
 
         if len(self.constraints) != len(self.constraint_weights):

@@ -22,13 +22,13 @@ class ProgramSequence:
     Base class for the program sequence variables. A variable is defined by its
     generator and its index into the generator's output.
     """
+    VALID_SEQUENCE_TYPES = {'dna', 'rna', 'protein'}
+
     def __init__(
         self,
-        generator: "ProgramGenerator",
-        generator_output_idx: int,
         sequence: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        valid_chars: Optional[Set[str]] = None,
+        sequence_type: Optional[str] = None,
     ) -> None:
         """
         Initializes the ProgramSequence object.
@@ -37,18 +37,20 @@ class ProgramSequence:
         and filled in later (e.g., by executing a generator).
 
         Args:
-            generator (ProgramGenerator): The generator that updates `sequence.`
-            generator_output_idx (int): The index into the generator's output list.
             sequence (Optional[str]): The value of the sequence string.
             metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
-            valid_chars (Optional[Set[str]]): A set of valid characters that the sequence
-                                              can take on.
+            sequence_type (Optional[str]): Type of sequence. Must be either 'dna', 'rna', or 'protein'
+
+        Raises:
+            ValueError: If sequence_type is provided but not one of the valid types.
         """
-        self.generator: ProgramGenerator = generator
-        self.generator_output_idx: int = generator_output_idx
+        if sequence_type and sequence_type not in self.VALID_SEQUENCE_TYPES:
+                raise ValueError(f"sequence_type must be one of {self.VALID_SEQUENCE_TYPES}, got {sequence_type}")
+
         self._sequence: Optional[str] = sequence
         self._metadata: Dict[str, Any] = metadata if metadata is not None else {'sequence': sequence}
-        self._valid_chars: Optional[Set[str]] = valid_chars
+        self._sequence_type: Optional[str] = sequence_type
+        self._valid_chars: Optional[Set[str]] = None
 
     def _validate_sequence(self, sequence: str) -> None:
         """
@@ -130,7 +132,7 @@ class ProgramConstraint(ABC):
                 The scoring function to call on the inputs.
             **kwargs (Any): Arbitrary keyword arguments for configuration.
         """
-        self.inputs: List[ProgramSequence] = inputs if isinstance(inputs, list) else [inputs]
+        self.inputs: List[ProgramSequence] = inputs if isinstance(inputs, ProgramSequence) else [inputs]
         self.scoring_function: Callable[List[ProgramSequence], float] = scoring_function
         self.config: Dict[str, Any] = kwargs
 

@@ -10,7 +10,6 @@ import warnings
 from .base import ProgramConstraint, ProgramSequence
 from .sequence import ProgramDNASequence, ProgramRNASequence, ProgramProteinSequence
 
-
 class SequenceLengthConstraint(ProgramConstraint):
     def __init__(
         self, 

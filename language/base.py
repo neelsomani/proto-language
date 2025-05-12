@@ -120,7 +120,7 @@ class ProgramConstraint(ABC):
     def __init__(
         self,
         inputs: ProgramSequence | List[ProgramSequence],
-        scoring_function: Callable[List[ProgramSequence], float],
+        scoring_function: Callable[[List[ProgramSequence], Dict[str, Any]], float],
         **kwargs: Any,
     ) -> None:
         """
@@ -128,12 +128,12 @@ class ProgramConstraint(ABC):
 
         Args:
             inputs (ProgramSequence | List[ProgramSequence]): The input variables.
-            scoring_function (Callable[List[ProgramSequence], float]):
+            scoring_function (Callable[[List[ProgramSequence], Dict[str, Any]], float]):
                 The scoring function to call on the inputs.
             **kwargs (Any): Arbitrary keyword arguments for configuration.
         """
         self.inputs: List[ProgramSequence] = inputs if isinstance(inputs, ProgramSequence) else [inputs]
-        self.scoring_function: Callable[List[ProgramSequence], float] = scoring_function
+        self.scoring_function: Callable[[List[ProgramSequence], Dict[str, Any]], float] = scoring_function
         self.config: Dict[str, Any] = kwargs
 
     def evaluate(self) -> float:
@@ -145,7 +145,7 @@ class ProgramConstraint(ABC):
                    constraint. Implementations should aim for a score in the
                    interval [0.0, 1.0].
         """
-        return self.scoring_function(self.inputs)
+        return self.scoring_function(self.inputs, self.config)
 
 
 class ProgramGenerator(ABC):

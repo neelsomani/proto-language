@@ -4,41 +4,17 @@ import pytest
 import sys
 sys.path.append(".")
 from language.constraint import (
-    DinucleotideFrequencyConstraint,
-    GCContentConstraint,
-    MaxHomopolymerConstraint,
-    SequenceLengthConstraint,
-    TetranucleotideUsageConstraint,
+    dinucleotide_frequency_constraint,
+    gc_content_constraint,
+    max_homopolymer_constraint,
+    sequence_length_constraint,
+    tetranucleotide_usage_constraint,
 )
-from language.sequence import (
-    ProgramDNASequence,
-    ProgramRNASequence,
-    ProgramProteinSequence,
-)
-from language.base import ProgramGenerator
+from language.base import ProgramConstraint, ProgramSequence
 
 
-# Create a dummy generator for sequence initialization.
-class DummyGenerator(ProgramGenerator):
-    def register(self, outputs=None):
-        pass
-    def sample(self):
-        pass
-
-dummy_gen = DummyGenerator()
-
-
-# Helper to create sequence objects easily.
-def create_seq(seq_type, sequence_str):
-    if seq_type == "dna":
-        cls = ProgramDNASequence
-    elif seq_type == "rna":
-        cls = ProgramRNASequence
-    elif seq_type == "protein":
-        cls = ProgramProteinSequence
-    else:
-        raise ValueError("Invalid seq_type")
-    return cls(generator=dummy_gen, generator_output_idx=0, sequence=sequence_str)
+def create_seq(seq_type: str, sequence_str: str):
+    return ProgramSequence(sequence=sequence_str, sequence_type=seq_type)
 
 
 def test_sequence_length_constraint():
@@ -48,14 +24,20 @@ def test_sequence_length_constraint():
     seq_short = create_seq("dna", "A" * (target_len // 2))
     seq_long = create_seq("dna", "A" * (target_len * 2))
 
-    constraint_match = SequenceLengthConstraint(
-        inputs=seq_match, target_length=target_len
+    constraint_match = ProgramConstraint(
+        inputs=seq_match,
+        scoring_function=sequence_length_constraint,
+        scoring_function_config={'target_length': target_len},
     )
-    constraint_short = SequenceLengthConstraint(
-        inputs=seq_short, target_length=target_len
+    constraint_short = ProgramConstraint(
+        inputs=seq_short,
+        scoring_function=sequence_length_constraint,
+        scoring_function_config={'target_length': target_len},
     )
-    constraint_long = SequenceLengthConstraint(
-        inputs=seq_long, target_length=target_len
+    constraint_long = ProgramConstraint(
+        inputs=seq_long,
+        scoring_function=sequence_length_constraint,
+        scoring_function_config={'target_length': target_len},
     )
 
     assert constraint_match.evaluate() == 0.0
@@ -75,9 +57,30 @@ def test_gc_content_constraint():
     seq_below = create_seq("dna", "GCATTATTAT")  # 2/10 = 20% GC.
     seq_above = create_seq("dna", "GCGCGCGCGT")  # 9/10 = 90% GC.
 
-    constraint_in = GCContentConstraint(inputs=seq_in_range, target_range=target_range)
-    constraint_below = GCContentConstraint(inputs=seq_below, target_range=target_range)
-    constraint_above = GCContentConstraint(inputs=seq_above, target_range=target_range)
+    constraint_in = ProgramConstraint(
+        inputs=seq_in_range,
+        scoring_function=gc_content_constraint,
+        scoring_function_config={
+            'min_gc': target_range[0],
+            'max_gc': target_range[1],
+        },
+    )
+    constraint_below = ProgramConstraint(
+        inputs=seq_below,
+        scoring_function=gc_content_constraint,
+        scoring_function_config={
+            'min_gc': target_range[0],
+            'max_gc': target_range[1],
+        },
+    )
+    constraint_above = ProgramConstraint(
+        inputs=seq_above,
+        scoring_function=gc_content_constraint,
+        scoring_function_config={
+            'min_gc': target_range[0],
+            'max_gc': target_range[1],
+        },
+    )
 
     assert constraint_in.evaluate() == 0.0
     # Deviation = (40 - 20) / 40 = 0.5.
@@ -94,10 +97,20 @@ def test_max_homopolymer_constraint():
     seq_long = create_seq("dna", "AAATTTTGGGGGCCC")  # Max T is 5.
     seq_very_long = create_seq("dna", "AAAAAAAATTTT")  # Max A is 8.
 
-    constraint_ok = MaxHomopolymerConstraint(inputs=seq_ok, max_length=max_len)
-    constraint_long = MaxHomopolymerConstraint(inputs=seq_long, max_length=max_len)
-    constraint_very_long = MaxHomopolymerConstraint(
-        inputs=seq_very_long, max_length=max_len
+    constraint_ok = ProgramConstraint(
+        inputs=seq_ok,
+        scoring_function=max_homopolymer_constraint,
+        scoring_function_config={'max_length': max_len},
+    )
+    constraint_long = ProgramConstraint(
+        inputs=seq_long,
+        scoring_function=max_homopolymer_constraint,
+        scoring_function_config={'max_length': max_len},
+    )
+    constraint_very_long = ProgramConstraint(
+        inputs=seq_very_long,
+        scoring_function=max_homopolymer_constraint,
+        scoring_function_config={'max_length': max_len},
     )
 
     assert constraint_ok.evaluate() == 0.0
@@ -116,11 +129,21 @@ def test_dinucleotide_frequency_constraint():
     seq_wide = create_seq("dna", "ACGT" * 5)
     seq_narrow = create_seq("dna", "ACGT" * 5)
 
-    constraint_wide = DinucleotideFrequencyConstraint(
-        inputs=seq_wide, freq_range=freq_range_wide,
+    constraint_wide = ProgramConstraint(
+        inputs=seq_wide,
+        scoring_function=dinucleotide_frequency_constraint,
+        scoring_function_config={
+            'min_freq': freq_range_wide[0],
+            'max_freq': freq_range_wide[1],
+        },
     )
-    constraint_narrow = DinucleotideFrequencyConstraint(
-        inputs=seq_narrow, freq_range=freq_range_narrow,
+    constraint_narrow = ProgramConstraint(
+        inputs=seq_narrow,
+        scoring_function=dinucleotide_frequency_constraint,
+        scoring_function_config={
+            'min_freq': freq_range_narrow[0],
+            'max_freq': freq_range_narrow[1],
+        },
     )
 
     assert constraint_wide.evaluate() == 0.0
@@ -140,11 +163,23 @@ def test_tetranucleotide_usage_constraint():
     # Sequence with zero GATC occurrences.
     seq_no_gatc = create_seq("dna", "AAAAAAAAAAAAAAAAAAAAAAAAA")  # Len 25.
 
-    constraint_bal = TetranucleotideUsageConstraint(
-        inputs=seq_balanced, tetranucleotide=tetranuc, tud_range=tud_range
+    constraint_bal = ProgramConstraint(
+        inputs=seq_balanced,
+        scoring_function=tetranucleotide_usage_constraint,
+        scoring_function_config={
+            'tetranucleotide': tetranuc,
+            'min_tud': tud_range[0],
+            'max_tud': tud_range[1],
+        },
     )
-    constraint_no_gatc = TetranucleotideUsageConstraint(
-        inputs=seq_no_gatc, tetranucleotide=tetranuc, tud_range=tud_range
+    constraint_no_gatc = ProgramConstraint(
+        inputs=seq_no_gatc,
+        scoring_function=tetranucleotide_usage_constraint,
+        scoring_function_config={
+            'tetranucleotide': tetranuc,
+            'min_tud': tud_range[0],
+            'max_tud': tud_range[1],
+        },
     )
 
     # Calculate expected TUD for balanced sequence.
@@ -170,8 +205,14 @@ def test_tetranucleotide_usage_constraint():
 
     # Simple edge case.
     seq_edge_case = create_seq("dna", "GAT")  # len < 4.
-    constraint_edge = TetranucleotideUsageConstraint(
-        inputs=seq_edge_case, tetranucleotide=tetranuc, tud_range=tud_range
+    constraint_edge = ProgramConstraint(
+        inputs=seq_edge_case,
+        scoring_function=tetranucleotide_usage_constraint,
+        scoring_function_config={
+            'tetranucleotide': tetranuc,
+            'min_tud': tud_range[0],
+            'max_tud': tud_range[1],
+        },
     )
     assert constraint_edge.evaluate() == 0.0  # Score is 0 for len < 4.
     assert seq_edge_case._metadata["GATC_tud"] == 0.0

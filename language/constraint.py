@@ -8,7 +8,7 @@ import itertools
 import warnings
 
 from .base import ProgramConstraint, ProgramSequence
-from .sequence import ProgramDNASequence, ProgramRNASequence, ProgramProteinSequence
+
 
 def sequence_length_constraint(inputs: List[ProgramSequence], config: Dict[str, Any]) -> float:
     """
@@ -155,8 +155,8 @@ def dinucleotide_frequency_constraint(inputs: List[ProgramSequence], config: Dic
 
     assert (
         len(inputs) == 1 and
-        isinstance(inputs[0], (ProgramDNASequence, ProgramRNASequence))
-    ), "Input must be ProgramDNASequence or ProgramRNASequence object"
+        inputs[0].sequence_type in {'dna', 'rna'}
+    ), "Input must be a DNA or RNA sequence"
 
     sequence = inputs[0]
 
@@ -166,7 +166,7 @@ def dinucleotide_frequency_constraint(inputs: List[ProgramSequence], config: Dic
         return 1.0
 
     # Determine valid nucleotides.
-    valid_nucleotides = 'ATCG' if isinstance(sequence, ProgramDNASequence) else 'AUCG'
+    valid_nucleotides = 'ATCG' if sequence.sequence_type == 'dna' else 'AUCG'
 
     # Precompute dinucleotides.
     dinucleotides = [''.join(pair) for pair in itertools.product(valid_nucleotides, repeat=2)]
@@ -238,15 +238,15 @@ def tetranucleotide_usage_constraint(inputs: List[ProgramSequence], config: Dict
 
     assert (
         len(inputs) == 1 and
-        isinstance(inputs[0], (ProgramDNASequence, ProgramRNASequence))
-    ), "Input must be ProgramDNASequence or ProgramRNASequence object"
+        inputs[0].sequence_type in {'dna', 'rna'}
+    ), "Input must be a DNA or RNA sequence"
 
     sequence = inputs[0]
 
     # Set appropriate nucleotide keys based on sequence type.
     nucleotide_keys = (
         ['A', 'T', 'C', 'G']
-        if isinstance(sequence, ProgramDNASequence) else ['A', 'U', 'C', 'G']
+        if sequence.sequence_type == 'dna' else ['A', 'U', 'C', 'G']
     )
 
     # Edge case.

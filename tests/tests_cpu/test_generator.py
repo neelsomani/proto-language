@@ -4,13 +4,9 @@ from typing import Tuple
 
 import sys
 sys.path.append(".")
-from language.constraint import GCContentConstraint
+from language.base import ProgramSequence, ProgramConstraint
+from language.constraint import gc_content_constraint
 from language.generator import ProgramMCMCGenerator, UniformMutationGenerator
-from language.sequence import (
-    ProgramDNASequence,
-    ProgramRNASequence,
-    ProgramProteinSequence,
-)
 
 
 ##############################
@@ -30,7 +26,6 @@ def test_uniform_mutation_generator_init():
     assert gen.sequence_length == seq_len
     assert gen.sequence_type == seq_type
     assert gen.vocab == "ACGT"
-    assert gen.sequence_class == ProgramDNASequence
     assert not gen._is_initialized
     assert gen.outputs is None
     # Check that invalid type raises ValueError.
@@ -52,16 +47,13 @@ def test_uniform_mutation_generator_register():
     assert gen._is_initialized
     assert len(outputs) == 1
     output_seq = outputs[0]
-    assert isinstance(output_seq, ProgramRNASequence)
-    assert output_seq.generator is gen
-    assert output_seq.generator_output_idx == 0
     assert len(output_seq) == seq_len
     assert all(c in gen.vocab for c in output_seq.sequence)
     assert gen.get_outputs() == outputs
 
     # Reset and test register with valid provided outputs.
     gen = UniformMutationGenerator(sequence_length=seq_len, sequence_type=seq_type)
-    predefined_seq = ProgramRNASequence(gen, 0, "A" * seq_len)
+    predefined_seq = ProgramSequence(sequence="A" * seq_len, sequence_type="rna")
     outputs_pre = (predefined_seq,)
     registered_outputs = gen.register(outputs=outputs_pre)
     assert gen.outputs == outputs_pre
@@ -120,7 +112,14 @@ def _setup_mcmc_components(
     sequence_var = proposal_gen.register()[0]  # Register and get the sequence variable.
 
     # 2. Create the constraint linked to the sequence variable.
-    constraint = GCContentConstraint(inputs=sequence_var, target_range=gc_target_range)
+    constraint = ProgramConstraint(
+        inputs=sequence_var,
+        scoring_function=gc_content_constraint,
+        scoring_function_config={
+            'min_gc': gc_target_range[0],
+            'max_gc': gc_target_range[1],
+        },
+    )
 
     # 3. Create the MCMC generator.
     mcmc_gen = ProgramMCMCGenerator(

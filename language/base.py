@@ -49,9 +49,21 @@ class ProgramSequence:
         if sequence_type and sequence_type not in self.VALID_SEQUENCE_TYPES:
                 raise ValueError(f"sequence_type must be one of {self.VALID_SEQUENCE_TYPES}, got {sequence_type}")
 
+        self.sequence_type: Optional[str] = sequence_type
+            
+        self._valid_chars: Optional[Set[str]]
+        if self.sequence_type == 'dna':
+            self._valid_chars = set('ACGT-')
+        elif self.sequence_type == 'rna':
+            self._valid_chars = set('ACGU-')
+        elif self.sequence_type == 'protein':
+            self._valid_chars = set('ACDEFGHIKLMNPQRSTVWY*-')
+        else:
+            self._valid_chars = None
+
+        self._validate_sequence(sequence)
         self._sequence: Optional[str] = sequence
-        self._sequence_type: Optional[str] = sequence_type
-        self._valid_chars: Optional[Set[str]] = valid_chars
+
         self._metadata: Dict[str, Any] = metadata if metadata is not None else {'sequence': sequence}
 
     def _validate_sequence(self, sequence: str) -> None:
@@ -62,7 +74,7 @@ class ProgramSequence:
             sequence (str): The sequence to validate.
             valid_chars (Set[str]): A set of valid characters.
         """
-        if self._valid_chars is None:
+        if self._valid_chars is None or sequence is None:
             return
 
         invalid_chars = set(sequence) - self._valid_chars
@@ -123,7 +135,7 @@ class ProgramConstraint(ABC):
         self,
         inputs: ProgramSequence | List[ProgramSequence],
         scoring_function: Callable[[List[ProgramSequence], Dict[str, Any]], float],
-        **kwargs: Any,
+        scoring_function_config: Dict[str, Any] = {},
     ) -> None:
         """
         Initializes the constraint, potentially with configuration parameters.
@@ -134,11 +146,12 @@ class ProgramConstraint(ABC):
                 The scoring function to call on the inputs. 
                 - List[ProgramSequence]: The sequences to score
                 - Dict[str, Any]: Config parameters from kwargs
-            **kwargs (Any): Arbitrary keyword arguments for configuration.
+            scoring_function_config (Dict[str, Any]): Keyword arguments to pass to scoring function
+                                                      as a single config dictionary.
         """
         self.inputs: List[ProgramSequence] = [inputs] if isinstance(inputs, ProgramSequence) else inputs
         self.scoring_function: Callable[[List[ProgramSequence], Dict[str, Any]], float] = scoring_function
-        self.config: Dict[str, Any] = kwargs
+        self.scoring_function_config: Dict[str, Any] = scoring_function_config
 
     def evaluate(self) -> float:
         """
@@ -149,7 +162,7 @@ class ProgramConstraint(ABC):
                    constraint. Implementations should aim for a score in the
                    interval [0.0, 1.0].
         """
-        return self.scoring_function(self.inputs, self.config)
+        return self.scoring_function(self.inputs, self.scoring_function_config)
 
 
 class ProgramGenerator(ABC):

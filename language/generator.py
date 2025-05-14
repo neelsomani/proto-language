@@ -4,9 +4,9 @@ from typing import Any, List, Dict, Optional, Tuple
 
 from .base import (
     ProgramGenerator,
+    ProgramIterativeGenerator,
     ProgramSequence,
     ProgramConstraint,
-    ProgramEnergyBasedModel,
 )
 from .sequence import ProgramDNASequence, ProgramRNASequence, ProgramProteinSequence
 
@@ -67,7 +67,7 @@ class UniformMutationGenerator(ProgramGenerator):
 
         if outputs is None:
             random_sequence = ''.join(random.choices(self.vocab, k=self.sequence_length))
-            self.outputs = (self.sequence_class(self, 0, random_sequence),)
+            self.outputs = (self.sequence_class(sequence=random_sequence),)
         else:
             if len(outputs) != 1:
                 raise ValueError('Provided outputs must have one entry')
@@ -144,7 +144,7 @@ class BindCraftGenerator(ProgramGenerator):
         pass
 
 
-class ProgramMCMCGenerator(ProgramEnergyBasedModel):
+class ProgramMCMCGenerator(ProgramIterativeGenerator):
     """
     Metropolis-Hastings MCMC loop using generators to implement the proposal distribution and
     constraints to define the remainder of the energy function.

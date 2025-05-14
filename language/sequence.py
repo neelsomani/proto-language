@@ -10,31 +10,22 @@ class ProgramDNASequence(ProgramSequence):
     """
     def __init__(
         self,
-        generator: ProgramGenerator,
-        generator_output_idx: int,
         sequence: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        valid_chars: Optional[Set[str]] = None
     ) -> None:
         """
         Initializes the ProgramDNASequence object.
 
         Args:
-            generator (ProgramGenerator): The generator that updates `sequence.`
-            generator_output_idx (int): The index into the generator's output list.
             sequence (Optional[str]): The value of the DNA sequence string.
             metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
-            valid_chars (Optional[Set[str]]): A set of valid characters that the sequence
-                                              can take on.
         """
-        if valid_chars is None:
-            valid_chars = set('ACGT-')
+        valid_chars = set('ACGT-')
         super().__init__(
-            generator,
-            generator_output_idx,
             sequence,
-            metadata,
-            valid_chars,
+            sequence_type='dna',
+            valid_chars=valid_chars,
+            metadata=metadata,
         )
         self._validate_sequence(sequence)
 
@@ -45,31 +36,22 @@ class ProgramRNASequence(ProgramSequence):
     """
     def __init__(
         self,
-        generator: ProgramGenerator,
-        generator_output_idx: int,
         sequence: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        valid_chars: Optional[Set[str]] = None
     ) -> None:
         """
         Initializes the ProgramRNASequence object.
 
         Args:
-            generator (ProgramGenerator): The generator that updates `sequence.`
-            generator_output_idx (int): The index into the generator's output list.
             sequence (Optional[str]): The value of the RNA sequence string.
             metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
-            valid_chars (Optional[Set[str]]): A set of valid characters that the sequence
-                                              can take on.
         """
-        if valid_chars is None:
-            valid_chars = set('ACGU-')
+        valid_chars = set('ACGU-')
         super().__init__(
-            generator,
-            generator_output_idx,
             sequence,
-            metadata,
-            valid_chars,
+            sequence_type='rna',
+            valid_chars=valid_chars,
+            metadata=metadata,
         )
         self._validate_sequence(sequence)
 
@@ -80,30 +62,21 @@ class ProgramProteinSequence(ProgramSequence):
     """
     def __init__(
         self,
-        generator: ProgramGenerator,
-        generator_output_idx: int,
         sequence: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        valid_chars: Optional[Set[str]] = None
     ) -> None:
         """
         Initializes the ProgramProteinSequence object.
 
         Args:
-            generator (ProgramGenerator): The generator that updates `sequence.`
-            generator_output_idx (int): The index into the generator's output list.
             sequence (Optional[str]): The value of the protein sequence string.
             metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
-            valid_chars (Optional[Set[str]]): A set of valid characters that the sequence
-                                              can take on.
         """
-        if valid_chars is None:
-            valid_chars = set('ACDEFGHIKLMNPQRSTVWY*-')
+        valid_chars = set('ACDEFGHIKLMNPQRSTVWY*-')
         super().__init__(
-            generator,
-            generator_output_idx,
             sequence,
-            metadata,
-            valid_chars,
+            sequence_type='protein',
+            valid_chars=valid_chars,
+            metadata=metadata,
         )
         self._validate_sequence(sequence)

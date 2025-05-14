@@ -27,8 +27,9 @@ class ProgramSequence:
     def __init__(
         self,
         sequence: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
         sequence_type: Optional[str] = None,
+        valid_chars: Optional[Set[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Initializes the ProgramSequence object.
@@ -38,8 +39,9 @@ class ProgramSequence:
 
         Args:
             sequence (Optional[str]): The value of the sequence string.
-            metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
             sequence_type (Optional[str]): Type of sequence. Must be either 'dna', 'rna', or 'protein'
+            valid_chars (Optional[Set[str]]): A set of valid characters.
+            metadata (Optional[Dict[str, Any]]): Metadata for the sequence.
 
         Raises:
             ValueError: If sequence_type is provided but not one of the valid types.
@@ -48,9 +50,9 @@ class ProgramSequence:
                 raise ValueError(f"sequence_type must be one of {self.VALID_SEQUENCE_TYPES}, got {sequence_type}")
 
         self._sequence: Optional[str] = sequence
-        self._metadata: Dict[str, Any] = metadata if metadata is not None else {'sequence': sequence}
         self._sequence_type: Optional[str] = sequence_type
-        self._valid_chars: Optional[Set[str]] = None
+        self._valid_chars: Optional[Set[str]] = valid_chars
+        self._metadata: Dict[str, Any] = metadata if metadata is not None else {'sequence': sequence}
 
     def _validate_sequence(self, sequence: str) -> None:
         """
@@ -134,7 +136,7 @@ class ProgramConstraint(ABC):
                 - Dict[str, Any]: Config parameters from kwargs
             **kwargs (Any): Arbitrary keyword arguments for configuration.
         """
-        self.inputs: List[ProgramSequence] = inputs if isinstance(inputs, ProgramSequence) else [inputs]
+        self.inputs: List[ProgramSequence] = [inputs] if isinstance(inputs, ProgramSequence) else inputs
         self.scoring_function: Callable[[List[ProgramSequence], Dict[str, Any]], float] = scoring_function
         self.config: Dict[str, Any] = kwargs
 

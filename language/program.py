@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple
 
-from .base import ProgramEnergyBasedModel, ProgramSequence
+from .base import ProgramIterativeGenerator, ProgramSequence
 
 
 class Program:
@@ -12,15 +12,17 @@ class Program:
     """
     def __init__(
         self,
-        ebm: ProgramEnergyBasedModel,
-        track_step_size: Optional[int] = 10,
+        ebm: ProgramIterativeGenerator,
         **kwargs: Any,
     ) -> None:
-        self.ebm: ProgramEnergyBasedModel = ebm
-        self.track_step_size: int = track_step_size
+        self.ebm: ProgramIterativeGenerator = ebm
         self.config: Dict[str, Any] = kwargs
+    
+    def _validate_ebm(self) -> None:
+        if not isinstance(self.ebm, ProgramIterativeGenerator):
+            raise ValueError("ebm must be a ProgramIterativeGenerator")
 
-    def run(self) -> Tuple[List[Tuple[str, ...]], List[float], List[int]]:
+    def run(self) -> Dict[str, Any]:
         """
         Run MCMC on an EBM generator while keeping track of state.
         """
@@ -32,7 +34,10 @@ class Program:
         print(f"Initial energy: {initial_energy:.4f}")
 
         # Run MCMC
-        sequence_history, energy_history, steps_history = self.ebm.sample()
+        data = self.ebm.sample()
+        sequence_history = data["sequence_history"]
+        energy_history = data["energy_history"]
+        steps_history = data["steps_history"]
 
         # Get the final sequence.
         final_sequences = tuple(output.sequence for output in self.ebm.get_outputs())
@@ -40,5 +45,9 @@ class Program:
         print(f"Final sequence: {final_sequences}")
         print(f"Final energy: {self.ebm.score_energy():.4f}")
 
-        return sequence_history, energy_history, steps_history
+        return {
+            "sequence_history": sequence_history,
+            "energy_history": energy_history,
+            "steps_history": steps_history,
+        }
 

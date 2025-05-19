@@ -57,7 +57,7 @@ class ProgramSequence:
         elif self.sequence_type == 'rna':
             self._valid_chars = set('ACGU-')
         elif self.sequence_type == 'protein':
-            self._valid_chars = set('ACDEFGHIKLMNPQRSTVWY*-')
+            self._valid_chars = set('ACDEFGHIKLMNPQRSTVWY*-:')
         else:
             self._valid_chars = None
 

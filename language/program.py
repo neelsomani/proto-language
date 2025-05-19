@@ -19,11 +19,6 @@ class Program:
     ) -> None:
         # Initialize using the class
         self.ebm = ebm_class(generators=generators, constraints=constraints, **kwargs)
-    
-    def register(self) -> None:
-        """
-        Register the generators and constraints with the EBM.
-        """
         self.ebm.register()
 
     def _validate_ebm(self) -> None:

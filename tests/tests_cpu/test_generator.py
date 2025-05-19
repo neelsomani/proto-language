@@ -126,6 +126,7 @@ def _setup_mcmc_components(
         generators=[proposal_gen],
         constraints=[constraint],
         num_steps=num_mcmc_steps,  # Number of MCMC steps per sample() call.
+        verbose=False,
     )
     return mcmc_gen, proposal_gen, constraint, sequence_var
 

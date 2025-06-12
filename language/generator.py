@@ -6,6 +6,9 @@ import sys
 
 from .base import *
 
+# Maximum safe exponent for np.exp() to prevent overflow
+MAX_EXP_ARG = 700.0
+
 
 class UniformMutationGenerator(ProgramGenerator):
     """
@@ -189,6 +192,7 @@ class Evo2Generator(ProgramGenerator):
         verbose: int = 1,
         force_prompt_threshold: Optional[int] = None,
         batch_size: int = 1,
+        prepend_prompt: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -212,6 +216,7 @@ class Evo2Generator(ProgramGenerator):
             verbose: Verbosity level for generation logging.
             force_prompt_threshold: Optional threshold for forcing prompt continuation.
             batch_size: Number of sequences to generate simultaneously.
+            prepend_prompt: Whether to prepend the prompt to generated sequences. Default: False.
             **kwargs: Additional arguments passed to parent class.
 
         Note:
@@ -239,6 +244,7 @@ class Evo2Generator(ProgramGenerator):
         self.cached_generation = cached_generation
         self.verbose = verbose
         self.force_prompt_threshold = force_prompt_threshold
+        self.prepend_prompt = prepend_prompt
 
     def _get_model_key(self) -> str:
         """
@@ -252,6 +258,7 @@ class Evo2Generator(ProgramGenerator):
     def register(
         self, 
         outputs: Optional[Tuple[BatchedProgramSequence]] = None,
+        valid_chars: Optional[Set[str]] = None,
     ) -> Tuple[BatchedProgramSequence]:
         """
         Initialize empty DNA sequences and load the Evo2 model.
@@ -263,7 +270,7 @@ class Evo2Generator(ProgramGenerator):
         Args:
             outputs: Optional pre-initialized BatchedProgramSequence objects.
                     If None, empty sequences will be created.
-
+            valid_chars: Optional custom set of valid characters for sequence validation.
         Returns:
             Tuple containing a single BatchedProgramSequence with empty DNA sequences
             that will be filled during sampling.
@@ -292,7 +299,7 @@ class Evo2Generator(ProgramGenerator):
         if outputs is None:
             # Create one BatchedProgramSequence containing all prompt sequences
             sequence_batch = BatchedProgramSequence(
-                ProgramSequence(sequence_type=SequenceType.DNA) 
+                ProgramSequence(sequence_type=SequenceType.DNA, valid_chars=valid_chars) 
                 for _ in range(self.batch_size)
             )
             self._generator_outputs = (sequence_batch,)
@@ -325,14 +332,16 @@ class Evo2Generator(ProgramGenerator):
         """
         return list(cls._model_cache.keys())
 
-    def sample(self, *args: Any, **kwargs: Any) -> None:
+    def sample(self, prompt_seqs: Optional[List[str]] = None, *args: Any, **kwargs: Any) -> None:
         """
         Generate sequences using the Evo2 model and update _generator_outputs.
 
-        Uses the Evo2 model to generate continuations from the prompt sequences,
-        updating the sequences in the BatchedProgramSequence in-place.
+        Uses the Evo2 model to generate continuations from the provided prompt sequences
+        or the default prompt sequences, updating the sequences in the BatchedProgramSequence in-place.
 
         Args:
+            prompt_seqs: Optional list of prompt sequences to use instead of self.prompt_seqs.
+                        Useful for chaining generators where each uses the output of the previous.
             *args: Unused positional arguments for compatibility.
             **kwargs: Unused keyword arguments for compatibility.
 
@@ -343,8 +352,11 @@ class Evo2Generator(ProgramGenerator):
         if not self._is_initialized:
             self.register()
 
+        # Use provided prompts or fall back to the default prompt
+        prompts = prompt_seqs if prompt_seqs is not None else self.prompt_seqs
+
         output = self.evo2_model.generate(
-            prompt_seqs=self.prompt_seqs,
+            prompt_seqs=prompts,
             n_tokens=self.n_tokens,
             temperature=self.temperature,
             top_k=self.top_k,
@@ -355,12 +367,16 @@ class Evo2Generator(ProgramGenerator):
             force_prompt_threshold=self.force_prompt_threshold,
         )
 
-        assert len(output.sequences) == len(self.prompt_seqs), \
-            "Number of output sequences differs from the number of provided prompts."
-
         # Update sequences in the BatchedProgramSequence
+        valid_chars = self._generator_outputs[0].valid_chars
         for idx, sequence in enumerate(output.sequences):
-            self._generator_outputs[0][idx].sequence = sequence
+            if self.prepend_prompt:
+                prompt = prompts[idx].lstrip(''.join(c for c in prompts[idx] if c not in valid_chars))
+                final_sequence = prompt + sequence
+            else:
+                # Use generated sequence without prompt
+                final_sequence = sequence
+            self._generator_outputs[0][idx].sequence = final_sequence
 
 
 class BindCraftGenerator(ProgramGenerator):
@@ -780,6 +796,100 @@ class ProgramMCMCGenerator(ProgramIterativeGenerator):
         self._generator_outputs = tuple(seq for gen in self.generators for seq in gen.get_generator_outputs())
 
         return self._generator_outputs
+    
+
+    @property
+    def user_sequences(self) -> Tuple[ProgramSequence]:
+        """
+        Get user-facing sequences with energy metadata and proper concatenation.
+        
+        This is the main API for accessing generation results. It transforms
+        internal _generator_outputs into clean user outputs by:
+        
+        1. Concatenating sequences according to sequence_order groups
+        2. Adding rich metadata (energy_score, time_step)
+        3. Preserving all constraint-generated metadata
+        4. Creating immutable snapshots of the current state
+        
+        Each returned ProgramSequence includes metadata:
+        - energy_score: Current energy from score_energy() for this sequence
+        - time_step: Current step number in the optimization process
+        - All metadata from constraint evaluations (e.g., avg_plddt, ptm, pdb_output)
+        
+        Technical details:
+        - Uses sequences with lowest energy from each BatchedProgramSequence
+        - Creates new ProgramSequence objects on each access
+        - Validates sequence type consistency within groups
+        - Preserves all metadata from the original sequences
+        - Elements at the same index across batches get concatenated together
+        
+        Returns:
+            Tuple of ProgramSequence objects with concatenated sequences and metadata.
+            One sequence per group defined in sequence_order.
+            
+        Raises:
+            ValueError: If sequences within a group have inconsistent types.
+            
+        Examples:
+            If sequence_order = ((batch1, batch2), (batch3,)), this returns:
+            (
+                ProgramSequence(batch1[best_idx] + batch2[best_idx], metadata={...}),
+                ProgramSequence(batch3[best_idx], metadata={...})
+            )
+            """
+        if not hasattr(self, 'sequence_order') or not self.sequence_order:
+            return tuple()
+        
+        # Get energy scores and find the best sequence index
+        energies = self.score_energy()
+        best_idx = int(np.argmin(energies)) if energies else 0
+        best_energy = energies[best_idx] if energies and best_idx < len(energies) else float('inf')
+        time_step = getattr(self, 'current_step', 0)
+        
+        result = []
+        for group in self.sequence_order:
+            # Extract best sequences from each batch in the group
+            sequences = []
+            for batch in group:
+                if batch and len(batch) > best_idx:
+                    sequences.append(batch[best_idx])
+                else:
+                    sequences.append(None)
+            
+            # Build concatenated sequence string
+            sequence_strings = [seq.sequence or "" for seq in sequences if seq]
+            final_sequence = "".join(sequence_strings)
+            
+            # Validate sequence type consistency
+            sequence_types = {seq.sequence_type for seq in sequences if seq and seq.sequence_type}
+            if len(sequence_types) > 1:
+                raise ValueError(f"Inconsistent sequence types in group: {sequence_types}")
+            
+            valid_chars = group[0].valid_chars if group else None
+            
+            # Create result sequence with metadata
+            user_seq = ProgramSequence(
+                sequence=final_sequence,
+                sequence_type=sequence_types.pop() if sequence_types else None,
+                valid_chars=valid_chars
+            )
+            
+            # Merge metadata from all sequences in the group
+            merged_metadata = {}
+            for seq in sequences:
+                if seq and seq._metadata:
+                    merged_metadata.update(seq._metadata)
+            
+            # Add/update standard metadata
+            merged_metadata.update({
+                "energy_score": best_energy,
+                "time_step": time_step
+            })
+            
+            user_seq._metadata.update(merged_metadata)
+            result.append(user_seq)
+        
+        return tuple(result)
 
     def sample(self) -> List[Tuple[ProgramSequence]]:
         """
@@ -828,7 +938,10 @@ class ProgramMCMCGenerator(ProgramIterativeGenerator):
 
             # 4. Log progress
             if self.verbose and step % self.track_step_size == 0:
-                alpha = min(1.0, np.exp(-(new_best_energy - current_best_energy) / step_temperature))
+                # Clamp exponent to prevent overflow (same as in _compute_acceptance)
+                energy_diff = -(new_best_energy - current_best_energy) / step_temperature
+                energy_diff = min(energy_diff, MAX_EXP_ARG)
+                alpha = min(1.0, np.exp(energy_diff))
                 self._log_step(step, current_best_energy, new_best_energy, alpha, accept, new_best_idx, step_temperature)
 
             # 5. Accept or reject the proposal
@@ -860,7 +973,10 @@ class ProgramMCMCGenerator(ProgramIterativeGenerator):
         Returns:
             Boolean indicating whether to accept the proposal.
         """
-        alpha = np.exp(-(new_best_energy - current_best_energy) / temperature)
+        # Clamp exponent to prevent overflow
+        energy_diff = -(new_best_energy - current_best_energy) / temperature
+        energy_diff = min(energy_diff, MAX_EXP_ARG)
+        alpha = np.exp(energy_diff)
         alpha = min(1.0, alpha)
         return random.random() < alpha
 
@@ -887,10 +1003,11 @@ class ProgramMCMCGenerator(ProgramIterativeGenerator):
             self._propagate_best_sequence(new_best_idx)
             return new_best_energy, new_best_idx
         else:
-            # Reject: revert the sampled generator's sequences
+            # Reject: revert the sampled generator's sequences and metadata
             for i, sequence_batch in enumerate(generator.get_generator_outputs()):
                 for j, program_seq in enumerate(sequence_batch):
                     program_seq.sequence = old_generator_outputs[i][j].sequence
+                    program_seq._metadata = old_generator_outputs[i][j]._metadata.copy()
             return current_best_energy, current_best_idx
 
     def _log_step(self, step: int, old_energy: float, new_energy: float, 
@@ -923,34 +1040,32 @@ class ProgramMCMCGenerator(ProgramIterativeGenerator):
 
 class ProgramSequentialGenerator(ProgramIterativeGenerator):
     """
-    Sequential generator for multi-stage sequence optimization.
+    Sequential generator for chaining autoregressive sequence generators.
 
-    This generator implements a sequential sampling strategy where multiple
-    generators are applied in order, with optional Metropolis-Hastings
-    acceptance criteria. Unlike MCMC which randomly selects generators,
-    this applies them in a fixed sequence each iteration.
+    Applies multiple generators in sequence where each uses the previous generator's
+    output as input prompts. After all generators run, accepts or rejects the
+    combined changes based on energy improvement and temperature annealing.
 
-    Useful for multi-stage design pipelines where different generators
-    handle different aspects of the optimization (e.g., coarse structure
-    followed by fine-tuning).
+    Requirements:
+    - All generators must output exactly one BatchedProgramSequence
+    - Generators after the first must accept prompt_seqs parameter in sample()
+    - The sequence_order must contain exactly one group
 
     Examples:
-        Two-stage design pipeline:
         >>> sequential = ProgramSequentialGenerator(
-        ...     generators=[coarse_gen, fine_gen],  # Applied in order
-        ...     constraints=[structure_constraint, stability_constraint],
-        ...     sequence_order=((batch1, batch2),),
-        ...     num_steps=500
-        ... )
-        >>> history = sequential.sample()
-        
-        With temperature control:
-        >>> sequential = ProgramSequentialGenerator(
-        ...     generators=[gen1, gen2, gen3],
+        ...     generators=[gen1, gen2, gen3],  # Chain: gen1 -> gen2(gen1_out) -> gen3(gen2_out)
         ...     constraints=[constraint1, constraint2],
+        ...     constraint_weights=[1.0, 2.0],  # Weight constraint2 more heavily
         ...     temperature=0.8,  # Accept/reject after all generators
-        ...     track_step_size=50
+        ...     track_step_size=50,
+        ...     verbose=True
         ... )
+        >>> final_sequences = sequential.sample()
+
+    Notes:
+        - Final sequences: initial_prompt + gen1_output + gen2_output + ...
+        - Temperature annealing: T(step) = T_initial * (T_min / T_initial)^(step / num_steps)
+        - Metadata includes energy_score, time_step, and initial_prompt
     """
 
     def __init__(
@@ -964,19 +1079,17 @@ class ProgramSequentialGenerator(ProgramIterativeGenerator):
         Initialize the sequential generator with ordered sub-generators.
 
         Args:
-            generators: List of registered generators applied sequentially each step.
-            constraints: List of constraint functions defining the energy landscape.
-            sequence_order: Tuple defining sequence concatenation for user output.
-            **hyperparameters: Additional configuration options:
-                - constraint_weights (List[float]): Weights for each constraint.
-                - num_steps (int): Number of sequential sampling steps.
-                - temperature (float): Temperature for accept/reject decisions.
-                - track_step_size (int): Interval for progress tracking.
-                - custom_logging (Callable): Custom logging function.
-                - verbose (bool): Whether to print progress information.
-
-        Raises:
-            ValueError: If configuration is invalid or generators not registered.
+            generators: Registered generators applied sequentially (must output one BatchedProgramSequence each).
+            constraints: Constraint functions defining the energy landscape.
+            sequence_order: Sequence concatenation order (must contain exactly one group).
+            **hyperparameters: Additional options:
+                - constraint_weights (List[float]): Constraint weights. Default: [1.0, ...]
+                - num_steps (int): Number of sampling steps. Default: 1
+                - temperature (float): Initial temperature. Default: 1.0
+                - temperature_min (float): Final temperature for annealing. Default: 0.0001
+                - track_step_size (int): Progress tracking interval. Default: 10
+                - custom_logging (Callable): Custom logging function. Default: None
+                - verbose (bool): Print progress. Default: True
         """
         super().__init__(**hyperparameters)
         self.generators = generators
@@ -988,15 +1101,36 @@ class ProgramSequentialGenerator(ProgramIterativeGenerator):
         )
         self.num_steps: int = hyperparameters.get("num_steps", 1)
         self.temperature: float = hyperparameters.get("temperature", 1.0)
+        self.temperature_min: float = hyperparameters.get("temperature_min", 0.0001)
         self.track_step_size: int = hyperparameters.get("track_step_size", 10)
         self.custom_logging: Callable[[int, BatchedProgramSequence], None]
         self.custom_logging = hyperparameters.get("custom_logging", None)
         self.verbose: bool = hyperparameters.get("verbose", True)
         self.current_step: int = 0
 
+        # Validate batch size consistency across all generators
+        self._validate_batch_sizes()
+
         # Validate all configuration using the parent class validation method
         self._validate_init()
 
+    def _validate_batch_sizes(self) -> None:
+        """Validate that all generators have consistent batch sizes for sequential chaining."""
+        if not self.generators:
+            return
+            
+        # Get batch sizes from all generators
+        batch_sizes = [getattr(gen, 'batch_size', None) for gen in self.generators]
+        
+        # Check for missing batch_size attributes
+        if None in batch_sizes:
+            missing = [i for i, size in enumerate(batch_sizes) if size is None]
+            raise ValueError(f"Generators {missing} are missing batch_size attribute")
+        
+        # Check that all batch sizes are the same
+        if len(set(batch_sizes)) > 1:
+            raise ValueError(f"All generators must have the same batch_size. Found: {batch_sizes}")
+    
     def register(self) -> Tuple[BatchedProgramSequence]:
         """
         Collect _generator_outputs from all registered sub-generators.
@@ -1010,23 +1144,95 @@ class ProgramSequentialGenerator(ProgramIterativeGenerator):
 
         return self._generator_outputs
 
+    @property
+    def user_sequences(self) -> Tuple[ProgramSequence]:
+        """
+        Get user-facing sequences with concatenated generator outputs and metadata.
+        
+        Returns sequences by concatenating all generator outputs in sequence order.
+        Individual generators handle their own output formatting (e.g., prompt inclusion).
+        
+        Returns:
+            Tuple containing one ProgramSequence with concatenated sequences and metadata
+            including energy_score and time_step.
+            
+        Examples:
+            >>> gen1 = Evo2Generator(prompt_seqs=["+~ATG"], prepend_prompt=True, batch_size=2)
+            >>> gen2 = Evo2Generator(prompt_seqs=None, prepend_prompt=False, batch_size=2)
+            >>> sequential = ProgramSequentialGenerator(
+            ...     generators=[gen1, gen2],
+            ...     constraints=[gc_constraint],
+            ...     sequence_order=((gen1_batch, gen2_batch),)
+            ... )
+            >>> final_seqs = sequential.user_sequences
+            >>> print(final_seqs[0].sequence)  # gen1_output (with prompt) + gen2_output (without prompt)
+        """
+        # Sequential generators must have exactly one sequence group
+        assert hasattr(self, 'sequence_order') and self.sequence_order, "sequence_order must be defined and non-empty"
+        assert len(self.sequence_order) == 1, f"Sequential generators must have exactly one sequence group, got {len(self.sequence_order)}"
+        
+        # Get energy scores and find the best sequence index
+        energies = self.score_energy()
+        best_idx = int(np.argmin(energies)) if energies else 0
+        best_energy = energies[best_idx] if energies and best_idx < len(energies) else float('inf')
+        time_step = getattr(self, 'current_step', 0)
+        
+        # Process the single sequence group
+        group = self.sequence_order[0]
+        
+        # Extract best sequences from each batch in the group
+        sequences = []
+        for batch in group:
+            if batch and len(batch) > best_idx:
+                sequences.append(batch[best_idx])
+            else:
+                sequences.append(None)
+        
+        # Build concatenated sequence string
+        sequence_strings = [seq.sequence or "" for seq in sequences if seq]
+        final_sequence = "".join(sequence_strings)
+        
+        # Validate sequence type consistency
+        sequence_types = {seq.sequence_type for seq in sequences if seq and seq.sequence_type}
+        if len(sequence_types) > 1:
+            raise ValueError(f"Inconsistent sequence types in group: {sequence_types}")
+        
+        valid_chars = group[0].valid_chars if group else None
+        
+        # Create result sequence with metadata
+        user_seq = ProgramSequence(
+            sequence=final_sequence,
+            sequence_type=sequence_types.pop() if sequence_types else None,
+            valid_chars=valid_chars
+        )
+        
+        # Merge metadata from all sequences in the group
+        merged_metadata = {}
+        for seq in sequences:
+            if seq and seq._metadata:
+                merged_metadata.update(seq._metadata)
+        
+        # Add/update standard metadata
+        merged_metadata.update({
+            "energy_score": best_energy,
+            "time_step": time_step
+        })
+        
+        user_seq._metadata.update(merged_metadata)
+        
+        # Return tuple with exactly one element
+        return (user_seq,)
+
     def sample(self) -> List[Tuple[ProgramSequence]]:
         """
-        Execute sequential sampling with optional accept/reject decisions.
+        Execute sequential sampling with chained autoregressive generators.
 
-        Each step applies all generators in sequence, then evaluates the
-        combined changes and accepts or rejects based on energy improvement
-        and temperature.
+        Each step: (1) applies all generators sequentially with chaining, 
+        (2) evaluates energy change, (3) accepts/rejects based on Metropolis-Hastings 
+        with temperature annealing.
 
         Returns:
             List of user_sequences snapshots taken at tracked intervals.
-
-        Note:
-            All generators are applied before the accept/reject decision,
-            unlike MCMC which evaluates each generator separately.
-            Temperature annealing is applied with the formula:
-            T(step) = (0.0001 / T_initial) ^ (step / num_steps)
-            where T_initial is the initial temperature parameter.
         """
         # Initialize history tracking
         self.current_step = 0
@@ -1037,62 +1243,168 @@ class ProgramSequentialGenerator(ProgramIterativeGenerator):
         # Execute sequential optimization steps
         for step in range(1, self.num_steps + 1):
             self.current_step = step
-            step_temperature = (0.0001 / self.temperature) ** (step / self.num_steps)
+            step_temperature = self.temperature * ((self.temperature_min / self.temperature) ** (step / self.num_steps))
 
             # Store old sequences for potential revert
-            old_sequences_by_gen = []
-            for generator in self.generators:
-                gen_old_seqs = []
-                for sequence_batch in generator.get_generator_outputs():
-                    for program_seq in sequence_batch:
-                        gen_old_seqs.append(program_seq.sequence)
-                old_sequences_by_gen.append(gen_old_seqs)
+            old_sequences_by_gen = self._backup_sequences()
 
-            # Sample from each generator in sequence
-            for i, generator in enumerate(self.generators):
-                # Sample from generator
-                generator.sample()
-                
+            # Apply all generators sequentially with chaining
+            self._sample_sequential_generators()
+            
             # Evaluate new energy
             new_energies = self.score_energy()
             new_best_energy = np.min(new_energies)
 
-            # Compute acceptance probability with temperature
-            alpha = np.exp(-(new_best_energy - old_best_energy) / step_temperature)
-            alpha = min(1.0, alpha)
+            # Compute acceptance probability and decide
+            accept = self._compute_acceptance(old_best_energy, new_best_energy, step_temperature)
 
-            # Accept/reject according to random number [0.0, 1.0)
-            accept = random.random() < alpha
-
+            # Log progress
             if self.verbose and step % self.track_step_size == 0:
-                print(
-                    f"Iteration {step} | "
-                    f"old best energy: {old_best_energy:.4f}, "
-                    f"new best energy: {new_best_energy:.4f}, "
-                    f"alpha: {alpha:.4f}, "
-                    f"temperature: {step_temperature:.6f}, "
-                    f"accept: {accept}"
-                )
-                if self.custom_logging:
-                    self.custom_logging(step, self.get_generator_outputs())
-                sys.stdout.flush()
+                # Clamp exponent to prevent overflow (same as in _compute_acceptance)
+                energy_diff = -(new_best_energy - old_best_energy) / step_temperature
+                energy_diff = min(energy_diff, MAX_EXP_ARG)
+                alpha = min(1.0, np.exp(energy_diff))
+                self._log_step(step, old_best_energy, new_best_energy, alpha, accept, step_temperature)
 
-            if accept:
-                # Accept: copy best sequences to all positions
-                new_best_idx = np.argmin(new_energies)
-                self._propagate_best_sequence(new_best_idx)
-                old_best_energy = new_best_energy
-            else:
-                # Revert changes if rejected
-                for i, generator in enumerate(self.generators):
-                    seq_idx = 0
-                    for sequence_batch in generator.get_generator_outputs():
-                        for program_seq in sequence_batch:
-                            program_seq.sequence = old_sequences_by_gen[i][seq_idx]
-                            seq_idx += 1
+            # Accept or reject the proposal
+            old_best_energy = self._accept_or_reject_proposal(
+                accept, 
+                old_sequences_by_gen, 
+                old_best_energy, 
+                new_best_energy, 
+                new_energies
+            )
 
             # Track sequence snapshots periodically
             if step % self.track_step_size == 0:
                 sequence_history.append(self.user_sequences)
 
         return sequence_history
+
+    def _backup_sequences(self) -> List[List[Any]]:
+        """
+        Create backup copies of all sequences from all generators.
+        
+        Returns:
+            List of backed up sequences organized by generator.
+        """
+        old_sequences_by_gen = []
+        for generator in self.generators:
+            gen_old_seqs = []
+            for sequence_batch in generator.get_generator_outputs():
+                for program_seq in sequence_batch:
+                    gen_old_seqs.append(copy.deepcopy(program_seq))
+            old_sequences_by_gen.append(gen_old_seqs)
+        return old_sequences_by_gen
+
+    def _sample_sequential_generators(self) -> None:
+        """
+        Apply all generators sequentially, chaining outputs between them.
+        
+        Each generator uses the accumulated output from previous generators
+        as prompts for its own generation.
+        """
+        #TODO: FIX THIS TEMPORARY SOLUTION
+        first_gen = self.generators[0]
+        
+        # Start with original prompts to preserve prefix tokens
+        running_prompts = first_gen.prompt_seqs.copy()
+        
+        # Sample from each generator in sequence, chaining outputs
+        for i, generator in enumerate(self.generators):
+            prompt_seqs = running_prompts if i > 0 else None
+            generator.sample(prompt_seqs=prompt_seqs)
+            
+            # Accumulate this generator's output
+            outputs = generator.get_generator_outputs()
+            assert len(outputs) == 1, f"Generator {i} must output exactly one BatchedProgramSequence for chaining"
+            batch = outputs[0]
+            
+            for batch_idx in range(len(batch)):
+                if i == 0 and getattr(generator, 'prepend_prompt', False):
+                    # First generator with prepend_prompt: output already includes prompt content,
+                    # just add back the prefix tokens that were stripped
+                    original_prompt = first_gen.prompt_seqs[batch_idx]
+                    generated = batch[batch_idx].sequence or ""
+                    valid_chars = batch.valid_chars or set()
+                    prefix_tokens = ''.join(c for c in original_prompt if c not in valid_chars)
+                    running_prompts[batch_idx] = prefix_tokens + generated
+                else:
+                    # Normal case: accumulate output to running prompts
+                    running_prompts[batch_idx] += batch[batch_idx].sequence or ""
+
+    def _compute_acceptance(self, old_best_energy: float, new_best_energy: float, temperature: float) -> bool:
+        """
+        Compute Metropolis-Hastings acceptance probability and make decision.
+        
+        Args:
+            old_best_energy: Energy of current best sequence.
+            new_best_energy: Energy of proposed sequence.
+            temperature: Current temperature for acceptance calculation.
+            
+        Returns:
+            Boolean indicating whether to accept the proposal.
+        """
+        # Clamp exponent to prevent overflow
+        energy_diff = -(new_best_energy - old_best_energy) / temperature
+        energy_diff = min(energy_diff, MAX_EXP_ARG)
+        alpha = np.exp(energy_diff)
+        alpha = min(1.0, alpha)
+        return random.random() < alpha
+
+    def _accept_or_reject_proposal(self, accept: bool, old_sequences_by_gen: List[List[Any]], 
+                                   old_best_energy: float, new_best_energy: float, 
+                                   new_energies: List[float]) -> float:
+        """
+        Execute accept/reject decision and update sequences accordingly.
+        
+        Args:
+            accept: Whether to accept the proposal.
+            old_sequences_by_gen: Backup of sequences before proposal.
+            old_best_energy: Current best energy value.
+            new_best_energy: Proposed best energy value.
+            new_energies: All energy values for the new sequences.
+            
+        Returns:
+            Updated best energy value after accept/reject decision.
+        """
+        if accept:
+            # Accept: copy best sequences to all positions
+            new_best_idx = np.argmin(new_energies)
+            self._propagate_best_sequence(new_best_idx)
+            return new_best_energy
+        else:
+            # Revert changes if rejected
+            for i, generator in enumerate(self.generators):
+                seq_idx = 0
+                for sequence_batch in generator.get_generator_outputs():
+                    for program_seq in sequence_batch:
+                        program_seq.sequence = old_sequences_by_gen[i][seq_idx].sequence
+                        program_seq._metadata = old_sequences_by_gen[i][seq_idx]._metadata.copy()
+                        seq_idx += 1
+            return old_best_energy
+
+    def _log_step(self, step: int, old_energy: float, new_energy: float, 
+                  alpha: float, accept: bool, temperature: float) -> None:
+        """
+        Log information about the current sequential generation step.
+        
+        Args:
+            step: Current step number.
+            old_energy: Energy before proposal.
+            new_energy: Energy after proposal.
+            alpha: Acceptance probability.
+            accept: Whether proposal was accepted.
+            temperature: Current temperature.
+        """
+        print(
+            f"Iteration {step} | "
+            f"old best energy: {old_energy:.4f}, "
+            f"new best energy: {new_energy:.4f}, "
+            f"alpha: {alpha:.4f}, "
+            f"temperature: {temperature:.6f}, "
+            f"accept: {accept}"
+        )
+        if self.custom_logging:
+            self.custom_logging(step, self.get_generator_outputs())
+        sys.stdout.flush()

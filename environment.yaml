@@ -37,7 +37,9 @@ dependencies:
   - biopython
   - ipymol
   - py3Dmol
-
+  - orfipy
+  - mmseqs2
+  
   - pip:
       - transformer_engine[pytorch]==1.13.0
       - evo2 @ https://github.com/ArcInstitute/evo2/tree/easy_install

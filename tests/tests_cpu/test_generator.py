@@ -1,6 +1,7 @@
 import pytest
 import random
 from typing import Tuple
+import copy
 
 import sys
 sys.path.append(".")
@@ -750,3 +751,49 @@ def test_program_mcmc_generator_large_scale_and_reproducibility():
     
     # Should likely be different (very high probability)
     assert result3 != result1  # This could theoretically fail but extremely unlikely
+
+
+###########################################################
+## Metadata Propagation and Caching Consistency Tests  ##
+###########################################################
+
+
+def mock_constraint_with_caching(input_sequence: ProgramSequence, config: dict) -> float:
+    """Mock constraint function that simulates caching like ESMFold."""
+    cache_key = f"cached_result_{input_sequence.sequence}"
+    
+    if cache_key not in input_sequence._metadata:
+        # Simulate expensive computation
+        if input_sequence.sequence.count('A') > len(input_sequence.sequence) * 0.7:
+            result = 0.9  # High penalty for A-rich sequences
+        else:
+            result = 0.1  # Low penalty for other sequences
+        
+        input_sequence._metadata[cache_key] = result
+        input_sequence._metadata["cached_sequence"] = input_sequence.sequence
+        
+    return input_sequence._metadata[cache_key]
+
+
+def test_constraint_caching_works():
+    """Test that constraint function caching works correctly."""
+    seq = ProgramSequence("A" * 20, SequenceType.PROTEIN)
+    
+    # First call should compute and cache
+    result1 = mock_constraint_with_caching(seq, {})
+    assert result1 == 0.9  # A-rich sequence gets high penalty
+    assert seq._metadata["cached_sequence"] == seq.sequence
+    
+    # Add marker to detect if function recomputes
+    seq._metadata["test_marker"] = "should_remain"
+    
+    # Second call should use cache
+    result2 = mock_constraint_with_caching(seq, {})
+    assert result2 == result1
+    assert seq._metadata["test_marker"] == "should_remain"
+    
+    # Change sequence should trigger recomputation  
+    seq.sequence = "G" * 20
+    result3 = mock_constraint_with_caching(seq, {})
+    assert result3 == 0.1  # Non-A-rich sequence gets low penalty
+    assert seq._metadata["cached_sequence"] == seq.sequence

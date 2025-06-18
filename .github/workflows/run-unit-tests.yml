@@ -1,0 +1,32 @@
+name: Run Unit Tests
+
+on:
+  pull_request:
+
+jobs:
+  test-cpu:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements_local.txt
+
+    - name: Install mmseqs2 binary
+      run: |
+        wget https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz
+        tar -xzf mmseqs-linux-avx2.tar.gz
+        sudo mv mmseqs/bin/mmseqs /usr/local/bin/
+        mmseqs --help  # just to verify installation
+
+    - name: Run CPU unit tests
+      run: |
+        pytest -sv tests/tests_cpu/

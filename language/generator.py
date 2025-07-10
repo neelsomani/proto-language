@@ -377,7 +377,7 @@ class NimEvo2Generator(Generator):
         prompt_seqs: List[str],
         nim_api_url: str = "https://health.api.nvidia.com/v1/biology/arc/evo2-40b/generate",
         api_key: Optional[str] = None,
-        n_tokens: int = 500,
+        sequence_length: int = 500,
         temperature: float = 1.0,
         top_k: int = 4,
         top_p: float = 1.0,
@@ -423,7 +423,7 @@ class NimEvo2Generator(Generator):
         self.batch_size = batch_size
         self.api_endpoint = nim_api_url
         self.api_key = api_key or self._get_api_key_from_env()
-        self.n_tokens = n_tokens
+        self.n_tokens = sequence_length
         self.temperature = temperature
         self.top_k = top_k
         self.top_p = top_p
@@ -867,7 +867,7 @@ class MCMCGenerator(IterativeGenerator):
         ...     temperature_min=0.001
         ... )
         >>> history = mcmc.sample()  # Returns optimization history
-        >>> final_constructs = mcmc.user_sequences
+        >>> final_constructs = mcmc.constructs
     """
 
     def __init__(
@@ -951,7 +951,7 @@ class MCMCGenerator(IterativeGenerator):
         5. Optionally logs progress and tracks state
 
         Returns:
-            List of user_sequences snapshots taken at tracked intervals.
+            List of constructs snapshots taken at tracked intervals.
             Each snapshot contains Construct objects with energy and step metadata.
 
         Note:
@@ -962,7 +962,7 @@ class MCMCGenerator(IterativeGenerator):
         energies = self.score_energy()
         current_best_energy = np.min(energies)
         current_best_idx = np.argmin(energies)
-        sequence_history = [self.user_sequences]
+        sequence_history = [copy.deepcopy(self.constructs)]
 
         # Execute MCMC optimization steps
         for step in range(1, self.num_steps + 1):
@@ -978,7 +978,7 @@ class MCMCGenerator(IterativeGenerator):
 
             # Track progress periodically
             if step % self.track_step_size == 0:
-                sequence_history.append(self.user_sequences)
+                sequence_history.append(copy.deepcopy(self.constructs))
 
         return sequence_history
 
@@ -1150,7 +1150,7 @@ class SequentialGenerator(IterativeGenerator):
         ...     temperature_min=0.001
         ... )
         >>> history = sequential.sample()  # Returns optimization history
-        >>> final_sequences = sequential.user_sequences
+        >>> final_sequences = sequential.constructs
 
     Notes:
         - Final sequences: initial_prompt + gen1_output + gen2_output + ...
@@ -1239,13 +1239,13 @@ class SequentialGenerator(IterativeGenerator):
         with temperature annealing.
 
         Returns:
-            List of user_sequences snapshots taken at tracked intervals.
+            List of constructs snapshots taken at tracked intervals.
             Each snapshot contains Construct objects with energy and step metadata.
         """
         # Initialize sequential states
         old_energies = self.score_energy()
         current_best_energy = np.min(old_energies)
-        sequence_history = [self.user_sequences]
+        sequence_history = [copy.deepcopy(self.constructs)]
 
         # Execute sequential optimization steps
         for step in range(1, self.num_steps + 1):
@@ -1261,7 +1261,7 @@ class SequentialGenerator(IterativeGenerator):
 
             # Track progress periodically
             if step % self.track_step_size == 0:
-                sequence_history.append(self.user_sequences)
+                sequence_history.append(copy.deepcopy(self.constructs))
         return sequence_history
 
     def _execute_sequential_step(

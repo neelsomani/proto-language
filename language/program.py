@@ -25,7 +25,7 @@ class Program:
         ...     temperature_min=0.001
         ... )
         >>> history = program.run()  # Execute optimization
-        >>> final_sequences = program.user_sequences
+        >>> final_sequences = program.constructs
     """
 
     def __init__(
@@ -71,16 +71,6 @@ class Program:
             **kwargs,
         )
 
-    @property
-    def user_sequences(self) -> Tuple[Construct, ...]:
-        """
-        Get all user-facing construct objects.
-
-        Returns:
-            Tuple of Construct objects representing the current optimized state.
-        """
-        return self.ebm.user_sequences
-
     def _validate_program(self) -> None:
         """
         Validate that the inputs and configuration are properly set up.
@@ -111,18 +101,18 @@ class Program:
         The actual optimization is performed by the underlying IterativeGenerator.
 
         Returns:
-            List of user_sequences snapshots taken at tracked intervals during optimization.
+            List of constructs snapshots taken at tracked intervals during optimization.
             Each element represents the state at a specific step.
         """
 
         # TODO: Update how we print batched sequences. Currently, we print the first sequence in the batch.
         # Get initial state for printing
         initial_sequences = [
-            construct.batch_sequences[0].sequence for construct in self.user_sequences
+            construct.batch_sequences[0].sequence for construct in self.constructs
         ]
         initial_energies = [
             construct.batch_sequences[0]._metadata["energy_score"]
-            for construct in self.user_sequences
+            for construct in self.constructs
         ]
 
         print(f"Initial sequences: {initial_sequences}")
@@ -131,13 +121,13 @@ class Program:
         # Run iterative generation
         sequence_history = self.ebm.sample()
 
-        # Get the final sequences (user_sequences property will have updated automatically)
+        # Get the final sequences (constructs property will have updated automatically)
         final_sequences = [
-            construct.batch_sequences[0].sequence for construct in self.user_sequences
+            construct.batch_sequences[0].sequence for construct in self.constructs
         ]
         final_energies = [
             construct.batch_sequences[0]._metadata["energy_score"]
-            for construct in self.user_sequences
+            for construct in self.constructs
         ]
 
         print(f"Final sequences: {final_sequences}")

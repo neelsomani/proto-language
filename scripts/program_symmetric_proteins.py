@@ -30,7 +30,6 @@ N_STEPS = 30_000
 
 protomer = ConstructSegment(
     sequence_type=SequenceType.PROTEIN,
-    valid_chars=set("ACDEFGHIKLMNPQRSTVWY"),
 )
 
 ################

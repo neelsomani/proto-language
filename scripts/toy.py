@@ -44,12 +44,10 @@ def custom_logging(step: int, outputs: Tuple[ConstructSegment]) -> None:
     output_sequence: Sequence = outputs[0].batch_sequences[0]
     print(
         f"Iteration {step} | "
-        f"time_step: {output_sequence._metadata['time_step']}, "
+        f"time_step: {output_sequence.metadata['time_step']}, "
         f"sequence: {output_sequence._sequence}, "
-        f"metadata_sequence: {output_sequence._metadata['sequence']}, "
-        f"gc_content: {output_sequence._metadata['gc_content']}, "
-        # TODO: the temperature key is not found
-        # f"temperature: {output_sequence._metadata['temperature']}"
+        f"metadata_sequence: {output_sequence.metadata['sequence']}, "
+        f"gc_content: {output_sequence.metadata['gc_content']}, "
     )
 
 

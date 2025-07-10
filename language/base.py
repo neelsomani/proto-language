@@ -585,7 +585,7 @@ class Generator(ABC):
 
         Returns:
             None if the generator is not an IterativeGenerator.
-            List of snapshots of user_sequences if the generator is an IterativeGenerator.
+            List of snapshots of constructs if the generator is an IterativeGenerator.
 
         Raises:
             RuntimeError: If called before assign() has been called.
@@ -668,16 +668,6 @@ class IterativeGenerator(Generator):
             seq for gen in self.generators for seq in gen.get_generator_outputs()
         )  # Unused
         self._is_initialized = True
-
-    @property
-    def user_sequences(self) -> Tuple[Construct, ...]:
-        """
-        Get all user-facing construct objects.
-
-        Returns:
-            Tuple of Construct objects representing the current state.
-        """
-        return tuple(self.constructs)
 
     def _validate_generator(self) -> None:
         """
@@ -767,7 +757,7 @@ class IterativeGenerator(Generator):
 
         This helper method ensures that when a proposal is accepted, the sequence
         with the best energy is propagated to all positions within each batch.
-        This is essential for maintaining consistency in user_sequences access.
+        This is essential for maintaining consistency in constructs access.
 
         Args:
             best_idx: Index of the best sequence to propagate across all batches.
@@ -802,14 +792,14 @@ class IterativeGenerator(Generator):
         Run iterative generation and return optimization history.
 
         Unlike the base Generator.sample() which returns None, this method
-        returns a history of user_sequences (Tuple[Construct, ...]) snapshots taken
+        returns a history of constructs (Tuple[Construct, ...]) snapshots taken
         at tracked intervals during the optimization process.
 
         Args:
             **kwargs: Keyword arguments for sampling (subclass-specific).
 
         Returns:
-            List of user_sequences snapshots taken at tracked steps. Each element
+            List of constructs snapshots taken at tracked steps. Each element
             is a tuple of Construct objects with energy and time metadata.
 
         Raises:
@@ -818,7 +808,7 @@ class IterativeGenerator(Generator):
 
         Note:
             The returned history allows tracking optimization progress over time.
-            The final state is also accessible via the user_sequences property.
+            The final state is also accessible via the constructs property.
         """
         raise NotImplementedError("Subclasses must implement the sample method.")
 
@@ -884,15 +874,13 @@ class IterativeGenerator(Generator):
         else:
             raise ValueError(f"Operation must be 'multiply' or 'add', got {operation}")
 
-        # Store energy scores in metadata for all sequences
+        # Update sequence metadata with respective energy_score and time_step
         energies_list = energies.tolist()
-        best_energy = min(energies_list) if energies_list else float("inf")
-
-        for construct in self.constructs:
-            for segment in construct.segments:
-                for sequence in segment.batch_sequences:
-                    sequence._metadata.update(
-                        {"energy_score": best_energy, "time_step": self.current_step}
-                    )
+        
+        for batch_idx, energy_score in enumerate(energies_list):
+            metadata_update = {"energy_score": energy_score, "time_step": self.current_step}
+            for construct in self.constructs:
+                for segment in construct.segments:
+                    segment.batch_sequences[batch_idx]._metadata.update(metadata_update)
 
         return energies_list

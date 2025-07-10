@@ -1,7 +1,6 @@
 from typing import Tuple
 
 import sys
-
 sys.path.append(".")
 from language.base import (
     Constraint,
@@ -13,6 +12,7 @@ from language.base import (
 from language.constraint import (
     esmfold_plddt_constraint,
     esmfold_ptm_constraint,
+    protein_globularity_constraint,
     protein_symmetry_ring_constraint,
 )
 from language.generator import MCMCGenerator, UniformMutationGenerator
@@ -76,7 +76,7 @@ symmetry = Constraint(
 
 globularity = Constraint(
     inputs=[protomer],
-    scoring_function=protein_symmetry_ring_constraint,
+    scoring_function=protein_globularity_constraint,
     scoring_function_config={"n_replications": N_SYMMETRIC_UNITS},
 )
 

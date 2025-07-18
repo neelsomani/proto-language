@@ -16,6 +16,6 @@ def toy_json():
 def test_gpl_parser_runs(toy_json):
     parser = GPLParser(toy_json)
     program = parser.parse()
-    sequence_history = program.run()
-    assert isinstance(sequence_history, list)
-    assert len(sequence_history) > 0
+    program.run()
+    assert isinstance(program.history, list)
+    assert len(program.history) > 0

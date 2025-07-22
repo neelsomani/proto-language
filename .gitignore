@@ -11,3 +11,14 @@ __pycache__/
 **/__pycache__/
 .ipynb_checkpoints/
 data/
+
+# Database files
+*.db
+proto_language.db
+
+# Log files and directory
+*.log
+logs/
+
+# Documentation override file
+CLAUDE.md

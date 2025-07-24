@@ -27,6 +27,7 @@ sqlmodel>=0.0.8
 sqlalchemy>=2.0.0
 aiosqlite>=0.19.0  # For async SQLite support
 asyncpg>=0.28.0    # For async PostgreSQL support
+greenlet
 
 # Task queue dependencies  
 worker>=5.3.0

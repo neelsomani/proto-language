@@ -197,7 +197,7 @@ class TestSequenceLengthConstraint:
             scoring_function=sequence_length_constraint,
             scoring_function_config={}, # Missing target_length
         )
-        with pytest.raises(ValueError, match="Missing required config keys"):
+        with pytest.raises(TypeError, match="missing 1 required positional argument: 'target_length'"):
             constraint.evaluate()
 
     def test_disjoint_mode_raises_error(self):
@@ -262,7 +262,7 @@ class TestGCContentConstraint:
 
     def test_invalid_config(self):
         segment = create_segment("ATCG")
-        with pytest.raises(ValueError, match="Missing required config keys"):
+        with pytest.raises(TypeError, match="missing 1 required positional argument: 'max_gc'"):
             Constraint(
                 inputs=[segment],
                 scoring_function=gc_content_constraint,
@@ -340,7 +340,7 @@ class TestMaxHomopolymerConstraint:
 
     def test_invalid_config(self):
         segment = create_segment("ATCG")
-        with pytest.raises(ValueError, match="Missing required config keys"):
+        with pytest.raises(TypeError, match="missing 1 required positional argument: 'max_length'"):
             Constraint(
                 inputs=[segment],
                 scoring_function=max_homopolymer_constraint,
@@ -733,24 +733,32 @@ class TestOrfipyMmseqsConstraints:
         setup_test_files(temp_dir, seq.sequence)
 
         # First call, should compute
-        _run_orfipy_mmseqs_pipeline(seq, hit_count_config)
+        _run_orfipy_mmseqs_pipeline(seq, 
+                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
+                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
         assert "analyzed_sequence" in seq._metadata
         initial_cache_key = seq._metadata["analyzed_sequence"]
 
         # Second call, should use cache
         seq._metadata["test_marker"] = "should_remain"
-        _run_orfipy_mmseqs_pipeline(seq, hit_count_config)
+        _run_orfipy_mmseqs_pipeline(seq, 
+                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
+                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
         assert seq._metadata["test_marker"] == "should_remain"
         assert seq._metadata["analyzed_sequence"] == initial_cache_key
 
         # Changing constraint-only parameters should NOT invalidate cache
         hit_count_config["min_hits"] = 2  # Change constraint parameter
-        _run_orfipy_mmseqs_pipeline(seq, hit_count_config)
+        _run_orfipy_mmseqs_pipeline(seq, 
+                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
+                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
         assert seq._metadata["analyzed_sequence"] == initial_cache_key  # Cache should remain
         
         # Different config should recompute when pipeline parameters change
         hit_count_config["mmseqs_kwargs"]["sensitivity"] = 2.0  # Change pipeline parameter
-        _run_orfipy_mmseqs_pipeline(seq, hit_count_config)
+        _run_orfipy_mmseqs_pipeline(seq, 
+                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
+                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
         assert seq._metadata["analyzed_sequence"] != initial_cache_key
 
     def test_parameter_validation(self, dummy_db_path):
@@ -758,7 +766,7 @@ class TestOrfipyMmseqsConstraints:
         segment = create_segment("ATGAAATAG")
         
         # Test hit count constraint
-        with pytest.raises(ValueError, match="Missing required config keys"):
+        with pytest.raises(TypeError, match="missing 2 required positional arguments: 'min_hits' and 'max_hits'"):
             Constraint(
                 inputs=[segment],
                 scoring_function=orfipy_mmseqs_gene_hit_count_constraint,
@@ -766,7 +774,7 @@ class TestOrfipyMmseqsConstraints:
             ).evaluate()
 
         # Test homology constraint
-        with pytest.raises(ValueError, match="Missing required config keys"):
+        with pytest.raises(TypeError, match="missing 1 required positional argument: 'max_homology'"):
             Constraint(
                 inputs=[segment],
                 scoring_function=orfipy_mmseqs_gene_homology_constraint,

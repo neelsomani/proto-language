@@ -479,7 +479,7 @@ class Constraint:
                 scores.append(float("inf"))
             else:
                 scores.append(
-                    self.scoring_function(input, self.scoring_function_config)
+                    self.scoring_function(input, **self.scoring_function_config)
                 )
                 if isinstance(input, Sequence):
                     # Propagate metadata back to all input sequences at index i

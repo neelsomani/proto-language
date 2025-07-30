@@ -213,7 +213,7 @@ class TestMCMCGenerator:
         # Need at least one constraint, so add a dummy one
         dummy_constraint = Constraint(
             inputs=[segment_assigned],
-            scoring_function=lambda seq, config: 0.0,
+            scoring_function=lambda seq, **kwargs: 0.0,
             scoring_function_config={}
         )
         with pytest.raises(ValueError, match="not assigned to any generator"):

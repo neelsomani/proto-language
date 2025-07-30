@@ -16,7 +16,7 @@ import itertools
 import tempfile
 from io import StringIO
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 import numpy as np
 import pandas as pd
 from .base import *
@@ -50,22 +50,6 @@ LOG_BASE = 2
 # GC content constants (0-100%)
 MIN_GC_CONTENT = 0.0
 MAX_GC_CONTENT = 100.0
-
-
-def _validate_required_config(config: Dict[str, Any], required_keys: List[str]) -> None:
-    """
-    Validate that all required configuration keys are present.
-
-    Args:
-        config: Configuration dictionary to validate.
-        required_keys: List of required configuration keys.
-
-    Raises:
-        ValueError: If any required keys are missing from the configuration.
-    """
-    missing_keys = [key for key in required_keys if key not in config]
-    if missing_keys:
-        raise ValueError(f"Missing required config keys: {missing_keys}")
 
 
 def _validate_range(value: float, min_val: float, max_val: float, name: str) -> None:
@@ -145,15 +129,14 @@ def _calculate_percentage_range_deviation(
 
 
 def sequence_length_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, target_length: int
 ) -> float:
     """
     Evaluate how well a sequence matches a target length.
 
     Args:
         input_sequence: The sequence to evaluate.
-        config: Configuration dictionary containing:
-            - target_length (int): Desired sequence length.
+        target_length: Desired sequence length.
 
     Returns:
         Constraint score where 0.0 indicates perfect length match
@@ -163,26 +146,21 @@ def sequence_length_constraint(
         Evaluating length constraint:
 
         >>> seq = Sequence("ATCGATCG", SequenceType.DNA)
-        >>> config = {"target_length": 8}
-        >>> score = sequence_length_constraint(seq, config)
+        >>> score = sequence_length_constraint(seq, 8)
         >>> print(score)  # 0.0 (perfect match)
     """
-    _validate_required_config(config, ["target_length"])
-    target_length = config["target_length"]
-
     input_sequence._metadata["length"] = len(input_sequence)
     return _calculate_normalized_deviation(len(input_sequence), target_length)
 
 
-def gc_content_constraint(input_sequence: Sequence, config: Dict[str, Any]) -> float:
+def gc_content_constraint(input_sequence: Sequence, min_gc: float, max_gc: float) -> float:
     """
     Evaluate whether a sequence's GC content falls within a target range.
 
     Args:
         input_sequence: The sequence to evaluate.
-        config: Configuration dictionary containing:
-            - min_gc (float): Minimum acceptable GC content percentage (0-100).
-            - max_gc (float): Maximum acceptable GC content percentage (0-100).
+        min_gc: Minimum acceptable GC content percentage (0-100).
+        max_gc: Maximum acceptable GC content percentage (0-100).
 
     Returns:
         Constraint score where 0.0 indicates GC content is within acceptable range
@@ -196,16 +174,13 @@ def gc_content_constraint(input_sequence: Sequence, config: Dict[str, Any]) -> f
         Evaluating GC content constraint:
 
         >>> seq = Sequence("ATCGATCG", SequenceType.DNA)
-        >>> config = {"min_gc": 40.0, "max_gc": 60.0}
-        >>> score = gc_content_constraint(seq, config)
+        >>> score = gc_content_constraint(seq, 40.0, 60.0)
         >>> print(score)  # 0.0 (50% GC content is within acceptable range)
     """
     assert input_sequence.sequence_type in {
         SequenceType.DNA,
         SequenceType.RNA,
     }, "Input must be a DNA or RNA sequence"
-    _validate_required_config(config, ["min_gc", "max_gc"])
-    min_gc, max_gc = config["min_gc"], config["max_gc"]
 
     _validate_range(min_gc, MIN_GC_CONTENT, MAX_GC_CONTENT, "min_gc")
     _validate_range(max_gc, MIN_GC_CONTENT, MAX_GC_CONTENT, "max_gc")
@@ -222,15 +197,14 @@ def gc_content_constraint(input_sequence: Sequence, config: Dict[str, Any]) -> f
 
 
 def max_homopolymer_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, max_length: int
 ) -> float:
     """
     Penalize sequences containing homopolymers longer than a specified maximum.
 
     Args:
         input_sequence: The sequence to evaluate.
-        config: Configuration dictionary containing:
-            - max_length (int): Maximum allowed homopolymer length.
+        max_length: Maximum allowed homopolymer length.
 
     Returns:
         Constraint score where 0.0 indicates no homopolymers exceed the maximum length
@@ -240,16 +214,13 @@ def max_homopolymer_constraint(
         Evaluating homopolymer constraint:
 
         >>> seq = Sequence("ATCGATCG", SequenceType.DNA)
-        >>> config = {"max_length": 3}
-        >>> score = max_homopolymer_constraint(seq, config)
+        >>> score = max_homopolymer_constraint(seq, 3)
         >>> print(score)  # 0.0 (no long homopolymers)
 
     Note:
         The constraint uses logarithmic scaling to penalize excessive homopolymer lengths
         while avoiding extreme penalty values.
     """
-    _validate_required_config(config, ["max_length"])
-    max_length = config["max_length"]
 
     if len(input_sequence) <= 1:
         longest_homopolymer = len(input_sequence)
@@ -270,16 +241,15 @@ def max_homopolymer_constraint(
 
 
 def dinucleotide_frequency_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, min_freq: float, max_freq: float
 ) -> float:
     """
     Evaluate whether dinucleotide frequencies fall within acceptable ranges.
 
     Args:
         input_sequence: The DNA or RNA sequence to evaluate.
-        config: Configuration dictionary containing:
-            - min_freq (float): Minimum acceptable frequency for each dinucleotide (0.0-1.0).
-            - max_freq (float): Maximum acceptable frequency for each dinucleotide (0.0-1.0).
+        min_freq: Minimum acceptable frequency for each dinucleotide (0.0-1.0).
+        max_freq: Maximum acceptable frequency for each dinucleotide (0.0-1.0).
 
     Returns:
         Constraint score where 0.0 indicates all dinucleotide frequencies are within acceptable range
@@ -292,11 +262,8 @@ def dinucleotide_frequency_constraint(
         Evaluating dinucleotide frequency constraint:
 
         >>> seq = Sequence("ATCGATCG", SequenceType.DNA)
-        >>> config = {"min_freq": 0.0, "max_freq": 0.3}
-        >>> score = dinucleotide_frequency_constraint(seq, config)
+        >>> score = dinucleotide_frequency_constraint(seq, 0.0, 0.3)
     """
-    _validate_required_config(config, ["min_freq", "max_freq"])
-    min_freq, max_freq = config["min_freq"], config["max_freq"]
 
     assert input_sequence.sequence_type in {
         SequenceType.DNA,
@@ -344,17 +311,16 @@ def dinucleotide_frequency_constraint(
 
 
 def tetranucleotide_usage_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, tetranucleotide: str, min_tud: float, max_tud: float
 ) -> float:
     """
     Evaluate tetranucleotide usage deviation (TUD) for a specific 4-base motif.
 
     Args:
         input_sequence: The DNA or RNA sequence to evaluate.
-        config: Configuration dictionary containing:
-            - tetranucleotide (str): The 4-base DNA sequence motif to analyze.
-            - min_tud (float): Minimum acceptable tetranucleotide usage deviation.
-            - max_tud (float): Maximum acceptable tetranucleotide usage deviation.
+        tetranucleotide: The 4-base DNA sequence motif to analyze.
+        min_tud: Minimum acceptable tetranucleotide usage deviation.
+        max_tud: Maximum acceptable tetranucleotide usage deviation.
 
     Returns:
         Constraint score where 0.0 indicates tetranucleotide usage deviation (TUD) is within acceptable range
@@ -368,12 +334,9 @@ def tetranucleotide_usage_constraint(
         Evaluating tetranucleotide usage constraint:
 
         >>> seq = Sequence("ATCGATCGATCG", SequenceType.DNA)
-        >>> config = {"tetranucleotide": "ATCG", "min_tud": 0.5, "max_tud": 2.0}
-        >>> score = tetranucleotide_usage_constraint(seq, config)
+        >>> score = tetranucleotide_usage_constraint(seq, "ATCG", 0.5, 2.0)
     """
-    _validate_required_config(config, ["tetranucleotide", "min_tud", "max_tud"])
-    tetranucleotide = config["tetranucleotide"].upper()
-    min_tud, max_tud = config["min_tud"], config["max_tud"]
+    tetranucleotide = tetranucleotide.upper()
 
     if len(tetranucleotide) != 4:
         raise ValueError("Tetranucleotide must be a 4-base DNA sequence.")
@@ -466,15 +429,14 @@ def _run_esmfold(
         input_sequence._metadata["esmfolded_sequence"] = esmfolded_sequence
 
 
-def esmfold_plddt_constraint(input_sequence: Sequence, config: Dict[str, Any]) -> float:
+def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Dict[str, Any] = {}) -> float:
     """
     Evaluate protein structure quality using ESMFold's predicted LDDT (pLDDT) score.
 
     Args:
         input_sequence: The protein sequence to evaluate.
-        config: Configuration dictionary containing:
-            - n_replications (int, optional): Number of sequence replications (default: 1).
-            - esmfold_kwargs (dict, optional): Additional ESMFold parameters.
+        n_replications: Number of sequence replications (default: 1).
+        esmfold_kwargs: Additional ESMFold parameters (default: {}).
 
     Returns:
         Constraint score where 0.0 indicates perfect structure confidence (pLDDT = 1.0)
@@ -484,24 +446,21 @@ def esmfold_plddt_constraint(input_sequence: Sequence, config: Dict[str, Any]) -
         Evaluating protein structure confidence:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> config = {"n_replications": 1}
-        >>> score = esmfold_plddt_constraint(seq, config)
+        >>> score = esmfold_plddt_constraint(seq, 1)
     """
 
-    n_replications = config.get("n_replications", 1)
-    _run_esmfold(input_sequence, n_replications, config.get("esmfold_kwargs", {}))
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
     return 1.0 - input_sequence._metadata["avg_plddt"]
 
 
-def esmfold_ptm_constraint(input_sequence: Sequence, config: Dict[str, Any]) -> float:
+def esmfold_ptm_constraint(input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Dict[str, Any] = {}) -> float:
     """
     Evaluate protein structure quality using ESMFold's predicted TM-score (pTM).
 
     Args:
         input_sequence: The protein sequence to evaluate.
-        config: Configuration dictionary containing:
-            - n_replications (int, optional): Number of sequence replications (default: 1).
-            - esmfold_kwargs (dict, optional): Additional ESMFold parameters.
+        n_replications: Number of sequence replications (default: 1).
+        esmfold_kwargs: Additional ESMFold parameters (default: {}).
 
     Returns:
         Constraint score where 0.0 indicates perfect structure quality (pTM = 1.0)
@@ -511,27 +470,24 @@ def esmfold_ptm_constraint(input_sequence: Sequence, config: Dict[str, Any]) -> 
         Evaluating protein structure quality:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> config = {"n_replications": 1}
-        >>> score = esmfold_ptm_constraint(seq, config)
+        >>> score = esmfold_ptm_constraint(seq, 1)
     """
 
-    n_replications = config.get("n_replications", 1)
-    _run_esmfold(input_sequence, n_replications, config.get("esmfold_kwargs", {}))
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
     return 1.0 - input_sequence._metadata["ptm"]
 
 
 def protein_symmetry_ring_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, n_replications: int = 1, all_to_all_protomer_symmetry: bool = False, esmfold_kwargs: Dict[str, Any] = {}
 ) -> float:
     """
     Constrain a protein to form a symmetric ring-like multimeric structure.
 
     Args:
         input_sequence: The protein sequence to evaluate.
-        config: Configuration dictionary containing:
-            - n_replications (int, optional): Number of protomers in the ring (default: 1).
-            - all_to_all_protomer_symmetry (bool, optional): Use all pairwise distances vs adjacent (default: False).
-            - esmfold_kwargs (dict, optional): Additional ESMFold parameters.
+        n_replications: Number of protomers in the ring (default: 1).
+        all_to_all_protomer_symmetry: Use all pairwise distances vs adjacent (default: False).
+        esmfold_kwargs: Additional ESMFold parameters (default: {}).
 
     Returns:
         Constraint score based on standard deviation of inter-protomer distances.
@@ -541,8 +497,7 @@ def protein_symmetry_ring_constraint(
         Evaluating ring symmetry:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> config = {"n_replications": 6}  # Hexameric ring
-        >>> score = protein_symmetry_ring_constraint(seq, config)
+        >>> score = protein_symmetry_ring_constraint(seq, 6)  # Hexameric ring
     """
     from biotite.structure import get_chains
     from .utils import (
@@ -553,8 +508,7 @@ def protein_symmetry_ring_constraint(
         pdb_file_to_atomarray,
     )
 
-    n_replications = config.get("n_replications", 1)
-    _run_esmfold(input_sequence, n_replications, config.get("esmfold_kwargs", {}))
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
 
@@ -570,23 +524,22 @@ def protein_symmetry_ring_constraint(
 
     distance_func = (
         pairwise_distances
-        if config.get("all_to_all_protomer_symmetry", False)
+        if all_to_all_protomer_symmetry
         else adjacent_distances
     )
     return float(np.std(distance_func(centroids)))
 
 
 def protein_globularity_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Dict[str, Any] = {}
 ) -> float:
     """
     Encourage compact, globular protein structures.
 
     Args:
         input_sequence: The protein sequence to evaluate.
-        config: Configuration dictionary containing:
-            - n_replications (int, optional): Number of sequence replications (default: 1).
-            - esmfold_kwargs (dict, optional): Additional ESMFold parameters.
+        n_replications: Number of sequence replications (default: 1).
+        esmfold_kwargs: Additional ESMFold parameters (default: {}).
 
     Returns:
         Constraint score based on standard deviation of distances from backbone atoms to centroid.
@@ -596,13 +549,11 @@ def protein_globularity_constraint(
         Evaluating protein globularity:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> config = {"n_replications": 1}
-        >>> score = protein_globularity_constraint(seq, config)
+        >>> score = protein_globularity_constraint(seq, 1)
     """
     from .utils import distances_to_centroid, get_backbone_atoms, pdb_file_to_atomarray
 
-    n_replications = config.get("n_replications", 1)
-    _run_esmfold(input_sequence, n_replications, config.get("esmfold_kwargs", {}))
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
     backbone = get_backbone_atoms(atom_array).coord
@@ -610,24 +561,23 @@ def protein_globularity_constraint(
 
 
 def _run_orfipy_mmseqs_pipeline(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, orfipy_kwargs: Dict[str, Any] = {}, mmseqs_kwargs: Dict[str, Any] = {}
 ) -> None:
     """
     Run the ORFipy + MMseqs pipeline for sequence analysis.
 
     Args:
         input_sequence: The sequence to evaluate.
-        config: Configuration dictionary containing:
-            - orfipy_kwargs (dict, optional): Additional ORFipy parameters.
-            - mmseqs_kwargs (dict, optional): Additional MMseqs parameters.
+        orfipy_kwargs: Additional ORFipy parameters (default: {}).
+        mmseqs_kwargs: Additional MMseqs parameters (default: {}).
 
     Note:
         Results are cached in input_sequence._metadata to avoid redundant analysis.
         Updates metadata with 'orfipy_orfs', 'mmseqs_results', 'unique_orfs_with_hits', and 'analyzed_sequence'.
     """
     # Extract ORFipy and MMseqs parameters
-    orfipy_kwargs = {**DEFAULT_ORFIPY_PARAMS, **config.get("orfipy_kwargs", {})}
-    mmseqs_kwargs = {**DEFAULT_MMSEQS_PARAMS, **config.get("mmseqs_kwargs", {})}
+    orfipy_kwargs = {**DEFAULT_ORFIPY_PARAMS, **orfipy_kwargs}
+    mmseqs_kwargs = {**DEFAULT_MMSEQS_PARAMS, **mmseqs_kwargs}
 
     # Preprocess sequence by removing all characters that are not ACTG
     sequence_to_analyze = ''.join(char for char in input_sequence.sequence.upper() if char in 'ACTG')
@@ -702,18 +652,17 @@ def _run_orfipy_mmseqs_pipeline(
 
 
 def orfipy_mmseqs_gene_hit_count_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, min_hits: int, max_hits: int, orfipy_kwargs: Dict[str, Any] = {}, mmseqs_kwargs: Dict[str, Any] = {}
 ) -> float:
     """
     Evaluate whether the number of unique ORFs with hits falls within a target range.
 
     Args:
         input_sequence: The sequence to evaluate.
-        config: Configuration dictionary containing:
-            - min_hits (int): Minimum acceptable number of unique ORFs with hits.
-            - max_hits (int): Maximum acceptable number of unique ORFs with hits.
-            - orfipy_kwargs (dict, optional): Additional ORFipy parameters.
-            - mmseqs_kwargs (dict, optional): Additional MMseqs parameters.
+        min_hits: Minimum acceptable number of unique ORFs with hits.
+        max_hits: Maximum acceptable number of unique ORFs with hits.
+        orfipy_kwargs: Additional ORFipy parameters (default: {}).
+        mmseqs_kwargs: Additional MMseqs parameters (default: {}).
 
     Returns:
         Constraint score where 0.0 indicates the hit count is within acceptable range
@@ -723,18 +672,11 @@ def orfipy_mmseqs_gene_hit_count_constraint(
         Evaluating ORF hit count constraint:
 
         >>> seq = Sequence("ATGTCGATCGATGTAG", SequenceType.DNA)
-        >>> config = {
-        ...     "min_hits": 1,
-        ...     "max_hits": 5,
-        ...     "mmseqs_kwargs": {"database": "/path/to/protein_db"}
-        ... }
-        >>> score = orfipy_mmseqs_gene_hit_count_constraint(seq, config)
+        >>> mmseqs_kwargs = {"database": "/path/to/protein_db"}
+        >>> score = orfipy_mmseqs_gene_hit_count_constraint(seq, 1, 5, {}, mmseqs_kwargs)
     """
-    _validate_required_config(config, ["min_hits", "max_hits"])
-    min_hits, max_hits = config["min_hits"], config["max_hits"]
-
     # Run the pipeline
-    _run_orfipy_mmseqs_pipeline(input_sequence, config)
+    _run_orfipy_mmseqs_pipeline(input_sequence, orfipy_kwargs, mmseqs_kwargs)
 
     # Get the count of unique ORFs with hits (directly from metadata)
     unique_orfs_with_hits = input_sequence._metadata.get("unique_orfs_with_hits", 0)
@@ -744,18 +686,17 @@ def orfipy_mmseqs_gene_hit_count_constraint(
 
 
 def orfipy_mmseqs_gene_homology_constraint(
-    input_sequence: Sequence, config: Dict[str, Any]
+    input_sequence: Sequence, min_homology: float, max_homology: float, orfipy_kwargs: Dict[str, Any] = {}, mmseqs_kwargs: Dict[str, Any] = {}
 ) -> float:
     """
     Evaluate the homology (percent identity) of each individual ORF hit.
 
     Args:
         input_sequence: The sequence to evaluate.
-        config: Configuration dictionary containing:
-            - min_homology (float): Minimum acceptable percent identity (0-100) for each ORF.
-            - max_homology (float): Maximum acceptable percent identity (0-100) for each ORF.
-            - orfipy_kwargs (dict, optional): Additional ORFipy parameters.
-            - mmseqs_kwargs (dict, optional): Additional MMseqs parameters.
+        min_homology: Minimum acceptable percent identity (0-100) for each ORF.
+        max_homology: Maximum acceptable percent identity (0-100) for each ORF.
+        orfipy_kwargs: Additional ORFipy parameters (default: {}).
+        mmseqs_kwargs: Additional MMseqs parameters (default: {}).
 
     Returns:
         Constraint score where 0.0 indicates all ORF homologies are within acceptable range
@@ -765,18 +706,11 @@ def orfipy_mmseqs_gene_homology_constraint(
         Evaluating ORF homology constraint:
 
         >>> seq = Sequence("ATGTCGATCGATGTAG", SequenceType.DNA)
-        >>> config = {
-        ...     "min_homology": 50.0,
-        ...     "max_homology": 90.0,
-        ...     "mmseqs_kwargs": {"database": "/path/to/protein_db"}
-        ... }
-        >>> score = orfipy_mmseqs_gene_homology_constraint(seq, config)
+        >>> mmseqs_kwargs = {"database": "/path/to/protein_db"}
+        >>> score = orfipy_mmseqs_gene_homology_constraint(seq, 50.0, 90.0, {}, mmseqs_kwargs)
     """
-    _validate_required_config(config, ["min_homology", "max_homology"])
-    min_homology, max_homology = config["min_homology"], config["max_homology"]
-
     # Run the pipeline
-    _run_orfipy_mmseqs_pipeline(input_sequence, config)
+    _run_orfipy_mmseqs_pipeline(input_sequence, orfipy_kwargs, mmseqs_kwargs)
 
     # Get the MMseqs results (directly from metadata)
     mmseqs_results = input_sequence._metadata.get("mmseqs_results", pd.DataFrame())

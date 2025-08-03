@@ -33,3 +33,4 @@ greenlet
 worker>=5.3.0
 cache>=5.0.0       # a cache as message broker/backend
 kombu>=5.3.0       # the task queue dependency for message transport
+dotenv

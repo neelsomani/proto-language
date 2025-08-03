@@ -1384,16 +1384,30 @@ class SequentialGenerator(IterativeGenerator):
         Each generator uses the accumulated output from previous generators
         as prompts for its own generation.
         """
-        # TODO: FIX THIS TEMPORARY SOLUTION
         first_gen = self.generators[0]
 
-        # Start with original prompts to preserve prefix tokens
-        running_prompts = first_gen.prompt_seqs.copy()
+        # Initialize running_prompts based on the first generator type
+        if hasattr(first_gen, 'prompt_seqs'):
+            # For generators that accept prompts
+            running_prompts = first_gen.prompt_seqs.copy()
+        else:
+            # For generators that don't accept prompts
+            outputs = first_gen.get_generator_outputs()
+            if outputs:
+                batch = outputs[0]
+                running_prompts = [seq.sequence for seq in batch.batch_sequences]
+            else:
+                running_prompts = [""] * first_gen.batch_size
 
         # Sample from each generator in sequence, chaining outputs
         for i, generator in enumerate(self.generators):
-            prompt_seqs = running_prompts if i > 0 else None
-            generator.sample(prompt_seqs=prompt_seqs)
+            # For generators that accept prompts
+            if hasattr(generator, 'sample') and 'prompt_seqs' in generator.sample.__code__.co_varnames:
+                prompt_seqs = running_prompts if i > 0 else None
+                generator.sample(prompt_seqs=prompt_seqs)
+            else:
+                # For generators that don't accept prompts
+                generator.sample()
 
             # Accumulate this generator's output
             outputs = generator.get_generator_outputs()
@@ -1402,20 +1416,25 @@ class SequentialGenerator(IterativeGenerator):
             ), f"Generator {i} must output exactly one ConstructSegment for chaining"
             batch = outputs[0]
 
-            for batch_idx in range(len(batch)):
-                if i == 0 and getattr(generator, "prepend_prompt", False):
-                    # First generator with prepend_prompt: output already includes prompt content,
-                    # just add back the prefix tokens that were stripped
-                    original_prompt = first_gen.prompt_seqs[batch_idx]
-                    generated = batch[batch_idx].sequence
-                    valid_chars = batch._valid_chars or set()
-                    prefix_tokens = "".join(
-                        c for c in original_prompt if c not in valid_chars
-                    )
-                    running_prompts[batch_idx] = prefix_tokens + generated
-                else:
-                    # Normal case: accumulate output to running prompts
-                    running_prompts[batch_idx] += batch[batch_idx].sequence
+            # Update running_prompts with the generator's output
+            if hasattr(generator, 'prompt_seqs') or i == 0:
+                for batch_idx in range(len(batch)):
+                    if i == 0 and getattr(generator, "prepend_prompt", False):
+                        # First generator with prepend_prompt: output already includes prompt content,
+                        # just add back the prefix tokens that were stripped
+                        original_prompt = running_prompts[batch_idx] if hasattr(generator, 'prompt_seqs') else ""
+                        generated = batch[batch_idx].sequence
+                        valid_chars = batch._valid_chars or set()
+                        prefix_tokens = "".join(
+                            c for c in original_prompt if c not in valid_chars
+                        )
+                        running_prompts[batch_idx] = prefix_tokens + generated
+                    else:
+                        # Normal case: accumulate output to running prompts
+                        running_prompts[batch_idx] += batch[batch_idx].sequence
+            else:
+                # For generators that don't accept prompts
+                running_prompts = [seq.sequence for seq in batch.batch_sequences]
 
     def _accept_or_reject_proposal(
         self,

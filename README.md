@@ -4,10 +4,11 @@ A framework for designing biological sequences (DNA, RNA, proteins) with constra
 
 ## Installation
 
+
 The package is now structured with `pyproject.toml`. Install with:
 
 ```bash
-conda create --name proto-language python=3.10 -y
+conda create --name proto-language python=3.11 -y
 conda activate proto-language
 pip install -e .
 ```

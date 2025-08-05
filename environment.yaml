@@ -1,8 +1,8 @@
 name: proto-language-temp
 
 channels:
-  - pytorch          # provides pytorch-cuda metapackage
-  - nvidia           # provides real CUDA libraries if ever needed
+  - pytorch # for pytorch-cuda metapackage
+  - nvidia # for real CUDA libraries
   - conda-forge
   - defaults
   - bioconda
@@ -12,34 +12,34 @@ dependencies:
   - python=3.11
   - pip
 
-  # ─ GPU runtime that meets Evo2 + TE 1.13.0 demands ─
-  # (CUDA 12.x, cuDNN ≥8.9, PyTorch 2.6.1)
-  - cudnn>=8.9
+  # ─ GPU runtime ─
   - pytorch=2.6.0
-  - pytorch-cuda=12.4   # or =12.0 if you’re targeting CUDA 12.0
-  - cuda-toolkit=12.4    # must match pytorch-cuda
-  - pip
-    # ─ light utilities you said you needed ─
+  - pytorch-cuda=12.4
+
+  # ─ scientific Python stack ─
   - numpy
   - pandas
   - requests
   - biopython
-  - huggingface_hub
   - matplotlib
   - seaborn
   - scikit-learn
   - scipy
-  - ipykernel
-  - ipywidgets
   - transformers
   - pytest
+
+  # ─ interactive computing ─
+  - ipykernel
+  - ipywidgets
+
+  # ─ bioinformatics ─
   - biotite
-  - biopython
   - ipymol
   - py3Dmol
   - orfipy
   - mmseqs2
-  
+
+  # ─ pip-only packages ─
   - pip:
-      - transformer_engine[pytorch]==1.13.0
-      - evo2 @ https://github.com/ArcInstitute/evo2/tree/easy_install
+      - evo2
+

@@ -2,8 +2,8 @@ import pytest
 import sys
 
 sys.path.append(".")
-from language.base import ConstructSegment, SequenceType
-from language.generator import Evo2Generator
+from proto_language.base import ConstructSegment, SequenceType
+from proto_language.generator import Evo2Generator
 
 # Check if Evo2 is available
 try:

@@ -22,3 +22,5 @@ logs/
 
 # Documentation override file
 CLAUDE.md
+
+proto_language.egg-info/

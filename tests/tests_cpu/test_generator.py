@@ -5,17 +5,17 @@ from typing import Tuple
 import sys
 
 sys.path.append(".")
-from language.base import (
+from proto_language.base import (
     Construct,
     ConstructSegment,
     Constraint,
     SequenceType,
 )
-from language.constraint import (
+from proto_language.constraint import (
     gc_content_constraint,
     sequence_length_constraint,
 )
-from language.generator import UniformMutationGenerator, MCMCGenerator
+from proto_language.generator import UniformMutationGenerator, MCMCGenerator
 
 # Helper function
 def create_segment(

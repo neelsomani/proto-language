@@ -11,7 +11,7 @@ sys.path.append(".")
 import glob
 import pytest
 from Bio import SeqIO
-from language.tools.structure_prediction import (
+from proto_language.tools.structure_prediction import (
     predict_structure_esmfold,
     predict_structure_chai1,
     predict_structure_boltz2,
@@ -20,7 +20,7 @@ from language.tools.structure_prediction import (
 
 # Read in all example sequence files
 SEQUENCE_FILES = glob.glob(
-    "language/tools/structure_prediction/example_sequences/*.fasta"
+    "proto_language/tools/structure_prediction/example_sequences/*.fasta"
 )
 
 STRUCTURE_PREDICTORS = {

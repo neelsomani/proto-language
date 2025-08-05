@@ -3,18 +3,15 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-import sys
-
-sys.path.append(".")
 
 # Import functions to be tested
-from language.tools.mmseqs import (
+from proto_language.tools.mmseqs import (
     mmseqs_easy_search,
     run_mmseqs_search_proteins,
     _filter_top_hits,
     convert_m8_to_df,
 )
-from language.tools.orf_prediction import (
+from proto_language.tools.orf_prediction import (
     run_orfipy,
     parse_orfipy_results_to_df,
     _parse_orfipy_header,

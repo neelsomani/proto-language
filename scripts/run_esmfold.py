@@ -2,7 +2,7 @@ import sys
 
 sys.path.append(".")
 
-from language.tools import predict_structure_esmfold
+from proto_language.tools import predict_structure_esmfold
 
 
 if __name__ == "__main__":

@@ -2,21 +2,21 @@ from typing import Tuple
 
 import sys
 sys.path.append(".")
-from language.base import (
+from proto_language.base import (
     Constraint,
     Construct,
     ConstructSegment,
     Sequence,
     SequenceType,
 )
-from language.constraint import (
+from proto_language.constraint import (
     esmfold_plddt_constraint,
     esmfold_ptm_constraint,
     protein_globularity_constraint,
     protein_symmetry_ring_constraint,
 )
-from language.generator import MCMCGenerator, UniformMutationGenerator
-from language.program import Program
+from proto_language.generator import MCMCGenerator, UniformMutationGenerator
+from proto_language.program import Program
 
 
 MONOMER_LENGTH = 150

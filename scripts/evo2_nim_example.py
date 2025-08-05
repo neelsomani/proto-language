@@ -4,16 +4,16 @@ import sys
 
 sys.path.append(".")
 
-from language.generator import NimEvo2Generator, MCMCGenerator
-from language.base import (
+from proto_language.generator import NimEvo2Generator, MCMCGenerator
+from proto_language.base import (
     Constraint,
     Construct,
     ConstructSegment,
     SequenceType,
     Sequence,
 )
-from language.program import Program
-from language.constraint import sequence_length_constraint, gc_content_constraint, max_homopolymer_constraint, dinucleotide_frequency_constraint, tetranucleotide_usage_constraint, orfipy_mmseqs_gene_hit_count_constraint, orfipy_mmseqs_gene_homology_constraint
+from proto_language.program import Program
+from proto_language.constraint import sequence_length_constraint, gc_content_constraint, max_homopolymer_constraint, dinucleotide_frequency_constraint, tetranucleotide_usage_constraint, orfipy_mmseqs_gene_hit_count_constraint, orfipy_mmseqs_gene_homology_constraint
 
 NUM_MCMC_STEPS = 3 # Number of MCMC steps to run
 MIN_GC = 35  # Min target for high GC content (%)

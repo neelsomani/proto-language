@@ -4,16 +4,16 @@ import sys
 
 sys.path.append(".")
 
-from language.generator import UniformMutationGenerator, MCMCGenerator
-from language.base import (
+from proto_language.generator import UniformMutationGenerator, MCMCGenerator
+from proto_language.base import (
     Constraint,
     Construct,
     ConstructSegment,
     SequenceType,
     Sequence,
 )
-from language.program import Program
-from language.constraint import gc_content_constraint
+from proto_language.program import Program
+from proto_language.constraint import gc_content_constraint
 
 # Construct Segment
 seq1 = ConstructSegment(sequence_type=SequenceType.DNA)

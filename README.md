@@ -2,31 +2,38 @@
 
 A framework for designing biological sequences (DNA, RNA, proteins) with constraint-based optimization.
 
-## Local environment setup 
+## Installation
 
-1. Create a virtual environment:
-   ```bash
-   conda create --name proto-language-local python=3.10 -y
-   conda activate proto-language-local
-   ```
+The package is now structured with `pyproject.toml`. Install with:
 
-2. Install dependencies:
-   ```bash
-   pip install uv
-   uv pip install -r requirements_local.txt
-   ```
+```bash
+conda create --name proto-language python=3.10 -y
+conda activate proto-language
+pip install -e .
+```
 
-   [MMseqs2](https://github.com/soedinglab/MMseqs2?tab=readme-ov-file#installation) is also needed to run unit tests
+[MMseqs2](https://github.com/soedinglab/MMseqs2?tab=readme-ov-file#installation) is also needed:
+```bash
+# On Mac:
+brew install mmseqs2
+```
 
-   On Mac:
-      ```bash
-      brew install mmseqs2
-      ```
-   
+## Running the API
+
+### Local Development
+```bash
+python api/start_dev.py
+```
+
+### Docker
+```bash
+docker-compose up
+```
+
+API will be available at http://localhost:8000
 
 ## Tests
 
-Unit tests can be run with the command:
 ```bash
 pytest -sv
 ```
@@ -37,8 +44,6 @@ pytest -sv tests/tests_cpu/
 ```
 
 ## Running the Toy Example
-
-Run a basic DNA sequence optimization with GC content constraints:
 
 ```bash
 jupyter notebook

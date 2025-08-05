@@ -13,7 +13,7 @@ class Program:
 
     Examples:
         Basic MCMC optimization program:
-        >>> from language.generator import MCMCGenerator
+        >>> from proto_language.generator import MCMCGenerator
         >>> program = Program(
         ...     iterative_generator_type=MCMCGenerator,
         ...     constructs=[construct1, construct2],

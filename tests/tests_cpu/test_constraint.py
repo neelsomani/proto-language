@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.append(".")
 
-from language.base import (
+from proto_language.base import (
     Construct,
     ConstructSegment,
     Constraint,
@@ -17,7 +17,7 @@ from language.base import (
     SequenceType,
     ConstraintType,
 )
-from language.constraint import (
+from proto_language.constraint import (
     dinucleotide_frequency_constraint,
     gc_content_constraint,
     max_homopolymer_constraint,
@@ -726,7 +726,7 @@ class TestOrfipyMmseqsConstraints:
 
     def test_caching(self, hit_count_config, temp_dir):
         """Test that caching works correctly with real files."""
-        from language.constraint import _run_orfipy_mmseqs_pipeline
+        from proto_language.constraint import _run_orfipy_mmseqs_pipeline
         seq = Sequence("ATGAAACGCATTAGCACCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGA", SequenceType.DNA)
 
         # Set up test files

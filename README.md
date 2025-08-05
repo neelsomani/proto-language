@@ -4,7 +4,6 @@ A framework for designing biological sequences (DNA, RNA, proteins) with constra
 
 ## Installation
 
-
 The package is now structured with `pyproject.toml`. Install with:
 
 ```bash
@@ -14,6 +13,7 @@ pip install -e .
 ```
 
 [MMseqs2](https://github.com/soedinglab/MMseqs2?tab=readme-ov-file#installation) is also needed:
+
 ```bash
 # On Mac:
 brew install mmseqs2
@@ -22,11 +22,13 @@ brew install mmseqs2
 ## Running the API
 
 ### Local Development
+
 ```bash
 python api/start_dev.py
 ```
 
 ### Docker
+
 ```bash
 docker-compose up
 ```
@@ -40,6 +42,7 @@ pytest -sv
 ```
 
 For CPU-specific tests:
+
 ```bash
 pytest -sv tests/tests_cpu/
 ```
@@ -49,5 +52,5 @@ pytest -sv tests/tests_cpu/
 ```bash
 jupyter notebook
 ```
-Open and run `notebooks/toy_example.ipynb`
 
+Open and run `notebooks/toy_example.ipynb`

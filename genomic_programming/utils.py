@@ -3,6 +3,7 @@ from biotite.structure.atoms import AtomArray
 from biotite.structure.io.pdb import PDBFile
 from io import StringIO
 import numpy as np
+import os
 from scipy.special import softmax
 from typing import Union
 
@@ -81,27 +82,58 @@ def top_k_indices(scores: np.ndarray, k: int) -> np.ndarray:
     return top_k_idx
 
 
-def sample_k_weighted_no_replacement(scores: np.ndarray, k: int) -> np.ndarray:
+def use_cloud_gpu() -> bool:
     """
-    Sample k indices without replacement, weighted by the scores.
-
-    Args:
-        scores (np.ndarray): 1D array of scores (weights).
-                               Scores must be non-negative.
-        k (int): Number of indices to sample.
-
+    Smart GPU selection: try local GPU first, fall back to cloud.
+    
     Returns:
-        np.ndarray: Array of k sampled indices.
+        bool: True if should use cloud, False if should use local GPU.
+        
+    Environment Variables:
+        USE_CLOUD: Set to "true" to force cloud, "false" to force local
+                   If not set, automatically chooses based on GPU availability
     """
-    if k == 0:
-        return np.array([], dtype=int)
-    if k > len(scores):
-        raise ValueError("k cannot be greater than the number of scores.")
+    # Check if user explicitly set preference
+    use_cloud_env = os.getenv("USE_CLOUD")
+    if use_cloud_env is not None:
+        return use_cloud_env.lower() == "true"
+    
+    # Auto-detect: try local GPU first, fall back to cloud
+    if _is_local_gpu_available():
+        return False
+    elif _is_cloud_available():
+        print("Local GPU not available, falling back to cloud")
+        return True
+    else:
+        raise RuntimeError(
+            "Neither local GPU nor cloud is available. "
+            "Please either:\n"
+            "1. Ensure you have CUDA available locally\n"
+            "2. Set up cloud (cloud token new)\n"
+            "3. Set USE_CLOUD=true to force cloud execution"
+        )
 
-    probabilities = softmax(scores)
 
-    indices = np.arange(len(scores))
+def _is_local_gpu_available() -> bool:
+    """Check if local GPU is available."""
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        return False
 
-    sampled_indices = np.random.choice(indices, size=k, replace=False, p=probabilities)
 
-    return sampled_indices
+def _is_cloud_available() -> bool:
+    """Check if cloud is available and configured."""
+    try:
+        import cloud
+        # Try creating a simple app to test authentication
+        cloud.App('test-auth')
+        return True
+    except (ImportError, Exception):
+        return False
+
+
+def is_gpu_available() -> bool:
+    """Check if any GPU is available (local CUDA or cloud)."""
+    return _is_local_gpu_available() or _is_cloud_available()

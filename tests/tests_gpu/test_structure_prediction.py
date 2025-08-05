@@ -11,6 +11,7 @@ sys.path.append(".")
 import glob
 import pytest
 from Bio import SeqIO
+from proto_language.utils import is_gpu_available
 from proto_language.tools.structure_prediction import (
     predict_structure_esmfold,
     predict_structure_chai1,
@@ -52,6 +53,10 @@ def check_dependency(predictor):
 @pytest.mark.parametrize("sequence_file", SEQUENCE_FILES)
 @pytest.mark.parametrize("predictor", STRUCTURE_PREDICTORS.keys())
 def test_folding(sequence_file, predictor):
+    # Skip if GPU is not available
+    if not is_gpu_available():
+        pytest.skip("GPU required for structure prediction tests (local CUDA or cloud access)")
+    
     # Skip if dependencies are not available
     if not check_dependency(predictor):
         pytest.skip(f"Dependencies for {predictor} not available")
@@ -73,7 +78,7 @@ def test_folding(sequence_file, predictor):
 
     # Run the prediction
     if "esm" in predictor:
-        output = predictor_func(sequences=sequences, device="cuda:0")
+        output = predictor_func(sequences=sequences)
     else:
         output = predictor_func(sequences=sequences, entity_types=entity_types)
 

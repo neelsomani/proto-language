@@ -5,14 +5,13 @@ sys.path.append(".")
 from proto_language.base import ConstructSegment, SequenceType
 from proto_language.generator import ESM2Generator
 
-# Check if required dependencies are available
+# Check if GPU is available and required dependencies are installed
+from proto_language.utils import is_gpu_available
+
 try:
-    import torch
     import biotite.structure
-    TORCH_AVAILABLE = True
     BIOTITE_AVAILABLE = True
 except ImportError:
-    TORCH_AVAILABLE = False
     BIOTITE_AVAILABLE = False
 
 
@@ -24,8 +23,8 @@ def create_segment(
 
 
 @pytest.mark.skipif(
-    not TORCH_AVAILABLE or not BIOTITE_AVAILABLE, 
-    reason="PyTorch and biotite required for ESM2 tests"
+    not is_gpu_available() or not BIOTITE_AVAILABLE, 
+    reason="GPU and biotite required for ESM2 tests"
 )
 class TestESM2Generator:
     def test_esm2_entropy_sampling(self):

@@ -5,12 +5,8 @@ sys.path.append(".")
 from proto_language.base import ConstructSegment, SequenceType
 from proto_language.generator import Evo2Generator
 
-# Check if Evo2 is available
-try:
-    import evo2
-    EVO2_AVAILABLE = True
-except ImportError:
-    EVO2_AVAILABLE = False
+# Check if GPU is available (either locally or via cloud)
+from proto_language.utils import is_gpu_available
 
 
 def create_segment(
@@ -21,8 +17,8 @@ def create_segment(
 
 
 @pytest.mark.skipif(
-    not EVO2_AVAILABLE, 
-    reason="Evo2 package required for Evo2 tests"
+    not is_gpu_available(), 
+    reason="GPU required for Evo2 tests (local CUDA or cloud access)"
 )
 class TestEvo2Generator:
     def test_evo2_single_prompt_sampling(self):

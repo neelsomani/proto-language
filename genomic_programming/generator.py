@@ -4,16 +4,14 @@ import random
 import sys
 import time
 import json
-from typing import Any, List, Optional, Tuple, Callable, Iterable, final
-
 import numpy as np
 import requests
-
+import torch
+from typing import Any, List, Optional, Tuple, Callable, Iterable, final
 from .base import *
 
 # Maximum safe exponent for np.exp() to prevent overflow
 MAX_EXP_ARG = 700.0
-
 
 @final
 class UniformMutationGenerator(Generator):
@@ -154,9 +152,6 @@ class Evo2Generator(Generator):
         >>> gen.sample()  # Uses local model weights
     """
 
-    # Class-level cache for sharing model instances
-    _model_cache = {}
-
     def __init__(
         self,
         prompt_seqs: List[str],
@@ -230,15 +225,6 @@ class Evo2Generator(Generator):
         self.prepend_prompt = prepend_prompt
         self.sampling_kwargs = sampling_kwargs
 
-    def _get_model_key(self) -> str:
-        """
-        Generate a unique key for model caching based on configuration.
-
-        Returns:
-            String key uniquely identifying this model configuration.
-        """
-        return f"{self.evo2_type}:{self.evo2_local_path}"
-
     def assign(
         self, assigned_segments: ConstructSegment | Iterable[ConstructSegment]
     ) -> None:
@@ -275,43 +261,7 @@ class Evo2Generator(Generator):
         self._generator_output = assigned_segments
         self._generator_output._is_assigned = True
         self._generator_output.create_batch(self.batch_size)
-
-        # Initialize Evo2 model
-        model_key = self._get_model_key()
-        if model_key not in self._model_cache:
-            from evo2 import Evo2  # Lazily import Evo2
-
-            print(f"Loading new Evo2 model with key: {model_key}")
-            self._model_cache[model_key] = Evo2(
-                model_name=self.evo2_type,
-                local_path=self.evo2_local_path,
-            )
-        else:
-            print(f"Using cached Evo2 model with key: {model_key}")
-
-        self.evo2_model = self._model_cache[model_key]
         self._is_initialized = True
-
-    # TODO: generalize the model caching system, maybe move to base class
-    # @classmethod
-    # def clear_model_cache(cls):
-    #     """
-    #     Clear the model cache to free GPU memory.
-
-    #     Call this method to force reloading of models if you need to free memory
-    #     or switch to different model configurations.
-    #     """
-    #     cls._model_cache.clear()
-
-    # @classmethod
-    # def get_cached_models(cls):
-    #     """
-    #     Get information about currently cached models.
-
-    #     Returns:
-    #         List of model keys currently stored in the cache.
-    #     """
-    #     return list(cls._model_cache.keys())
 
     def sample(self, prompt_seqs: Optional[List[str]] = None) -> None:
         """
@@ -326,31 +276,98 @@ class Evo2Generator(Generator):
 
         Raises:
             RuntimeError: If called before assign().
-            AssertionError: If number of generated sequences doesn't match prompts.
         """
         self._validate_generator()
 
         # Use provided prompts or fall back to the default prompt
         prompts = prompt_seqs if prompt_seqs is not None else self.prompt_seqs
 
-        output = self.evo2_model.generate(
-            prompt_seqs=prompts,
-            n_tokens=self.n_tokens,
-            temperature=self.temperature,
-            top_k=self.top_k,
-            top_p=self.top_p,
-            batched=self.batched,
-            cached_generation=self.cached_generation,
-            verbose=self.verbose,
-            force_prompt_threshold=self.force_prompt_threshold,
-            **self.sampling_kwargs,
-        )
+        # Choose execution mode based on configuration
+        from .utils import use_cloud_gpu
+        
+        if use_cloud_gpu():
+            # Use cloud for cloud GPU execution
+            print("Using cloud for Evo2 generation...")
+            import cloud
+            evo2_generate_cloud = cloud.Function.from_name('proto-language', 'evo2_generate_cloud')
+            generated_sequences = evo2_generate_cloud.remote(
+                prompt_seqs=prompts,
+                evo2_type=self.evo2_type,
+                evo2_local_path=self.evo2_local_path,
+                n_tokens=self.n_tokens,
+                temperature=self.temperature,
+                top_k=self.top_k,
+                top_p=self.top_p,
+                batched=self.batched,
+                cached_generation=self.cached_generation,
+                verbose=self.verbose,
+                force_prompt_threshold=self.force_prompt_threshold,
+                **self.sampling_kwargs,
+            )
+        else:
+            # Use local GPU execution
+            print("Using local GPU for Evo2 generation...")
+            generated_sequences = self._evo2_generate_gpu(
+                prompt_seqs=prompts,
+                evo2_type=self.evo2_type,
+                evo2_local_path=self.evo2_local_path,
+                n_tokens=self.n_tokens,
+                temperature=self.temperature,
+                top_k=self.top_k,
+                top_p=self.top_p,
+                batched=self.batched,
+                cached_generation=self.cached_generation,
+                verbose=self.verbose,
+                force_prompt_threshold=self.force_prompt_threshold,
+                **self.sampling_kwargs,
+            )
 
         # Update sequences in the ConstructSegment
-        for idx, sequence in enumerate(output.sequences):
+        for idx, sequence in enumerate(generated_sequences):
             if self.prepend_prompt:
                 sequence = prompts[idx] + sequence
             self._generator_output.batch_sequences[idx].sequence = sequence
+
+    def _evo2_generate_gpu(
+        self,
+        prompt_seqs: List[str],
+        evo2_type: str,
+        evo2_local_path: Optional[str],
+        n_tokens: int,
+        temperature: float,
+        top_k: int,
+        top_p: float,
+        batched: bool,
+        cached_generation: bool,
+        verbose: int,
+        force_prompt_threshold: Optional[int],
+        **sampling_kwargs
+    ) -> List[str]:
+        """
+        Local GPU function for Evo2 generation.
+        
+        Returns:
+            List of generated sequences
+        """
+        from evo2 import Evo2
+
+        # Load and generate
+        print(f"Loading Evo2 model: {evo2_type}")
+        evo2_model = Evo2(model_name=evo2_type, local_path=evo2_local_path)
+        
+        output = evo2_model.generate(
+            prompt_seqs=prompt_seqs,
+            n_tokens=n_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            batched=batched,
+            cached_generation=cached_generation,
+            verbose=verbose,
+            force_prompt_threshold=force_prompt_threshold,
+            **sampling_kwargs,
+        )
+        return output.sequences
 
 
 @final
@@ -632,6 +649,9 @@ class ESM2Generator(Generator):
             batch_size: Number of sequences to generate simultaneously.
         """
         super().__init__(batch_size=batch_size)
+        if top_k > sequence_length:
+            raise ValueError(f"top_k ({top_k}) cannot exceed sequence_length ({sequence_length})")
+        
         self.esm2_type = esm2_type
         self.sequence_length = sequence_length
         self.temperature = temperature
@@ -639,120 +659,7 @@ class ESM2Generator(Generator):
         self.top_k = top_k
         self.batch_size = batch_size
 
-        # Determine how to pick positions for sampling.
-        if self.decoding_method == "entropy":
-
-            def _decoding_func(logits: np.ndarray) -> np.ndarray:
-                """
-                Calculate per-position entropy for position selection.
-
-                Args:
-                    logits: Model logits of shape (seq_len, vocab_size).
-
-                Returns:
-                    Per-position entropy values (higher = more uncertain).
-                """
-                exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
-                probabilities = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
-
-                eps: float = 1e-12
-                probabilities = np.clip(probabilities, eps, 1.0)
-
-                return -np.sum(probabilities * np.log(probabilities), axis=-1)
-
-            self._decoding_func = _decoding_func
-
-        elif self.decoding_method == "max_logit":
-
-            def _decoding_func(logits: np.ndarray) -> np.ndarray:
-                """
-                Calculate negative max logits for position selection.
-
-                Args:
-                    logits: Model logits of shape (seq_len, vocab_size).
-
-                Returns:
-                    Negative max logit values (prioritizes uncertain positions).
-                """
-                return -np.max(logits, axis=-1)
-
-            self._decoding_func = _decoding_func
-
-        else:
-
-            def _decoding_func(logits: np.ndarray) -> np.ndarray:
-                """
-                Generate random scores for position selection.
-
-                Args:
-                    logits: Model logits (unused for random selection).
-
-                Returns:
-                    Random scores for each position (uniform random values).
-                """
-                return np.random.random(logits.shape[0])
-
-            self._decoding_func = _decoding_func
-
-    def _esm2_forward(self, sequence: str) -> np.ndarray:
-        """
-        Run a forward pass through ESM-2 and return logits.
-
-        Args:
-            sequence: Protein sequence to process.
-
-        Returns:
-            Logits array of shape (seq_len, vocab_size) for the sequence,
-            excluding special start/end tokens.
-        """
-        import torch
-
-        _, _, batch_tokens = self.batch_converter([("protein1", sequence)])
-        with torch.inference_mode():
-            results = self.esm2_model(batch_tokens)
-        logits = results["logits"].detach().cpu().numpy()
-
-        return logits[0][1:-1]
-
-    def _sample_logit(self, logits: np.ndarray, position: int) -> str:
-        """
-        Sample an amino acid at a specific position using temperature-controlled sampling.
-
-        Args:
-            logits: Model logits for the entire sequence.
-            position: Position index to sample at.
-
-        Returns:
-            Single-letter amino acid code for the sampled residue.
-
-        Raises:
-            ValueError: If position is out of bounds.
-        """
-        if position < 0 or position >= logits.shape[0]:
-            raise ValueError(
-                f"Invalid position {position}, needs to be in [0, {logits.shape[0]})"
-            )
-
-        aa_idx = [
-            self.alphabet.get_idx(tok)
-            for tok in self.alphabet.standard_toks
-            if tok not in "BJXZ"
-        ]
-
-        logits = np.array(logits[position][aa_idx], dtype=np.float64)
-        logits = logits / max(self.temperature, 1e-8)
-        exp_logits = np.exp(logits - np.max(logits))
-        probabilities = exp_logits / np.sum(exp_logits)
-        index = np.random.choice(len(logits), p=probabilities)
-
-        sampled_aa_idx = aa_idx[index]
-        sampled_aa = self.alphabet.get_tok(sampled_aa_idx)
-
-        return sampled_aa
-
-    def assign(
-        self, assigned_segments: ConstructSegment | Iterable[ConstructSegment]
-    ) -> None:
+    def assign(self, assigned_segments: ConstructSegment | Iterable[ConstructSegment]) -> None:
         """
         Assign a ConstructSegment to this generator.
 
@@ -767,47 +674,23 @@ class ESM2Generator(Generator):
             ValueError: If more than one segment is provided.
             AssertionError: If provided sequence length doesn't match configured length.
         """
-        import torch
-
         # Ensure single ConstructSegment assignment
         if not isinstance(assigned_segments, ConstructSegment):
             raise ValueError(
                 "ESM2Generator must be assigned exactly one ConstructSegment"
             )
 
-        # Initialize _generator_output (singular)
-        self._generator_output = assigned_segments
-        self._generator_output._is_assigned = True
-
-        # Lazily import ESM-2 model
-        self.esm2_model, self.alphabet = torch.hub.load(
-            "facebookresearch/esm:main", self.esm2_type
-        )
-        self.batch_converter = self.alphabet.get_batch_converter()
-        self.esm2_model.eval()
-
-        # Randomly initialize initial sequence or validate provided sequence length
-        initial_sequence = self._generator_output.batch_sequences[0].sequence
-        if initial_sequence == "":
-            # Generate initial sequences using mask tokens if none provided
-            logits = self._esm2_forward(" ".join(["<mask>"] * self.sequence_length))
-            assert logits.shape[0] == self.sequence_length
-
-            initial_sequence = "".join(
-                [self._sample_logit(logits, pos) for pos in range(self.sequence_length)]
-            )
-
-            # Set the generated sequence on the first batch element
-            self._generator_output.batch_sequences[0].sequence = initial_sequence
-        else:
-            # Validate that provided sequence length matches expected length
+        # Validate provided sequence length if not empty
+        initial_sequence = assigned_segments.batch_sequences[0].sequence
+        if initial_sequence != "":
             assert len(initial_sequence) == self.sequence_length, (
                 f"Provided sequence length ({len(initial_sequence)}) must match "
                 f"configured sequence_length ({self.sequence_length})"
             )
 
+        self._generator_output = assigned_segments
+        self._generator_output._is_assigned = True
         self._generator_output.create_batch(self.batch_size)
-
         self._is_initialized = True
 
     def sample(self) -> None:
@@ -821,25 +704,183 @@ class ESM2Generator(Generator):
         Raises:
             RuntimeError: If called before assign().
         """
-        from .utils import sample_k_weighted_no_replacement
-
         self._validate_generator()
+        sequences = [self._generator_output.batch_sequences[i].sequence for i in range(self.batch_size)]
 
-        for i in range(self.batch_size):
-            sequence = self._generator_output.batch_sequences[i].sequence
+        # Choose execution mode based on configuration
+        from .utils import use_cloud_gpu
+        
+        if use_cloud_gpu():
+            # Use cloud for cloud GPU execution
+            print("Using cloud for ESM2 sampling...")
+            import cloud
+            esm2_sample_cloud = cloud.Function.from_name('proto-language', 'esm2_sample_cloud')
+            mutated_sequences = esm2_sample_cloud.remote(
+                sequences=sequences,
+                esm2_type=self.esm2_type,
+                sequence_length=self.sequence_length,
+                temperature=self.temperature,
+                decoding_method=self.decoding_method,
+                top_k=self.top_k
+            )
+        else:
+            # Use local GPU execution
+            print("Using local GPU for ESM2 sampling...")
+            mutated_sequences = self._esm2_sample_gpu(
+                sequences=sequences,
+                esm2_type=self.esm2_type,
+                sequence_length=self.sequence_length,
+                temperature=self.temperature,
+                decoding_method=self.decoding_method,
+                top_k=self.top_k
+            )
 
-            logits = self._esm2_forward(sequence)
-
-            position_scores = self._decoding_func(logits)  # Score positions.
-
-            for idx in sample_k_weighted_no_replacement(position_scores, self.top_k):
-                sequence = (
-                    sequence[:idx]
-                    + self._sample_logit(logits, idx)
-                    + sequence[idx + 1 :]
-                )
-
+        # Update sequences in the batch
+        for i, sequence in enumerate(mutated_sequences):
             self._generator_output.batch_sequences[i].sequence = sequence
+
+    def _esm2_sample_gpu(
+        self,
+        sequences: List[str],
+        esm2_type: str,
+        sequence_length: int,
+        temperature: float,
+        decoding_method: str,
+        top_k: int
+    ) -> List[str]:
+        """
+        Local GPU function for ESM2 sampling.
+        
+        Args:
+            sequences: Protein sequences (empty strings trigger generation from scratch).
+            esm2_type: ESM2 model variant to load.
+            sequence_length: Target length for generated sequences.
+            temperature: Sampling temperature for amino acid selection.
+            decoding_method: Position scoring method ('entropy', 'max_logit', 'random').
+            top_k: Number of positions to mutate per sequence.
+            
+        Returns:
+            List of final protein sequences after mutations/generation.
+        """
+        # Helper functions
+        def batch_forward_pass(protein_seqs: List[str]) -> torch.Tensor:
+            """Process protein sequences through ESM2 model."""
+            labeled_seqs = [(f"seq_{i}", seq) for i, seq in enumerate(protein_seqs)]
+            _, _, tokenized_seqs = batch_converter(labeled_seqs)
+            tokenized_seqs = tokenized_seqs.to(device)
+            
+            with torch.inference_mode():
+                model_output = esm2_model(tokenized_seqs)
+            logits = model_output["logits"]
+            return logits[:, 1:-1, :]  # Remove start/end special tokens
+
+        def sample_amino_acids(
+            sequences: List[str],
+            aa_logits: torch.Tensor, 
+            target_positions: torch.Tensor,
+            valid_token_idx: torch.Tensor,
+            temp: float
+        ) -> List[str]:
+            """Sample amino acids from model logits and mutate sequences."""
+            batch_size, num_positions = target_positions.shape
+            batch_idx = torch.arange(batch_size, device=device).unsqueeze(1)  # [batch_size, 1]
+            
+            # Extract logits for target positions: [batch_size, num_positions, vocab_size]
+            target_logits = aa_logits[batch_idx, target_positions]
+            
+            # Filter to valid amino acid vocabulary only: [batch_size, num_positions, num_valid_tokens]
+            filtered_logits = target_logits[:, :, valid_token_idx]
+            
+            # Apply temperature scaling and convert to probabilities
+            scaled_logits = filtered_logits / max(temp, 1e-8)
+            token_probs = torch.softmax(scaled_logits, dim=2)
+            
+            # Flatten for multinomial sampling and sample
+            flat_probs = token_probs.view(-1, len(valid_token_idx))  # Flatten for multinomial
+            sampled_token_idx = torch.multinomial(flat_probs, 1).squeeze(1)
+            sampled_token_idx = sampled_token_idx.view(batch_size, num_positions)  # Reshape back
+            
+            # Convert vocabulary indices to ESM token indices
+            sampled_tokens = valid_token_idx[sampled_token_idx]
+            
+            # Apply to sequences (generation or mutation)
+            selected_positions_list = target_positions.cpu().tolist()
+            mutated_sequences = []
+            for orig_seq, pos_list, token_list in zip(sequences, selected_positions_list, sampled_tokens.cpu().tolist()):
+                # Convert tokens to amino acids
+                new_amino_acids = [alphabet.get_tok(idx) for idx in token_list]
+                
+                if orig_seq == "":  # Generation: create sequence from amino acids
+                    mutated_sequences.append(''.join(new_amino_acids))
+                else:  # Mutation: apply mutations to existing sequence
+                    mutated = orig_seq
+                    for pos, new_aa in zip(pos_list, new_amino_acids):
+                        mutated = mutated[:pos] + new_aa + mutated[pos + 1:]
+                    mutated_sequences.append(mutated)
+            return mutated_sequences
+
+        def sample_top_k_positions_batch(aa_logits: torch.Tensor, decoding_method: str, k: int) -> torch.Tensor:
+            """Select top-k positions to mutate based on model uncertainty."""
+            # Compute position uncertainty scores based on decoding method
+            if decoding_method == "entropy":
+                uncertainty_scores = -torch.sum(torch.softmax(aa_logits, dim=-1) * torch.log_softmax(aa_logits, dim=-1), dim=-1)
+            elif decoding_method == "max_logit":
+                uncertainty_scores = -torch.max(aa_logits, dim=-1)[0]
+            elif decoding_method == "random":
+                uncertainty_scores = torch.rand(aa_logits.shape[:-1], device=device)
+            else:
+                raise ValueError(f"Unknown decoding method: {decoding_method}. Must be one of ['entropy', 'max_logit', 'random']")
+            
+            # Convert uncertainty scores to position selection probabilities
+            position_probs = torch.softmax(uncertainty_scores, dim=1)  # [batch_size, seq_len]
+            selected_positions = torch.multinomial(position_probs, k, replacement=False)
+            return selected_positions
+
+        def initialize_random_seqs(
+            num_seqs: int,
+            seq_length: int,
+            valid_token_idx: torch.Tensor,
+            temp: float
+        ) -> List[str]:
+            """Generate random protein sequences by sampling from masked tokens."""
+            # Create masked sequences and get model predictions
+            masked_seqs = [" ".join(["<mask>"] * seq_length)] * num_seqs
+            mask_logits = batch_forward_pass(masked_seqs)
+            
+            # Sample all positions (unmask everything)
+            all_positions = torch.tensor(
+                [list(range(seq_length))] * num_seqs, 
+                device=device
+            )
+            
+            # Use the consolidated sampling function with empty sequences
+            empty_sequences = [""] * num_seqs
+            return sample_amino_acids(empty_sequences, mask_logits, all_positions, valid_token_idx, temp)
+
+        # Requires GPU to run
+        device = "cuda"
+        
+        # Load ESM2 model and setup
+        esm2_model, alphabet = torch.hub.load("facebookresearch/esm:main", esm2_type)
+        batch_converter = alphabet.get_batch_converter()
+        esm2_model = esm2_model.to(device)
+        esm2_model.eval()
+        
+        # Create tensor of valid amino acid token indices (exclude ambiguous B, J, X, Z)
+        valid_token_idx = torch.tensor([
+            alphabet.get_idx(token) for token in alphabet.standard_toks 
+            if token not in "BJXZ"
+        ], device=device)
+
+        # Check if this is the first call (all input sequences are empty strings)
+        if all(seq == "" for seq in sequences):
+            return initialize_random_seqs(len(sequences), sequence_length, valid_token_idx, temperature)
+        
+        # Mutate existing sequences at selected positions
+        seq_logits = batch_forward_pass(sequences)
+        target_positions = sample_top_k_positions_batch(seq_logits, decoding_method, top_k)
+        
+        return sample_amino_acids(sequences, seq_logits, target_positions, valid_token_idx, temperature)
 
 
 @final

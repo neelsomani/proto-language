@@ -6,18 +6,26 @@ A framework for designing biological sequences (DNA, RNA, proteins) with constra
 
 The package is now structured with `pyproject.toml`. Install with:
 
+1. Create the conda environment:
 ```bash
 conda create --name proto-language python=3.11 -y
 conda activate proto-language
-pip install -e .
+conda install -c conda-forge -c bioconda mmseqs2 -y
 ```
 
-[MMseqs2](https://github.com/soedinglab/MMseqs2?tab=readme-ov-file#installation) is also needed:
+2. Install as an editable package:
 
-```bash
-# On Mac:
-brew install mmseqs2
-```
+    A) Only with CPU dependencies:
+    ```bash
+    pip install uv
+    uv pip install -e .
+    ```
+
+    B) Or with GPU dependencies:
+    ```bash
+    pip install uv
+    uv pip install -e .[gpu]
+    ```
 
 ## Running the API
 

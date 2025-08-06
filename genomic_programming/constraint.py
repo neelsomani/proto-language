@@ -388,7 +388,7 @@ def tetranucleotide_usage_constraint(
 def _run_esmfold(
     input_sequence: Sequence,
     n_replications: int = 1,
-    esmfold_kwargs: Dict[str, Any] = {},
+    **esmfold_kwargs: Any,
 ) -> None:
     """
     Execute ESMFold protein structure prediction on a sequence.
@@ -429,14 +429,14 @@ def _run_esmfold(
         input_sequence._metadata["esmfolded_sequence"] = esmfolded_sequence
 
 
-def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Dict[str, Any] = {}) -> float:
+def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, **esmfold_kwargs: Any) -> float:
     """
     Evaluate protein structure quality using ESMFold's predicted LDDT (pLDDT) score.
 
     Args:
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of sequence replications (default: 1).
-        esmfold_kwargs: Additional ESMFold parameters (default: {}).
+        **esmfold_kwargs: Additional ESMFold parameters.
 
     Returns:
         Constraint score where 0.0 indicates perfect structure confidence (pLDDT = 1.0)
@@ -449,18 +449,18 @@ def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, 
         >>> score = esmfold_plddt_constraint(seq, 1)
     """
 
-    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
     return 1.0 - input_sequence._metadata["avg_plddt"]
 
 
-def esmfold_ptm_constraint(input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Dict[str, Any] = {}) -> float:
+def esmfold_ptm_constraint(input_sequence: Sequence, n_replications: int = 1, **esmfold_kwargs: Any) -> float:
     """
     Evaluate protein structure quality using ESMFold's predicted TM-score (pTM).
 
     Args:
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of sequence replications (default: 1).
-        esmfold_kwargs: Additional ESMFold parameters (default: {}).
+        **esmfold_kwargs: Additional ESMFold parameters.
 
     Returns:
         Constraint score where 0.0 indicates perfect structure quality (pTM = 1.0)
@@ -473,12 +473,12 @@ def esmfold_ptm_constraint(input_sequence: Sequence, n_replications: int = 1, es
         >>> score = esmfold_ptm_constraint(seq, 1)
     """
 
-    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
     return 1.0 - input_sequence._metadata["ptm"]
 
 
 def protein_symmetry_ring_constraint(
-    input_sequence: Sequence, n_replications: int = 1, all_to_all_protomer_symmetry: bool = False, esmfold_kwargs: Dict[str, Any] = {}
+    input_sequence: Sequence, n_replications: int = 1, all_to_all_protomer_symmetry: bool = False, **esmfold_kwargs: Any
 ) -> float:
     """
     Constrain a protein to form a symmetric ring-like multimeric structure.
@@ -487,7 +487,7 @@ def protein_symmetry_ring_constraint(
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of protomers in the ring (default: 1).
         all_to_all_protomer_symmetry: Use all pairwise distances vs adjacent (default: False).
-        esmfold_kwargs: Additional ESMFold parameters (default: {}).
+        **esmfold_kwargs: Additional ESMFold parameters.
 
     Returns:
         Constraint score based on standard deviation of inter-protomer distances.
@@ -508,7 +508,7 @@ def protein_symmetry_ring_constraint(
         pdb_file_to_atomarray,
     )
 
-    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
 
@@ -531,7 +531,7 @@ def protein_symmetry_ring_constraint(
 
 
 def protein_globularity_constraint(
-    input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Dict[str, Any] = {}
+    input_sequence: Sequence, n_replications: int = 1, **esmfold_kwargs: Any
 ) -> float:
     """
     Encourage compact, globular protein structures.
@@ -539,7 +539,7 @@ def protein_globularity_constraint(
     Args:
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of sequence replications (default: 1).
-        esmfold_kwargs: Additional ESMFold parameters (default: {}).
+        **esmfold_kwargs: Additional ESMFold parameters.
 
     Returns:
         Constraint score based on standard deviation of distances from backbone atoms to centroid.
@@ -553,7 +553,7 @@ def protein_globularity_constraint(
     """
     from .utils import distances_to_centroid, get_backbone_atoms, pdb_file_to_atomarray
 
-    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
     backbone = get_backbone_atoms(atom_array).coord

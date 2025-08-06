@@ -167,7 +167,7 @@ class Evo2Generator(Generator):
         force_prompt_threshold: Optional[int] = None,
         batch_size: int = 1,
         prepend_prompt: bool = False,
-        **sampling_kwargs,
+        **sampling_kwargs: Any,
     ) -> None:
         """
         Initialize the Evo2 generator with model configuration and sampling parameters.

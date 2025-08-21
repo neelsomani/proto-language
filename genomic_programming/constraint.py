@@ -20,6 +20,7 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 from .base import *
+from .file_utils import resolve_paths
 from .tools.orf_prediction import run_orfipy, parse_orfipy_results_to_df
 from .tools.mmseqs import (
     run_mmseqs_search_proteins,
@@ -619,9 +620,9 @@ def _run_orfipy_mmseqs_pipeline(
             orfs_df = parse_orfipy_results_to_df(aa_fasta, nt_fasta)
 
             if orfs_df.empty:
-                # No ORFs found
-                input_sequence._metadata["orfipy_orfs"] = orfs_df
-                input_sequence._metadata["mmseqs_results"] = pd.DataFrame()
+                # No ORFs found (store as empty lists for JSON serialization)
+                input_sequence._metadata["orfipy_orfs"] = []
+                input_sequence._metadata["mmseqs_results"] = []
                 input_sequence._metadata["unique_orfs_with_hits"] = 0
             else:
                 # Run MMseqs search for each ORF
@@ -640,9 +641,9 @@ def _run_orfipy_mmseqs_pipeline(
                     len(mmseqs_results) if not mmseqs_results.empty else 0
                 )
 
-                # Store results in metadata
-                input_sequence._metadata["orfipy_orfs"] = orfs_df
-                input_sequence._metadata["mmseqs_results"] = mmseqs_results
+                # Store results in metadata (convert DataFrames to dicts for JSON serialization)
+                input_sequence._metadata["orfipy_orfs"] = orfs_df.to_dict('records') if not orfs_df.empty else []
+                input_sequence._metadata["mmseqs_results"] = mmseqs_results.to_dict('records') if not mmseqs_results.empty else []
                 input_sequence._metadata["unique_orfs_with_hits"] = (
                     unique_orfs_with_hits
                 )
@@ -675,6 +676,9 @@ def orfipy_mmseqs_gene_hit_count_constraint(
         >>> mmseqs_kwargs = {"database": "/path/to/protein_db"}
         >>> score = orfipy_mmseqs_gene_hit_count_constraint(seq, 1, 5, {}, mmseqs_kwargs)
     """
+    orfipy_kwargs = resolve_paths(orfipy_kwargs)
+    mmseqs_kwargs = resolve_paths(mmseqs_kwargs)
+    
     # Run the pipeline
     _run_orfipy_mmseqs_pipeline(input_sequence, orfipy_kwargs, mmseqs_kwargs)
 
@@ -709,11 +713,19 @@ def orfipy_mmseqs_gene_homology_constraint(
         >>> mmseqs_kwargs = {"database": "/path/to/protein_db"}
         >>> score = orfipy_mmseqs_gene_homology_constraint(seq, 50.0, 90.0, {}, mmseqs_kwargs)
     """
+    # Resolve any cloud paths in the kwargs
+    orfipy_kwargs = resolve_paths(orfipy_kwargs)
+    mmseqs_kwargs = resolve_paths(mmseqs_kwargs)
+    
     # Run the pipeline
     _run_orfipy_mmseqs_pipeline(input_sequence, orfipy_kwargs, mmseqs_kwargs)
 
-    # Get the MMseqs results (directly from metadata)
-    mmseqs_results = input_sequence._metadata.get("mmseqs_results", pd.DataFrame())
+    # Get the MMseqs results (convert from dict records if needed)
+    mmseqs_results_data = input_sequence._metadata.get("mmseqs_results", [])
+    if isinstance(mmseqs_results_data, list):
+        mmseqs_results = pd.DataFrame(mmseqs_results_data) if mmseqs_results_data else pd.DataFrame()
+    else:
+        mmseqs_results = mmseqs_results_data
     total_orfs_with_hits = input_sequence._metadata.get("unique_orfs_with_hits", 0)
 
     if mmseqs_results.empty:

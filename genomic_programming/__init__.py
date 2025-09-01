@@ -61,5 +61,4 @@ from .tools import (
     predict_structure_esm3,
 )
 # File resolution utilities
-from .file_utils import resolve_paths
-from .file_resolver import resolve_file
+from .utils import resolve_paths, resolve_file

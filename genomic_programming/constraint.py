@@ -20,7 +20,7 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 from .base import *
-from .file_utils import resolve_paths
+from .utils import resolve_paths
 from .tools.orf_prediction import run_orfipy, parse_orfipy_results_to_df
 from .tools.gene_annotation import (
     run_mmseqs_search_proteins,

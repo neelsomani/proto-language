@@ -352,7 +352,7 @@ class Construct:
         self.segments: Tuple[ConstructSegment, ...] = tuple(segments) 
         self.energy_scores: Optional[List[float]] = None
         self.time_step: Optional[int] = None
-        
+
         # TODO: REVISIT. Maybe we want to simply enforce that all segments have labels?
         for i, segment in enumerate(self.segments):
             if segment.label is None:
@@ -978,7 +978,6 @@ class IterativeGenerator(Generator):
         self._validate_generator()
 
         # Get weighted scores from all constraints: shape (n_constraints, n_samples)
-        # TODO: REVISIT HOW THIS BEHAVES WHEN SEGMENTS HAVE DIFFERENT BATCH SIZES
         constraint_scores = np.array(
             [
                 np.array(constraint.evaluate()) * weight

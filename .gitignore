@@ -24,3 +24,4 @@ logs/
 CLAUDE.md
 
 proto_language.egg-info/
+build/

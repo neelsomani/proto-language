@@ -64,6 +64,7 @@ class Program:
         self._validate_program()
 
         # Create the IterativeGenerator
+        # All generators take constructs (plural)
         self.ebm = iterative_generator_type(
             constructs=constructs,
             generators=generators,
@@ -91,7 +92,7 @@ class Program:
             raise ValueError(
                 f"iterative_generator_type must be a subclass of IterativeGenerator, "
                 f"got {self.iterative_generator_type}. "
-                f"Available options include MCMCGenerator, SequentialGenerator."
+                f"Available options include MCMCGenerator, SequentialGenerator, BeamSearchGenerator."
             )
 
     def run(self) -> None:

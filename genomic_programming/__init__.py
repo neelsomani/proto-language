@@ -24,10 +24,10 @@ from .constraint import (
 from .generator import (
     UniformMutationGenerator,
     Evo2Generator,
-    BindCraftGenerator,
     ESM2Generator,
     MCMCGenerator,
     SequentialGenerator,
+    BeamSearchGenerator,
 )
 from .program import Program
 from .tools import (

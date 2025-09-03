@@ -98,6 +98,7 @@ include = ["proto_language*", "api*"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
+pythonpath = ["."]
 python_functions = ["test_*"]
 addopts = [
     "-v",

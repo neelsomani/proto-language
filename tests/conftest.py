@@ -20,12 +20,45 @@ def mock_celery():
     mock_celery_app.control.inspect.return_value.active.return_value = {"worker1": []}
     mock_celery_app.AsyncResult.return_value = Mock(status="PENDING")
     
-    # Patch imports in the API module and tasks
-    with patch("api.main.celery_app", mock_celery_app), \
-         patch("api.main.run_program_task", mock_task), \
-         patch("api.celery_config.celery_app", mock_celery_app), \
-         patch("api.tasks.celery_app", mock_celery_app), \
-         patch("api.tasks.run_program_task", mock_task):
+    # Check if API modules are available before patching
+    patches = []
+    
+    try:
+        import api.main
+        patches.extend([
+            patch("api.main.celery_app", mock_celery_app),
+            patch("api.main.run_program_task", mock_task)
+        ])
+    except ImportError:
+        pass
+    
+    try:
+        import api.celery_config
+        patches.append(patch("api.celery_config.celery_app", mock_celery_app))
+    except ImportError:
+        pass
+    
+    try:
+        import api.tasks
+        patches.extend([
+            patch("api.tasks.celery_app", mock_celery_app),
+            patch("api.tasks.run_program_task", mock_task)
+        ])
+    except ImportError:
+        pass
+    
+    # Apply patches if any are available
+    if patches:
+        # Use contextlib.ExitStack to handle multiple patches
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            yield {
+                "celery_app": mock_celery_app,
+                "task": mock_task
+            }
+    else:
         yield {
             "celery_app": mock_celery_app,
             "task": mock_task
@@ -72,11 +105,36 @@ def mock_database():
     def mock_get_session():
         yield mock_session
     
-    # Mock DatabaseManager methods (now sync, not async)
-    with patch("api.database.DatabaseManager.create_run", return_value=mock_run), \
-         patch("api.database.DatabaseManager.get_run", return_value=mock_run), \
-         patch("api.database.DatabaseManager.update_run", return_value=mock_run), \
-         patch("api.database.DatabaseManager.get_timepoints", return_value=[]), \
-         patch("api.main.get_session", side_effect=mock_get_session), \
-         patch("api.main.create_db_and_tables"):
+    # Check if API modules are available before patching
+    patches = []
+    
+    try:
+        import api.database
+        patches.extend([
+            patch("api.database.DatabaseManager.create_run", return_value=mock_run),
+            patch("api.database.DatabaseManager.get_run", return_value=mock_run),
+            patch("api.database.DatabaseManager.update_run", return_value=mock_run),
+            patch("api.database.DatabaseManager.get_timepoints", return_value=[])
+        ])
+    except ImportError:
+        pass
+    
+    try:
+        import api.main
+        patches.extend([
+            patch("api.main.get_session", side_effect=mock_get_session),
+            patch("api.main.create_db_and_tables")
+        ])
+    except ImportError:
+        pass
+    
+    # Apply patches if any are available
+    if patches:
+        # Use contextlib.ExitStack to handle multiple patches
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            yield mock_session
+    else:
         yield mock_session

@@ -727,6 +727,7 @@ class TestOrfipyMmseqsConstraints:
     def test_caching(self, hit_count_config, temp_dir):
         """Test that caching works correctly with real files."""
         from proto_language.constraint import _run_orfipy_mmseqs_pipeline
+        from proto_language.tool_cache import ToolCache
         seq = Sequence("ATGAAACGCATTAGCACCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGA", SequenceType.DNA)
 
         # Set up test files
@@ -736,8 +737,10 @@ class TestOrfipyMmseqsConstraints:
         _run_orfipy_mmseqs_pipeline(seq, 
                                           orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
                                           mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
-        assert "analyzed_sequence" in seq._metadata
-        initial_cache_key = seq._metadata["analyzed_sequence"]
+        # Check that results are in metadata
+        assert "orfipy_orfs" in seq._metadata
+        assert "mmseqs_results" in seq._metadata
+        assert "unique_orfs_with_hits" in seq._metadata
 
         # Second call, should use cache
         seq._metadata["test_marker"] = "should_remain"
@@ -745,21 +748,26 @@ class TestOrfipyMmseqsConstraints:
                                           orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
                                           mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
         assert seq._metadata["test_marker"] == "should_remain"
-        assert seq._metadata["analyzed_sequence"] == initial_cache_key
-
-        # Changing constraint-only parameters should NOT invalidate cache
-        hit_count_config["min_hits"] = 2  # Change constraint parameter
-        _run_orfipy_mmseqs_pipeline(seq, 
-                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
-                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
-        assert seq._metadata["analyzed_sequence"] == initial_cache_key  # Cache should remain
+        
+        # Verify cache is working by checking ToolCache directly with merged parameters
+        from proto_language.constraint import DEFAULT_ORFIPY_PARAMS, DEFAULT_MMSEQS_PARAMS
+        merged_orfipy_kwargs = {**DEFAULT_ORFIPY_PARAMS, **hit_count_config.get("orfipy_kwargs", {})}
+        merged_mmseqs_kwargs = {**DEFAULT_MMSEQS_PARAMS, **hit_count_config.get("mmseqs_kwargs", {})}
+        
+        cached_results = ToolCache.get_cached_results(seq, "orfipy_mmseqs", 
+                                                    orfipy_kwargs=merged_orfipy_kwargs,
+                                                    mmseqs_kwargs=merged_mmseqs_kwargs)
+        assert cached_results is not None
+        assert "orfipy_orfs" in cached_results
+        assert "mmseqs_results" in cached_results
         
         # Different config should recompute when pipeline parameters change
         hit_count_config["mmseqs_kwargs"]["sensitivity"] = 2.0  # Change pipeline parameter
-        _run_orfipy_mmseqs_pipeline(seq, 
-                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
-                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
-        assert seq._metadata["analyzed_sequence"] != initial_cache_key
+        merged_mmseqs_kwargs_new = {**DEFAULT_MMSEQS_PARAMS, **hit_count_config.get("mmseqs_kwargs", {})}
+        cached_results_new = ToolCache.get_cached_results(seq, "orfipy_mmseqs", 
+                                                        orfipy_kwargs=merged_orfipy_kwargs,
+                                                        mmseqs_kwargs=merged_mmseqs_kwargs_new)
+        assert cached_results_new is None  # Should not be cached with different params
 
     def test_parameter_validation(self, dummy_db_path):
         """Tests that missing required parameters raise ValueErrors."""

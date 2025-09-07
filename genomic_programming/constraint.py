@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from .base import *
 from .utils import resolve_paths
+from .tool_cache import ToolCache
 from .tools.orf_prediction import run_orfipy, parse_orfipy_results_to_df
 from .tools.gene_annotation import (
     run_mmseqs_search_proteins,
@@ -403,31 +404,34 @@ def _run_esmfold(
         ValueError: If input_sequence is not SequenceType.PROTEIN.
 
     Note:
-        Results are cached in input_sequence._metadata to avoid redundant predictions.
+        Results are cached globally to avoid redundant predictions.
         Updates metadata with 'avg_plddt', 'ptm', 'pdb_output', and 'esmfolded_sequence'.
     """
 
     if input_sequence.sequence_type != SequenceType.PROTEIN:
         raise ValueError("Can only run ESMFold on a protein sequence.")
 
-    esmfolded_sequence = ":".join([input_sequence.sequence] * n_replications)
-
     # Check if prediction already cached
-    if (
-        "esmfolded_sequence" not in input_sequence._metadata
-        or esmfolded_sequence != input_sequence._metadata["esmfolded_sequence"]
-        or not all(
-            key in input_sequence._metadata
-            for key in ["avg_plddt", "ptm", "pdb_output"]
-        )
-    ):
+    cached_results = ToolCache.get_cached_results(input_sequence, "esmfold", n_replications=n_replications, **esmfold_kwargs)
+    if cached_results:
+        input_sequence._metadata.update(cached_results)
+        return
 
-        folding_output = predict_structure_esmfold(
-            sequences=esmfolded_sequence, **esmfold_kwargs
-        )
-        input_sequence._metadata.update(folding_output.metrics)
-        input_sequence._metadata["pdb_output"] = folding_output.structure_pdb_output
-        input_sequence._metadata["esmfolded_sequence"] = esmfolded_sequence
+    # Run expensive computation
+    esmfolded_sequence = ":".join([input_sequence.sequence] * n_replications)
+    folding_output = predict_structure_esmfold(
+        sequences=esmfolded_sequence, **esmfold_kwargs
+    )
+    
+    results = {
+        **folding_output.metrics,
+        "pdb_output": folding_output.structure_pdb_output,
+        "esmfolded_sequence": esmfolded_sequence
+    }
+    
+    # Cache results and update metadata
+    ToolCache.cache_results(input_sequence, "esmfold", results, n_replications=n_replications, **esmfold_kwargs)
+    input_sequence._metadata.update(results)
 
 
 def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, **esmfold_kwargs: Any) -> float:
@@ -573,83 +577,74 @@ def _run_orfipy_mmseqs_pipeline(
         mmseqs_kwargs: Additional MMseqs parameters (default: {}).
 
     Note:
-        Results are cached in input_sequence._metadata to avoid redundant analysis.
-        Updates metadata with 'orfipy_orfs', 'mmseqs_results', 'unique_orfs_with_hits', and 'analyzed_sequence'.
+        Results are cached based on sequence and parameters to avoid redundant analysis.
+        Updates metadata with 'orfipy_orfs', 'mmseqs_results', and 'unique_orfs_with_hits'.
     """
     # Extract ORFipy and MMseqs parameters
     orfipy_kwargs = {**DEFAULT_ORFIPY_PARAMS, **orfipy_kwargs}
     mmseqs_kwargs = {**DEFAULT_MMSEQS_PARAMS, **mmseqs_kwargs}
 
+    # Check if analysis already cached
+    cached_results = ToolCache.get_cached_results(input_sequence, "orfipy_mmseqs", orfipy_kwargs=orfipy_kwargs, mmseqs_kwargs=mmseqs_kwargs)
+    if cached_results:
+        input_sequence._metadata.update(cached_results)
+        return
+
     # Preprocess sequence by removing all characters that are not ACTG
     sequence_to_analyze = ''.join(char for char in input_sequence.sequence.upper() if char in 'ACTG')
 
-    # Create a deterministic cache key from config parameters
-    cache_key_parts = [
-        sequence_to_analyze,
-        str(sorted(orfipy_kwargs.items())),
-        str(sorted(mmseqs_kwargs.items())),
-    ]
-    analyzed_sequence_key = "|".join(cache_key_parts)
+    # Run the expensive analysis
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
 
-    # Check if analysis already cached
-    if (
-        "analyzed_sequence" not in input_sequence._metadata
-        or analyzed_sequence_key != input_sequence._metadata["analyzed_sequence"]
-        or not all(
-            key in input_sequence._metadata
-            for key in ["orfipy_orfs", "mmseqs_results", "unique_orfs_with_hits"]
+        # Write sequence to temporary FASTA file
+        input_fasta = temp_path / "input.fasta"
+        with open(input_fasta, "w") as f:
+            f.write(f">input_sequence\n{sequence_to_analyze}\n")
+
+        # Run ORFipy
+        orfipy_output = temp_path / "orfipy_output"
+        aa_fasta, nt_fasta = run_orfipy(
+            input_fasta, output_dir=orfipy_output, **orfipy_kwargs
         )
-    ):
 
-        # Run the expensive analysis
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
+        # Parse ORFipy results
+        orfs_df = parse_orfipy_results_to_df(aa_fasta, nt_fasta)
 
-            # Write sequence to temporary FASTA file
-            input_fasta = temp_path / "input.fasta"
-            with open(input_fasta, "w") as f:
-                f.write(f">input_sequence\n{sequence_to_analyze}\n")
-
-            # Run ORFipy
-            orfipy_output = temp_path / "orfipy_output"
-            aa_fasta, nt_fasta = run_orfipy(
-                input_fasta, output_dir=orfipy_output, **orfipy_kwargs
+        if orfs_df.empty:
+            # No ORFs found (store as empty lists for JSON serialization)
+            results = {
+                "orfipy_orfs": [],
+                "mmseqs_results": [],
+                "unique_orfs_with_hits": 0
+            }
+        else:
+            # Run MMseqs search for each ORF
+            mmseqs_output = temp_path / "mmseqs_output"
+            mmseqs_results = run_mmseqs_search_proteins(
+                aa_fasta,
+                mmseqs_kwargs.get(
+                    "database", ""
+                ),  # Database path should be provided in config
+                mmseqs_output,
+                **{k: v for k, v in mmseqs_kwargs.items() if k != "database"},
             )
 
-            # Parse ORFipy results
-            orfs_df = parse_orfipy_results_to_df(aa_fasta, nt_fasta)
+            # Count unique ORFs with hits
+            unique_orfs_with_hits = (
+                len(mmseqs_results) if not mmseqs_results.empty else 0
+            )
 
-            if orfs_df.empty:
-                # No ORFs found (store as empty lists for JSON serialization)
-                input_sequence._metadata["orfipy_orfs"] = []
-                input_sequence._metadata["mmseqs_results"] = []
-                input_sequence._metadata["unique_orfs_with_hits"] = 0
-            else:
-                # Run MMseqs search for each ORF
-                mmseqs_output = temp_path / "mmseqs_output"
-                mmseqs_results = run_mmseqs_search_proteins(
-                    aa_fasta,
-                    mmseqs_kwargs.get(
-                        "database", ""
-                    ),  # Database path should be provided in config
-                    mmseqs_output,
-                    **{k: v for k, v in mmseqs_kwargs.items() if k != "database"},
-                )
+            # Store results (convert DataFrames to dicts for JSON serialization)
+            results = {
+                "orfipy_orfs": orfs_df.to_dict('records') if not orfs_df.empty else [],
+                "mmseqs_results": mmseqs_results.to_dict('records') if not mmseqs_results.empty else [],
+                "unique_orfs_with_hits": unique_orfs_with_hits
+            }
 
-                # Count unique ORFs with hits
-                unique_orfs_with_hits = (
-                    len(mmseqs_results) if not mmseqs_results.empty else 0
-                )
-
-                # Store results in metadata (convert DataFrames to dicts for JSON serialization)
-                input_sequence._metadata["orfipy_orfs"] = orfs_df.to_dict('records') if not orfs_df.empty else []
-                input_sequence._metadata["mmseqs_results"] = mmseqs_results.to_dict('records') if not mmseqs_results.empty else []
-                input_sequence._metadata["unique_orfs_with_hits"] = (
-                    unique_orfs_with_hits
-                )
-
-            # Cache the analysis key to avoid recomputation
-            input_sequence._metadata["analyzed_sequence"] = analyzed_sequence_key
+    # Cache results and update metadata
+    ToolCache.cache_results(input_sequence, "orfipy_mmseqs", results, orfipy_kwargs=orfipy_kwargs, mmseqs_kwargs=mmseqs_kwargs)
+    input_sequence._metadata.update(results)
 
 
 def orfipy_mmseqs_gene_hit_count_constraint(

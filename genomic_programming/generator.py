@@ -1910,7 +1910,7 @@ class SequentialGenerator(IterativeGenerator):
         # Sample from each generator in sequence, chaining outputs
         for i, generator in enumerate(self.generators):
             # For generators that accept prompts
-            if self._is_extension_based_generator(generator):
+            if hasattr(generator, 'sample') and 'prompt_seqs' in generator.sample.__code__.co_varnames:
                 prompt_seqs = running_prompts if i > 0 else None
                 generator.sample(prompt_seqs=prompt_seqs)
             else:

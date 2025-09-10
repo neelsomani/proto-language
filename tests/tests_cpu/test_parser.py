@@ -1,7 +1,7 @@
 import json
 import os
 import pytest
-from api.parser import GPLParser
+from api.parser import DarwinParser
 
 
 @pytest.fixture(scope="session")
@@ -11,12 +11,12 @@ def toy_json():
 
 
 @pytest.fixture(scope="session")
-def comprehensive_gpl_json():
+def comprehensive_darwin_json():
     """
-    Comprehensive GPL JSON that includes all registered generators and constraints.
+    Comprehensive Darwin JSON that includes all registered generators and constraints.
     """
     return {
-        "name": "comprehensive_gpl_test",
+        "name": "comprehensive_darwin_test",
         "description": "Test all generators and constraints registered in the parser",
         "version": "1.0",
         "optimization": {
@@ -148,9 +148,9 @@ def comprehensive_gpl_json():
 
 
 @pytest.fixture(scope="session")
-def sequential_optimization_gpl_json():
+def sequential_optimization_darwin_json():
     """
-    GPL JSON that tests the sequential optimization method.
+    Darwin JSON that tests the sequential optimization method.
     """
     return {
         "name": "sequential_optimization_test",
@@ -199,13 +199,13 @@ def sequential_optimization_gpl_json():
 
 
 @pytest.fixture(scope="session")
-def orfipy_mmseqs_gpl_json():
+def orfipy_mmseqs_darwin_json():
     """
-    GPL JSON that tests the ORFipy + MMseqs constraints.
+    Darwin JSON that tests the ORFipy + MMseqs constraints.
     Note: This requires a valid MMseqs database path to work properly.
     """
     return {
-        "name": "orfipy_mmseqs_test",
+        "name": "orfipy_mmseqs_darwin_test",
         "description": "Test ORFipy + MMseqs constraints",
         "version": "1.0",
         "optimization": {
@@ -265,22 +265,22 @@ def orfipy_mmseqs_gpl_json():
     }
 
 
-def test_gpl_parser_runs(toy_json):
+def test_darwin_parser_runs(toy_json):
     """
-    Test that the basic GPL parser runs with toy JSON data.
+    Test that the basic Darwin parser runs with toy JSON data.
     """
-    parser = GPLParser(toy_json)
+    parser = DarwinParser(toy_json)
     program = parser.parse()
     program.run()
     assert isinstance(program.history, list)
     assert len(program.history) > 0
 
 
-def test_comprehensive_gpl_parser_parse(comprehensive_gpl_json):
+def test_comprehensive_darwin_parser_parse(comprehensive_darwin_json):
     """
-    Test that the comprehensive GPL JSON can be parsed successfully.
+    Test that the comprehensive Darwin JSON can be parsed successfully.
     """
-    parser = GPLParser(comprehensive_gpl_json)
+    parser = DarwinParser(comprehensive_darwin_json)
     program = parser.parse()
     
     # Check that we have the expected number of constructs
@@ -296,11 +296,11 @@ def test_comprehensive_gpl_parser_parse(comprehensive_gpl_json):
     assert program.iterative_generator_type.__name__ == "RegisterMCMCGenerator"
 
 
-def test_sequential_optimization_parser_parse(sequential_optimization_gpl_json):
+def test_sequential_optimization_parser_parse(sequential_optimization_darwin_json):
     """
-    Test that the sequential optimization GPL JSON can be parsed successfully.
+    Test that the sequential optimization Darwin JSON can be parsed successfully.
     """
-    parser = GPLParser(sequential_optimization_gpl_json)
+    parser = DarwinParser(sequential_optimization_darwin_json)
     program = parser.parse()
     
     # Check that we have the expected number of constructs
@@ -328,7 +328,7 @@ def test_parser_registry_completeness():
     ]
     
     for gen_key in expected_generators:
-        assert gen_key in GPLParser.generator_registry, f"Generator '{gen_key}' not registered"
+        assert gen_key in DarwinParser.generator_registry, f"Generator '{gen_key}' not registered"
     
     # Check constraint registry
     expected_constraints = [
@@ -346,7 +346,7 @@ def test_parser_registry_completeness():
     ]
     
     for constraint_key in expected_constraints:
-        assert constraint_key in GPLParser.constraint_registry, f"Constraint '{constraint_key}' not registered"
+        assert constraint_key in DarwinParser.constraint_registry, f"Constraint '{constraint_key}' not registered"
     
     # Check optimization method registry
     expected_optimization_methods = [
@@ -355,16 +355,16 @@ def test_parser_registry_completeness():
     ]
     
     for opt_key in expected_optimization_methods:
-        assert opt_key in GPLParser.optimization_method_registry, f"Optimization method '{opt_key}' not registered"
+        assert opt_key in DarwinParser.optimization_method_registry, f"Optimization method '{opt_key}' not registered"
 
 
 # @pytest.mark.skip(reason="Requires external dependencies (MMseqs database)")
-def test_orfipy_mmseqs_parser_parse(orfipy_mmseqs_gpl_json):
+def test_orfipy_mmseqs_parser_parse(orfipy_mmseqs_darwin_json):
     """
-    Test that the ORFipy + MMseqs GPL JSON can be parsed successfully.
+    Test that the ORFipy + MMseqs Darwin JSON can be parsed successfully.
     This test is skipped by default as it requires external dependencies.
     """
-    parser = GPLParser(orfipy_mmseqs_gpl_json)
+    parser = DarwinParser(orfipy_mmseqs_darwin_json)
     program = parser.parse()
     
     # Check that we have the expected number of constructs
@@ -410,7 +410,7 @@ def test_parser_error_handling():
         ]
     }
     
-    parser = GPLParser(invalid_generator_json)
+    parser = DarwinParser(invalid_generator_json)
     with pytest.raises(ValueError, match="Unknown generator key"):
         parser.parse()
     
@@ -443,7 +443,7 @@ def test_parser_error_handling():
         "generators": []
     }
     
-    parser = GPLParser(invalid_constraint_json)
+    parser = DarwinParser(invalid_constraint_json)
     with pytest.raises(ValueError, match="Unknown constraint key"):
         parser.parse()
     
@@ -469,6 +469,6 @@ def test_parser_error_handling():
         "generators": []
     }
     
-    parser = GPLParser(invalid_optimization_json)
+    parser = DarwinParser(invalid_optimization_json)
     with pytest.raises(ValueError, match="Unknown optimization method"):
         parser.parse()

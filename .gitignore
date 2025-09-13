@@ -23,5 +23,8 @@ logs/
 # Documentation override file
 CLAUDE.md
 
+# pytest
+.pytest_cache/
+
 proto_language.egg-info/
 build/

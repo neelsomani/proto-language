@@ -37,7 +37,7 @@ with patch.dict('sys.modules', {
     from proto_language.base import (
         Construct, ConstructSegment, SequenceType, Constraint)
     from proto_language.generator import BeamSearchGenerator, UniformMutationGenerator
-    from scripts.beam_search_utils import MockAutoregressiveGenerator, gc_content_constraint
+    from examples.scripts.beam_search_utils import MockAutoregressiveGenerator, gc_content_constraint
 
 class TestBeamSearchGenerator:
     """Test core BeamSearchGenerator functionality."""

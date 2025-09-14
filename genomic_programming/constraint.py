@@ -16,29 +16,19 @@ import itertools
 import tempfile
 from io import StringIO
 from pathlib import Path
-from typing import Any, Dict
+from typing import Optional, Union
 import numpy as np
 import pandas as pd
 from .base import *
 from .utils import resolve_paths
 from .tool_cache import ToolCache
+from .schemas import ESMFoldKwargs, ORFipyKwargs, MMseqsKwargs
 from .tools.orf_prediction import run_orfipy, parse_orfipy_results_to_df
 from .tools.gene_annotation import (
     run_mmseqs_search_proteins,
 )
 from .tools.structure_prediction import predict_structure_esmfold
 
-# Constants
-DEFAULT_ORFIPY_PARAMS = {
-    "threads": 96,
-    "start_codons": "ATG",
-    "stop_codons": "TAA,TAG,TGA",
-    "strand": "b",
-    "min_len": 0,
-    "max_len": 3000,
-    "include_stop": True,
-}
-DEFAULT_MMSEQS_PARAMS = {"threads": 96, "sensitivity": 4.0, "only_top_hits": True}
 
 # Valid nucleotides for different sequence types
 DNA_NUCLEOTIDES = "ATCG"
@@ -390,7 +380,7 @@ def tetranucleotide_usage_constraint(
 def _run_esmfold(
     input_sequence: Sequence,
     n_replications: int = 1,
-    **esmfold_kwargs: Any,
+    esmfold_kwargs: Optional[ESMFoldKwargs] = None,
 ) -> None:
     """
     Execute ESMFold protein structure prediction on a sequence.
@@ -398,7 +388,7 @@ def _run_esmfold(
     Args:
         input_sequence: The protein sequence to fold.
         n_replications: Number of sequence replications for multimeric prediction (default: 1).
-        esmfold_kwargs: Additional keyword arguments passed to ESMFold.
+        esmfold_kwargs: ESMFold configuration arguments (optional, uses defaults if None).
 
     Raises:
         ValueError: If input_sequence is not SequenceType.PROTEIN.
@@ -411,8 +401,13 @@ def _run_esmfold(
     if input_sequence.sequence_type != SequenceType.PROTEIN:
         raise ValueError("Can only run ESMFold on a protein sequence.")
 
+    if esmfold_kwargs is None:
+        esmfold_kwargs = ESMFoldKwargs()
+    
+    esmfold_kwargs_dict = esmfold_kwargs.model_dump()
+
     # Check if prediction already cached
-    cached_results = ToolCache.get_cached_results(input_sequence, "esmfold", n_replications=n_replications, **esmfold_kwargs)
+    cached_results = ToolCache.get_cached_results(input_sequence, "esmfold", n_replications=n_replications, **esmfold_kwargs_dict)
     if cached_results:
         input_sequence._metadata.update(cached_results)
         return
@@ -420,7 +415,7 @@ def _run_esmfold(
     # Run expensive computation
     esmfolded_sequence = ":".join([input_sequence.sequence] * n_replications)
     folding_output = predict_structure_esmfold(
-        sequences=esmfolded_sequence, **esmfold_kwargs
+        sequences=esmfolded_sequence, **esmfold_kwargs_dict
     )
     
     results = {
@@ -430,18 +425,18 @@ def _run_esmfold(
     }
     
     # Cache results and update metadata
-    ToolCache.cache_results(input_sequence, "esmfold", results, n_replications=n_replications, **esmfold_kwargs)
+    ToolCache.cache_results(input_sequence, "esmfold", results, n_replications=n_replications, **esmfold_kwargs_dict)
     input_sequence._metadata.update(results)
 
 
-def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, **esmfold_kwargs: Any) -> float:
+def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Optional[ESMFoldKwargs] = None) -> float:
     """
     Evaluate protein structure quality using ESMFold's predicted LDDT (pLDDT) score.
 
     Args:
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of sequence replications (default: 1).
-        **esmfold_kwargs: Additional ESMFold parameters.
+        esmfold_kwargs: ESMFold configuration arguments.
 
     Returns:
         Constraint score where 0.0 indicates perfect structure confidence (pLDDT = 1.0)
@@ -451,21 +446,25 @@ def esmfold_plddt_constraint(input_sequence: Sequence, n_replications: int = 1, 
         Evaluating protein structure confidence:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
+        >>> # Using defaults:
         >>> score = esmfold_plddt_constraint(seq, 1)
+        >>> # With custom args:
+        >>> kwargs = ESMFoldKwargs(verbose=True)
+        >>> score = esmfold_plddt_constraint(seq, 1, kwargs)
     """
 
-    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
     return 1.0 - input_sequence._metadata["avg_plddt"]
 
 
-def esmfold_ptm_constraint(input_sequence: Sequence, n_replications: int = 1, **esmfold_kwargs: Any) -> float:
+def esmfold_ptm_constraint(input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Optional[ESMFoldKwargs] = None) -> float:
     """
     Evaluate protein structure quality using ESMFold's predicted TM-score (pTM).
 
     Args:
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of sequence replications (default: 1).
-        **esmfold_kwargs: Additional ESMFold parameters.
+        esmfold_kwargs: ESMFold configuration arguments.
 
     Returns:
         Constraint score where 0.0 indicates perfect structure quality (pTM = 1.0)
@@ -475,15 +474,16 @@ def esmfold_ptm_constraint(input_sequence: Sequence, n_replications: int = 1, **
         Evaluating protein structure quality:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> score = esmfold_ptm_constraint(seq, 1)
+        >>> kwargs = ESMFoldKwargs(verbose=True)
+        >>> score = esmfold_ptm_constraint(seq, 1, kwargs)
     """
 
-    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
     return 1.0 - input_sequence._metadata["ptm"]
 
 
 def protein_symmetry_ring_constraint(
-    input_sequence: Sequence, n_replications: int = 1, all_to_all_protomer_symmetry: bool = False, **esmfold_kwargs: Any
+    input_sequence: Sequence, n_replications: int = 1, all_to_all_protomer_symmetry: bool = False, esmfold_kwargs: Optional[ESMFoldKwargs] = None
 ) -> float:
     """
     Constrain a protein to form a symmetric ring-like multimeric structure.
@@ -492,7 +492,7 @@ def protein_symmetry_ring_constraint(
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of protomers in the ring (default: 1).
         all_to_all_protomer_symmetry: Use all pairwise distances vs adjacent (default: False).
-        **esmfold_kwargs: Additional ESMFold parameters.
+        esmfold_kwargs: ESMFold configuration arguments.
 
     Returns:
         Constraint score based on standard deviation of inter-protomer distances.
@@ -502,7 +502,8 @@ def protein_symmetry_ring_constraint(
         Evaluating ring symmetry:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> score = protein_symmetry_ring_constraint(seq, 6)  # Hexameric ring
+        >>> kwargs = ESMFoldKwargs(verbose=True)
+        >>> score = protein_symmetry_ring_constraint(seq, 6, False, kwargs)  # Hexameric ring
     """
     from biotite.structure import get_chains
     from .utils import (
@@ -513,7 +514,7 @@ def protein_symmetry_ring_constraint(
         pdb_file_to_atomarray,
     )
 
-    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
 
@@ -536,7 +537,7 @@ def protein_symmetry_ring_constraint(
 
 
 def protein_globularity_constraint(
-    input_sequence: Sequence, n_replications: int = 1, **esmfold_kwargs: Any
+    input_sequence: Sequence, n_replications: int = 1, esmfold_kwargs: Optional[ESMFoldKwargs] = None
 ) -> float:
     """
     Encourage compact, globular protein structures.
@@ -544,7 +545,7 @@ def protein_globularity_constraint(
     Args:
         input_sequence: The protein sequence to evaluate.
         n_replications: Number of sequence replications (default: 1).
-        **esmfold_kwargs: Additional ESMFold parameters.
+        esmfold_kwargs: ESMFold configuration arguments.
 
     Returns:
         Constraint score based on standard deviation of distances from backbone atoms to centroid.
@@ -554,11 +555,12 @@ def protein_globularity_constraint(
         Evaluating protein globularity:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> score = protein_globularity_constraint(seq, 1)
+        >>> kwargs = ESMFoldKwargs(verbose=True)
+        >>> score = protein_globularity_constraint(seq, 1, kwargs)
     """
     from .utils import distances_to_centroid, get_backbone_atoms, pdb_file_to_atomarray
 
-    _run_esmfold(input_sequence, n_replications, **esmfold_kwargs)
+    _run_esmfold(input_sequence, n_replications, esmfold_kwargs)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
     backbone = get_backbone_atoms(atom_array).coord
@@ -566,26 +568,32 @@ def protein_globularity_constraint(
 
 
 def _run_orfipy_mmseqs_pipeline(
-    input_sequence: Sequence, orfipy_kwargs: Dict[str, Any] = {}, mmseqs_kwargs: Dict[str, Any] = {}
+    input_sequence: Sequence, orfipy_kwargs: Optional[ORFipyKwargs] = None, mmseqs_kwargs: Optional[MMseqsKwargs] = None
 ) -> None:
     """
     Run the ORFipy + MMseqs pipeline for sequence analysis.
 
     Args:
         input_sequence: The sequence to evaluate.
-        orfipy_kwargs: Additional ORFipy parameters (default: {}).
-        mmseqs_kwargs: Additional MMseqs parameters (default: {}).
+        orfipy_kwargs: ORFipy configuration arguments.
+        mmseqs_kwargs: MMseqs configuration arguments.
 
     Note:
         Results are cached based on sequence and parameters to avoid redundant analysis.
         Updates metadata with 'orfipy_orfs', 'mmseqs_results', and 'unique_orfs_with_hits'.
     """
-    # Extract ORFipy and MMseqs parameters
-    orfipy_kwargs = {**DEFAULT_ORFIPY_PARAMS, **orfipy_kwargs}
-    mmseqs_kwargs = {**DEFAULT_MMSEQS_PARAMS, **mmseqs_kwargs}
+    # Use defaults if not provided
+    if orfipy_kwargs is None:
+        orfipy_kwargs = ORFipyKwargs()
+    if mmseqs_kwargs is None:
+        raise ValueError("MMseqs database path is required")
+    
+    # Convert to dictionaries and resolve paths
+    orfipy_kwargs_dict = resolve_paths(orfipy_kwargs.model_dump())
+    mmseqs_kwargs_dict = resolve_paths(mmseqs_kwargs.model_dump())
 
     # Check if analysis already cached
-    cached_results = ToolCache.get_cached_results(input_sequence, "orfipy_mmseqs", orfipy_kwargs=orfipy_kwargs, mmseqs_kwargs=mmseqs_kwargs)
+    cached_results = ToolCache.get_cached_results(input_sequence, "orfipy_mmseqs", orfipy_kwargs=orfipy_kwargs_dict, mmseqs_kwargs=mmseqs_kwargs_dict)
     if cached_results:
         input_sequence._metadata.update(cached_results)
         return
@@ -605,7 +613,7 @@ def _run_orfipy_mmseqs_pipeline(
         # Run ORFipy
         orfipy_output = temp_path / "orfipy_output"
         aa_fasta, nt_fasta = run_orfipy(
-            input_fasta, output_dir=orfipy_output, **orfipy_kwargs
+            input_fasta, output_dir=orfipy_output, **orfipy_kwargs_dict
         )
 
         # Parse ORFipy results
@@ -623,11 +631,11 @@ def _run_orfipy_mmseqs_pipeline(
             mmseqs_output = temp_path / "mmseqs_output"
             mmseqs_results = run_mmseqs_search_proteins(
                 aa_fasta,
-                mmseqs_kwargs.get(
+                mmseqs_kwargs_dict.get(
                     "database", ""
                 ),  # Database path should be provided in config
                 mmseqs_output,
-                **{k: v for k, v in mmseqs_kwargs.items() if k != "database"},
+                **{k: v for k, v in mmseqs_kwargs_dict.items() if k != "database"},
             )
 
             # Count unique ORFs with hits
@@ -643,12 +651,12 @@ def _run_orfipy_mmseqs_pipeline(
             }
 
     # Cache results and update metadata
-    ToolCache.cache_results(input_sequence, "orfipy_mmseqs", results, orfipy_kwargs=orfipy_kwargs, mmseqs_kwargs=mmseqs_kwargs)
+    ToolCache.cache_results(input_sequence, "orfipy_mmseqs", results, orfipy_kwargs=orfipy_kwargs_dict, mmseqs_kwargs=mmseqs_kwargs_dict)
     input_sequence._metadata.update(results)
 
 
 def orfipy_mmseqs_gene_hit_count_constraint(
-    input_sequence: Sequence, min_hits: int, max_hits: int, orfipy_kwargs: Dict[str, Any] = {}, mmseqs_kwargs: Dict[str, Any] = {}
+    input_sequence: Sequence, min_hits: int, max_hits: int, orfipy_kwargs: Optional[ORFipyKwargs] = None, mmseqs_kwargs: Optional[MMseqsKwargs] = None
 ) -> float:
     """
     Evaluate whether the number of unique ORFs with hits falls within a target range.
@@ -657,8 +665,8 @@ def orfipy_mmseqs_gene_hit_count_constraint(
         input_sequence: The sequence to evaluate.
         min_hits: Minimum acceptable number of unique ORFs with hits.
         max_hits: Maximum acceptable number of unique ORFs with hits.
-        orfipy_kwargs: Additional ORFipy parameters (default: {}).
-        mmseqs_kwargs: Additional MMseqs parameters (default: {}).
+        orfipy_kwargs: ORFipy configuration arguments.
+        mmseqs_kwargs: MMseqs configuration arguments (database path required).
 
     Returns:
         Constraint score where 0.0 indicates the hit count is within acceptable range
@@ -668,12 +676,10 @@ def orfipy_mmseqs_gene_hit_count_constraint(
         Evaluating ORF hit count constraint:
 
         >>> seq = Sequence("ATGTCGATCGATGTAG", SequenceType.DNA)
-        >>> mmseqs_kwargs = {"database": "/path/to/protein_db"}
-        >>> score = orfipy_mmseqs_gene_hit_count_constraint(seq, 1, 5, {}, mmseqs_kwargs)
+        >>> orfipy_kwargs = ORFipyKwargs(threads=48)
+        >>> mmseqs_kwargs = MMseqsKwargs(database="/path/to/protein_db")
+        >>> score = orfipy_mmseqs_gene_hit_count_constraint(seq, 1, 5, orfipy_kwargs, mmseqs_kwargs)
     """
-    orfipy_kwargs = resolve_paths(orfipy_kwargs)
-    mmseqs_kwargs = resolve_paths(mmseqs_kwargs)
-    
     # Run the pipeline
     _run_orfipy_mmseqs_pipeline(input_sequence, orfipy_kwargs, mmseqs_kwargs)
 
@@ -685,7 +691,7 @@ def orfipy_mmseqs_gene_hit_count_constraint(
 
 
 def orfipy_mmseqs_gene_homology_constraint(
-    input_sequence: Sequence, min_homology: float, max_homology: float, orfipy_kwargs: Dict[str, Any] = {}, mmseqs_kwargs: Dict[str, Any] = {}
+    input_sequence: Sequence, min_homology: float, max_homology: float, orfipy_kwargs: Optional[ORFipyKwargs] = None, mmseqs_kwargs: Optional[MMseqsKwargs] = None
 ) -> float:
     """
     Evaluate the homology (percent identity) of each individual ORF hit.
@@ -694,8 +700,8 @@ def orfipy_mmseqs_gene_homology_constraint(
         input_sequence: The sequence to evaluate.
         min_homology: Minimum acceptable percent identity (0-100) for each ORF.
         max_homology: Maximum acceptable percent identity (0-100) for each ORF.
-        orfipy_kwargs: Additional ORFipy parameters (default: {}).
-        mmseqs_kwargs: Additional MMseqs parameters (default: {}).
+        orfipy_kwargs: ORFipy configuration arguments.
+        mmseqs_kwargs: MMseqs configuration arguments (database path required).
 
     Returns:
         Constraint score where 0.0 indicates all ORF homologies are within acceptable range
@@ -705,13 +711,10 @@ def orfipy_mmseqs_gene_homology_constraint(
         Evaluating ORF homology constraint:
 
         >>> seq = Sequence("ATGTCGATCGATGTAG", SequenceType.DNA)
-        >>> mmseqs_kwargs = {"database": "/path/to/protein_db"}
-        >>> score = orfipy_mmseqs_gene_homology_constraint(seq, 50.0, 90.0, {}, mmseqs_kwargs)
+        >>> orfipy_kwargs = ORFipyKwargs(threads=48)
+        >>> mmseqs_kwargs = MMseqsKwargs(database="/path/to/protein_db")
+        >>> score = orfipy_mmseqs_gene_homology_constraint(seq, 50.0, 90.0, orfipy_kwargs, mmseqs_kwargs)
     """
-    # Resolve any cloud paths in the kwargs
-    orfipy_kwargs = resolve_paths(orfipy_kwargs)
-    mmseqs_kwargs = resolve_paths(mmseqs_kwargs)
-    
     # Run the pipeline
     _run_orfipy_mmseqs_pipeline(input_sequence, orfipy_kwargs, mmseqs_kwargs)
 

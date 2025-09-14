@@ -26,6 +26,7 @@ from proto_language.constraint import (
     orfipy_mmseqs_gene_hit_count_constraint,
     orfipy_mmseqs_gene_homology_constraint,
 )
+from proto_language.schemas import ORFipyKwargs, MMseqsKwargs
 
 
 # Helper functions
@@ -598,8 +599,8 @@ class TestOrfipyMmseqsConstraints:
         return {
             "min_hits": 1,
             "max_hits": 3,
-            "mmseqs_kwargs": {"database": dummy_db_path, "threads": 1, "sensitivity": 1.0},
-            "orfipy_kwargs": {"threads": 1, "min_len": 30},
+            "mmseqs_kwargs": MMseqsKwargs(database=dummy_db_path, threads=1, sensitivity=1.0),
+            "orfipy_kwargs": ORFipyKwargs(threads=1, min_len=30),
         }
 
     @pytest.fixture
@@ -607,8 +608,8 @@ class TestOrfipyMmseqsConstraints:
         return {
             "min_homology": 80.0,
             "max_homology": 100.0,
-            "mmseqs_kwargs": {"database": dummy_db_path, "threads": 1, "sensitivity": 1.0},
-            "orfipy_kwargs": {"threads": 1, "min_len": 30},
+            "mmseqs_kwargs": MMseqsKwargs(database=dummy_db_path, threads=1, sensitivity=1.0),
+            "orfipy_kwargs": ORFipyKwargs(threads=1, min_len=30),
         }
 
     def test_hit_count_constraint(self, hit_count_config, temp_dir):
@@ -735,8 +736,8 @@ class TestOrfipyMmseqsConstraints:
 
         # First call, should compute
         _run_orfipy_mmseqs_pipeline(seq, 
-                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
-                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
+                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs"),
+                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs"))
         # Check that results are in metadata
         assert "orfipy_orfs" in seq._metadata
         assert "mmseqs_results" in seq._metadata
@@ -745,28 +746,28 @@ class TestOrfipyMmseqsConstraints:
         # Second call, should use cache
         seq._metadata["test_marker"] = "should_remain"
         _run_orfipy_mmseqs_pipeline(seq, 
-                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs", {}),
-                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs", {}))
+                                          orfipy_kwargs=hit_count_config.get("orfipy_kwargs"),
+                                          mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs"))
         assert seq._metadata["test_marker"] == "should_remain"
         
-        # Verify cache is working by checking ToolCache directly with merged parameters
-        from proto_language.constraint import DEFAULT_ORFIPY_PARAMS, DEFAULT_MMSEQS_PARAMS
-        merged_orfipy_kwargs = {**DEFAULT_ORFIPY_PARAMS, **hit_count_config.get("orfipy_kwargs", {})}
-        merged_mmseqs_kwargs = {**DEFAULT_MMSEQS_PARAMS, **hit_count_config.get("mmseqs_kwargs", {})}
+        # Verify cache is working by checking ToolCache directly with model parameters
+        orfipy_kwargs = hit_count_config.get("orfipy_kwargs").model_dump()
+        mmseqs_kwargs = hit_count_config.get("mmseqs_kwargs").model_dump()
         
         cached_results = ToolCache.get_cached_results(seq, "orfipy_mmseqs", 
-                                                    orfipy_kwargs=merged_orfipy_kwargs,
-                                                    mmseqs_kwargs=merged_mmseqs_kwargs)
+                                                    orfipy_kwargs=orfipy_kwargs,
+                                                    mmseqs_kwargs=mmseqs_kwargs)
         assert cached_results is not None
         assert "orfipy_orfs" in cached_results
         assert "mmseqs_results" in cached_results
         
         # Different config should recompute when pipeline parameters change
-        hit_count_config["mmseqs_kwargs"]["sensitivity"] = 2.0  # Change pipeline parameter
-        merged_mmseqs_kwargs_new = {**DEFAULT_MMSEQS_PARAMS, **hit_count_config.get("mmseqs_kwargs", {})}
+        new_mmseqs_kwargs = MMseqsKwargs(database=hit_count_config["mmseqs_kwargs"].database, 
+                                   threads=1, sensitivity=2.0)  # Change pipeline parameter
+        mmseqs_kwargs_new = new_mmseqs_kwargs.model_dump()
         cached_results_new = ToolCache.get_cached_results(seq, "orfipy_mmseqs", 
-                                                        orfipy_kwargs=merged_orfipy_kwargs,
-                                                        mmseqs_kwargs=merged_mmseqs_kwargs_new)
+                                                        orfipy_kwargs=orfipy_kwargs,
+                                                        mmseqs_kwargs=mmseqs_kwargs_new)
         assert cached_results_new is None  # Should not be cached with different params
 
     def test_parameter_validation(self, dummy_db_path):

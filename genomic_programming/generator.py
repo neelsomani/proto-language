@@ -992,7 +992,17 @@ class ESM2Generator(Generator):
         device = "cuda"
 
         # Load ESM2 model and setup
+        # Import in isolated scope to avoid namespace conflicts with ESM3
+        import sys
+        original_esm_modules = {k: v for k, v in sys.modules.items() if k.startswith('esm')}
+        
         esm2_model, alphabet = torch.hub.load("facebookresearch/esm:main", esm2_type)
+        
+        # Clean up any esm modules loaded by torch.hub to prevent conflicts
+        current_esm_modules = {k: v for k, v in sys.modules.items() if k.startswith('esm')}
+        for module_name in current_esm_modules:
+            if module_name not in original_esm_modules:
+                del sys.modules[module_name]
         batch_converter = alphabet.get_batch_converter()
         esm2_model = esm2_model.to(device)
         esm2_model.eval()

@@ -8,7 +8,7 @@ The package is now structured with `pyproject.toml`. Install with:
 
 1. Create the conda environment:
 ```bash
-conda create --name proto-language python=3.11 -y
+conda create --name proto-language python=3.12 -y
 conda activate proto-language
 conda install -c conda-forge -c bioconda mmseqs2 -y
 ```
@@ -54,6 +54,7 @@ For CPU-specific tests:
 ```bash
 pytest -sv tests/tests_cpu/
 ```
+NOTE: Some CPU specific tests require the installation of the `dev` dependencies.
 
 ## Running the Toy Example
 

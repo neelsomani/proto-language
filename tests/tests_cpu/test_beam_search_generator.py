@@ -31,7 +31,7 @@ with patch.dict('sys.modules', {
     'proto_language.tools.structure_prediction.io': Mock(),
     'proto_language.tools.structure_prediction.utils': Mock(),
     'proto_language.tools.structure_prediction.visualize': Mock(),
-    'proto_language.cloud_functions': Mock()
+    'proto_language.deployment.cloud_functions': Mock()
 }):
     # Now import the modules safely
     from proto_language.base import (

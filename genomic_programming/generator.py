@@ -1498,6 +1498,10 @@ class MCMCGenerator(IterativeGenerator):
         """
         super()._validate_generator()
 
+        # Validate generators list
+        if not self.generators:
+            raise ValueError("MCMCGenerator requires at least one generator")
+
         # Validate temperature parameters
         if self.temperature <= 0:
             raise ValueError(f"temperature must be positive, got {self.temperature}")
@@ -2962,8 +2966,11 @@ class BeamSearchGenerator(IterativeGenerator):
         )
         
         if self.verbose:
-            best_energy = top_combinations[0][1] if top_combinations else float('inf')
-            print(f"Selected top {len(top_combinations)} combinations, best energy: {best_energy:.4f}")
+            if top_combinations:
+                best_energy = top_combinations[0][1]
+                print(f"Selected top {len(top_combinations)} combinations, best energy: {best_energy:.4f}")
+            else:
+                print("Warning: No valid combinations found after constraint evaluation")
         
         return top_combinations
     
@@ -2987,6 +2994,10 @@ class BeamSearchGenerator(IterativeGenerator):
                 - Dict[int, Sequence]: mapping segment indices to their chosen sequences
                 - float: the energy score for this combination (lower is better)
         """
+        # Check if we have any combinations to work with
+        if not top_combinations:
+            raise ValueError("Cannot update segments: no valid combinations were found during beam search")
+            
         segments = construct.segments
         
         # Initialize beam candidates for each segment
@@ -3161,6 +3172,12 @@ class BeamSearchGenerator(IterativeGenerator):
                 # Step 4: Select top-K combinations
                 top_combinations = self._select_top_combinations(evaluated_combinations)
                 
+                # Check if no valid combinations were found
+                if not top_combinations:
+                    raise RuntimeError(f"No valid combinations found for segment {segment_idx + 1}. "
+                                     f"All {len(evaluated_combinations)} candidate combinations violated constraints. "
+                                     f"Consider relaxing constraints or adjusting generator parameters.")
+                
                 # Unified logging for all segments
                 if self.verbose:
                     print(f"Segment {segment_idx + 1} Candidates:")
@@ -3245,7 +3262,10 @@ class BeamSearchGenerator(IterativeGenerator):
                 
                 if self.verbose:
                     print(f"Updated accumulated sequences for next segment")
-                    print(f"Best energy: {top_combinations[0][1] if top_combinations else float('inf'):.4f}")
+                    if top_combinations:
+                        print(f"Best energy: {top_combinations[0][1]:.4f}")
+                    else:
+                        print("Best energy: No valid combinations found")
                     print(f"Top {len(beam_candidates)} beam sequences:")
                     for beam_idx, sequence in enumerate(beam_candidates):
                         # Show the full accumulated sequence (no separators for now)
@@ -3286,7 +3306,28 @@ class BeamSearchGenerator(IterativeGenerator):
             self._beam_candidates = beam_candidates.copy()
         
         # Add final state to history
-        self.history.append(copy.deepcopy(self.constructs))
+        energy_scores = []
+        for construct in self.constructs:
+            # Calculate min energy across all batch sequences for this construct
+            construct_energies = []
+            for seq in construct.batch_sequences:
+                if hasattr(seq, '_metadata') and 'energy' in seq._metadata:
+                    construct_energies.append(seq._metadata['energy'])
+            # Use min energy if available, otherwise 0
+            min_energy = min(construct_energies) if construct_energies else 0.0
+            energy_scores.append(min_energy)
+        
+        # Set energy_scores attribute
+        if not energy_scores:
+            energy_scores = [0.0] * max(1, len(self.constructs))
+        self.energy_scores = energy_scores
+        
+        history_entry = {
+            "time_step": 1,  # BeamSearch doesn't have steps, use 1 for final state
+            "energy_scores": energy_scores,
+            "constructs": copy.deepcopy(self.constructs)
+        }
+        self.history.append(history_entry)
         
         if self.verbose:
             self._log_progress()

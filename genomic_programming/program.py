@@ -122,21 +122,63 @@ class Program:
 
         # Print initial sequences and energies for all batch elements
         print("Initial constructs for all batch elements:")
-        for construct_idx, construct in enumerate(self.constructs):
-            print(f"  Construct {construct_idx}:")
-            for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
-                sequence = batch_sequence.sequence
-                energy = self.energy_scores[batch_idx]
-                print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
+        if self.energy_scores:
+            # For BeamSearchGenerator: one energy per construct
+            # For other generators: one energy per batch element across all constructs
+            if len(self.energy_scores) == len(self.constructs):
+                # BeamSearchGenerator case: one energy per construct
+                for construct_idx, construct in enumerate(self.constructs):
+                    print(f"  Construct {construct_idx}:")
+                    energy = self.energy_scores[construct_idx]
+                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                        sequence = batch_sequence.sequence
+                        # Use construct-level energy for all batch sequences
+                        print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
+            else:
+                # MCMC/Sequential case: energy scores for each batch element
+                global_batch_idx = 0
+                for construct_idx, construct in enumerate(self.constructs):
+                    print(f"  Construct {construct_idx}:")
+                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                        sequence = batch_sequence.sequence
+                        if global_batch_idx < len(self.energy_scores):
+                            energy = self.energy_scores[global_batch_idx]
+                        else:
+                            energy = float('inf')  # Fallback if index out of range
+                        print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
+                        global_batch_idx += 1
+        else:
+            print("  No energy scores available yet")
 
         # Run iterative generation
         self.ebm.sample()
 
         # Print final sequences and energies for all batch elements
         print("Final constructs for all batch elements:")
-        for construct_idx, construct in enumerate(self.constructs):
-            print(f"  Construct {construct_idx}:")
-            for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
-                sequence = batch_sequence.sequence
-                energy = self.energy_scores[batch_idx]
-                print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
+        if self.energy_scores:
+            # For BeamSearchGenerator: one energy per construct
+            # For other generators: one energy per batch element across all constructs
+            if len(self.energy_scores) == len(self.constructs):
+                # BeamSearchGenerator case: one energy per construct
+                for construct_idx, construct in enumerate(self.constructs):
+                    print(f"  Construct {construct_idx}:")
+                    energy = self.energy_scores[construct_idx]
+                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                        sequence = batch_sequence.sequence
+                        # Use construct-level energy for all batch sequences
+                        print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
+            else:
+                # MCMC/Sequential case: energy scores for each batch element
+                global_batch_idx = 0
+                for construct_idx, construct in enumerate(self.constructs):
+                    print(f"  Construct {construct_idx}:")
+                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                        sequence = batch_sequence.sequence
+                        if global_batch_idx < len(self.energy_scores):
+                            energy = self.energy_scores[global_batch_idx]
+                        else:
+                            energy = float('inf')  # Fallback if index out of range
+                        print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
+                        global_batch_idx += 1
+        else:
+            print("  No energy scores available after sampling")

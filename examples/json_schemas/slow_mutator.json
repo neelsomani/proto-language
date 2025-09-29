@@ -1,0 +1,48 @@
+{
+  "name": "slow_test_program",
+  "description": "A slow-running test program for async API testing",
+  "version": "1.0",
+  "optimization": {
+    "method": "mcmc",
+    "steps": 20,
+    "track_step_size": 2,
+    "temperature": 2.0,
+    "temperature_min": 0.1
+  },
+  "constructs": [
+    {
+      "id": "test_construct1",
+      "type": "dna",
+      "segments": [
+        {
+          "id": "segment1",
+          "label": "test_sequence"
+        }
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "gc_content_constraint",
+      "key": "gc-content",
+      "label": "High GC Content",
+      "config": {
+        "min_gc": 95,
+        "max_gc": 100
+      },
+      "targets": ["segment1"]
+    }
+  ],
+  "generators": [
+    {
+      "id": "slow_mutation",
+      "key": "slow-mutation",
+      "config": {
+        "batch_size": 1,
+        "sequence_length": 15,
+        "sleep_time": 1.0
+      },
+      "targets": ["segment1"]
+    }
+  ]
+}

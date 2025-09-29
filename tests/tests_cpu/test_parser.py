@@ -6,7 +6,7 @@ from api.parser import DarwinParser
 
 @pytest.fixture(scope="session")
 def toy_json():
-    with open(os.path.join(os.path.dirname(__file__), "dummy_data/toy.json")) as f:
+    with open(os.path.join(os.path.dirname(__file__), "../../examples/json_schemas/toy.json")) as f:
         return json.load(f)
 
 

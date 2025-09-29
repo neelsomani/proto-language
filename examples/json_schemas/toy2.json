@@ -6,7 +6,7 @@
       "method": "mcmc",
       "steps": 100,
       "track_step_size": 5,
-      "temperature": 2.0
+      "temperature": 1.0
   },
   "constructs": [
     {

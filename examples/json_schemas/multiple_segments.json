@@ -1,0 +1,161 @@
+{
+  "name": "multiple_segments_test",
+  "description": "Test program with multiple constructs each having multiple segments to validate segment separation",
+  "version": "1.0",
+  "optimization": {
+    "method": "mcmc",
+    "steps": 5,
+    "track_step_size": 1,
+    "temperature": 1.5,
+    "temperature_min": 0.5
+  },
+  "constructs": [
+    {
+      "id": "construct1",
+      "type": "dna",
+      "segments": [
+        {
+          "id": "promoter",
+          "label": "promoter"
+        },
+        {
+          "id": "gene",
+          "label": "gene"
+        },
+        {
+          "id": "terminator",
+          "label": "terminator"
+        }
+      ]
+    },
+    {
+      "id": "construct2",
+      "type": "dna",
+      "segments": [
+        {
+          "id": "enhancer",
+          "label": "enhancer"
+        },
+        {
+          "id": "coding_region",
+          "label": "coding_region"
+        }
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "gc_promoter",
+      "key": "gc-content",
+      "config": {
+        "min_gc": 45.0,
+        "max_gc": 55.0
+      },
+      "targets": ["promoter"]
+    },
+    {
+      "id": "gc_gene",
+      "key": "gc-content",
+      "config": {
+        "min_gc": 40.0,
+        "max_gc": 60.0
+      },
+      "targets": ["gene"]
+    },
+    {
+      "id": "gc_terminator",
+      "key": "gc-content",
+      "config": {
+        "min_gc": 30.0,
+        "max_gc": 50.0
+      },
+      "targets": ["terminator"]
+    },
+    {
+      "id": "gc_enhancer",
+      "key": "gc-content",
+      "config": {
+        "min_gc": 50.0,
+        "max_gc": 60.0
+      },
+      "targets": ["enhancer"]
+    },
+    {
+      "id": "gc_coding",
+      "key": "gc-content",
+      "config": {
+        "min_gc": 45.0,
+        "max_gc": 55.0
+      },
+      "targets": ["coding_region"]
+    },
+    {
+      "id": "length_construct1",
+      "key": "sequence-length",
+      "config": {
+        "target_length": 30
+      },
+      "targets": ["promoter", "gene", "terminator"]
+    },
+    {
+      "id": "length_construct2",
+      "key": "sequence-length",
+      "config": {
+        "target_length": 20
+      },
+      "targets": ["enhancer", "coding_region"]
+    }
+  ],
+  "generators": [
+    {
+      "id": "gen_promoter",
+      "key": "uniform-mutation",
+      "config": {
+        "batch_size": 4,
+        "sequence_length": 10,
+        "mutation_rate": 0.2
+      },
+      "targets": ["promoter"]
+    },
+    {
+      "id": "gen_gene",
+      "key": "uniform-mutation",
+      "config": {
+        "batch_size": 4,
+        "sequence_length": 12,
+        "mutation_rate": 0.15
+      },
+      "targets": ["gene"]
+    },
+    {
+      "id": "gen_terminator",
+      "key": "uniform-mutation",
+      "config": {
+        "batch_size": 4,
+        "sequence_length": 8,
+        "mutation_rate": 0.25
+      },
+      "targets": ["terminator"]
+    },
+    {
+      "id": "gen_enhancer",
+      "key": "uniform-mutation",
+      "config": {
+        "batch_size": 4,
+        "sequence_length": 10,
+        "mutation_rate": 0.2
+      },
+      "targets": ["enhancer"]
+    },
+    {
+      "id": "gen_coding",
+      "key": "uniform-mutation",
+      "config": {
+        "batch_size": 4,
+        "sequence_length": 10,
+        "mutation_rate": 0.15
+      },
+      "targets": ["coding_region"]
+    }
+  ]
+}

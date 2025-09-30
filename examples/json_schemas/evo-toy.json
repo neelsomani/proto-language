@@ -4,7 +4,7 @@
     "version": "1.0",
     "optimization": {
         "method": "mcmc",
-        "steps": 10,
+        "num_steps": 10,
         "track_step_size": 1,
         "temperature": 1.0
     },

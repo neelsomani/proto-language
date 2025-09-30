@@ -1409,10 +1409,9 @@ class MCMCGenerator(IterativeGenerator):
         num_steps: int = 1,
         temperature: float = 1.0,
         temperature_min: float = 0.0001,
-        track_step_size: int = 10,
+        track_step_size: int = 1,
         custom_logging: Optional[Callable[[int, Sequence], None]] = None,
         verbose: bool = True,
-        stopping_callback: Optional[Callable[[List[float], int, Any], bool]] = None,
     ) -> None:
         """
         Initialize the MCMC generator with sub-generators and constraints.
@@ -1428,9 +1427,6 @@ class MCMCGenerator(IterativeGenerator):
             track_step_size: Interval for progress tracking.
             custom_logging: Custom logging function that takes (step, sequences) arguments.
             verbose: Whether to print progress information.
-            stopping_callback: Optional callback function for custom stopping logic. Called with
-                            (energies: List[float], step: int, generator: MCMCGenerator) and should
-                            return True to stop iteration, False to continue.
 
         Raises:
             ValueError: If any validation checks fail.
@@ -1440,7 +1436,6 @@ class MCMCGenerator(IterativeGenerator):
             generators=generators,
             constraints=constraints,
             constraint_weights=constraint_weights,
-            stopping_callback=stopping_callback,
         )
         self.num_steps: int = num_steps
         self.temperature: float = temperature
@@ -1697,10 +1692,9 @@ class SequentialGenerator(IterativeGenerator):
         num_steps: int = 1,
         temperature: float = 1.0,
         temperature_min: float = 0.0001,
-        track_step_size: int = 10,
+        track_step_size: int = 1,
         custom_logging: Optional[Callable[[int, Sequence], None]] = None,
         verbose: bool = True,
-        stopping_callback: Optional[Callable[[List[float], int, Any], bool]] = None,
     ) -> None:
         """
         Initialize the sequential generator with ordered sub-generators.
@@ -1716,16 +1710,12 @@ class SequentialGenerator(IterativeGenerator):
             track_step_size: Progress tracking interval.
             custom_logging: Custom logging function that takes (step, sequences) arguments.
             verbose: Whether to print progress information.
-            stopping_callback: Optional callback function for custom stopping logic. Called with
-                            (energies: List[float], step: int, generator: SequentialGenerator) and should
-                            return True to stop iteration, False to continue.
         """
         super().__init__(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
             constraint_weights=constraint_weights,
-            stopping_callback=stopping_callback,
         )
         self.num_steps: int = num_steps
         self.temperature: float = temperature

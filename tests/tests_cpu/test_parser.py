@@ -21,7 +21,7 @@ def comprehensive_darwin_json():
         "version": "1.0",
         "optimization": {
             "method": "mcmc",
-            "steps": 5,
+            "num_steps": 5,
             "track_step_size": 1,
             "temperature": 1.0
         },
@@ -158,7 +158,7 @@ def sequential_optimization_darwin_json():
         "version": "1.0",
         "optimization": {
             "method": "sequential",
-            "steps": 3,
+            "num_steps": 3,
             "track_step_size": 1,
             "temperature": 1.0
         },
@@ -210,7 +210,7 @@ def orfipy_mmseqs_darwin_json():
         "version": "1.0",
         "optimization": {
             "method": "mcmc",
-            "steps": 3,
+            "num_steps": 3,
             "track_step_size": 1,
             "temperature": 1.0
         },
@@ -388,7 +388,7 @@ def test_parser_error_handling():
         "version": "1.0",
         "optimization": {
             "method": "mcmc",
-            "steps": 1,
+            "num_steps": 1,
             "track_step_size": 1,
             "temperature": 1.0
         },
@@ -421,7 +421,7 @@ def test_parser_error_handling():
         "version": "1.0",
         "optimization": {
             "method": "mcmc",
-            "steps": 1,
+            "num_steps": 1,
             "track_step_size": 1,
             "temperature": 1.0
         },
@@ -454,7 +454,7 @@ def test_parser_error_handling():
         "version": "1.0",
         "optimization": {
             "method": "unknown-method",
-            "steps": 1,
+            "num_steps": 1,
             "track_step_size": 1,
             "temperature": 1.0
         },

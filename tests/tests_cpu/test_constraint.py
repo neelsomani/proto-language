@@ -1000,7 +1000,7 @@ class TestConstraintConfigNormalization:
             }],
             "optimization": {
                 "method": "sequential",
-                "steps": 1
+                "num_steps": 1
             }
         }
         

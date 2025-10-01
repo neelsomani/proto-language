@@ -1,7 +1,7 @@
 import json
 import os
 import pytest
-from api.parser import DarwinParser
+from api.core.parser import DarwinParser
 
 
 @pytest.fixture(scope="session")

@@ -2,9 +2,8 @@ import pytest
 import sys
 
 sys.path.append(".")
-from proto_language.base import ConstructSegment
-from proto_language.utils import SequenceType
-from proto_language.generator import Evo2Generator
+from proto_language.language.base import Segment, SequenceType
+from proto_language.language.generator import Evo2Generator
 
 # Check if GPU is available (either locally or via cloud)
 from proto_language.utils import is_gpu_available
@@ -12,9 +11,9 @@ from proto_language.utils import is_gpu_available
 
 def create_segment(
     sequence: str, seq_type: SequenceType = SequenceType.DNA
-) -> ConstructSegment:
-    """Helper to create a ConstructSegment with a single sequence."""
-    return ConstructSegment(sequence=sequence, sequence_type=seq_type)
+) -> Segment:
+    """Helper to create a Segment with a single sequence."""
+    return Segment(sequence=sequence, sequence_type=seq_type)
 
 
 @pytest.mark.skipif(

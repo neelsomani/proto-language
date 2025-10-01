@@ -8,7 +8,7 @@ and multi-segment beam search demos to reduce code duplication.
 import sys
 import os
 
-from proto_language.base import ConstructSegment, Generator
+from proto_language.language.base import Segment, Generator
 
 
 class MockAutoregressiveGenerator(Generator):
@@ -37,7 +37,7 @@ class MockAutoregressiveGenerator(Generator):
             'C': {'C': 0.25, 'G': 0.25, 'A': 0.25, 'T': 0.25}
         }
     
-    def assign(self, segment: ConstructSegment) -> None:
+    def assign(self, segment: Segment) -> None:
         """Assign this generator to a segment."""
         if self._is_initialized:
             raise ValueError("Generator already assigned")

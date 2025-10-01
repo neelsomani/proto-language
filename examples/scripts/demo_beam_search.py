@@ -14,9 +14,8 @@ import sys
 import os
 import argparse
 
-from proto_language.base import Construct, ConstructSegment, Constraint
-from proto_language.utils import SequenceType
-from proto_language.generator import BeamSearchGenerator, Evo2Generator
+from proto_language.language.base import Construct, Segment, Constraint, SequenceType
+from proto_language.language.generator import BeamSearchGenerator, Evo2Generator
 
 # Import shared utilities
 from .beam_search_utils import (
@@ -195,9 +194,9 @@ Examples:
     print()
     
     # Create multiple segments with different initial sequences
-    segment1 = ConstructSegment(sequence="A", sequence_type=SequenceType.DNA)
-    segment2 = ConstructSegment(sequence="T", sequence_type=SequenceType.DNA)
-    segment3 = ConstructSegment(sequence="", sequence_type=SequenceType.DNA)  # No initial prompt
+    segment1 = Segment(sequence="A", sequence_type=SequenceType.DNA)
+    segment2 = Segment(sequence="T", sequence_type=SequenceType.DNA)
+    segment3 = Segment(sequence="", sequence_type=SequenceType.DNA)  # No initial prompt
     
     # Create construct with multiple segments
     construct = Construct([segment1, segment2, segment3])

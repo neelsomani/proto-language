@@ -1,6 +1,9 @@
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-from .base import Construct, Constraint, Generator, IterativeGenerator
+from .construct import Construct
+from .constraint import Constraint
+from .generator import Generator
+from .iterative_generator import IterativeGenerator
 
 
 class Program:
@@ -13,7 +16,7 @@ class Program:
 
     Examples:
         Basic MCMC optimization program:
-        >>> from proto_language.generator import MCMCGenerator
+        >>> from proto_language.language.generator import MCMCGenerator
         >>> program = Program(
         ...     iterative_generator_type=MCMCGenerator,
         ...     constructs=[construct1, construct2],

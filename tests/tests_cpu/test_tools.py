@@ -18,18 +18,11 @@ from proto_language.tools.orf_prediction.orfipy import (
     _parse_orfipy_header,
 )
 from proto_language.tools.orf_prediction.prodigal import run_prodigal
-from proto_language.base import Sequence
-from proto_language.utils import SequenceType
-from proto_language.constraint.protein_structure import (
-    _run_esmfold,
-)
-from proto_language.constraint.sequence_annotation import (
-    _run_orfipy_mmseqs_pipeline,
-)
-from proto_language.tool_cache import ToolCache
+from proto_language.language.base import Sequence, SequenceType
+from proto_language.tools.tool_cache import ToolCache
 
 # Test data file paths
-TEST_DATA_DIR = Path("tests/tests_cpu/dummy_data")
+TEST_DATA_DIR = Path("tests/dummy_data")
 PROTEIN_FASTA = TEST_DATA_DIR / "test_protein_sequences.faa"
 DNA_FASTA = TEST_DATA_DIR / "test_dna_sequences.fna"
 M8_FILE = TEST_DATA_DIR / "test_mmseqs_results.m8"

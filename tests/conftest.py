@@ -33,16 +33,16 @@ def mock_celery():
         pass
     
     try:
-        import api.celery_config
-        patches.append(patch("api.celery_config.celery_app", mock_celery_app))
+        import api.workers.celery_config
+        patches.append(patch("api.workers.celery_config.celery_app", mock_celery_app))
     except ImportError:
         pass
     
     try:
-        import api.tasks
+        import api.workers.tasks
         patches.extend([
-            patch("api.tasks.celery_app", mock_celery_app),
-            patch("api.tasks.run_program_task", mock_task)
+            patch("api.workers.tasks.celery_app", mock_celery_app),
+            patch("api.workers.tasks.run_program_task", mock_task)
         ])
     except ImportError:
         pass
@@ -110,12 +110,12 @@ def mock_database():
     patches = []
     
     try:
-        import api.database
+        import api.db.database
         patches.extend([
-            patch("api.database.DatabaseManager.create_run", return_value=mock_run),
-            patch("api.database.DatabaseManager.get_run", return_value=mock_run),
-            patch("api.database.DatabaseManager.update_run", return_value=mock_run),
-            patch("api.database.DatabaseManager.get_timepoints", return_value=[])
+            patch("api.db.database.DatabaseManager.create_run", return_value=mock_run),
+            patch("api.db.database.DatabaseManager.get_run", return_value=mock_run),
+            patch("api.db.database.DatabaseManager.update_run", return_value=mock_run),
+            patch("api.db.database.DatabaseManager.get_timepoints", return_value=[])
         ])
     except ImportError:
         pass

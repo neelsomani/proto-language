@@ -2,21 +2,21 @@ from typing import Tuple
 
 import sys
 import os
-from proto_language.base import (
+from proto_language.language.base import (
     Constraint,
     Construct,
-    ConstructSegment,
+    Segment,
     Sequence,
     SequenceType,
 )
-from proto_language.constraint import (
+from proto_language.language.constraint import (
     esmfold_plddt_constraint,
     esmfold_ptm_constraint,
     protein_globularity_constraint,
     protein_symmetry_ring_constraint,
 )
-from proto_language.generator import MCMCGenerator, UniformMutationGenerator
-from proto_language.program import Program
+from proto_language.language.generator import MCMCGenerator, UniformMutationGenerator
+from proto_language.language.base import Program
 
 
 MONOMER_LENGTH = 150
@@ -25,10 +25,10 @@ N_STEPS = 30_000
 
 
 #######################
-## ConstructSegments ##
+## Segments ##
 #######################
 
-protomer = ConstructSegment(
+protomer = Segment(
     sequence_type=SequenceType.PROTEIN,
 )
 
@@ -85,7 +85,7 @@ globularity = Constraint(
 #############
 
 
-def custom_logging(step: int, outputs: Tuple[ConstructSegment]) -> None:
+def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].batch_sequences[0]
     print(
         f"Iteration {step} | "

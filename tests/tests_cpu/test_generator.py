@@ -7,25 +7,25 @@ from typing import Tuple
 import sys
 
 sys.path.append(".")
-from proto_language.base import (
+from proto_language.language.base import (
     Construct,
-    ConstructSegment,
+    Segment,
     Constraint,
-    ConstraintType,
     SequenceType,
+    ConstraintType,
 )
-from proto_language.constraint import (
+from proto_language.language.constraint import (
     gc_content_constraint,
     sequence_length_constraint,
 )
-from proto_language.generator import UniformMutationGenerator, TwoSegmentUniformMutationGenerator, MCMCGenerator, ChainedGenerator
+from proto_language.language.generator import UniformMutationGenerator, TwoSegmentUniformMutationGenerator, MCMCGenerator, ChainedGenerator
 
 # Helper function
 def create_segment(
     sequence: str, seq_type: SequenceType = SequenceType.DNA
-) -> ConstructSegment:
-    """Helper to create a ConstructSegment with a single sequence."""
-    return ConstructSegment(sequence=sequence, sequence_type=seq_type)
+) -> Segment:
+    """Helper to create a Segment with a single sequence."""
+    return Segment(sequence=sequence, sequence_type=seq_type)
 
 
 class TestUniformMutationGenerator:

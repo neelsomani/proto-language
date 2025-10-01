@@ -3,19 +3,19 @@ from typing import Tuple
 import sys
 import os
 
-from proto_language.generator import UniformMutationGenerator, MCMCGenerator
-from proto_language.base import (
+from proto_language.language.generator import UniformMutationGenerator, MCMCGenerator
+from proto_language.language.base import (
     Constraint,
     Construct,
-    ConstructSegment,
+    Segment,
     SequenceType,
     Sequence,
 )
-from proto_language.program import Program
-from proto_language.constraint import gc_content_constraint
+from proto_language.language.base import Program
+from proto_language.language.constraint import gc_content_constraint
 
 # Construct Segment
-seq1 = ConstructSegment(sequence_type=SequenceType.DNA)
+seq1 = Segment(sequence_type=SequenceType.DNA)
 
 # Construct
 
@@ -39,7 +39,7 @@ gc_constraint = Constraint(
 )
 
 
-def custom_logging(step: int, outputs: Tuple[ConstructSegment]) -> None:
+def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].batch_sequences[0]
     print(
         f"Iteration {step} | "

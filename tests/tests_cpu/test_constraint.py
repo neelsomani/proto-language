@@ -9,17 +9,15 @@ from pathlib import Path
 
 sys.path.append(".")
 
-from proto_language.base import (
+from proto_language.language.base import (
     Construct,
-    ConstructSegment,
+    Segment,
     Constraint,
     Sequence,
-)
-from proto_language.utils import (
     SequenceType,
     ConstraintType,
 )
-from proto_language.constraint import (
+from proto_language.language.constraint import (
     dinucleotide_frequency_constraint,
     gc_content_constraint,
     max_homopolymer_constraint,
@@ -38,23 +36,23 @@ from proto_language.schemas import ORFipyKwargs, MMseqsKwargs, ESMFoldKwargs
 # Helper functions
 def create_segment(
     sequence: str, seq_type: SequenceType = SequenceType.DNA
-) -> ConstructSegment:
-    """Helper to create a ConstructSegment with a single sequence."""
-    return ConstructSegment(sequence=sequence, sequence_type=seq_type)
+) -> Segment:
+    """Helper to create a Segment with a single sequence."""
+    return Segment(sequence=sequence, sequence_type=seq_type)
 
 
 def create_batched_segment(
     sequences: List[str], seq_type: SequenceType = SequenceType.DNA
-) -> ConstructSegment:
-    """Helper to create a ConstructSegment with a batch of sequences."""
-    segment = ConstructSegment(sequence=sequences[0], sequence_type=seq_type)
+) -> Segment:
+    """Helper to create a Segment with a batch of sequences."""
+    segment = Segment(sequence=sequences[0], sequence_type=seq_type)
     segment.create_batch(len(sequences))
     for i, seq_str in enumerate(sequences):
         segment.batch_sequences[i].sequence = seq_str
     return segment
 
 
-# Tests for Sequence and ConstructSegment basics
+# Tests for Sequence and Segment basics
 def test_sequence_validation():
     """Tests character validation for Sequence objects."""
     with pytest.raises(ValueError, match=r"Invalid characters found: (X, Z|Z, X)"):
@@ -70,8 +68,8 @@ def test_sequence_validation():
         seq.sequence = "1234"
 
 
-def test_construct_segment_batching():
-    """Tests batch creation for ConstructSegment."""
+def test_segment_batching():
+    """Tests batch creation for Segment."""
     segment = create_segment("ATCG")
     assert len(segment) == 1
     segment.create_batch(5)
@@ -507,7 +505,7 @@ class TestTetranucleotideUsageConstraint:
 # Tests for tool-based constraints
 
 # Test data file paths
-TEST_DATA_DIR = Path("tests/tests_cpu/dummy_data")
+TEST_DATA_DIR = Path("tests/dummy_data")
 PROTEIN_DB_PATH = TEST_DATA_DIR / "test_proteins_database.faa"
 DNA_FASTA_PATH = TEST_DATA_DIR / "test_dna_sequences.fna"
 ORFIPY_AA_PATH = TEST_DATA_DIR / "test_orfipy_aa.faa"
@@ -733,17 +731,17 @@ class TestOrfipyMmseqsConstraints:
 
     def test_caching(self, hit_count_config, temp_dir):
         """Test that caching works correctly with real files."""
-        from proto_language.constraint.sequence_annotation import (
-            _run_orfipy_mmseqs_pipeline,
+        from proto_language.language.constraint.sequence_annotation import (
+            run_orfipy_mmseqs_pipeline,
         )
-        from proto_language.tool_cache import ToolCache
+        from proto_language.tools.tool_cache import ToolCache
         seq = Sequence("ATGAAACGCATTAGCACCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGA", SequenceType.DNA)
 
         # Set up test files
         setup_test_files(temp_dir, seq.sequence)
 
         # First call, should compute
-        _run_orfipy_mmseqs_pipeline(seq, 
+        run_orfipy_mmseqs_pipeline(seq, 
                                           orfipy_kwargs=hit_count_config.get("orfipy_kwargs"),
                                           mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs"))
         # Check that results are in metadata
@@ -753,7 +751,7 @@ class TestOrfipyMmseqsConstraints:
 
         # Second call, should use cache
         seq._metadata["test_marker"] = "should_remain"
-        _run_orfipy_mmseqs_pipeline(seq, 
+        run_orfipy_mmseqs_pipeline(seq, 
                                           orfipy_kwargs=hit_count_config.get("orfipy_kwargs"),
                                           mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs"))
         assert seq._metadata["test_marker"] == "should_remain"
@@ -1089,7 +1087,7 @@ class TestBalancedAAConstraint:
 class TestSigma70PromoterConstraint:
     def test_ideal_promoter(self):
         """Test ideal sigma70 promoter sequence."""
-        from proto_language.constraint import sigma70_promoter_constraint
+        from proto_language.language.constraint import sigma70_promoter_constraint
         
         # Ideal promoter: -35 box + 17bp spacer + -10 box
         ideal = "TTGACA" + "A" * 17 + "TATAAT"
@@ -1102,7 +1100,7 @@ class TestSigma70PromoterConstraint:
     
     def test_poor_promoter(self):
         """Test poor promoter sequence."""
-        from proto_language.constraint import sigma70_promoter_constraint
+        from proto_language.language.constraint import sigma70_promoter_constraint
         
         poor = "AAAAAA" + "G" * 17 + "CCCCCC"
         segment = create_segment(poor, SequenceType.DNA)
@@ -1113,7 +1111,7 @@ class TestSigma70PromoterConstraint:
     
     def test_scanning_long_sequence(self):
         """Test scanning long sequence for best promoter."""
-        from proto_language.constraint import sigma70_promoter_constraint
+        from proto_language.language.constraint import sigma70_promoter_constraint
         
         # Embed promoter in longer sequence
         long_seq = "A" * 50 + "TTGACA" + "T" * 17 + "TATAAT" + "G" * 50
@@ -1126,7 +1124,7 @@ class TestSigma70PromoterConstraint:
     
     def test_short_sequence(self):
         """Test sequence too short for promoter."""
-        from proto_language.constraint import sigma70_promoter_constraint
+        from proto_language.language.constraint import sigma70_promoter_constraint
         
         short = "ATCG"
         segment = create_segment(short, SequenceType.DNA)
@@ -1137,7 +1135,7 @@ class TestSigma70PromoterConstraint:
     
     def test_batch_processing(self):
         """Test batch of sequences."""
-        from proto_language.constraint import sigma70_promoter_constraint
+        from proto_language.language.constraint import sigma70_promoter_constraint
         
         ideal = "TTGACA" + "A" * 17 + "TATAAT"
         poor = "AAAAAA" + "G" * 17 + "CCCCCC"
@@ -1153,7 +1151,7 @@ class TestConstraintConfigNormalization:
 
     def test_esmfold_kwargs_normalization(self):
         """Test that esmfold_kwargs dict is converted to ESMFoldKwargs model."""
-        from proto_language.constraint import esmfold_plddt_constraint
+        from proto_language.language.constraint import esmfold_plddt_constraint
         
         segment = create_segment("MVLSPADKTNVK", SequenceType.PROTEIN)
         
@@ -1240,7 +1238,7 @@ class TestConstraintConfigNormalization:
 
     def test_mixed_config_normalization(self):
         """Test that configs with both regular params and Pydantic kwargs work correctly."""
-        from proto_language.constraint import esmfold_plddt_constraint
+        from proto_language.language.constraint import esmfold_plddt_constraint
         
         segment = create_segment("MVLSPADKTNVK", SequenceType.PROTEIN)
         
@@ -1269,7 +1267,7 @@ class TestConstraintConfigNormalization:
 
     def test_already_pydantic_models_unchanged(self):
         """Test that configs already containing Pydantic models are left unchanged."""
-        from proto_language.constraint import esmfold_plddt_constraint
+        from proto_language.language.constraint import esmfold_plddt_constraint
         
         segment = create_segment("MVLSPADKTNVK", SequenceType.PROTEIN)
         
@@ -1304,7 +1302,7 @@ class TestConstraintConfigNormalization:
 
     def test_invalid_pydantic_conversion_fallback(self):
         """Test that invalid Pydantic conversions fall back to dict (backward compatibility)."""
-        from proto_language.constraint import esmfold_plddt_constraint
+        from proto_language.language.constraint import esmfold_plddt_constraint
         
         segment = create_segment("MVLSPADKTNVK", SequenceType.PROTEIN)
         
@@ -1329,7 +1327,7 @@ class TestConstraintConfigNormalization:
 
     def test_parser_integration(self):
         """Test that the parser creates constraints with properly normalized configs."""
-        from api.parser import DarwinParser
+        from api.core.parser import DarwinParser
         
         # Darwin JSON with protein constraint
         darwin_data = {

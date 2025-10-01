@@ -3,16 +3,16 @@ from typing import Tuple
 import sys
 import os
 
-from proto_language.generator import NimEvo2Generator, MCMCGenerator
-from proto_language.base import (
+from proto_language.language.generator import NimEvo2Generator, MCMCGenerator
+from proto_language.language.base import (
     Constraint,
     Construct,
-    ConstructSegment,
+    Segment,
     SequenceType,
     Sequence,
 )
-from proto_language.program import Program
-from proto_language.constraint import sequence_length_constraint, gc_content_constraint, max_homopolymer_constraint, dinucleotide_frequency_constraint, tetranucleotide_usage_constraint, orfipy_mmseqs_gene_hit_count_constraint, orfipy_mmseqs_gene_homology_constraint
+from proto_language.language.base import Program
+from proto_language.language.constraint import sequence_length_constraint, gc_content_constraint, max_homopolymer_constraint, dinucleotide_frequency_constraint, tetranucleotide_usage_constraint, orfipy_mmseqs_gene_hit_count_constraint, orfipy_mmseqs_gene_homology_constraint
 
 NUM_MCMC_STEPS = 3 # Number of MCMC steps to run
 MIN_GC = 35  # Min target for high GC content (%)
@@ -28,10 +28,10 @@ MAX_GENE_HITS = 12  # Max target for gene hits
 TRACK_EVERY = 1
 
 #######################
-## ConstructSegments ##
+## Segments ##
 #######################
 
-segment = ConstructSegment(
+segment = Segment(
     sequence_type=SequenceType.DNA,
     valid_chars=set("ATCG+~ "),
 )

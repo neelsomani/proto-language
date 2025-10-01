@@ -2,8 +2,8 @@ import pytest
 import sys
 
 sys.path.append(".")
-from proto_language.base import Sequence, ConstructSegment, Construct
-from proto_language.utils import SequenceType
+from proto_language.language.base import Sequence, Segment, Construct, SequenceType
+
 
 
 class TestSequence:
@@ -53,13 +53,13 @@ class TestSequence:
         assert seq._metadata["sequence_length"] == 7
 
 
-class TestConstructSegment:
-    """Tests for the ConstructSegment class."""
+class TestSegment:
+    """Tests for the Segment class."""
 
     def test_initialization(self):
         """Tests that a segment is initialized with a single sequence in a list."""
-        segment = ConstructSegment("ATCG", SequenceType.DNA)
-        assert isinstance(segment, ConstructSegment)
+        segment = Segment("ATCG", SequenceType.DNA)
+        assert isinstance(segment, Segment)
         assert len(segment.batch_sequences) == 1
         assert len(segment) == 1
         assert segment[0].sequence == "ATCG"
@@ -67,7 +67,7 @@ class TestConstructSegment:
 
     def test_create_batch(self):
         """Tests that create_batch replicates the initial sequence."""
-        segment = ConstructSegment("ATCG", SequenceType.DNA, metadata={"source": "original"})
+        segment = Segment("ATCG", SequenceType.DNA, metadata={"source": "original"})
         segment.create_batch(5)
         assert len(segment) == 5
         for i in range(5):
@@ -84,7 +84,7 @@ class TestConstructSegment:
 
     def test_iteration(self):
         """Tests iteration over the sequences in a segment."""
-        segment = ConstructSegment("A")
+        segment = Segment("A")
         segment.create_batch(3)
         segment[1].sequence = "T"
         segment[2].sequence = "C"
@@ -97,9 +97,9 @@ class TestConstruct:
 
     def test_concatenation(self):
         """Tests concatenation of single-sequence segments."""
-        seg1 = ConstructSegment("ATG", SequenceType.DNA)
-        seg2 = ConstructSegment("CGC", SequenceType.DNA)
-        seg3 = ConstructSegment("TAA", SequenceType.DNA)
+        seg1 = Segment("ATG", SequenceType.DNA)
+        seg2 = Segment("CGC", SequenceType.DNA)
+        seg3 = Segment("TAA", SequenceType.DNA)
         construct = Construct([seg1, seg2, seg3])
         
         final_sequences = construct.batch_sequences
@@ -108,11 +108,11 @@ class TestConstruct:
 
     def test_batched_concatenation(self):
         """Tests concatenation of batched segments."""
-        seg1 = ConstructSegment("A")
+        seg1 = Segment("A")
         seg1.create_batch(2)
         seg1[1].sequence = "G"
         
-        seg2 = ConstructSegment("C")
+        seg2 = Segment("C")
         seg2.create_batch(2)
         seg2[1].sequence = "T"
 
@@ -129,15 +129,15 @@ class TestConstruct:
             Construct([])
 
         # Inconsistent sequence types
-        seg_dna = ConstructSegment("A", SequenceType.DNA)
-        seg_rna = ConstructSegment("U", SequenceType.RNA)
+        seg_dna = Segment("A", SequenceType.DNA)
+        seg_rna = Segment("U", SequenceType.RNA)
         with pytest.raises(ValueError, match="must have the same sequence_type"):
             Construct([seg_dna, seg_rna])
 
     def test_metadata_concatenation(self):
         """Tests how metadata is merged during concatenation."""
-        seg1 = ConstructSegment("A", metadata={"id": 1, "source": "seg1"})
-        seg2 = ConstructSegment("C", metadata={"id": 2, "status": "new"})
+        seg1 = Segment("A", metadata={"id": 1, "source": "seg1"})
+        seg2 = Segment("C", metadata={"id": 2, "status": "new"})
 
         construct = Construct([seg1, seg2])
         final_meta = construct.batch_sequences[0]._metadata
@@ -152,8 +152,8 @@ class TestConstruct:
 
     def test_validation_inconsistent_valid_chars(self):
         """Tests that inconsistent valid_chars sets raise a ValueError."""
-        seg1 = ConstructSegment("A", valid_chars={"A", "B"})
-        seg2 = ConstructSegment("C", valid_chars={"C", "D"})
+        seg1 = Segment("A", valid_chars={"A", "B"})
+        seg2 = Segment("C", valid_chars={"C", "D"})
 
         with pytest.raises(ValueError, match="must have the same valid_chars"):
             Construct([seg1, seg2])

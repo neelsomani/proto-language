@@ -31,12 +31,12 @@ with patch.dict('sys.modules', {
     'proto_language.tools.structure_prediction.io': Mock(),
     'proto_language.tools.structure_prediction.utils': Mock(),
     'proto_language.tools.structure_prediction.visualize': Mock(),
-    'proto_language.deployment.cloud_functions': Mock()
+    'deployment.cloud_functions': Mock()
 }):
     # Now import the modules safely
-    from proto_language.base import (
-        Construct, ConstructSegment, SequenceType, Constraint)
-    from proto_language.generator import BeamSearchGenerator, UniformMutationGenerator
+    from proto_language.language.base import (
+        Construct, Segment, Constraint, SequenceType)
+    from proto_language.language.generator import BeamSearchGenerator, UniformMutationGenerator
     from examples.scripts.beam_search_utils import MockAutoregressiveGenerator, gc_content_constraint
 
 class TestBeamSearchGenerator:
@@ -45,9 +45,9 @@ class TestBeamSearchGenerator:
     def test_beam_search_generator_initialization(self):
         """Test basic BeamSearchGenerator initialization."""
         # Create test segments
-        segment1 = ConstructSegment(sequence="AAAA", sequence_type=SequenceType.DNA)
-        segment2 = ConstructSegment(sequence="TTTT", sequence_type=SequenceType.DNA)
-        segment3 = ConstructSegment(sequence="GGGG", sequence_type=SequenceType.DNA)
+        segment1 = Segment(sequence="AAAA", sequence_type=SequenceType.DNA)
+        segment2 = Segment(sequence="TTTT", sequence_type=SequenceType.DNA)
+        segment3 = Segment(sequence="GGGG", sequence_type=SequenceType.DNA)
         
         # Create construct
         construct = Construct([segment1, segment2, segment3])
@@ -104,7 +104,7 @@ class TestBeamSearchGenerator:
         """Test the _is_extension_based_generator method."""
         # Create a dummy beam search generator for testing the method
         # We need at least one construct to initialize BeamSearchGenerator
-        segment = ConstructSegment(sequence="AAAA", sequence_type=SequenceType.DNA)
+        segment = Segment(sequence="AAAA", sequence_type=SequenceType.DNA)
         construct = Construct([segment])
         
         beam_gen = BeamSearchGenerator(
@@ -135,9 +135,9 @@ class TestBeamSearchGenerator:
     def test_demo_beam_search_scenario(self):
         """Test the exact same scenario as demo_beam_search.py and assert expected final sequences."""
         # Create the same segments as in the demo
-        segment1 = ConstructSegment(sequence="A", sequence_type=SequenceType.DNA)
-        segment2 = ConstructSegment(sequence="T", sequence_type=SequenceType.DNA)
-        segment3 = ConstructSegment(sequence="", sequence_type=SequenceType.DNA)  # No initial prompt
+        segment1 = Segment(sequence="A", sequence_type=SequenceType.DNA)
+        segment2 = Segment(sequence="T", sequence_type=SequenceType.DNA)
+        segment3 = Segment(sequence="", sequence_type=SequenceType.DNA)  # No initial prompt
         
         # Create construct with multiple segments
         construct = Construct([segment1, segment2, segment3])

@@ -146,58 +146,6 @@ def comprehensive_darwin_json():
         ]
     }
 
-
-@pytest.fixture(scope="session")
-def sequential_optimization_darwin_json():
-    """
-    Darwin JSON that tests the sequential optimization method.
-    """
-    return {
-        "name": "sequential_optimization_test",
-        "description": "Test sequential optimization method",
-        "version": "1.0",
-        "optimization": {
-            "method": "sequential",
-            "num_steps": 3,
-            "track_step_size": 1,
-            "temperature": 1.0
-        },
-        "constructs": [
-            {
-                "id": "dna_construct",
-                "type": "dna",
-                "segments": [
-                    {
-                        "id": "dna_segment1"
-                    }
-                ]
-            }
-        ],
-        "constraints": [
-            {
-                "id": "gc_content_constraint",
-                "key": "gc-content",
-                "config": {
-                    "min_gc": 40.0,
-                    "max_gc": 60.0
-                },
-                "targets": ["dna_segment1"]
-            }
-        ],
-        "generators": [
-            {
-                "id": "uniform_mutation_generator",
-                "key": "uniform-mutation",
-                "config": {
-                    "batch_size": 2,
-                    "sequence_length": 50
-                },
-                "targets": ["dna_segment1"]
-            }
-        ]
-    }
-
-
 @pytest.fixture(scope="session")
 def orfipy_mmseqs_darwin_json():
     """
@@ -296,26 +244,6 @@ def test_comprehensive_darwin_parser_parse(comprehensive_darwin_json):
     assert program.iterative_generator_type.__name__ == "MCMCGenerator"
 
 
-def test_sequential_optimization_parser_parse(sequential_optimization_darwin_json):
-    """
-    Test that the sequential optimization Darwin JSON can be parsed successfully.
-    """
-    parser = DarwinParser(sequential_optimization_darwin_json)
-    program = parser.parse()
-    
-    # Check that we have the expected number of constructs
-    assert len(program.constructs) == 1
-    
-    # Check that we have the expected number of generators
-    assert len(program.generators) == 1
-    
-    # Check that we have the expected number of constraints
-    assert len(program.constraints) == 1
-    
-    # Check that the optimization method is correct
-    assert program.iterative_generator_type.__name__ == "SequentialGenerator"
-
-
 def test_parser_registry_completeness():
     """
     Test that all expected generators and constraints are registered in the parser.
@@ -351,7 +279,7 @@ def test_parser_registry_completeness():
     # Check optimization method registry
     expected_optimization_methods = [
         "mcmc",
-        "sequential"
+        "beam-search"
     ]
     
     for opt_key in expected_optimization_methods:

@@ -26,7 +26,6 @@ from .language.generator import (
     Evo2Generator,
     ESM2Generator,
     MCMCGenerator,
-    SequentialGenerator,
     BeamSearchGenerator,
 )
 from .language.base import Program
@@ -93,7 +92,6 @@ __all__ = [
     "Evo2Generator",
     "ESM2Generator",
     "MCMCGenerator",
-    "SequentialGenerator",
     "BeamSearchGenerator",
     # Tools
     "ToolCache",

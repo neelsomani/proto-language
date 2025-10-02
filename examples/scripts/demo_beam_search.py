@@ -1,7 +1,7 @@
 """
 Demo script for BeamSearchGenerator.
 
-This script demonstrates how sequential beam search works with multiple segments
+This script demonstrates how beam search works with multiple segments
 using simplified generators that generate one character at a time.
 
 Usage:
@@ -167,7 +167,7 @@ Examples:
     args = parser.parse_args()
     
     print("=" * 60)
-    print("SEQUENTIAL BEAM SEARCH DEMO - MULTI-SEGMENT")
+    print("BEAM SEARCH DEMO - MULTI-SEGMENT")
     print("=" * 60)
     print()
     
@@ -223,7 +223,7 @@ Examples:
         scoring_function_config={}
     )
     
-    # Create sequential beam search generator
+    # Create beam search generator
     beam_gen = BeamSearchGenerator(
         constructs=[construct],
         generators=generators,  # Include all generators
@@ -233,7 +233,7 @@ Examples:
         verbose=True  # Enable verbose logging
     )
     
-    print("Starting sequential beam search...")
+    print("Starting beam search...")
     print()
     
     # Run beam search steps

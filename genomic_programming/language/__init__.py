@@ -26,7 +26,6 @@ from .generator import (
     ESM3Generator,
     SlowMutationGenerator,
     MCMCGenerator,
-    SequentialGenerator,
     ChainedGenerator,
     BeamSearchGenerator,
 )
@@ -50,7 +49,6 @@ __all__ = [
     "ESM3Generator",
     "SlowMutationGenerator",
     "MCMCGenerator",
-    "SequentialGenerator",
     "ChainedGenerator",
     "BeamSearchGenerator",
     # Program

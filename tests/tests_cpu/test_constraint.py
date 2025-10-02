@@ -1352,7 +1352,7 @@ class TestConstraintConfigNormalization:
                 "targets": ["protein_segment"]
             }],
             "optimization": {
-                "method": "sequential",
+                "method": "mcmc",
                 "num_steps": 1
             }
         }

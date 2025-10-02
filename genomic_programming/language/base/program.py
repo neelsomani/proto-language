@@ -10,8 +10,8 @@ class Program:
     """
     Programs represent user-defined biological designs.
 
-    This class is a user-friendly wrapper around iterative generators like MCMC and
-    Sequential generators. It provides a simplified interface for setting up and
+    This class is a user-friendly wrapper around iterative generators like MCMC.
+    It provides a simplified interface for setting up and
     running sequence optimization workflows with constructs, generators, and constraints.
 
     Examples:
@@ -44,7 +44,7 @@ class Program:
         Initialize a Program with an iterative generator class and its dependencies.
 
         Args:
-            iterative_generator_type: The IterativeGenerator class to use (e.g., MCMCGenerator, SequentialGenerator).
+            iterative_generator_type: The IterativeGenerator class to use (e.g., MCMCGenerator).
             constructs: List of Construct objects to optimize.
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
@@ -126,7 +126,7 @@ class Program:
             raise ValueError(
                 f"iterative_generator_type must be a subclass of IterativeGenerator, "
                 f"got {self.iterative_generator_type}. "
-                f"Available options include MCMCGenerator, SequentialGenerator, BeamSearchGenerator."
+                f"Available options include MCMCGenerator and BeamSearchGenerator."
             )
 
     def run(self) -> None:

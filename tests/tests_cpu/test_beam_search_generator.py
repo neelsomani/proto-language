@@ -163,7 +163,7 @@ class TestBeamSearchGenerator:
             scoring_function_config={}
         )
         
-        # Create sequential beam search generator with same parameters
+        # Create beam search generator with same parameters
         beam_gen = BeamSearchGenerator(
             constructs=[construct],
             generators=generators,

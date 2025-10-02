@@ -16,10 +16,10 @@ class BeamSearchGenerator(IterativeGenerator):
     """
     Beam search generator that processes segments sequentially with context accumulation.
     
-    This generator implements a sequential beam search where:
+    This generator implements a beam search where:
     1. Segments are processed one at a time, in order
     2. For each segment, the top K sequences accumulated from previous segments are used as prompts
-    3. Generators are applied sequentially within each segment to generate num_candidates
+    3. Generators are applied within each segment to generate num_candidates
     4. Constraints are evaluated on concatenated sequences after each segment
     5. Top K combinations are selected and used as prompts for the next segment
     
@@ -425,10 +425,10 @@ class BeamSearchGenerator(IterativeGenerator):
     
     def sample(self) -> List[Construct]:
         """
-        Run sequential beam search across all segments with context accumulation.
+        Run beam search across all segments with context accumulation.
         
         This method implements the core beam search algorithm by processing segments
-        sequentially and maintaining beams of the most promising sequence combinations.
+        maintaining beams of the most promising sequence combinations.
         
         **Beam Search Process:**
         1. For each segment, use accumulated sequences from previous segments as prompts
@@ -453,7 +453,7 @@ class BeamSearchGenerator(IterativeGenerator):
         """
         for construct in self.constructs:
             if self.verbose:
-                print(f"Processing {len(construct.segments)} segments with sequential beam search")
+                print(f"Processing {len(construct.segments)} segments with beam search")
             
             # Initialize beam candidates for the first segment
             # Use existing beam candidates from previous sample if available, otherwise start with empty sequences
@@ -668,7 +668,7 @@ class BeamSearchGenerator(IterativeGenerator):
             for acc_idx, beam_sequence in enumerate(beam_candidates):
                 combination = {}
                 
-                # For sequential beam search, each segment gets its own extended sequence
+                # For beam search, each segment gets its own extended sequence
                 # We need to extract each segment's contribution from the accumulated sequence
                 current_pos = 0
                 for seg_idx, segment in enumerate(construct.segments):
@@ -726,7 +726,7 @@ class BeamSearchGenerator(IterativeGenerator):
         return self.constructs
     
     def _log_progress(self) -> None:
-        """Log current sequential beam search progress."""
+        """Log current beam search progress."""
         total_candidates = 0
         total_energy = 0.0
         

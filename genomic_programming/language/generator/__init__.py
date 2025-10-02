@@ -10,7 +10,6 @@ This module provides concrete implementations of sequence generation algorithms:
 - ESM3Generator: ESM-3 protein language model generation
 - SlowMutationGenerator: Slow mutations for testing
 - MCMCGenerator: Metropolis-Hastings MCMC optimization
-- SequentialGenerator: Sequential generator chaining
 - ChainedGenerator: Pipeline orchestrator for multiple stages
 - BeamSearchGenerator: Beam search optimization
 """
@@ -23,7 +22,6 @@ from .esm2 import ESM2Generator
 from .esm3 import ESM3Generator
 from .slow_mutation import SlowMutationGenerator
 from .mcmc import MCMCGenerator
-from .sequential import SequentialGenerator
 from .chained import ChainedGenerator
 from .beam_search import BeamSearchGenerator
 
@@ -36,7 +34,6 @@ __all__ = [
     "ESM3Generator",
     "SlowMutationGenerator",
     "MCMCGenerator",
-    "SequentialGenerator",
     "ChainedGenerator",
     "BeamSearchGenerator",
 ]

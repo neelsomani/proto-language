@@ -5,6 +5,7 @@ Specialized generator for iterative optimization with energy-based evaluation.
 """
 
 import copy
+import warnings
 from abc import abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -31,6 +32,7 @@ class IterativeGenerator(Generator):
         generators: List[Generator],
         constraints: List[Constraint],
         constraint_weights: Optional[List[float]] = None,
+        batch_size: int = 1,
         **hyperparameters: Any,
     ) -> None:
         """
@@ -41,15 +43,28 @@ class IterativeGenerator(Generator):
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
+            batch_size: Number of sequence variants to generate simultaneously.
             **hyperparameters: Additional configuration parameters.
         """
-        super().__init__(**hyperparameters)
+        super().__init__(batch_size=batch_size, **hyperparameters)
         self.constructs = constructs
         self.generators = generators
         self.constraints = constraints
         self.constraint_weights = constraint_weights or [1.0] * len(constraints)
         self.history: List[Dict[str, Any]] = []  # Each entry: {"time_step": int, "energy_scores": List[float], "constructs": List[Construct]}
         self.energy_scores: List[float] = []  # Each index corresponds to a batch element, empty until first score_energy() call
+
+        # Any batch_size specified during sub-generator construction is overwritten
+        for i, gen in enumerate(self.generators):
+            if gen.batch_size != self.batch_size:
+                warnings.warn(
+                    f"Generator {i} ({gen.__class__.__name__}) was initialized with batch_size={gen.batch_size}, "
+                    f"but IterativeGenerator is overwriting it to batch_size={self.batch_size}. "
+                    f"To avoid this warning, do not specify batch_size when creating sub-generators for IterativeGenerator.",
+                    UserWarning,
+                    stacklevel=2
+                )
+            gen.batch_size = self.batch_size
 
         # Set self._generator_outputs to be a flat tuple of all Segment objects from all sub-generators
         self._generator_outputs = tuple(

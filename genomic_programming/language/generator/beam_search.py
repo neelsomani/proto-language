@@ -68,11 +68,13 @@ class BeamSearchGenerator(IterativeGenerator):
         if len(constructs) > 1:
             raise ValueError(f"BeamSearchGenerator only supports a single construct, but {len(constructs)} constructs were provided")
         
+        # BeamSearchGenerator uses beam_width as its batch_size
         super().__init__(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
             constraint_weights=constraint_weights,
+            batch_size=beam_width,
         )
         
         self.beam_width = beam_width
@@ -101,12 +103,10 @@ class BeamSearchGenerator(IterativeGenerator):
     
     def _recreate_constraints_with_correct_batch_size(self) -> None:
         """Recreate constraints with the correct batch size after segments have been adjusted."""
-        # Get the actual batch size from segments (should be beam_width)
-        actual_batch_size = len(self.constructs[0].segments[0].batch_sequences)
-        
-        # Adjust the batch_size of each constraint.
-        for constraint in self.constraints:
-            constraint.batch_size = actual_batch_size
+        # Note: Constraints now dynamically compute batch_size from their input segments,
+        # so no manual adjustment is needed. This method is kept for backwards compatibility
+        # but is now a no-op.
+        pass
     
     def _generate_candidates_for_segment_with_prompts(self, segment: Segment, prompts: List[str]) -> List[Sequence]:
         """

@@ -7,7 +7,8 @@
     "num_steps": 5,
     "track_step_size": 1,
     "temperature": 1.5,
-    "temperature_min": 0.5
+    "temperature_min": 0.5,
+    "batch_size": 4
   },
   "constructs": [
     {
@@ -111,7 +112,6 @@
       "id": "gen_promoter",
       "key": "uniform-mutation",
       "config": {
-        "batch_size": 4,
         "sequence_length": 10,
         "mutation_rate": 0.2
       },
@@ -121,7 +121,6 @@
       "id": "gen_gene",
       "key": "uniform-mutation",
       "config": {
-        "batch_size": 4,
         "sequence_length": 12,
         "mutation_rate": 0.15
       },
@@ -131,7 +130,6 @@
       "id": "gen_terminator",
       "key": "uniform-mutation",
       "config": {
-        "batch_size": 4,
         "sequence_length": 8,
         "mutation_rate": 0.25
       },
@@ -141,7 +139,6 @@
       "id": "gen_enhancer",
       "key": "uniform-mutation",
       "config": {
-        "batch_size": 4,
         "sequence_length": 10,
         "mutation_rate": 0.2
       },
@@ -151,7 +148,6 @@
       "id": "gen_coding",
       "key": "uniform-mutation",
       "config": {
-        "batch_size": 4,
         "sequence_length": 10,
         "mutation_rate": 0.15
       },

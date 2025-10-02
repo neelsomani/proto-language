@@ -37,7 +37,7 @@ class TestEvo2Generator:
         assert evo2_generator._is_initialized
         assert evo2_generator._generator_output is segment
         assert segment._is_assigned
-        assert len(segment) == 1
+        assert segment.batch_size == 1
 
         # Sample and check results
         evo2_generator.sample()
@@ -63,7 +63,7 @@ class TestEvo2Generator:
         assert evo2_generator._is_initialized
         assert evo2_generator._generator_output is segment
         assert segment._is_assigned
-        assert len(segment) == batch_size
+        assert segment.batch_size == batch_size
 
         # Sample and check results
         evo2_generator.sample()

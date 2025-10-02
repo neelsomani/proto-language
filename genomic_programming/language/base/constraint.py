@@ -79,7 +79,6 @@ class Constraint:
         self._validate_input_consistency(self.inputs)
         self.sequence_type = self.inputs[0].sequence_type
         self.valid_chars = self.inputs[0]._valid_chars
-        self.batch_size = len(self.inputs[0].batch_sequences)
 
     def _normalize_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -138,7 +137,7 @@ class Constraint:
         # Note: Metadata isn't propagated to dummy sequences since scoring functions won't use it.
         if self.constraint_type == ConstraintType.CONTIGUOUS:
             # Join sequences without metadata propagation (dummy sequences for scoring)
-            for batch_position in range(self.batch_size):
+            for batch_position in range(self.inputs[0].batch_size):
                 sequences_to_combine = [segment.batch_sequences[batch_position] for segment in self.inputs] # [Sequence("A"), Sequence("T"), Sequence("C"), Sequence("G")]
                 dummy_seq = Sequence.from_sequences(
                     subsequences=sequences_to_combine,
@@ -150,7 +149,7 @@ class Constraint:
         #          → [(Seq("AAA"), Seq("CCC")), (Seq("TTT"), Seq("AAC")), (Seq("GGG"), Seq("TTC"))]
         # Note: Create dummy sequences without old metadata, similar to CONTIGUOUS case
         elif self.constraint_type == ConstraintType.DISJOINT:
-            for batch_idx in range(self.batch_size):
+            for batch_idx in range(self.inputs[0].batch_size):
                 # Create clean sequences for scoring (without old metadata)
                 clean_sequences = []
                 for segment in self.inputs:

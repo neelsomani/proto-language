@@ -47,7 +47,7 @@ class TestUniformMutationGenerator:
         assert gen._is_initialized
         assert gen._generator_output is segment
         assert segment._is_assigned
-        assert len(segment) == 3
+        assert segment.batch_size == 3
         assert len(segment[0]) == seq_len
         assert all(c in "ACGU" for c in segment[0].sequence)
 
@@ -312,6 +312,7 @@ def _setup_mcmc_components(
         constructs=[construct],
         generators=[proposal_gen],
         constraints=[constraint],
+        batch_size=batch_size,
         num_steps=num_mcmc_steps,
         verbose=False,
     )
@@ -449,6 +450,7 @@ class TestMCMCGenerator:
             generators=[proposal_gen],
             constraints=[gc_con, len_con],
             constraint_weights=[1.0, 2.0], # Weight length more
+            batch_size=1,
             num_steps=1,
             verbose=False,
         )
@@ -502,6 +504,7 @@ class TestMCMCGenerator:
             constructs=[construct],
             generators=[mut_gen, inv_gen],
             constraints=[constraint],
+            batch_size=1,
             num_steps=20,
             verbose=False,
         )
@@ -520,13 +523,14 @@ class TestMCMCGenerator:
 
     def test_topk_initialization(self):
         """Tests initialization of top-k MCMC with various top_k values."""
-        mcmc_gen, _, _, _ = _setup_mcmc_components(batch_size=10)
+        batch_size = 10
+        mcmc_gen, _, _, _ = _setup_mcmc_components(batch_size=batch_size)
         
         # Test top_k=1 (standard MCMC)
         assert mcmc_gen.top_k == 1
         
         # Test top_k > 1
-        mcmc_gen_topk, proposal_gen, constraint, segment = _setup_mcmc_components(batch_size=10)
+        mcmc_gen_topk, proposal_gen, constraint, segment = _setup_mcmc_components(batch_size=batch_size)
         mcmc_gen_topk.top_k = 5
         mcmc_gen_topk._validate_generator()
         
@@ -536,6 +540,7 @@ class TestMCMCGenerator:
                 constructs=mcmc_gen.constructs,
                 generators=mcmc_gen.generators,
                 constraints=mcmc_gen.constraints,
+                batch_size=batch_size,
                 top_k=0
             )
         
@@ -544,6 +549,7 @@ class TestMCMCGenerator:
                 constructs=mcmc_gen.constructs,
                 generators=mcmc_gen.generators,
                 constraints=mcmc_gen.constraints,
+                batch_size=batch_size,
                 top_k=-1
             )
 
@@ -560,6 +566,7 @@ class TestMCMCGenerator:
             constructs=mcmc_gen.constructs,
             generators=[proposal_gen],
             constraints=[constraint],
+            batch_size=batch_size,
             num_steps=1,
             verbose=False,
             top_k=top_k
@@ -574,7 +581,8 @@ class TestMCMCGenerator:
         expected_batch_size = batch_size * top_k
         assert proposal_gen.batch_size == expected_batch_size
         assert len(segment.batch_sequences) == expected_batch_size
-        assert constraint.batch_size == expected_batch_size
+        # Constraint batch_size is now computed dynamically from input segments
+        assert segment.batch_size == expected_batch_size
 
     def test_topk_maintains_k_parents(self):
         """Tests that top-k MCMC maintains exactly k parent sequences."""
@@ -603,6 +611,7 @@ class TestMCMCGenerator:
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
+            batch_size=batch_size,
             num_steps=20,
             temperature=1.0,
             temperature_min=0.01,
@@ -655,6 +664,7 @@ class TestMCMCGenerator:
             constructs=[Construct([segment1])],
             generators=[gen1],
             constraints=[constraint1],
+            batch_size=batch_size,
             num_steps=num_steps,
             verbose=False,
             top_k=1  # Explicit top_k=1
@@ -665,6 +675,7 @@ class TestMCMCGenerator:
             constructs=[Construct([segment2])],
             generators=[gen2],
             constraints=[constraint2],
+            batch_size=batch_size,
             num_steps=num_steps,
             verbose=False,
             top_k=1
@@ -708,6 +719,7 @@ class TestMCMCGenerator:
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
+            batch_size=batch_size,
             num_steps=50,
             temperature=5.0,
             temperature_min=0.1,
@@ -764,6 +776,7 @@ class TestMCMCGenerator:
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
+            batch_size=batch_size,
             num_steps=10,
             temperature=0.001,  # Very low = almost no acceptances
             temperature_min=0.0001,
@@ -794,6 +807,7 @@ class TestMCMCGenerator:
             constructs=mcmc_gen.constructs,
             generators=mcmc_gen.generators,
             constraints=mcmc_gen.constraints,
+            batch_size=batch_size,
             num_steps=num_steps,
             track_step_size=track_step_size,
             verbose=False,
@@ -829,6 +843,7 @@ class TestMCMCGenerator:
             constructs=mcmc_gen.constructs,
             generators=mcmc_gen.generators,
             constraints=mcmc_gen.constraints,
+            batch_size=batch_size,
             num_steps=num_steps,
             track_step_size=track_step_size,
             verbose=False,
@@ -997,6 +1012,7 @@ class TestMCMCGenerator:
             generators=[proposal_gen],
             constraints=[gc_constraint, length_constraint],
             constraint_weights=[1.0, 2.0],
+            batch_size=batch_size,
             num_steps=30,
             verbose=False,
             top_k=top_k
@@ -1048,6 +1064,7 @@ class TestMCMCGenerator:
             constraints=[constraint],
             num_steps=1,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1110,6 +1127,7 @@ class TestMCMCGenerator:
             constraints=[constraint],
             num_steps=1,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1185,6 +1203,7 @@ class TestMCMCGenerator:
             constraints=[constraint],
             num_steps=5,  # Multiple iterations
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1260,6 +1279,7 @@ class TestMCMCGenerator:
             temperature=0.001,  # Very low = almost no acceptances of worse sequences
             temperature_min=0.0001,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1312,6 +1332,7 @@ class TestMCMCGenerator:
             temperature=2.0,
             temperature_min=0.1,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1362,6 +1383,7 @@ class TestMCMCGenerator:
             temperature=1.5,
             temperature_min=0.1,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1407,6 +1429,7 @@ class TestMCMCGenerator:
             constraints=[constraint],
             num_steps=10,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1451,6 +1474,7 @@ class TestMCMCGenerator:
             temperature=0.00001,  # Extremely low = no bad acceptances
             temperature_min=0.000001,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1492,6 +1516,7 @@ class TestMCMCGenerator:
             temperature=0.5,  # Low temp = greedy
             temperature_min=0.01,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1548,6 +1573,7 @@ class TestMCMCGenerator:
             temperature=5.0,  # High temp = accept most proposals
             temperature_min=1.0,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1602,6 +1628,7 @@ class TestMCMCGenerator:
             temperature=1.0,
             temperature_min=0.1,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1645,6 +1672,7 @@ class TestMCMCGenerator:
             temperature=2.0,
             temperature_min=0.01,  # Anneal to greedy
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1693,6 +1721,7 @@ class TestMCMCGenerator:
             temperature=1.0,
             temperature_min=0.01,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1752,6 +1781,7 @@ class TestMCMCGenerator:
             num_steps=1,
             temperature=0.001,  # Very low temp → reject bad moves
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1851,6 +1881,7 @@ class TestMCMCGenerator:
             num_steps=1,
             temperature=1.0,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1917,6 +1948,7 @@ class TestMCMCGenerator:
             num_steps=1,
             temperature=0.001,  # Low temp → reject mutations
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -1978,6 +2010,7 @@ class TestMCMCGenerator:
             num_steps=1,
             temperature=1.0,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -2045,6 +2078,7 @@ class TestMCMCGenerator:
             num_steps=1,
             temperature=10.0,
             verbose=False,
+            batch_size=batch_size,
             top_k=top_k
         )
         
@@ -2184,12 +2218,13 @@ class TestChainedGenerator:
         with pytest.raises(ValueError, match="must be an IterativeGenerator"):
             ChainedGenerator([gen1], verbose=False)  # gen1 is not an IterativeGenerator
         
-        # Test mismatched batch sizes
+        # Test mismatched batch sizes between stages
         stage1 = MCMCGenerator(
             constructs=[construct1],
             generators=[gen1],
             constraints=[constraint1],
             num_steps=2,
+            batch_size=1,  # Explicitly set batch_size for stage1
             verbose=False
         )
         
@@ -2201,6 +2236,7 @@ class TestChainedGenerator:
             generators=[gen2_different_batch],
             constraints=[constraint2],
             num_steps=3,
+            batch_size=3,  # Explicitly set different batch_size for stage2
             verbose=False
         )
         

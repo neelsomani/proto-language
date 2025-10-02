@@ -71,9 +71,9 @@ def test_sequence_validation():
 def test_segment_batching():
     """Tests batch creation for Segment."""
     segment = create_segment("ATCG")
-    assert len(segment) == 1
+    assert segment.batch_size == 1
     segment.create_batch(5)
-    assert len(segment) == 5
+    assert segment.batch_size == 5
     assert all(s.sequence == "ATCG" for s in segment.batch_sequences)
     segment.batch_sequences[0].sequence = "GGGG"
     assert segment.batch_sequences[0].sequence == "GGGG"

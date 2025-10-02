@@ -66,6 +66,7 @@ class MCMCGenerator(IterativeGenerator):
         generators: List[Generator],
         constraints: List[Constraint],
         constraint_weights: Optional[List[float]] = None,
+        batch_size: int = 1,
         num_steps: int = 1,
         temperature: float = 1.0,
         temperature_min: float = 0.0001,
@@ -82,6 +83,7 @@ class MCMCGenerator(IterativeGenerator):
             generators: List of Generator objects to generate sequences.
             constraints: List of Constraint objects to evaluate sequences.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
+            batch_size: Number of sequence variants to generate simultaneously.
             num_steps: Number of MCMC steps per sample() call.
             temperature: Maximum temperature for annealing.
             temperature_min: Minimum temperature for annealing.
@@ -102,6 +104,7 @@ class MCMCGenerator(IterativeGenerator):
             generators=generators,
             constraints=constraints,
             constraint_weights=constraint_weights,
+            batch_size=batch_size,
         )
         self.num_steps: int = num_steps
         self.temperature: float = temperature
@@ -141,10 +144,9 @@ class MCMCGenerator(IterativeGenerator):
             raise ValueError(f"top_k must be at least 1, got {self.top_k}")
         
         # Validate top_k <= batch_size
-        initial_batch_size = self.generators[0].batch_size
-        if self.top_k > initial_batch_size:
+        if self.top_k > self.batch_size:
             raise ValueError(
-                f"top_k ({self.top_k}) cannot be greater than batch_size ({initial_batch_size}). "
+                f"top_k ({self.top_k}) cannot be greater than batch_size ({self.batch_size}). "
                 f"top_k must be ≤ batch_size to ensure unique initial parent sequences."
             )
 
@@ -212,7 +214,7 @@ class MCMCGenerator(IterativeGenerator):
         Returns:
             proposals_per_parent: Number of proposals to generate per parent sequence.
         """
-        proposals_per_parent = self.generators[0].batch_size
+        proposals_per_parent = self.batch_size
         expanded_batch_size = proposals_per_parent * self.top_k
         
         if self.verbose:
@@ -225,9 +227,6 @@ class MCMCGenerator(IterativeGenerator):
         
         for segment in self.get_generator_outputs():
             segment.create_batch(expanded_batch_size)
-        
-        for constraint in self.constraints:
-            constraint.batch_size = expanded_batch_size
         
         self.score_energy()
         return proposals_per_parent

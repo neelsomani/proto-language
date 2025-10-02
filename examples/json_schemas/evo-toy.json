@@ -6,7 +6,8 @@
         "method": "mcmc",
         "num_steps": 10,
         "track_step_size": 1,
-        "temperature": 1.0
+        "temperature": 1.0,
+        "batch_size": 1
     },
     "constructs": [
       {
@@ -39,7 +40,6 @@
           "evo2_type": "evo2_7b",
           "sequence_length": 100,
           "temperature": 0.8,
-          "batch_size": 1,
           "prepend_prompt": true
         },
         "targets": ["construct1-segment1"]

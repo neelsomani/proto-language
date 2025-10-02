@@ -112,7 +112,7 @@ class TestESM2Generator:
         segment = create_segment("", seq_type=SequenceType.PROTEIN)
         esm2_generator.assign(segment)
         
-        assert len(segment) == batch_size
+        assert segment.batch_size == batch_size
         assert esm2_generator._is_initialized
 
         # Sample and check results

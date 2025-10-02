@@ -88,7 +88,7 @@ class Construct:
         # Join corresponding sequences from each segment with metadata propagation
         # Example: [Seq("AAA"), Seq("TTT"), Seq("GGG")] → [Sequence("AAATTTGGG")]
         joined_sequences = []
-        batch_size = len(self.segments[0].batch_sequences)
+        batch_size = self.segments[0].batch_size
         
         for batch_position in range(batch_size):
             sequences_to_combine = [segment.batch_sequences[batch_position] for segment in self.segments]

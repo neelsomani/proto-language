@@ -14,11 +14,10 @@ from proto_language.language.base import Segment, Generator
 class MockAutoregressiveGenerator(Generator):
     """Mock extension-based generator that predicts next base pair using state transition probabilities."""
     
-    def __init__(self, sequence_length: int = 10, prepend_prompt: bool = True, random_seed: int = None):
+    def __init__(self, sequence_length: int = 10, prepend_prompt: bool = True, random_seed: int = None, batch_size: int = 1):
+        super().__init__(batch_size=batch_size)
         self.sequence_length = sequence_length
         self.prepend_prompt = prepend_prompt
-        self._is_initialized = False
-        self._generator_output = None
         self.prompt_seqs = None
         self.random_seed = random_seed
         

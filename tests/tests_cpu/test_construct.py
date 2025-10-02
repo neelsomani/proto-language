@@ -61,7 +61,7 @@ class TestSegment:
         segment = Segment("ATCG", SequenceType.DNA)
         assert isinstance(segment, Segment)
         assert len(segment.batch_sequences) == 1
-        assert len(segment) == 1
+        assert segment.batch_size == 1
         assert segment[0].sequence == "ATCG"
         assert segment.sequence_type == SequenceType.DNA
 
@@ -69,7 +69,7 @@ class TestSegment:
         """Tests that create_batch replicates the initial sequence."""
         segment = Segment("ATCG", SequenceType.DNA, metadata={"source": "original"})
         segment.create_batch(5)
-        assert len(segment) == 5
+        assert segment.batch_size == 5
         for i in range(5):
             assert segment[i].sequence == "ATCG"
             assert segment[i]._metadata["source"] == "original"

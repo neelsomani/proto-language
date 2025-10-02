@@ -63,7 +63,8 @@ class Segment:
             copy.deepcopy(self.batch_sequences[0]) for _ in range(batch_size)
         ]
 
-    def __len__(self) -> int:
+    @property
+    def batch_size(self) -> int:
         """
         Get the batch size of the Segment.
 

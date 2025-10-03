@@ -13,17 +13,25 @@ def toy_json():
 @pytest.fixture(scope="session")
 def comprehensive_darwin_json():
     """
-    Comprehensive Darwin JSON that includes all registered generators and constraints.
+    Comprehensive Darwin JSON that tests various edge cases:
+    - Multiple constructs (DNA and protein)
+    - Multiple segments per construct
+    - Multiple generators assigned to the same segment
+    - Mix of DNA and protein constraints
+    - Proper batch_size at optimization level (not generator level)
     """
     return {
         "name": "comprehensive_darwin_test",
-        "description": "Test all generators and constraints registered in the parser",
+        "description": "Comprehensive test covering all generators, constraints, and edge cases",
         "version": "1.0",
         "optimization": {
             "method": "mcmc",
             "num_steps": 5,
+            "batch_size": 4,
+            "num_candidates": 8,
             "track_step_size": 1,
-            "temperature": 1.0
+            "temperature": 1.0,
+            "temperature_min": 0.001
         },
         "constructs": [
             {
@@ -31,7 +39,12 @@ def comprehensive_darwin_json():
                 "type": "dna",
                 "segments": [
                     {
-                        "id": "dna_segment1"
+                        "id": "dna_segment1",
+                        "initial_sequence": "ATCGATCG"
+                    },
+                    {
+                        "id": "dna_segment2",
+                        "initial_sequence": "GCTAGCTA"
                     }
                 ]
             },
@@ -40,14 +53,16 @@ def comprehensive_darwin_json():
                 "type": "protein",
                 "segments": [
                     {
-                        "id": "protein_segment1"
+                        "id": "protein_segment1",
+                        "initial_sequence": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEV"
                     }
                 ]
             }
         ],
         "constraints": [
+            # DNA constraints on segment 1
             {
-                "id": "gc_content_constraint",
+                "id": "gc_content_constraint_seg1",
                 "key": "gc-content",
                 "config": {
                     "min_gc": 40.0,
@@ -56,7 +71,7 @@ def comprehensive_darwin_json():
                 "targets": ["dna_segment1"]
             },
             {
-                "id": "sequence_length_constraint",
+                "id": "sequence_length_constraint_seg1",
                 "key": "sequence-length",
                 "config": {
                     "target_length": 100
@@ -64,32 +79,52 @@ def comprehensive_darwin_json():
                 "targets": ["dna_segment1"]
             },
             {
-                "id": "max_homopolymer_constraint",
+                "id": "max_homopolymer_constraint_seg1",
                 "key": "max-homopolymer",
                 "config": {
                     "max_length": 3
                 },
                 "targets": ["dna_segment1"]
             },
+            # DNA constraints on segment 2
             {
-                "id": "dinucleotide_frequency_constraint",
+                "id": "gc_content_constraint_seg2",
+                "key": "gc-content",
+                "config": {
+                    "min_gc": 45.0,
+                    "max_gc": 55.0
+                },
+                "targets": ["dna_segment2"]
+            },
+            {
+                "id": "dinucleotide_frequency_constraint_seg2",
                 "key": "dinucleotide-frequency",
                 "config": {
                     "min_freq": 0.0,
                     "max_freq": 0.3
                 },
-                "targets": ["dna_segment1"]
+                "targets": ["dna_segment2"]
             },
             {
-                "id": "tetranucleotide_usage_constraint",
+                "id": "tetranucleotide_usage_constraint_seg2",
                 "key": "tetranucleotide-usage",
                 "config": {
                     "tetranucleotide": "ATCG",
                     "min_tud": 0.5,
                     "max_tud": 2.0
                 },
-                "targets": ["dna_segment1"]
+                "targets": ["dna_segment2"]
             },
+            # Multi-segment constraint (tests constraint spanning multiple segments)
+            {
+                "id": "multi_segment_length_constraint",
+                "key": "sequence-length",
+                "config": {
+                    "target_length": 200
+                },
+                "targets": ["dna_segment1", "dna_segment2"]
+            },
+            # Protein constraints
             {
                 "id": "esmfold_plddt_constraint",
                 "key": "esmfold-plddt",
@@ -125,21 +160,38 @@ def comprehensive_darwin_json():
             }
         ],
         "generators": [
+            # Generator for dna_segment1
             {
-                "id": "uniform_mutation_generator",
+                "id": "dna_seg1_generator",
                 "key": "uniform-mutation",
                 "config": {
-                    "batch_size": 2,
                     "sequence_length": 100
                 },
                 "targets": ["dna_segment1"]
             },
+            # Two generators for dna_segment2 (tests multiple generators on same segment)
             {
-                "id": "protein_mutation_generator",
+                "id": "dna_seg2_generator_1",
                 "key": "uniform-mutation",
                 "config": {
-                    "batch_size": 2,
                     "sequence_length": 50
+                },
+                "targets": ["dna_segment2"]
+            },
+            {
+                "id": "dna_seg2_generator_2",
+                "key": "uniform-mutation",
+                "config": {
+                    "sequence_length": 50
+                },
+                "targets": ["dna_segment2"]
+            },
+            # Generator for protein segment
+            {
+                "id": "protein_generator",
+                "key": "uniform-mutation",
+                "config": {
+                    "sequence_length": 33
                 },
                 "targets": ["protein_segment1"]
             }
@@ -204,7 +256,6 @@ def orfipy_mmseqs_darwin_json():
                 "id": "uniform_mutation_generator",
                 "key": "uniform-mutation",
                 "config": {
-                    "batch_size": 2,
                     "sequence_length": 200
                 },
                 "targets": ["dna_segment1"]
@@ -227,21 +278,52 @@ def test_darwin_parser_runs(toy_json):
 def test_comprehensive_darwin_parser_parse(comprehensive_darwin_json):
     """
     Test that the comprehensive Darwin JSON can be parsed successfully.
+    This test validates:
+    - Multiple constructs (DNA and protein)
+    - Multiple segments per construct (DNA has 2 segments)
+    - Multiple generators on the same segment (dna_segment2 has 2 generators)
+    - Multi-segment constraints (constraint spanning both DNA segments)
+    - Proper batch_size configuration at optimization level
     """
     parser = DarwinParser(comprehensive_darwin_json)
     program = parser.parse()
     
     # Check that we have the expected number of constructs
-    assert len(program.constructs) == 2
+    assert len(program.constructs) == 2, f"Expected 2 constructs, got {len(program.constructs)}"
     
-    # Check that we have the expected number of generators
-    assert len(program.generators) == 2
+    # Check construct types
+    assert program.constructs[0].segments[0].sequence_type.value == "dna"
+    assert program.constructs[1].segments[0].sequence_type.value == "protein"
     
-    # Check that we have the expected number of constraints
-    assert len(program.constraints) == 9
+    # Check that DNA construct has 2 segments
+    assert len(program.constructs[0].segments) == 2, f"Expected DNA construct to have 2 segments, got {len(program.constructs[0].segments)}"
+    
+    # Check that protein construct has 1 segment
+    assert len(program.constructs[1].segments) == 1, f"Expected protein construct to have 1 segment, got {len(program.constructs[1].segments)}"
+    
+    # Check that we have the expected number of generators (4 total: 1 for seg1, 2 for seg2, 1 for protein)
+    assert len(program.generators) == 4, f"Expected 4 generators, got {len(program.generators)}"
+    
+    # Check that we have the expected number of constraints (11 total: 7 DNA + 4 protein)
+    assert len(program.constraints) == 11, f"Expected 11 constraints, got {len(program.constraints)}"
     
     # Check that the optimization method is correct
     assert program.iterative_generator_type.__name__ == "MCMCGenerator"
+    
+    # Check that batch_size is set correctly at the MCMC level (not generator level)
+    assert program.ebm.batch_size == 4, f"Expected batch_size=4, got {program.ebm.batch_size}"
+    
+    # Verify that all generators have the correct batch_size (should be overridden by MCMC)
+    for gen in program.generators:
+        assert gen.batch_size == 4, f"Generator {gen.__class__.__name__} should have batch_size=4, got {gen.batch_size}"
+    
+    # Verify that segments have been batched correctly
+    for construct in program.constructs:
+        for segment in construct.segments:
+            assert len(segment.batch_sequences) == 4, f"Each segment should have batch_size=4 sequences, got {len(segment.batch_sequences)}"
+            # Verify all batch sequences have content
+            for batch_seq in segment.batch_sequences:
+                assert len(batch_seq.sequence) > 0, "Batch sequences should not be empty"
 
 
 def test_parser_registry_completeness():

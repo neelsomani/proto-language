@@ -145,16 +145,11 @@ class ChainedGenerator:
                     f"Stage {i} must be an IterativeGenerator, got {type(stage).__name__}"
                 )
         
-        # Check batch size consistency by looking at the generators within each stage
+        # Check batch size consistency by looking at each stage's batch_size
         batch_sizes = []
         for stage in self.generator_stages:
-            if hasattr(stage, 'generators') and stage.generators:
-                # Get batch size from the first generator in the stage
-                stage_batch_size = stage.generators[0].batch_size
-                batch_sizes.append(stage_batch_size)
-            else:
-                # If no generators, use a default or skip this check
-                batch_sizes.append(1)
+            # IterativeGenerator has a batch_size attribute
+            batch_sizes.append(stage.batch_size)
         
         if len(set(batch_sizes)) > 1:
             raise ValueError(

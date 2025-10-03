@@ -21,6 +21,12 @@ MAX_EXP_ARG = 700.0
 class MCMCGenerator(IterativeGenerator):
     """
     Metropolis-Hastings MCMC generator for constraint-driven sequence optimization.
+    
+    Batch Size & Candidates Semantics:
+        - `batch_size` specifies how many sequences to maintain (default: 1)
+        - `num_candidates` defaults to `batch_size` for balanced exploration
+        - At each step: expand to (batch_size x num_candidates) proposals, then trim back to batch_size
+        - Total proposals per step = batch_size x num_candidates
 
     This generator implements a Metropolis-Hastings sampling algorithm that uses
     multiple sub-generators as proposal distributions and constraints to define
@@ -31,33 +37,44 @@ class MCMCGenerator(IterativeGenerator):
     and flexible sequence concatenation for complex multi-part designs.
 
     Examples:
-        Basic MCMC optimization:
+        Basic MCMC optimization (single chain):
         >>> constructs = [Construct([segment1, segment2])]
         >>> mcmc = MCMCGenerator(
         ...     constructs=constructs,
         ...     generators=[evo2_gen, mutation_gen],
         ...     constraints=[gc_constraint, homopolymer_constraint],
-        ...     constraint_weights=[1.0, 2.0],  # Weight homopolymer constraint more
+        ...     constraint_weights=[1.0, 2.0],
         ...     num_steps=100,
-        ...     temperature=0.5,  # More greedy sampling
+        ...     temperature=0.5,
         ...     temperature_min=0.001
         ... )
-        >>> mcmc.sample()
+        >>> mcmc.sample()  # Uses default: batch_size=1, num_candidates=1
         >>> final_constructs = mcmc.constructs
         
-        Top-k MCMC optimization:
+        Top-k MCMC optimization (default num_candidates):
         >>> mcmc_topk = MCMCGenerator(
         ...     constructs=constructs,
-        ...     generators=[mutation_gen],  # batch_size=10
+        ...     generators=[mutation_gen],
         ...     constraints=[energy_constraint],
+        ...     batch_size=5,  # Maintain top-5 sequences
+        ...     # num_candidates defaults to 5 (same as batch_size)
         ...     num_steps=100,
         ...     temperature=1.0,
-        ...     top_k=5,  # Maintain 5 parent sequences
         ... )
-        >>> # Each step generates 10 proposals per parent (50 total proposals)
-        >>> # Applies MCMC acceptance (rejected proposals keep parent)
-        >>> # Then selects top-5 by energy for next iteration
+        >>> # Each step generates 5 proposals per sequence (25 total proposals)
         >>> mcmc_topk.sample()
+        
+        Custom exploration strategy (explicit num_candidates):
+        >>> mcmc_deep = MCMCGenerator(
+        ...     constructs=constructs,
+        ...     generators=[mutation_gen],
+        ...     constraints=[energy_constraint],
+        ...     batch_size=3,
+        ...     num_candidates=20,  # Deep local search: 20 proposals per parent
+        ...     num_steps=50,
+        ... )
+        >>> # Each step generates 20 proposals per sequence (60 total proposals)
+        >>> mcmc_deep.sample()
     """
 
     def __init__(
@@ -67,11 +84,11 @@ class MCMCGenerator(IterativeGenerator):
         constraints: List[Constraint],
         constraint_weights: Optional[List[float]] = None,
         batch_size: int = 1,
+        num_candidates: Optional[int] = None,
         num_steps: int = 1,
         temperature: float = 1.0,
         temperature_min: float = 0.0001,
         track_step_size: int = 1,
-        top_k: int = 1,
         custom_logging: Optional[Callable[[int, Sequence], None]] = None,
         verbose: bool = True,
     ) -> None:
@@ -83,22 +100,30 @@ class MCMCGenerator(IterativeGenerator):
             generators: List of Generator objects to generate sequences.
             constraints: List of Constraint objects to evaluate sequences.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
-            batch_size: Number of sequence variants to generate simultaneously.
+            batch_size: Number of sequences to maintain across iterations (the "top-k").
+                        When batch_size=1 (default), behaves like standard single-chain MCMC.
+                        When batch_size>1, maintains top-k sequences and generates
+                        num_candidates proposals per sequence each step (total: batch_size x num_candidates).
+                        Must be ≤ num_candidates to ensure enough initial diversity.
+            num_candidates: Number of candidate proposals to generate per sequence each step.
+                           If None (default), automatically set to batch_size for balanced exploration.
+                           Can be explicitly set for custom exploration strategies (e.g., deep local
+                           search with high values, or broad diversity with low values).
             num_steps: Number of MCMC steps per sample() call.
             temperature: Maximum temperature for annealing.
             temperature_min: Minimum temperature for annealing.
             track_step_size: Interval for progress tracking.
             custom_logging: Custom logging function that takes (step, sequences) arguments.
             verbose: Whether to print progress information.
-            top_k: Number of top sequences to maintain across iterations. When top_k=1 (default),
-                   behaves like standard MCMC. When top_k>1, maintains k parent sequences and
-                   generates batch_size proposals per parent each step (total: k x batch_size proposals).
-                   Must be ≤ batch_size to ensure unique initial parent sequences.
-                   Note: Generator batch sizes will be expanded to batch_size x k during sampling.
 
         Raises:
             ValueError: If any validation checks fail.
         """
+        # Pass batch_size to parent class
+        # This makes:
+        # 1. self.batch_size = batch_size (inherited from IterativeGenerator)
+        # 2. Sub-generators' batch_size gets overridden to match
+        # 3. Segments maintain batch_size sequences throughout MCMC
         super().__init__(
             constructs=constructs,
             generators=generators,
@@ -106,15 +131,18 @@ class MCMCGenerator(IterativeGenerator):
             constraint_weights=constraint_weights,
             batch_size=batch_size,
         )
-        self.num_steps: int = num_steps
-        self.temperature: float = temperature
-        self.temperature_min: float = temperature_min
-        self.track_step_size: int = track_step_size
-        self.top_k: int = top_k
-        self.custom_logging: Optional[
-            Callable[[int, Tuple[Segment, ...]], None]
-        ] = custom_logging
-        self.verbose: bool = verbose
+        
+        # MCMC-specific parameters
+        # Default num_candidates to batch_size if not provided
+        if num_candidates is None:
+            num_candidates = batch_size
+        self.num_candidates = num_candidates  # Proposals per parent
+        self.num_steps = num_steps
+        self.temperature = temperature
+        self.temperature_min = temperature_min
+        self.track_step_size = track_step_size
+        self.custom_logging = custom_logging
+        self.verbose = verbose
 
         self._validate_generator()
 
@@ -123,7 +151,7 @@ class MCMCGenerator(IterativeGenerator):
         Validate configuration for MCMCGenerator.
 
         Raises:
-            ValueError: If temperature parameters or top_k are invalid.
+            ValueError: If temperature parameters or batch_size are invalid.
         """
         super()._validate_generator()
 
@@ -139,15 +167,19 @@ class MCMCGenerator(IterativeGenerator):
                 f"temperature_min ({self.temperature_min}) must be less than temperature ({self.temperature}) for annealing to work properly"
             )
         
-        # Validate top_k parameter
-        if self.top_k < 1:
-            raise ValueError(f"top_k must be at least 1, got {self.top_k}")
+        # Validate batch_size parameter
+        if self.batch_size < 1:
+            raise ValueError(f"batch_size must be at least 1, got {self.batch_size}")
         
-        # Validate top_k <= batch_size
-        if self.top_k > self.batch_size:
+        # Validate num_candidates
+        if self.num_candidates < 1:
+            raise ValueError(f"num_candidates must be at least 1, got {self.num_candidates}")
+        
+        # Validate batch_size <= num_candidates for diversity
+        if self.batch_size > self.num_candidates:
             raise ValueError(
-                f"top_k ({self.top_k}) cannot be greater than batch_size ({self.batch_size}). "
-                f"top_k must be ≤ batch_size to ensure unique initial parent sequences."
+                f"batch_size ({self.batch_size}) cannot be greater than num_candidates ({self.num_candidates}). "
+                f"This ensures enough proposal diversity."
             )
 
     def sample(self) -> None:
@@ -155,28 +187,35 @@ class MCMCGenerator(IterativeGenerator):
         Execute Metropolis-Hastings MCMC sampling for sequence optimization.
 
         Runs the specified number of MCMC steps, where each step:
-        1. Maintains top_k parent sequences (k=1 for standard MCMC)
-        2. Generates batch_size proposals per parent (total: k x batch_size proposals)
-        3. Evaluates all proposal and applies MCMC acceptance: accepted proposals + rejected parents form candidate pool
-        4. Selects top-k by energy from all candidates in candidate pool
+        1. Maintains top-k sequences (batch_size=1 for standard MCMC)
+        2. Generates num_candidates proposals per sequence (total: batch_size x num_candidates proposals)
+        3. Evaluates all proposals and applies MCMC acceptance: accepted proposals + rejected (restored) sequences form candidate pool
+        4. Selects top-k sequences by energy from all candidates
         5. Optionally logs progress and tracks state
 
         Algorithm:
-        - When batch_size=1 and top_k=1: behaves as standard single-chain MCMC
-        - When top_k>1: maintains multiple parent sequences for diversity
+        - When num_candidates=1 and batch_size=1: behaves as standard single-chain MCMC
+        - When batch_size>1: maintains top-k sequences for diversity
         - For each proposal, applies Metropolis-Hastings acceptance criterion
-        - Rejected proposals restore to parent state (deepcopied Sequence + energy)
+        - Rejected proposals restore to saved state (deepcopied Sequence + energy)
         - After all proposals, selects top-k by energy for next iteration
         
         Note:
             - Simulated annealing: T(step) = T_max * (T_min / T_max) ^ (step / num_steps)
-            - batch_size means "proposals per parent" when top_k > 1
-            - Total proposals per step: top_k x batch_size
+            - Total proposals per step: batch_size × num_candidates
             - Snapshots of constructs at tracked timesteps are stored in self.history.
         """
-        # Initialize: expand batches and select initial parents
-        proposals_per_parent = self._initialize_topk()
-        top_k_idx, parent_energies = self._get_initial_parents()
+        # Initialize: score the initial batch_size (top_k) sequences 
+        # These were already created by sub-generators via assign()
+        self.score_energy()
+        top_k_idx = np.arange(self.batch_size)  # Indices [0, 1, ..., batch_size-1]
+        
+        if self.verbose:
+            print(f"MCMC initialization:")
+            print(f"  batch_size={self.batch_size}, num_candidates={self.num_candidates}")
+            print(f"  Initial energies: {[f'{e:.4f}' for e in self.energy_scores]}")
+            print()
+        
         self.append_snapshot_to_history(step=0)
         
         # Main MCMC loop
@@ -188,87 +227,65 @@ class MCMCGenerator(IterativeGenerator):
             # Save parent states before mutation (needed for rejection handling)
             parent_states = self._save_parent_states(top_k_idx)
             
+            # Expand batch and replicate parents for proposal generation
+            self._expand_batch_for_proposals(top_k_idx)
+            
             # Generate proposals from each parent
-            self._replicate_parents_to_batch(top_k_idx, proposals_per_parent)
             self._generate_proposals()
             
             # Apply MCMC acceptance and select top-k
-            top_k_idx, parent_energies = self._select_topk_with_mcmc(
-                top_k_idx, parent_energies, proposals_per_parent, cur_temp, parent_states
-            )
+            top_k_idx = self._select_topk_with_mcmc(top_k_idx, cur_temp, parent_states)
+            
+            # Trim segments to only keep top-k sequences (remove rejected proposals)
+            self._trim_segments_to_topk(top_k_idx)
+            
+            # After trimming, update top_k_idx to reflect new indices (0 to top_k-1)
+            top_k_idx = np.arange(self.batch_size)
             
             # Logging and history tracking
             if self._should_track_history(step):
                 if self.verbose:
-                    self._log_topk_progress(step, parent_energies)
+                    self._log_topk_progress(step)
                 self.append_snapshot_to_history(step=step)
         
         self._track_final_state_if_needed()
     
-    def _initialize_topk(self) -> int:
-        """Initialize batch sizes and score initial energies.
+    def _expand_batch_for_proposals(self, top_k_idx: np.ndarray) -> None:
+        """Expand batch and replicate parent sequences for proposal generation.
         
-        Expands generator and constraint batch sizes to (proposals_per_parent x top_k).
-        When top_k=1, this is a no-op (1 x batch_size = batch_size).
+        After trimming, segments contain only batch_size (top_k) sequences. This method:
+        1. Expands batch to batch_size x num_candidates
+        2. Replicates each parent to its designated block of positions:
+           - Parent 0: positions [0, num_candidates)
+           - Parent 1: positions [num_candidates, 2*num_candidates)
+           - etc.
         
-        Returns:
-            proposals_per_parent: Number of proposals to generate per parent sequence.
+        Args:
+            top_k_idx: Indices of parent sequences to replicate (should be [0, 1, ..., batch_size-1]).
         """
-        proposals_per_parent = self.batch_size
-        expanded_batch_size = proposals_per_parent * self.top_k
+        expanded_batch_size = self.batch_size * self.num_candidates
         
-        if self.verbose:
-            print(f"Top-k MCMC initialization:")
-            print(f"  top_k={self.top_k}, proposals_per_parent={proposals_per_parent}")
-            print(f"  expanded_batch_size={expanded_batch_size}")
+        # Expand and replicate for each segment
+        for segment in self.get_generator_outputs():
+            new_batch = []
+            for parent_idx in top_k_idx:
+                source_seq = segment.batch_sequences[parent_idx]
+                # Create num_candidates copies of this parent
+                for _ in range(self.num_candidates):
+                    new_batch.append(copy.deepcopy(source_seq))
+            segment.batch_sequences = new_batch
         
+        # Update generator batch sizes
         for gen in self.generators:
             gen.batch_size = expanded_batch_size
         
-        for segment in self.get_generator_outputs():
-            segment.create_batch(expanded_batch_size)
-        
-        self.score_energy()
-        return proposals_per_parent
-    
-    def _get_initial_parents(self) -> Tuple[np.ndarray, List[float]]:
-        """Select initial top-k parent sequences by energy.
-        
-        Returns:
-            top_k_idx: Indices of the k best sequences (k=1 for standard MCMC).
-            parent_energies: Energy values of the selected parent sequences.
-        """
-        top_k_idx = np.argsort(self.energy_scores)[:self.top_k]
-        parent_energies = [self.energy_scores[i] for i in top_k_idx]
-        
-        if self.verbose:
-            print(f"  Initial parent energies: {[f'{e:.4f}' for e in parent_energies]}")
-            print()
-        
-        return top_k_idx, parent_energies
-    
-    def _replicate_parents_to_batch(self, top_k_idx: np.ndarray, proposals_per_parent: int) -> None:
-        """Replicate each parent sequence to its designated batch positions.
-        
-        Each parent is copied to a contiguous block of batch positions:
-        - Parent 0: positions [0, proposals_per_parent)
-        - Parent 1: positions [proposals_per_parent, 2*proposals_per_parent)
-        - etc.
-        
-        When top_k=1, this copies sequence[0] to itself (no-op effect).
-        
-        Args:
-            top_k_idx: Indices of parent sequences to replicate.
-            proposals_per_parent: Number of copies per parent.
-        """
-        for parent_pos, parent_idx in enumerate(top_k_idx):
-            start_idx = parent_pos * proposals_per_parent
-            end_idx = (parent_pos + 1) * proposals_per_parent
-            # Deepcopy parent to all positions in this parent's range for independence
-            for segment in self.get_generator_outputs():
-                source_seq = segment.batch_sequences[parent_idx]
-                for idx in range(start_idx, end_idx):
-                    segment.batch_sequences[idx] = copy.deepcopy(source_seq)
+        # Expand energy_scores - replicate parent energies to match
+        new_energy_scores = []
+        for parent_idx in top_k_idx:
+            parent_energy = self.energy_scores[parent_idx]
+            for _ in range(self.num_candidates):
+                new_energy_scores.append(parent_energy)
+        self.energy_scores = new_energy_scores
     
     def _save_parent_states(self, top_k_idx: np.ndarray) -> Dict[int, Dict[str, Any]]:
         """Save complete parent states before mutation using deepcopy.
@@ -339,11 +356,9 @@ class MCMCGenerator(IterativeGenerator):
     def _select_topk_with_mcmc(
         self,
         top_k_idx: np.ndarray,
-        parent_energies: List[float],
-        proposals_per_parent: int,
         temperature: float,
         parent_states: Dict[int, Dict[str, Any]]
-    ) -> Tuple[np.ndarray, List[float]]:
+    ) -> np.ndarray:
         """Apply Metropolis-Hastings acceptance criterion and select top-k sequences.
         
         For each proposal:
@@ -352,25 +367,24 @@ class MCMCGenerator(IterativeGenerator):
         3. Reject with probability (1-alpha): restore parent state (sequence, metadata, energy)
         4. Add either accepted proposal or restored parent to candidates
         
-        After all proposals are evaluated, select top-k candidates by energy.
-        When top_k=1, this behaves as standard single-chain MCMC.
+        After all proposals are evaluated, select top batch_size candidates by energy.
+        When batch_size=1, this behaves as standard single-chain MCMC.
         
         Args:
             top_k_idx: Indices of current parent sequences.
-            parent_energies: Energy values of current parents.
-            proposals_per_parent: Number of proposals generated per parent.
             temperature: Current temperature for acceptance calculation.
             parent_states: Saved parent states (sequences, metadata, energies).
             
         Returns:
-            new_top_k_idx: Indices of selected top-k sequences for next iteration.
-            new_parent_energies: Energy values of selected sequences.
+            new_top_k_idx: Indices of selected top batch_size sequences for next iteration.
         """
         candidates = []
         
-        for parent_pos, (parent_idx, parent_energy) in enumerate(zip(top_k_idx, parent_energies)):
-            start_idx = parent_pos * proposals_per_parent
-            end_idx = (parent_pos + 1) * proposals_per_parent
+        for parent_pos, parent_idx in enumerate(top_k_idx):
+            # Get parent energy from saved state (before proposals were generated)
+            parent_energy = parent_states[parent_idx]['energy']
+            start_idx = parent_pos * self.num_candidates
+            end_idx = (parent_pos + 1) * self.num_candidates
             
             for proposal_idx in range(start_idx, end_idx):
                 proposal_energy = self.energy_scores[proposal_idx]
@@ -387,31 +401,45 @@ class MCMCGenerator(IterativeGenerator):
                     candidates.append((restored_energy, proposal_idx))
         
         candidates.sort(key=lambda x: x[0])
-        top_k_candidates = candidates[:self.top_k]
+        top_k_candidates = candidates[:self.batch_size]
         
         new_top_k_idx = np.array([idx for _, idx in top_k_candidates])
-        new_parent_energies = [energy for energy, _ in top_k_candidates]
         
-        return new_top_k_idx, new_parent_energies
+        return new_top_k_idx
     
-    def _log_topk_progress(self, step: int, parent_energies: List[float]) -> None:
+    def _trim_segments_to_topk(self, top_k_idx: np.ndarray) -> None:
+        """Trim all segments to only keep the top batch_size sequences.
+        
+        After MCMC selection, segments contain expanded batch of sequences
+        (batch_size × num_candidates). This method trims them back to batch_size,
+        keeping only the selected top sequences, making them ready for user inspection.
+        
+        Args:
+            top_k_idx: Indices of the top batch_size sequences to keep (length = batch_size).
+        """
+        for segment in self.get_generator_outputs():
+            segment.batch_sequences = [segment.batch_sequences[i] for i in top_k_idx]
+        
+        # Also trim energy_scores to match
+        self.energy_scores = [self.energy_scores[i] for i in top_k_idx]
+    
+    def _log_topk_progress(self, step: int) -> None:
         """Log optimization progress.
         
         Prints current step, energy statistics, and temperature for monitoring.
-        When top_k=1, only best energy is meaningful (mean=best, std=0).
+        When batch_size=1, only best energy is meaningful (mean=best, std=0).
         
         Args:
             step: Current MCMC iteration number.
-            parent_energies: Energy values of current top-k sequences.
         """
-        best_energy = min(parent_energies)
-        mean_energy = np.mean(parent_energies)
-        worst_energy = max(parent_energies)
-        std_energy = np.std(parent_energies) if len(parent_energies) > 1 else 0.0
+        best_energy = min(self.energy_scores)
+        mean_energy = np.mean(self.energy_scores)
+        worst_energy = max(self.energy_scores)
+        std_energy = np.std(self.energy_scores) if len(self.energy_scores) > 1 else 0.0
         current_temp = self._calculate_temperature(step)
         
         # Format output based on top_k
-        if self.top_k == 1:
+        if self.batch_size == 1:
             print(
                 f"Iteration {step:4d} | "
                 f"energy: {best_energy:.6f}, "
@@ -434,7 +462,8 @@ class MCMCGenerator(IterativeGenerator):
     # ==================== Utility Helper Methods ====================
     
     def _calculate_temperature(self, step: int) -> float:
-        """Calculate annealed temperature for given step.
+        """
+        Calculate annealed temperature for given step.
         
         Uses exponential cooling schedule: T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1))
 
@@ -443,12 +472,6 @@ class MCMCGenerator(IterativeGenerator):
         For step=num_steps, T(step) = T_min
         
         Note: -1 is required in denominator because we loop from 1 to num_steps in the MCMC sampling loop
-        
-        Args:
-            step: Current optimization step (1 to num_steps).
-            
-        Returns:
-            Current temperature for this step.
         """
 
         # Handle division by 0 for num_steps=1

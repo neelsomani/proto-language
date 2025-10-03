@@ -97,8 +97,8 @@ class MockAutoregressiveGenerator(Generator):
     def get_generator_outputs(self):
         """Get the generated sequences."""
         if not self._is_initialized:
-            return []
-        return [[self._generator_output.batch_sequences[0]]]
+            return ()
+        return (self._generator_output,)
 
 def gc_content_constraint(sequence) -> float:
     """Constraint that scores lower energy for higher G+C content."""

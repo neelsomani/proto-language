@@ -57,13 +57,19 @@ class IterativeGenerator(Generator):
         # Any batch_size specified during sub-generator construction is overwritten
         for i, gen in enumerate(self.generators):
             if gen.batch_size != self.batch_size:
-                warnings.warn(
-                    f"Generator {i} ({gen.__class__.__name__}) was initialized with batch_size={gen.batch_size}, "
-                    f"but IterativeGenerator is overwriting it to batch_size={self.batch_size}. "
-                    f"To avoid this warning, do not specify batch_size when creating sub-generators for IterativeGenerator.",
-                    UserWarning,
-                    stacklevel=2
-                )
+                # Only warn if the generator was explicitly initialized with a non-default batch_size
+                if gen.batch_size != 1:
+                    warnings.warn(
+                        f"Generator {i} ({gen.__class__.__name__}) was initialized with batch_size={gen.batch_size}, "
+                        f"but IterativeGenerator is overwriting it to batch_size={self.batch_size}. "
+                        f"To avoid this warning, do not specify batch_size when creating sub-generators for IterativeGenerator.",
+                        UserWarning,
+                        stacklevel=2
+                    )
+                # Expand the generator's assigned segment(s) to match the new batch_size
+                for segment in gen.get_generator_outputs():
+                    if segment.batch_size != self.batch_size:
+                        segment.create_batch(self.batch_size)
             gen.batch_size = self.batch_size
 
         # Set self._generator_outputs to be a flat tuple of all Segment objects from all sub-generators

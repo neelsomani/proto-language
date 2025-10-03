@@ -58,7 +58,12 @@ def mock_single_input_scoring_function(sequence: Sequence) -> float:
     Mock scoring function that takes in a single sequence and returns a score
     corresponding to the number of T characters in the sequence
     """
-    return sequence.sequence.count("T")
+    score = sequence.sequence.count("T") / len(sequence)
+    # Add metadata to demonstrate propagation
+    sequence._metadata["t_count"] = sequence.sequence.count("T")
+    sequence._metadata["total_length"] = len(sequence)
+    sequence._metadata["t_fraction"] = score
+    return score
 
 
 def mock_multi_input_scoring_function(sequences: List[Sequence]) -> List[float]:
@@ -66,7 +71,15 @@ def mock_multi_input_scoring_function(sequences: List[Sequence]) -> List[float]:
     Mock scoring function that takes in a list of sequences and returns a list of scores
     corresponding to the number of T characters in each sequence
     """
-    return [sequence.sequence.count("T") for sequence in sequences]
+    scores = []
+    for sequence in sequences:
+        score = sequence.sequence.count("T") / len(sequence)
+        # Add metadata to demonstrate propagation
+        sequence._metadata["t_count"] = sequence.sequence.count("T")
+        sequence._metadata["total_length"] = len(sequence)
+        sequence._metadata["t_fraction"] = score
+        scores.append(score)
+    return scores
 
 
 # Tests for Sequence and Segment basics
@@ -126,14 +139,299 @@ def test_input_type_detection():
             scoring_function=mock_single_input_scoring_function,
         ).multi_input
         == False
-    )
+    ), "Should have identified single-input"
     assert (
         Constraint(
             inputs=[create_segment("ATCG")],
             scoring_function=mock_multi_input_scoring_function,
         ).multi_input
         == True
+    ), "Should have identified multi-input"
+
+
+def test_mock_constraint_with_batched_segment():
+    """
+    Tests both single and multi-input scoring functions return the metadata and
+    scores for the same inputs.
+    """
+    input_sequences = ["ACTGACTG", "TCTGTCTG", "TTTGTTTG", "TTTTTTTT"]
+    # Create a DNA sequence
+    single_batch_input = create_batched_segment(
+        sequences=input_sequences,
+        seq_type=SequenceType.DNA,
     )
+    multi_batch_input = create_batched_segment(
+        sequences=input_sequences,
+        seq_type=SequenceType.DNA,
+    )
+
+    # Create a single-input constraint
+    constraint_single_input = Constraint(
+        inputs=[single_batch_input],
+        scoring_function=mock_single_input_scoring_function,
+    )
+    scores_single_input = constraint_single_input.evaluate()
+    constraint_multi_input = Constraint(
+        inputs=[multi_batch_input],
+        scoring_function=mock_multi_input_scoring_function,
+    )
+    scores_multi_input = constraint_multi_input.evaluate()
+
+    expected_scores_single_input = [0.25, 0.5, 0.75, 1]
+
+    # Access metadata from the original segment's sequences
+    for i, expected_score in enumerate(expected_scores_single_input):
+        # Ensure scores are correct
+        assert (
+            scores_single_input[i] == expected_score
+        ), f"Score mismatch for single input at index {i}"
+        assert (
+            scores_multi_input[i] == expected_score
+        ), f"Score mismatch for multi input at index {i}"
+
+        # Ensure metadata is propagated correctly
+        sequence_metadata = single_batch_input.batch_sequences[i]._metadata
+        sequence_metadata_multi = multi_batch_input.batch_sequences[i]._metadata
+
+        # Check that metadata was propagated with proper prefixes
+        expected_prefix_single = "segment_0.mock_single_input_scoring_function"
+        expected_prefix_multi = "segment_0.mock_multi_input_scoring_function"
+
+        # Check that prefixed metadata exists (excluding system metadata)
+        assert any(
+            key.startswith(expected_prefix_single)
+            for key in sequence_metadata.keys()
+            if key not in ["sequence", "sequence_length"]
+        ), f"Missing prefix {expected_prefix_single} in metadata: {list(sequence_metadata.keys())}"
+
+        assert any(
+            key.startswith(expected_prefix_multi)
+            for key in sequence_metadata_multi.keys()
+            if key not in ["sequence", "sequence_length"]
+        ), f"Missing prefix {expected_prefix_multi} in metadata: {list(sequence_metadata_multi.keys())}"
+
+        # Check specific metadata values were propagated for single-input constraint
+        assert f"{expected_prefix_single}.t_count" in sequence_metadata
+        assert f"{expected_prefix_single}.total_length" in sequence_metadata
+        assert f"{expected_prefix_single}.t_fraction" in sequence_metadata
+
+        # Check specific metadata values were propagated for multi-input constraint
+        assert f"{expected_prefix_multi}.t_count" in sequence_metadata_multi
+        assert f"{expected_prefix_multi}.total_length" in sequence_metadata_multi
+        assert f"{expected_prefix_multi}.t_fraction" in sequence_metadata_multi
+
+        # Verify the metadata values are correct (both should have same values, just different keys)
+        single_t_count = sequence_metadata[f"{expected_prefix_single}.t_count"]
+        multi_t_count = sequence_metadata_multi[f"{expected_prefix_multi}.t_count"]
+        assert (
+            single_t_count == multi_t_count
+        ), f"T counts don't match: {single_t_count} vs {multi_t_count}"
+
+        single_total_length = sequence_metadata[
+            f"{expected_prefix_single}.total_length"
+        ]
+        multi_total_length = sequence_metadata_multi[
+            f"{expected_prefix_multi}.total_length"
+        ]
+        assert (
+            single_total_length == multi_total_length
+        ), f"Total lengths don't match: {single_total_length} vs {multi_total_length}"
+
+
+def test_mock_constraint_with_single_sequence_input():
+    """
+    Tests that multi-input scoring functions work correctly with single sequence inputs (batch size 1).
+    This ensures the multi-input functionality doesn't break with non-batched segments.
+    """
+    # Create single sequence segments (batch size 1)
+    single_seq_segment = create_segment("ACTGACTG", SequenceType.DNA)
+    multi_seq_segment = create_segment("ACTGACTG", SequenceType.DNA)
+
+    # Create constraints with single sequence inputs
+    constraint_single_input = Constraint(
+        inputs=[single_seq_segment],
+        scoring_function=mock_single_input_scoring_function,
+    )
+    scores_single_input = constraint_single_input.evaluate()
+
+    constraint_multi_input = Constraint(
+        inputs=[multi_seq_segment],
+        scoring_function=mock_multi_input_scoring_function,
+    )
+    scores_multi_input = constraint_multi_input.evaluate()
+
+    # Both should return a single score
+    expected_score = 0.25  # 2 T's out of 8 characters
+
+    assert len(scores_single_input) == 1, f"Expected 1 score, got {len(scores_single_input)}"
+    assert len(scores_multi_input) == 1, f"Expected 1 score, got {len(scores_multi_input)}"
+
+    assert (
+        scores_single_input[0] == expected_score
+    ), f"Single input score mismatch: {scores_single_input[0]} vs {expected_score}"
+    assert (
+        scores_multi_input[0] == expected_score
+    ), f"Multi input score mismatch: {scores_multi_input[0]} vs {expected_score}"
+
+    # Check metadata propagation for single sequence
+    sequence_metadata = single_seq_segment.batch_sequences[0]._metadata
+    sequence_metadata_multi = multi_seq_segment.batch_sequences[0]._metadata
+
+    # Check that metadata was propagated with proper prefixes
+    expected_prefix_single = "segment_0.mock_single_input_scoring_function"
+    expected_prefix_multi = "segment_0.mock_multi_input_scoring_function"
+
+    # Check that prefixed metadata exists
+    assert any(
+        key.startswith(expected_prefix_single)
+        for key in sequence_metadata.keys()
+        if key not in ["sequence", "sequence_length"]
+    ), f"Missing prefix {expected_prefix_single} in metadata: {list(sequence_metadata.keys())}"
+
+    assert any(
+        key.startswith(expected_prefix_multi)
+        for key in sequence_metadata_multi.keys()
+        if key not in ["sequence", "sequence_length"]
+    ), f"Missing prefix {expected_prefix_multi} in metadata: {list(sequence_metadata_multi.keys())}"
+
+    # Check specific metadata values were propagated
+    assert f"{expected_prefix_single}.t_count" in sequence_metadata
+    assert f"{expected_prefix_single}.total_length" in sequence_metadata
+    assert f"{expected_prefix_single}.t_fraction" in sequence_metadata
+
+    assert f"{expected_prefix_multi}.t_count" in sequence_metadata_multi
+    assert f"{expected_prefix_multi}.total_length" in sequence_metadata_multi
+    assert f"{expected_prefix_multi}.t_fraction" in sequence_metadata_multi
+
+    # Verify the metadata values are correct
+    single_t_count = sequence_metadata[f"{expected_prefix_single}.t_count"]
+    multi_t_count = sequence_metadata_multi[f"{expected_prefix_multi}.t_count"]
+    assert (
+        single_t_count == multi_t_count
+    ), f"T counts don't match: {single_t_count} vs {multi_t_count}"
+
+    single_total_length = sequence_metadata[f"{expected_prefix_single}.total_length"]
+    multi_total_length = sequence_metadata_multi[f"{expected_prefix_multi}.total_length"]
+    assert (
+        single_total_length == multi_total_length
+    ), f"Total lengths don't match: {single_total_length} vs {multi_total_length}"
+
+    # Verify the actual values make sense
+    assert single_t_count == 2, f"Expected 2 T's, got {single_t_count}"
+    assert single_total_length == 8, f"Expected length 8, got {single_total_length}"
+
+
+def test_mock_constraint_with_multi_segment_input():
+    """
+    Tests both single and multi-input scoring functions with multiple segments as inputs.
+    This tests the case where multiple segments are combined per batch position.
+    """
+    input_sequences_a = ["ACTG", "TCTG", "TTTG", "TTTT"]
+    input_sequences_b = ["ACTG", "TCTG", "TTTG", "TTTT"]
+
+    # Create multiple batched segments
+    single_batch_input_a = create_batched_segment(
+        sequences=input_sequences_a,
+        seq_type=SequenceType.DNA,
+    )
+    single_batch_input_b = create_batched_segment(
+        sequences=input_sequences_b,
+        seq_type=SequenceType.DNA,
+    )
+    multi_batch_input_a = create_batched_segment(
+        sequences=input_sequences_a,
+        seq_type=SequenceType.DNA,
+    )
+    multi_batch_input_b = create_batched_segment(
+        sequences=input_sequences_b,
+        seq_type=SequenceType.DNA,
+    )
+
+    # Create constraints with multiple segment inputs
+    constraint_single_input = Constraint(
+        inputs=[single_batch_input_a, single_batch_input_b],
+        scoring_function=mock_single_input_scoring_function,
+        constraint_type=ConstraintType.CONTIGUOUS,  # Concatenate segments
+    )
+    scores_single_input = constraint_single_input.evaluate()
+
+    constraint_multi_input = Constraint(
+        inputs=[multi_batch_input_a, multi_batch_input_b],
+        scoring_function=mock_multi_input_scoring_function,
+        constraint_type=ConstraintType.CONTIGUOUS,  # Concatenate segments
+    )
+    scores_multi_input = constraint_multi_input.evaluate()
+
+    # For CONTIGUOUS: each segment contributes "ACTGACTG", "TCTGTCTG", etc.
+    # So concatenated sequences are: "ACTGACTG", "TCTGTCTG", "TTTGTTTG", "TTTTTTTT"
+    expected_scores = [0.25, 0.5, 0.75, 1.0]
+
+    # Access metadata from the original segments' sequences
+    for i, expected_score in enumerate(expected_scores):
+        # Ensure scores are correct
+        assert (
+            scores_single_input[i] == expected_score
+        ), f"Score mismatch for single input at index {i}"
+        assert (
+            scores_multi_input[i] == expected_score
+        ), f"Score mismatch for multi input at index {i}"
+
+        # For CONTIGUOUS constraints, metadata should be propagated to both segments
+        sequence_metadata_a = single_batch_input_a.batch_sequences[i]._metadata
+        sequence_metadata_b = single_batch_input_b.batch_sequences[i]._metadata
+        sequence_metadata_multi_a = multi_batch_input_a.batch_sequences[i]._metadata
+        sequence_metadata_multi_b = multi_batch_input_b.batch_sequences[i]._metadata
+
+        # Check that metadata was propagated with proper prefixes for CONTIGUOUS
+        expected_prefix = "segment_0-segment_1.mock_single_input_scoring_function"
+        expected_prefix_multi = "segment_0-segment_1.mock_multi_input_scoring_function"
+
+        # Both segments should have the same metadata for CONTIGUOUS constraints
+        assert any(
+            key.startswith(expected_prefix)
+            for key in sequence_metadata_a.keys()
+            if key not in ["sequence", "sequence_length"]
+        ), f"Missing prefix {expected_prefix} in metadata: {list(sequence_metadata_a.keys())}"
+        assert any(
+            key.startswith(expected_prefix)
+            for key in sequence_metadata_b.keys()
+            if key not in ["sequence", "sequence_length"]
+        ), f"Missing prefix {expected_prefix} in metadata: {list(sequence_metadata_b.keys())}"
+        assert any(
+            key.startswith(expected_prefix_multi)
+            for key in sequence_metadata_multi_a.keys()
+            if key not in ["sequence", "sequence_length"]
+        ), f"Missing prefix {expected_prefix_multi} in metadata: {list(sequence_metadata_multi_a.keys())}"
+        assert any(
+            key.startswith(expected_prefix_multi)
+            for key in sequence_metadata_multi_b.keys()
+            if key not in ["sequence", "sequence_length"]
+        ), f"Missing prefix {expected_prefix_multi} in metadata: {list(sequence_metadata_multi_b.keys())}"
+
+        # Check specific metadata values were propagated for single-input constraint
+        assert f"{expected_prefix}.t_count" in sequence_metadata_a
+        assert f"{expected_prefix}.total_length" in sequence_metadata_a
+        assert f"{expected_prefix}.t_fraction" in sequence_metadata_a
+
+        # Check specific metadata values were propagated for multi-input constraint
+        assert f"{expected_prefix_multi}.t_count" in sequence_metadata_multi_a
+        assert f"{expected_prefix_multi}.total_length" in sequence_metadata_multi_a
+        assert f"{expected_prefix_multi}.t_fraction" in sequence_metadata_multi_a
+
+        # Verify the metadata values are correct
+        single_t_count = sequence_metadata_a[f"{expected_prefix}.t_count"]
+        multi_t_count = sequence_metadata_multi_a[f"{expected_prefix_multi}.t_count"]
+        assert (
+            single_t_count == multi_t_count
+        ), f"T counts don't match: {single_t_count} vs {multi_t_count}"
+
+        single_total_length = sequence_metadata_a[f"{expected_prefix}.total_length"]
+        multi_total_length = sequence_metadata_multi_a[
+            f"{expected_prefix_multi}.total_length"
+        ]
+        assert (
+            single_total_length == multi_total_length
+        ), f"Total lengths don't match: {single_total_length} vs {multi_total_length}"
 
 
 # Tests for sequence_length_constraint

@@ -246,14 +246,26 @@ class Constraint:
             List of scores between 0.0 and 1.0, one per Sequence object in the batch.
             Returns float('inf') for invalid sequences.
         """
-        scores = []
 
         # Preprocess inputs to accommodate scoring function
         scoring_function_inputs = self._process_inputs()
 
-        # Score all inputs and propagate metadata back with prefixing
+        # Score all inputs
+        scores = []
+        if self.multi_input:
+            # Multi-input scoring function: pass in list of inputs
+            scores = self.scoring_function(
+                scoring_function_inputs, **self.scoring_function_config
+            )
+        else:
+            # Single-input scoring function: pass in each input separately
+            scores = [
+                self.scoring_function(input, **self.scoring_function_config)
+                for input in scoring_function_inputs
+            ]
+
+        # Propagate metadata back with prefixing
         for i, input in enumerate(scoring_function_inputs):
-            scores.append(self.scoring_function(input, **self.scoring_function_config)) # this adds metadata to the dummy input sequence
 
             if self.constraint_type == ConstraintType.CONTIGUOUS:
                 # Create segment labels string (e.g. promoter-cds-terminator)

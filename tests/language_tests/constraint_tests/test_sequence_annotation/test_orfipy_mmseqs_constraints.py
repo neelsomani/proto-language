@@ -1,0 +1,316 @@
+import numpy as np
+import pandas as pd
+import pytest
+import sys
+import shutil
+import tempfile
+from typing import List, Tuple
+from pathlib import Path
+
+sys.path.append(".")
+
+from proto_language.language.base import (
+    Construct,
+    Segment,
+    Constraint,
+    Sequence,
+    SequenceType,
+    ConstraintType,
+)
+from proto_language.language.constraint import (
+    orfipy_mmseqs_gene_hit_count_constraint,
+    orfipy_mmseqs_gene_homology_constraint,
+)
+from proto_language.schemas import ORFipyKwargs, MMseqsKwargs, ESMFoldKwargs
+from ..test_utils import (
+    create_segment,
+    create_batched_segment,
+    get_test_sequences_with_real_hits,
+    dummy_db_path,
+    temp_dir,
+    setup_test_files,
+    ORFIPY_AVAILABLE,
+)
+
+
+@pytest.mark.skipif(not pd, reason="Pandas not installed, skipping ORF/MMseqs tests")
+@pytest.mark.skipif(
+    not ORFIPY_AVAILABLE, reason="orfipy not installed, skipping ORF tests"
+)
+class TestOrfipyMmseqsConstraints:
+    @pytest.fixture
+    def hit_count_config(self, dummy_db_path):
+        return {
+            "min_hits": 1,
+            "max_hits": 3,
+            "mmseqs_kwargs": MMseqsKwargs(
+                database=dummy_db_path, threads=1, sensitivity=1.0
+            ),
+            "orfipy_kwargs": ORFipyKwargs(threads=1, min_len=30),
+        }
+
+    @pytest.fixture
+    def homology_config(self, dummy_db_path):
+        return {
+            "min_homology": 80.0,
+            "max_homology": 100.0,
+            "mmseqs_kwargs": MMseqsKwargs(
+                database=dummy_db_path, threads=1, sensitivity=1.0
+            ),
+            "orfipy_kwargs": ORFipyKwargs(threads=1, min_len=30),
+        }
+
+    def test_hit_count_constraint(self, hit_count_config, temp_dir):
+        """Test hit count constraint using real test files."""
+        sequences = get_test_sequences_with_real_hits()
+        segment = create_segment(sequences[0])
+
+        # Set up test files
+        setup_test_files(temp_dir, sequences[0])
+
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=orfipy_mmseqs_gene_hit_count_constraint,
+            scoring_function_config=hit_count_config,
+        )
+
+        # Since we're using real files, we expect the constraint to work with actual data
+        scores = constraint.evaluate()
+        assert len(scores) == 1
+        assert isinstance(scores[0], float)
+        assert scores[0] >= 0.0  # Score should be non-negative
+
+        metadata = segment[0]._metadata
+        assert (
+            "segment_0.orfipy_mmseqs_gene_hit_count_constraint.orfipy_orfs" in metadata
+        )
+        assert (
+            "segment_0.orfipy_mmseqs_gene_hit_count_constraint.mmseqs_results"
+            in metadata
+        )
+        assert (
+            "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
+            in metadata
+        )
+        assert isinstance(
+            metadata[
+                "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
+            ],
+            int,
+        )
+        assert (
+            metadata[
+                "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
+            ]
+            >= 0
+        )
+
+    def test_homology_constraint(self, homology_config, temp_dir):
+        """Test homology constraint using real test files."""
+        sequences = get_test_sequences_with_real_hits()
+        segment = create_segment(sequences[0])
+
+        # Set up test files
+        setup_test_files(temp_dir, sequences[0])
+
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=orfipy_mmseqs_gene_homology_constraint,
+            scoring_function_config=homology_config,
+        )
+
+        scores = constraint.evaluate()
+        assert len(scores) == 1
+        assert isinstance(scores[0], float)
+        assert scores[0] >= 0.0
+
+        metadata = segment[0]._metadata
+        assert (
+            "segment_0.orfipy_mmseqs_gene_homology_constraint.orfs_with_acceptable_homology"
+            in metadata
+        )
+        assert (
+            metadata[
+                "segment_0.orfipy_mmseqs_gene_homology_constraint.orfs_with_acceptable_homology"
+            ]
+            >= 0
+        )
+        assert (
+            "segment_0.orfipy_mmseqs_gene_homology_constraint.homology_compliance_rate"
+            in metadata
+        )
+        assert (
+            0.0
+            <= metadata[
+                "segment_0.orfipy_mmseqs_gene_homology_constraint.homology_compliance_rate"
+            ]
+            <= 1.0
+        )
+
+    def test_no_hits_scenario(self, hit_count_config, temp_dir):
+        """Test constraint behavior when no hits are found."""
+        # Use a sequence with no meaningful ORFs
+        segment = create_segment("A" * 100)
+
+        # Set up test files with empty ORF results
+        dna_file = temp_dir / "input.fna"
+        dna_file.write_text(">test_seq\n" + "A" * 100 + "\n")
+
+        orfipy_dir = temp_dir / "orfipy_output"
+        orfipy_dir.mkdir()
+
+        # Create empty ORF files
+        (orfipy_dir / "orfipy_aa.faa").write_text("")
+        (orfipy_dir / "orfipy_nt.fna").write_text("")
+
+        # Create empty mmseqs results
+        mmseqs_file = temp_dir / "mmseqs_results.m8"
+        mmseqs_file.write_text("")
+
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=orfipy_mmseqs_gene_hit_count_constraint,
+            scoring_function_config=hit_count_config,
+        )
+
+        scores = constraint.evaluate()
+        assert len(scores) == 1
+        assert isinstance(scores[0], float)
+        assert scores[0] >= 0.0  # Should have a penalty for not meeting min_hits
+        assert (
+            segment[0]._metadata[
+                "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
+            ]
+            == 0
+        )
+
+    def test_batch_processing(self, hit_count_config, temp_dir):
+        """Test constraint with batch processing using real files."""
+        sequences = get_test_sequences_with_real_hits()
+        # Create a batch with multiple sequences
+        batch = create_batched_segment([sequences[0], sequences[1], "A" * 100])
+
+        # Set up test files
+        setup_test_files(temp_dir, sequences[0])
+
+        # Adjust config for batch testing
+        hit_count_config["min_hits"] = 0  # Allow 0 hits for some sequences
+
+        constraint = Constraint(
+            inputs=[batch],
+            scoring_function=orfipy_mmseqs_gene_hit_count_constraint,
+            scoring_function_config=hit_count_config,
+        )
+
+        scores = constraint.evaluate()
+        assert len(scores) == 3
+        assert all(isinstance(score, float) for score in scores)
+        assert all(score >= 0.0 for score in scores)
+
+        # Check that metadata is populated for all sequences
+        for i in range(3):
+            assert (
+                "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
+                in batch[i]._metadata
+            )
+            assert isinstance(
+                batch[i]._metadata[
+                    "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
+                ],
+                int,
+            )
+            assert (
+                batch[i]._metadata[
+                    "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
+                ]
+                >= 0
+            )
+
+    def test_caching(self, hit_count_config, temp_dir):
+        """Test that caching works correctly with real files."""
+        from proto_language.language.constraint.sequence_annotation import (
+            run_orfipy_mmseqs_pipeline,
+        )
+        from proto_language.tools.tool_cache import ToolCache
+
+        seq = Sequence(
+            "ATGAAACGCATTAGCACCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGA",
+            SequenceType.DNA,
+        )
+
+        # Set up test files
+        setup_test_files(temp_dir, seq.sequence)
+
+        # First call, should compute
+        run_orfipy_mmseqs_pipeline(
+            seq,
+            orfipy_kwargs=hit_count_config.get("orfipy_kwargs"),
+            mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs"),
+        )
+        # Check that results are in metadata
+        assert "orfipy_orfs" in seq._metadata
+        assert "mmseqs_results" in seq._metadata
+        assert "unique_orfs_with_hits" in seq._metadata
+
+        # Second call, should use cache
+        seq._metadata["test_marker"] = "should_remain"
+        run_orfipy_mmseqs_pipeline(
+            seq,
+            orfipy_kwargs=hit_count_config.get("orfipy_kwargs"),
+            mmseqs_kwargs=hit_count_config.get("mmseqs_kwargs"),
+        )
+        assert seq._metadata["test_marker"] == "should_remain"
+
+        # Verify cache is working by checking ToolCache directly with model parameters
+        orfipy_kwargs = hit_count_config.get("orfipy_kwargs").model_dump()
+        mmseqs_kwargs = hit_count_config.get("mmseqs_kwargs").model_dump()
+
+        cached_results = ToolCache.get_cached_results(
+            seq,
+            "orfipy_mmseqs",
+            orfipy_kwargs=orfipy_kwargs,
+            mmseqs_kwargs=mmseqs_kwargs,
+        )
+        assert cached_results is not None
+        assert "orfipy_orfs" in cached_results
+        assert "mmseqs_results" in cached_results
+
+        # Different config should recompute when pipeline parameters change
+        new_mmseqs_kwargs = MMseqsKwargs(
+            database=hit_count_config["mmseqs_kwargs"].database,
+            threads=1,
+            sensitivity=2.0,
+        )  # Change pipeline parameter
+        mmseqs_kwargs_new = new_mmseqs_kwargs.model_dump()
+        cached_results_new = ToolCache.get_cached_results(
+            seq,
+            "orfipy_mmseqs",
+            orfipy_kwargs=orfipy_kwargs,
+            mmseqs_kwargs=mmseqs_kwargs_new,
+        )
+        assert cached_results_new is None  # Should not be cached with different params
+
+    def test_parameter_validation(self, dummy_db_path):
+        """Tests that missing required parameters raise ValueErrors."""
+        segment = create_segment("ATGAAATAG")
+
+        # Test hit count constraint
+        with pytest.raises(
+            TypeError,
+            match="missing 2 required positional arguments: 'min_hits' and 'max_hits'",
+        ):
+            Constraint(
+                inputs=[segment],
+                scoring_function=orfipy_mmseqs_gene_hit_count_constraint,
+                scoring_function_config={},
+            ).evaluate()
+
+        # Test homology constraint
+        with pytest.raises(
+            TypeError, match="missing 1 required positional argument: 'max_homology'"
+        ):
+            Constraint(
+                inputs=[segment],
+                scoring_function=orfipy_mmseqs_gene_homology_constraint,
+                scoring_function_config={"min_homology": 50.0},
+            ).evaluate()

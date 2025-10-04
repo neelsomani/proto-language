@@ -52,7 +52,7 @@ pytest -sv
 For CPU-specific tests:
 
 ```bash
-pytest -sv tests/tests_cpu/
+pytest -sv --cpu-tests-only
 ```
 NOTE: Some CPU specific tests require the installation of the `dev` dependencies.
 

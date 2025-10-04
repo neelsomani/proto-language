@@ -16,9 +16,10 @@ def create_segment(
     return Segment(sequence=sequence, sequence_type=seq_type)
 
 
+@pytest.mark.uses_gpu
 @pytest.mark.skipif(
-    not is_gpu_available(), 
-    reason="GPU required for Evo2 tests (local CUDA or cloud access)"
+    not is_gpu_available(),
+    reason="GPU required for Evo2 tests (local CUDA or cloud access)",
 )
 class TestEvo2Generator:
     def test_evo2_single_prompt_sampling(self):

@@ -16,10 +16,8 @@ def create_segment(
     return Segment(sequence=sequence, sequence_type=seq_type)
 
 
-@pytest.mark.skipif(
-    not is_gpu_available(), 
-    reason="GPU required for ESM3 tests"
-)
+@pytest.mark.uses_gpu
+@pytest.mark.skipif(not is_gpu_available(), reason="GPU required for ESM3 tests")
 class TestESM3Generator:
     def test_esm3_entropy_sampling(self):
         """Test ESM3 generator with entropy-based sampling."""

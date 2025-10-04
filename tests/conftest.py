@@ -5,6 +5,76 @@ Test configuration and fixtures for the proto-language test suite.
 import pytest
 from unittest.mock import Mock, patch
 from uuid import uuid4
+import os
+
+
+def pytest_addoption(parser):
+    """Add custom command line options to pytest."""
+    parser.addoption(
+        "--cpu-tests-only",
+        action="store_true",
+        default=False,
+        help="Run only CPU tests, skip GPU tests",
+    )
+
+
+def pytest_configure(config):
+    """Configure pytest with custom markers and options."""
+    config.addinivalue_line("markers", "uses_gpu: mark test as requiring GPU")
+    config.addinivalue_line("markers", "uses_cpu: mark test as CPU-only")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Modify test collection based on command line options and auto-mark tests."""
+    # Auto-mark all tests as CPU-only unless explicitly marked as GPU
+    for item in items:
+        # If no GPU marker found, mark as CPU
+        if not any(mark.name == "uses_gpu" for mark in item.iter_markers()):
+            item.add_marker(pytest.mark.uses_cpu)
+
+    # Skip GPU tests when --cpu-tests-only is specified
+    if config.getoption("--cpu-tests-only"):
+        skip_gpu = pytest.mark.skip(reason="--cpu-tests-only specified")
+        for item in items:
+            if "uses_gpu" in item.keywords:
+                item.add_marker(skip_gpu)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_cloud_environment():
+    """Ensure cloud can find credentials in pytest context."""
+    # Read cloud credentials from ~/.cloud.toml and set as environment variables
+    import toml
+    from pathlib import Path
+    
+    cloud_config_path = Path.home() / '.cloud.toml'
+    if cloud_config_path.exists():
+        config = toml.load(cloud_config_path)
+        
+        # Find active profile (proto-language)
+        if 'proto-language' in config:
+            os.environ['CLOUD_TOKEN_ID'] = config['proto-language']['token_id']
+            os.environ['CLOUD_TOKEN_SECRET'] = config['proto-language']['token_secret']
+            os.environ['CLOUD_ENVIRONMENT'] = 'main'
+            print(f"✓ Loaded cloud credentials for proto-language workspace")
+    
+    yield
+    
+    # Cleanup
+    for key in ['CLOUD_TOKEN_ID', 'CLOUD_TOKEN_SECRET', 'CLOUD_ENVIRONMENT']:
+        if key in os.environ:
+            del os.environ[key]
+
+
+@pytest.fixture(scope="session")
+def gpu_available():
+    """Check if GPU is available for tests."""
+    try:
+        from proto_language.utils import is_gpu_available
+
+        return is_gpu_available()
+    except ImportError:
+        return False
 
 
 @pytest.fixture(autouse=True)

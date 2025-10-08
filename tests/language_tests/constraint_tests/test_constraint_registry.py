@@ -306,23 +306,27 @@ class TestFactoryMethod:
                 config_dict={"min_gc": 40.0}  # Missing max_gc
             )
     
-    def test_create_with_nested_config(self, dna_segment):
+    def test_create_with_nested_config(self, dna_segment, tmp_path):
         """Test create with nested Pydantic models in config."""
+        # Create dummy database
+        dummy_db = tmp_path / "test.db"
+        dummy_db.mkdir()
+        
         constraint = ConstraintRegistry.create(
             key="orfipy-mmseqs-gene-hit-count",
             segments=[dna_segment],
             config_dict={
                 "min_hits": 1,
                 "max_hits": 10,
-                "orfipy_kwargs": {"min_len": 30},
-                "mmseqs_kwargs": {"database": "/tmp/test.db"}
+                "orfipy_config": {"input_fasta": "", "output_dir": "", "min_len": 30},
+                "mmseqs_config": {"query_fasta": "", "mmseqs_db": str(dummy_db), "results_dir": ""}
             }
         )
         
         assert isinstance(constraint, Constraint)
         # Nested configs should be Pydantic models, not dicts
-        assert hasattr(constraint.scoring_function_config, 'orfipy_kwargs')
-        assert hasattr(constraint.scoring_function_config.orfipy_kwargs, 'min_len')
+        assert hasattr(constraint.scoring_function_config, 'orfipy_config')
+        assert hasattr(constraint.scoring_function_config.orfipy_config, 'min_len')
     
     def test_create_preserves_vectorized_flag(self, dna_segment):
         """Test that create preserves the vectorized flag."""

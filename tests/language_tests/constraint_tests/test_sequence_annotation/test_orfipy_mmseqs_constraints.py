@@ -22,7 +22,9 @@ from proto_language.language.constraint import (
 )
 from proto_language.language.constraint.sequence_annotation.orfipy_mmseqs_gene_hit_count_constraint import ORFipyMMseqsGeneHitCountConfig
 from proto_language.language.constraint.sequence_annotation.orfipy_mmseqs_gene_homology_constraint import ORFipyMMseqsGeneHomologyConfig
-from proto_language.schemas import ORFipyKwargs, MMseqsKwargs, ESMFoldKwargs
+from proto_language.schemas import ESMFoldKwargs
+from proto_language.tools.orf_prediction.orfipy import OrfipyConfig
+from proto_language.tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig
 from ..test_utils import (
     create_segment,
     create_batched_segment,
@@ -44,10 +46,19 @@ class TestOrfipyMmseqsConstraints:
         return ORFipyMMseqsGeneHitCountConfig(
             min_hits=1,
             max_hits=3,
-            mmseqs_kwargs=MMseqsKwargs(
-                database=dummy_db_path, threads=1, sensitivity=1.0
+            mmseqs_config=MmseqsSearchProteinsConfig(
+                query_fasta="",  # Filled in by pipeline
+                mmseqs_db=dummy_db_path,
+                results_dir="",  # Filled in by pipeline
+                threads=1,
+                sensitivity=1.0
             ),
-            orfipy_kwargs=ORFipyKwargs(threads=1, min_len=30),
+            orfipy_config=OrfipyConfig(
+                input_fasta="",  # Filled in by pipeline
+                output_dir="",  # Filled in by pipeline
+                threads=1,
+                min_len=30
+            ),
         )
 
     @pytest.fixture
@@ -55,10 +66,19 @@ class TestOrfipyMmseqsConstraints:
         return ORFipyMMseqsGeneHomologyConfig(
             min_homology=80.0,
             max_homology=100.0,
-            mmseqs_kwargs=MMseqsKwargs(
-                database=dummy_db_path, threads=1, sensitivity=1.0
+            mmseqs_config=MmseqsSearchProteinsConfig(
+                query_fasta="",  # Filled in by pipeline
+                mmseqs_db=dummy_db_path,
+                results_dir="",  # Filled in by pipeline
+                threads=1,
+                sensitivity=1.0
             ),
-            orfipy_kwargs=ORFipyKwargs(threads=1, min_len=30),
+            orfipy_config=OrfipyConfig(
+                input_fasta="",  # Filled in by pipeline
+                output_dir="",  # Filled in by pipeline
+                threads=1,
+                min_len=30
+            ),
         )
 
     def test_hit_count_constraint(self, hit_count_config, temp_dir):
@@ -204,8 +224,8 @@ class TestOrfipyMmseqsConstraints:
         # First call, should compute
         run_orfipy_mmseqs_pipeline(
             seq,
-            orfipy_kwargs=hit_count_config.orfipy_kwargs,
-            mmseqs_kwargs=hit_count_config.mmseqs_kwargs,
+            orfipy_config=hit_count_config.orfipy_config,
+            mmseqs_config=hit_count_config.mmseqs_config,
         )
         # Check that results are in metadata
         assert "orfipy_orfs" in seq._metadata
@@ -216,37 +236,39 @@ class TestOrfipyMmseqsConstraints:
         seq._metadata["test_marker"] = "should_remain"
         run_orfipy_mmseqs_pipeline(
             seq,
-            orfipy_kwargs=hit_count_config.orfipy_kwargs,
-            mmseqs_kwargs=hit_count_config.mmseqs_kwargs,
+            orfipy_config=hit_count_config.orfipy_config,
+            mmseqs_config=hit_count_config.mmseqs_config,
         )
         assert seq._metadata["test_marker"] == "should_remain"
 
         # Verify cache is working by checking ToolCache directly with model parameters
-        orfipy_kwargs = hit_count_config.orfipy_kwargs.model_dump()
-        mmseqs_kwargs = hit_count_config.mmseqs_kwargs.model_dump()
+        orfipy_config = hit_count_config.orfipy_config.model_dump()
+        mmseqs_config = hit_count_config.mmseqs_config.model_dump()
 
         cached_results = ToolCache.get_cached_results(
             seq,
             "orfipy_mmseqs",
-            orfipy_kwargs=orfipy_kwargs,
-            mmseqs_kwargs=mmseqs_kwargs,
+            orfipy_config=orfipy_config,
+            mmseqs_config=mmseqs_config,
         )
         assert cached_results is not None
         assert "orfipy_orfs" in cached_results
         assert "mmseqs_results" in cached_results
 
         # Different config should recompute when pipeline parameters change
-        new_mmseqs_kwargs = MMseqsKwargs(
-            database=hit_count_config.mmseqs_kwargs.database,
+        new_mmseqs_config = MmseqsSearchProteinsConfig(
+            query_fasta="",
+            mmseqs_db=hit_count_config.mmseqs_config.mmseqs_db,
+            results_dir="",
             threads=1,
             sensitivity=2.0,
         )  # Change pipeline parameter
-        mmseqs_kwargs_new = new_mmseqs_kwargs.model_dump()
+        mmseqs_config_new = new_mmseqs_config.model_dump()
         cached_results_new = ToolCache.get_cached_results(
             seq,
             "orfipy_mmseqs",
-            orfipy_kwargs=orfipy_kwargs,
-            mmseqs_kwargs=mmseqs_kwargs_new,
+            orfipy_config=orfipy_config,
+            mmseqs_config=mmseqs_config_new,
         )
         assert cached_results_new is None  # Should not be cached with different params
 

@@ -13,7 +13,8 @@ from pydantic import Field
 from ...base import Sequence
 from ...base.config import BaseConfig
 from ..registry import ConstraintRegistry
-from ....schemas import ORFipyKwargs, MMseqsKwargs
+from ....tools.orf_prediction.orfipy import OrfipyConfig
+from ....tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig
 from ..utils import MIN_ENERGY, MAX_ENERGY, calculate_percentage_range_deviation, run_orfipy_mmseqs_pipeline
 
 
@@ -21,8 +22,8 @@ class ORFipyMMseqsGeneHomologyConfig(BaseConfig):
     """Configuration for ORFipy + MMseqs gene homology constraint."""
     min_homology: float = Field(ge=0.0, le=100.0, description="Minimum acceptable percent identity (0-100) for each ORF. Lower values are more permissive.")
     max_homology: float = Field(ge=0.0, le=100.0, description="Maximum acceptable percent identity (0-100) for each ORF. Higher values allow more similar hits.")
-    orfipy_kwargs: Optional[ORFipyKwargs] = Field(default=None, description="ORFipy configuration for ORF prediction")
-    mmseqs_kwargs: Optional[MMseqsKwargs] = Field(default=None, description="MMseqs configuration for homology search (database path REQUIRED)")
+    orfipy_config: Optional[OrfipyConfig] = Field(default=None, description="ORFipy configuration for ORF prediction")
+    mmseqs_config: Optional[MmseqsSearchProteinsConfig] = Field(default=None, description="MMseqs configuration for homology search (mmseqs_db path REQUIRED)")
 
 
 @ConstraintRegistry.register(
@@ -41,7 +42,7 @@ def orfipy_mmseqs_gene_homology_constraint(
 
     Args:
         input_sequence: The sequence to evaluate.
-        config: Configuration containing min_homology, max_homology, orfipy_kwargs, and mmseqs_kwargs parameters.
+        config: Configuration containing min_homology, max_homology, orfipy_config, and mmseqs_config parameters.
 
     Returns:
         Constraint score where 0.0 indicates all ORF homologies are within acceptable range
@@ -50,18 +51,19 @@ def orfipy_mmseqs_gene_homology_constraint(
     Examples:
         Evaluating ORF homology constraint:
 
-        >>> from proto_language.schemas import ORFipyKwargs, MMseqsKwargs
+        >>> from proto_language.tools.orf_prediction.orfipy import OrfipyConfig
+        >>> from proto_language.tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig
         >>> seq = Sequence("ATGTCGATCGATGTAG", SequenceType.DNA)
         >>> cfg = ORFipyMMseqsGeneHomologyConfig(
         ...     min_homology=50.0,
         ...     max_homology=90.0,
-        ...     orfipy_kwargs=ORFipyKwargs(threads=48),
-        ...     mmseqs_kwargs=MMseqsKwargs(database="/path/to/protein_db")
+        ...     orfipy_config=OrfipyConfig(input_fasta="", output_dir="", threads=48),
+        ...     mmseqs_config=MmseqsSearchProteinsConfig(query_fasta="", mmseqs_db="/path/to/protein_db", results_dir="")
         ... )
         >>> score = orfipy_mmseqs_gene_homology_constraint(seq, config=cfg)
     """
     # Run the pipeline
-    run_orfipy_mmseqs_pipeline(input_sequence, config.orfipy_kwargs, config.mmseqs_kwargs)
+    run_orfipy_mmseqs_pipeline(input_sequence, config.orfipy_config, config.mmseqs_config)
 
     # Get the MMseqs results (convert from dict records if needed)
     mmseqs_results_data = input_sequence._metadata.get("mmseqs_results", [])

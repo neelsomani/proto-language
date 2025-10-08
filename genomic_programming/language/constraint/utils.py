@@ -8,13 +8,15 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
+
 from ..base import Sequence, SequenceType, DNA_NUCLEOTIDES
-from ...schemas import ESMFoldKwargs, ORFipyKwargs, MMseqsKwargs
+from ...schemas import ESMFoldKwargs
 from ...tools.models.structure_prediction.esmfold import predict_structure_esmfold
 from ...tools.tool_cache import ToolCache
 from ...utils import resolve_paths
 from ...tools.orf_prediction import run_orfipy_prediction, OrfipyConfig
-from ...tools.gene_annotation.mmseqs import run_mmseqs_search_proteins
+from ...tools.gene_annotation.mmseqs import mmseqs_search_proteins, MmseqsSearchProteinsConfig
 
 
 # Constraint scoring constants
@@ -165,37 +167,33 @@ def run_esmfold(
 
 def run_orfipy_mmseqs_pipeline(
     input_sequence: Sequence,
-    orfipy_kwargs: Optional[ORFipyKwargs] = None,
-    mmseqs_kwargs: Optional[MMseqsKwargs] = None,
+    orfipy_config: Optional[OrfipyConfig] = None,
+    mmseqs_config: Optional[MmseqsSearchProteinsConfig] = None,
 ) -> None:
     """
     Run the ORFipy + MMseqs pipeline for sequence analysis.
 
     Args:
         input_sequence: The sequence to evaluate.
-        orfipy_kwargs: ORFipy configuration arguments.
-        mmseqs_kwargs: MMseqs configuration arguments.
+        orfipy_config: ORFipy configuration arguments.
+        mmseqs_config: MMseqs configuration arguments.
 
     Note:
         Results are cached based on sequence and parameters to avoid redundant analysis.
         Updates metadata with 'orfipy_orfs', 'mmseqs_results', and 'unique_orfs_with_hits'.
     """
     # Use defaults if not provided
-    if orfipy_kwargs is None:
-        orfipy_kwargs = ORFipyKwargs()
-    if mmseqs_kwargs is None:
-        raise ValueError("MMseqs database path is required")
+    if orfipy_config is None:
+        orfipy_config = OrfipyConfig(input_fasta="", output_dir="")
+    if mmseqs_config is None:
+        raise ValueError("MMseqs configuration with database path is required")
 
-    # Convert to dictionaries and resolve paths
-    orfipy_kwargs_dict = resolve_paths(orfipy_kwargs.model_dump())
-    mmseqs_kwargs_dict = resolve_paths(mmseqs_kwargs.model_dump())
-
-    # Check if analysis already cached
+    # Check if analysis already cached (use model_dump for cache key)
     cached_results = ToolCache.get_cached_results(
         input_sequence,
         "orfipy_mmseqs",
-        orfipy_kwargs=orfipy_kwargs_dict,
-        mmseqs_kwargs=mmseqs_kwargs_dict,
+        orfipy_config=orfipy_config.model_dump(),
+        mmseqs_config=mmseqs_config.model_dump(),
     )
     if cached_results:
         input_sequence._metadata.update(cached_results)
@@ -215,15 +213,13 @@ def run_orfipy_mmseqs_pipeline(
         with open(input_fasta, "w") as f:
             f.write(f">input_sequence\n{sequence_to_analyze}\n")
 
-        # Run ORFipy
+        # Run ORFipy - create new config with updated paths (no GCS paths to resolve here)
         orfipy_output = temp_path / "orfipy_output"
-        result = run_orfipy_prediction(
-            OrfipyConfig(
-                input_fasta=str(input_fasta),
-                output_dir=str(orfipy_output),
-                **orfipy_kwargs_dict
-            )
-        )
+        orfipy_run_config = orfipy_config.model_copy(update={
+            "input_fasta": str(input_fasta),
+            "output_dir": str(orfipy_output)
+        })
+        result = run_orfipy_prediction(orfipy_run_config)
         
         # Get parsed ORFs from result
         orfs_df = result.results_df if result.results_df is not None else pd.DataFrame()
@@ -238,16 +234,19 @@ def run_orfipy_mmseqs_pipeline(
                 "unique_orfs_with_hits": 0,
             }
         else:
-            # Run MMseqs search for each ORF
+            # Run MMseqs search for each ORF - create new config with updated paths
+            # Resolve GCS paths (e.g., gcs://bucket/database) to local paths
             mmseqs_output = temp_path / "mmseqs_output"
-            mmseqs_results = run_mmseqs_search_proteins(
-                aa_fasta,
-                mmseqs_kwargs_dict.get(
-                    "database", ""
-                ),  # Database path should be provided in config
-                mmseqs_output,
-                **{k: v for k, v in mmseqs_kwargs_dict.items() if k != "database"},
-            )
+            resolved_db = resolve_paths(mmseqs_config.mmseqs_db)
+            mmseqs_run_config = mmseqs_config.model_copy(update={
+                "query_fasta": str(aa_fasta),
+                "mmseqs_db": resolved_db,
+                "results_dir": str(mmseqs_output)
+            })
+            result = mmseqs_search_proteins(mmseqs_run_config)
+            
+            # Extract DataFrame from result
+            mmseqs_results = result.results_df if result.results_df is not None else pd.DataFrame()
 
             # Count unique ORFs with hits
             unique_orfs_with_hits = (
@@ -270,7 +269,7 @@ def run_orfipy_mmseqs_pipeline(
         input_sequence,
         "orfipy_mmseqs",
         results,
-        orfipy_kwargs=orfipy_kwargs_dict,
-        mmseqs_kwargs=mmseqs_kwargs_dict,
+        orfipy_config=orfipy_config.model_dump(),
+        mmseqs_config=mmseqs_config.model_dump(),
     )
     input_sequence._metadata.update(results)

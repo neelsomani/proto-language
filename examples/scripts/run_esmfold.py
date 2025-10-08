@@ -1,9 +1,12 @@
 import sys
 import os
-from proto_language.tools import predict_structure_esmfold
+from proto_language.tools.models.structure_prediction import run_esmfold, ESMFoldConfig
 
 
 if __name__ == "__main__":
-    esmfold_output = predict_structure_esmfold(sequences=sys.argv[1])
+    config = ESMFoldConfig(sequences=sys.argv[1])
+    esmfold_output = run_esmfold(config)
 
-    esmfold_output.save_pdb("design.pdb")
+    # Save structure in CIF format
+    with open("design.cif", "w") as f:
+        f.write(esmfold_output.structure_cif)

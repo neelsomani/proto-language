@@ -56,7 +56,9 @@ from .tools import (
     # Structure prediction tools
     predict_structure_boltz2,
     predict_structure_chai1,
-    predict_structure_esmfold,
+    run_esmfold,
+    ESMFoldConfig,
+    ESMFoldOutput,
 )
 
 # File resolution utilities
@@ -112,7 +114,9 @@ __all__ = [
     "OrfipyOutput",
     "predict_structure_boltz2",
     "predict_structure_chai1",
-    "predict_structure_esmfold",
+    "run_esmfold",
+    "ESMFoldConfig",
+    "ESMFoldOutput",
     # Utilities
     "resolve_paths",
     "resolve_file",

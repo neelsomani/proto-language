@@ -32,7 +32,6 @@ from proto_language.language.base import (
 )
 from proto_language.language.constraint import ConstraintRegistry, protein_symmetry_ring_constraint
 from proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint import ProteinSymmetryRingConfig
-from proto_language.schemas import ESMFoldKwargs
 from ..test_utils import create_segment
 
 

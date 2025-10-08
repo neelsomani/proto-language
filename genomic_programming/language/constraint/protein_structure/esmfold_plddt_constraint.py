@@ -11,7 +11,7 @@ from pydantic import Field
 from ...base import Sequence
 from ...base.config import BaseConfig
 from ..registry import ConstraintRegistry
-from ....schemas import ESMFoldKwargs
+from ....tools.models.structure_prediction.esmfold import ESMFoldConfig
 from ..utils import run_esmfold
 
 
@@ -22,7 +22,7 @@ class ESMFoldPLDDTConfig(BaseConfig):
         ge=1,
         description="Number of times to replicate the sequence for multimeric structure prediction. Use 1 for monomers, 2+ for oligomers (dimers, trimers, etc.). Higher values increase computational cost."
     )
-    esmfold_kwargs: Optional[ESMFoldKwargs] = Field(
+    esmfold_config: Optional[ESMFoldConfig] = Field(
         default=None,
         description="Advanced ESMFold configuration parameters (residue_idx_offset, chain_linker, verbose). Leave as None to use defaults."
     )
@@ -45,7 +45,7 @@ def esmfold_plddt_constraint(
 
     Args:
         input_sequence: The protein sequence to evaluate.
-        config: Configuration containing n_replications and esmfold_kwargs parameters.
+        config: Configuration containing n_replications and esmfold_config parameters.
 
     Returns:
         Constraint score where 0.0 indicates perfect structure confidence (pLDDT = 1.0)
@@ -59,10 +59,10 @@ def esmfold_plddt_constraint(
         >>> cfg = ESMFoldPLDDTConfig()
         >>> score = esmfold_plddt_constraint(seq, config=cfg)
         >>> # With custom args:
-        >>> kwargs = ESMFoldKwargs(verbose=True)
-        >>> cfg = ESMFoldPLDDTConfig(n_replications=2, esmfold_kwargs=kwargs)
+        >>> kwargs = ESMFoldConfig(verbose=True)
+        >>> cfg = ESMFoldPLDDTConfig(n_replications=2, esmfold_config=kwargs)
         >>> score = esmfold_plddt_constraint(seq, config=cfg)
     """
 
-    run_esmfold(input_sequence, config.n_replications, config.esmfold_kwargs)
+    run_esmfold(input_sequence, config.n_replications, config.esmfold_config)
     return 1.0 - input_sequence._metadata["avg_plddt"]

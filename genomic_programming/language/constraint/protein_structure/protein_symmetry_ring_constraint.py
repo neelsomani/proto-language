@@ -13,7 +13,7 @@ from pydantic import Field
 from ...base import Sequence
 from ...base.config import BaseConfig
 from ..registry import ConstraintRegistry
-from ....schemas import ESMFoldKwargs
+from ....tools.models.structure_prediction.esmfold import ESMFoldConfig
 from ....utils import (
     adjacent_distances,
     get_backbone_atoms,
@@ -35,7 +35,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
         default=False,
         description="If True, compute pairwise distances between all protomers. If False, only compute distances between adjacent protomers in the ring. False is faster and sufficient for most rings."
     )
-    esmfold_kwargs: Optional[ESMFoldKwargs] = Field(
+    esmfold_config: Optional[ESMFoldConfig] = Field(
         default=None,
         description="Advanced ESMFold configuration parameters. Leave as None to use defaults."
     )
@@ -58,7 +58,7 @@ def protein_symmetry_ring_constraint(
 
     Args:
         input_sequence: The protein sequence to evaluate.
-        config: Configuration containing n_replications, all_to_all_protomer_symmetry, and esmfold_kwargs parameters.
+        config: Configuration containing n_replications, all_to_all_protomer_symmetry, and esmfold_config parameters.
 
     Returns:
         Constraint score based on standard deviation of inter-protomer distances.
@@ -68,13 +68,13 @@ def protein_symmetry_ring_constraint(
         Evaluating ring symmetry:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> kwargs = ESMFoldKwargs(verbose=True)
-        >>> cfg = ProteinSymmetryRingConfig(n_replications=6, all_to_all_protomer_symmetry=False, esmfold_kwargs=kwargs)
+        >>> kwargs = ESMFoldConfig(verbose=True)
+        >>> cfg = ProteinSymmetryRingConfig(n_replications=6, all_to_all_protomer_symmetry=False, esmfold_config=kwargs)
         >>> score = protein_symmetry_ring_constraint(seq, config=cfg)  # Hexameric ring
     """
     from biotite.structure import get_chains
 
-    run_esmfold(input_sequence, config.n_replications, config.esmfold_kwargs)
+    run_esmfold(input_sequence, config.n_replications, config.esmfold_config)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
 

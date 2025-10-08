@@ -13,7 +13,7 @@ from pydantic import Field
 from ...base import Sequence
 from ...base.config import BaseConfig
 from ..registry import ConstraintRegistry
-from ....schemas import ESMFoldKwargs
+from ....tools.models.structure_prediction.esmfold import ESMFoldConfig
 from ....utils import (
     distances_to_centroid,
     get_backbone_atoms,
@@ -29,7 +29,7 @@ class ProteinGlobularityConfig(BaseConfig):
         ge=1,
         description="Number of times to replicate the sequence for multimeric structure prediction. Use 1 for monomers."
     )
-    esmfold_kwargs: Optional[ESMFoldKwargs] = Field(
+    esmfold_config: Optional[ESMFoldConfig] = Field(
         default=None,
         description="Advanced ESMFold configuration parameters. Leave as None to use defaults."
     )
@@ -52,7 +52,7 @@ def protein_globularity_constraint(
 
     Args:
         input_sequence: The protein sequence to evaluate.
-        config: Configuration containing n_replications and esmfold_kwargs parameters.
+        config: Configuration containing n_replications and esmfold_config parameters.
 
     Returns:
         Constraint score based on standard deviation of distances from backbone atoms to centroid.
@@ -62,11 +62,11 @@ def protein_globularity_constraint(
         Evaluating protein globularity:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> kwargs = ESMFoldKwargs(verbose=True)
-        >>> cfg = ProteinGlobularityConfig(n_replications=1, esmfold_kwargs=kwargs)
+        >>> kwargs = ESMFoldConfig(verbose=True)
+        >>> cfg = ProteinGlobularityConfig(n_replications=1, esmfold_config=kwargs)
         >>> score = protein_globularity_constraint(seq, config=cfg)
     """
-    run_esmfold(input_sequence, config.n_replications, config.esmfold_kwargs)
+    run_esmfold(input_sequence, config.n_replications, config.esmfold_config)
 
     atom_array = pdb_file_to_atomarray(StringIO(input_sequence._metadata["pdb_output"]))
     backbone = get_backbone_atoms(atom_array).coord

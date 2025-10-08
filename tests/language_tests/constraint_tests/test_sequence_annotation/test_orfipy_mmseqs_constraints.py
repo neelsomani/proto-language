@@ -22,7 +22,6 @@ from proto_language.language.constraint import (
 )
 from proto_language.language.constraint.sequence_annotation.orfipy_mmseqs_gene_hit_count_constraint import ORFipyMMseqsGeneHitCountConfig
 from proto_language.language.constraint.sequence_annotation.orfipy_mmseqs_gene_homology_constraint import ORFipyMMseqsGeneHomologyConfig
-from proto_language.schemas import ESMFoldKwargs
 from proto_language.tools.orf_prediction.orfipy import OrfipyConfig
 from proto_language.tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig
 from ..test_utils import (

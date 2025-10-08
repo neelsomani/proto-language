@@ -11,8 +11,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from ..base import Sequence, SequenceType, DNA_NUCLEOTIDES
-from ...schemas import ESMFoldKwargs
-from ...tools.models.structure_prediction.esmfold import predict_structure_esmfold
+from ...tools.models.structure_prediction.esmfold import run_esmfold as run_esmfold_tool, ESMFoldConfig
 from ...tools.tool_cache import ToolCache
 from ...utils import resolve_paths
 from ...tools.orf_prediction import run_orfipy_prediction, OrfipyConfig
@@ -108,59 +107,49 @@ def calculate_normalized_deviation(actual: float, target: float) -> float:
 def run_esmfold(
     input_sequence: Sequence,
     n_replications: int = 1,
-    esmfold_kwargs: Optional[ESMFoldKwargs] = None,
+    esmfold_config: Optional[ESMFoldConfig] = None,
 ) -> None:
     """
-    Execute ESMFold protein structure prediction on a sequence.
+    Execute ESMFold protein structure prediction with caching for constraint evaluation.
 
     Args:
         input_sequence: The protein sequence to fold.
         n_replications: Number of sequence replications for multimeric prediction (default: 1).
-        esmfold_kwargs: ESMFold configuration arguments (optional, uses defaults if None).
-
-    Raises:
-        ValueError: If input_sequence is not SequenceType.PROTEIN.
+        esmfold_config: ESMFold configuration (optional, uses defaults if None).
 
     Note:
         Results are cached globally to avoid redundant predictions.
         Updates metadata with 'avg_plddt', 'ptm', 'pdb_output', and 'esmfolded_sequence'.
     """
+    # Extract config params for caching (exclude sequences which we'll set)
+    config_params = esmfold_config.model_dump(exclude={'sequences'}) if esmfold_config else {}
 
-    if input_sequence.sequence_type != SequenceType.PROTEIN:
-        raise ValueError("Can only run ESMFold on a protein sequence.")
-
-    if esmfold_kwargs is None:
-        esmfold_kwargs = ESMFoldKwargs()
-
-    esmfold_kwargs_dict = esmfold_kwargs.model_dump()
-
-    # Check if prediction already cached
+    # Check cache before running expensive prediction
     cached_results = ToolCache.get_cached_results(
-        input_sequence, "esmfold", n_replications=n_replications, **esmfold_kwargs_dict
+        input_sequence, "esmfold", n_replications=n_replications, **config_params
     )
     if cached_results:
         input_sequence._metadata.update(cached_results)
         return
 
-    # Run expensive computation
-    esmfolded_sequence = ":".join([input_sequence.sequence] * n_replications)
-    folding_output = predict_structure_esmfold(
-        sequences=esmfolded_sequence, **esmfold_kwargs_dict
-    )
+    # Prepare replicated sequence for multimer prediction
+    replicated_sequence = ":".join([input_sequence.sequence] * n_replications)
+    
+    # Run ESMFold prediction
+    config = ESMFoldConfig(sequences=replicated_sequence, **config_params)
+    output = run_esmfold_tool(config)
 
+    # Store results in metadata
     results = {
-        **folding_output.metrics,
-        "pdb_output": folding_output.structure_pdb_output,
-        "esmfolded_sequence": esmfolded_sequence,
+        "avg_plddt": output.avg_plddt,
+        "ptm": output.ptm,
+        "pdb_output": output.structure_pdb_output,
+        "esmfolded_sequence": replicated_sequence,
     }
 
-    # Cache results and update metadata
     ToolCache.cache_results(
-        input_sequence,
-        "esmfold",
-        results,
-        n_replications=n_replications,
-        **esmfold_kwargs_dict,
+        input_sequence, "esmfold", results,
+        n_replications=n_replications, **config_params
     )
     input_sequence._metadata.update(results)
 

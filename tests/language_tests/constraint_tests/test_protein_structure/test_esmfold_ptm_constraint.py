@@ -33,7 +33,7 @@ from proto_language.language.base import (
 )
 from proto_language.language.constraint import ConstraintRegistry, esmfold_ptm_constraint
 from proto_language.language.constraint.protein_structure.esmfold_ptm_constraint import ESMFoldPTMConfig
-from proto_language.schemas import ESMFoldKwargs
+from proto_language.tools.models.structure_prediction.esmfold import ESMFoldConfig
 from ..test_utils import create_segment, create_batched_segment
 
 
@@ -115,11 +115,11 @@ class TestESMFoldPTMConstraint:
             call_args = mock_run.call_args
             assert call_args[0][1] == 4  # n_replications argument
     
-    def test_esmfold_kwargs_parameter(self):
-        """Test that esmfold_kwargs is passed correctly to run_esmfold."""
+    def test_esmfold_config_parameter(self):
+        """Test that esmfold_config is passed correctly to run_esmfold."""
         segment = create_segment("MKTAYIAKQRQISFVK", SequenceType.PROTEIN)
-        esmfold_kwargs = ESMFoldKwargs(verbose=True)
-        config = ESMFoldPTMConfig(n_replications=1, esmfold_kwargs=esmfold_kwargs)
+        esmfold_config = ESMFoldConfig(verbose=True)
+        config = ESMFoldPTMConfig(n_replications=1, esmfold_config=esmfold_config)
         
         with patch('proto_language.language.constraint.protein_structure.esmfold_ptm_constraint.run_esmfold') as mock_run:
             def mock_esmfold(seq, n_rep, kwargs):
@@ -134,7 +134,7 @@ class TestESMFoldPTMConstraint:
             
             constraint.evaluate()
             
-            # Verify esmfold_kwargs was passed
+            # Verify esmfold_config was passed
             mock_run.assert_called_once()
             call_args = mock_run.call_args
-            assert call_args[0][2] == esmfold_kwargs  # esmfold_kwargs argument
+            assert call_args[0][2] == esmfold_config  # esmfold_config argument

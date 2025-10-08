@@ -30,7 +30,6 @@ from proto_language.language.base import (
 )
 from proto_language.language.constraint import ConstraintRegistry, protein_globularity_constraint
 from proto_language.language.constraint.protein_structure.protein_globularity_constraint import ProteinGlobularityConfig
-from proto_language.schemas import ESMFoldKwargs
 from ..test_utils import create_segment
 
 

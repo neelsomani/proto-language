@@ -11,13 +11,13 @@ import os
 def pytest_addoption(parser):
     """Add custom command line options to pytest."""
     parser.addoption(
-        "--cpu-tests-only",
+        "--cpu",
         action="store_true",
         default=False,
         help="Run only CPU tests, skip GPU tests",
     )
     parser.addoption(
-        "--gpu-tests-only",
+        "--gpu",
         action="store_true",
         default=False,
         help="Run only GPU tests, skip CPU tests",
@@ -38,16 +38,16 @@ def pytest_collection_modifyitems(config, items):
         if not any(mark.name == "uses_gpu" for mark in item.iter_markers()):
             item.add_marker(pytest.mark.uses_cpu)
 
-    # Skip GPU tests when --cpu-tests-only is specified
-    if config.getoption("--cpu-tests-only"):
-        skip_gpu = pytest.mark.skip(reason="--cpu-tests-only specified")
+    # Skip GPU tests when --cpu is specified
+    if config.getoption("--cpu"):
+        skip_gpu = pytest.mark.skip(reason="--cpu specified")
         for item in items:
             if "uses_gpu" in item.keywords:
                 item.add_marker(skip_gpu)
     
-    # Skip CPU tests when --gpu-tests-only is specified
-    if config.getoption("--gpu-tests-only"):
-        skip_cpu = pytest.mark.skip(reason="--gpu-tests-only specified")
+    # Skip CPU tests when --gpu is specified
+    if config.getoption("--gpu"):
+        skip_cpu = pytest.mark.skip(reason="--gpu specified")
         for item in items:
             if "uses_cpu" in item.keywords and "uses_gpu" not in item.keywords:
                 item.add_marker(skip_cpu)

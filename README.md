@@ -53,9 +53,16 @@ pytest -sv
 For CPU-specific tests:
 
 ```bash
-pytest -sv --cpu-tests-only
+pytest -sv --cpu
 ```
-NOTE: Some CPU specific tests require the installation of the `dev` dependencies.
+NOTE: CPU tests require the installation of the `dev` dependencies.
+
+For GPU-specific tests:
+
+```bash
+pytest -sv --gpu
+```
+NOTE: GPU tests require the installation of the `gpu` dependencies.
 
 ## Running the Toy Example
 

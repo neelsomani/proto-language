@@ -32,4 +32,4 @@ jobs:
     - name: Run CPU unit tests
       shell: bash -l {0}
       run: |
-        pytest -sv --cpu-tests-only
+        pytest -sv --cpu

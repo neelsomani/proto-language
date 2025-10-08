@@ -1,0 +1,58 @@
+name: Integration Tests
+
+on:
+  pull_request:
+
+jobs:
+  integration-tests:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install system dependencies
+      run: |
+        # Install a cache
+        sudo apt-get update
+        sudo apt-get install -y cache-server
+
+        # Install MMseqs2
+        wget https://github.com/soedinglab/MMseqs2/releases/latest/download/mmseqs-linux-avx2.tar.gz
+        tar xvzf mmseqs-linux-avx2.tar.gz
+        sudo mv mmseqs/bin/mmseqs /usr/local/bin/
+        rm -rf mmseqs mmseqs-linux-avx2.tar.gz
+
+        # Verify installations
+        mmseqs version
+        cache-cli --version
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        # Upgrade pip and install uv
+        pip install --upgrade pip
+        pip install uv
+
+        # Install package with dependencies (--system to install in system Python)
+        uv pip install --system -e .
+
+        # Install additional dependencies needed for tests
+        uv pip install --system requests pytest pytest-asyncio
+
+    - name: Run full integration tests
+      run: |
+        python run_integration_tests.py --verbose

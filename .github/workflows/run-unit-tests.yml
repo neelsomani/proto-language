@@ -24,7 +24,6 @@ jobs:
       shell: bash -l {0}  # ensures conda env is activated
       run: |
         conda install -c conda-forge -c bioconda mmseqs2 -y
-        git submodule update --init --recursive
         conda install -y mmseqs2
         pip install uv
         uv pip install -e .[dev]

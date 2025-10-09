@@ -1,3 +1,0 @@
-[submodule "proto_language/tools/models/protein_mpnn/ProteinMPNN"]
-	path = proto_language/tools/models/protein_mpnn/ProteinMPNN
-	url = https://github.com/dauparas/ProteinMPNN.git

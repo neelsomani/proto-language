@@ -11,8 +11,8 @@ from pydantic import Field
 from ...base import Sequence
 from ...base.config import BaseConfig
 from ..registry import ConstraintRegistry
-from ....tools.models.structure_prediction.esmfold import ESMFoldConfig
-from ..utils import run_esmfold
+from ....tools.models.structure_prediction.esmfold import run_esmfold, ESMFoldConfig
+from ....tools.tool_cache import ToolCache
 
 
 class ESMFoldPLDDTConfig(BaseConfig):
@@ -24,7 +24,7 @@ class ESMFoldPLDDTConfig(BaseConfig):
     )
     esmfold_config: Optional[ESMFoldConfig] = Field(
         default=None,
-        description="Advanced ESMFold configuration parameters (residue_idx_offset, chain_linker, verbose). Leave as None to use defaults."
+        description="Optional ESMFold configuration (residue_idx_offset, chain_linker, verbose). If None, uses defaults. Sequences field will be set programmatically from the input sequence."
     )
 
 
@@ -58,11 +58,48 @@ def esmfold_plddt_constraint(
         >>> # Using defaults:
         >>> cfg = ESMFoldPLDDTConfig()
         >>> score = esmfold_plddt_constraint(seq, config=cfg)
-        >>> # With custom args:
-        >>> kwargs = ESMFoldConfig(verbose=True)
-        >>> cfg = ESMFoldPLDDTConfig(n_replications=2, esmfold_config=kwargs)
+        >>> # With custom ESMFold parameters:
+        >>> esmfold_cfg = ESMFoldConfig(residue_idx_offset=256, verbose=True)
+        >>> cfg = ESMFoldPLDDTConfig(n_replications=2, esmfold_config=esmfold_cfg)
         >>> score = esmfold_plddt_constraint(seq, config=cfg)
     """
-
-    run_esmfold(input_sequence, config.n_replications, config.esmfold_config)
+    # Create or copy ESMFold config
+    if config.esmfold_config is None:
+        esmfold_config = ESMFoldConfig()
+    else:
+        # Copy to avoid mutating the input
+        esmfold_config = ESMFoldConfig(**config.esmfold_config.model_dump(exclude={'sequences'}))
+    
+    # Extract config params for caching (exclude sequences which varies)
+    config_params = esmfold_config.model_dump(exclude={'sequences'})
+    
+    # Check cache before running expensive prediction
+    cached_results = ToolCache.get_cached_results(
+        input_sequence, "esmfold", n_replications=config.n_replications, **config_params
+    )
+    if cached_results:
+        input_sequence._metadata.update(cached_results)
+        return 1.0 - input_sequence._metadata["avg_plddt"]
+    
+    # Prepare replicated sequence for multimer prediction
+    replicated_sequence = ":".join([input_sequence.sequence] * config.n_replications)
+    esmfold_config.sequences = replicated_sequence
+    
+    # Run ESMFold prediction
+    output = run_esmfold(esmfold_config)
+    
+    # Store results in metadata and cache
+    results = {
+        "avg_plddt": output.avg_plddt,
+        "ptm": output.ptm,
+        "pdb_output": output.structure_pdb_output,
+        "esmfolded_sequence": replicated_sequence,
+    }
+    
+    ToolCache.cache_results(
+        input_sequence, "esmfold", results,
+        n_replications=config.n_replications, **config_params
+    )
+    input_sequence._metadata.update(results)
+    
     return 1.0 - input_sequence._metadata["avg_plddt"]

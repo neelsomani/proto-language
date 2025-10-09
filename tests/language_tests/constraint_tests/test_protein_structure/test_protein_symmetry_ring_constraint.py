@@ -32,6 +32,8 @@ from proto_language.language.base import (
 )
 from proto_language.language.constraint import ConstraintRegistry, protein_symmetry_ring_constraint
 from proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint import ProteinSymmetryRingConfig
+from proto_language.tools.models.structure_prediction.esmfold import ESMFoldOutput
+from unittest.mock import Mock
 from ..test_utils import create_segment
 
 
@@ -48,10 +50,16 @@ class TestProteinSymmetryRingConstraint:
 ATOM      2  CA  ALA B   1       5.000   0.000   0.000  1.00 90.00           C
 ATOM      3  CA  ALA C   1       2.500   4.330   0.000  1.00 90.00           C"""
         
-        with patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold') as mock_run:
-            def mock_esmfold(seq, n_rep, kwargs):
-                seq._metadata["pdb_output"] = mock_pdb
-            mock_run.side_effect = mock_esmfold
+        with patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold') as mock_run, \
+             patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.ToolCache') as mock_cache:
+            # Mock cache miss
+            mock_cache.get_cached_results.return_value = None
+            
+            mock_output = Mock(spec=ESMFoldOutput)
+            mock_output.avg_plddt = 0.9
+            mock_output.ptm = 0.9
+            mock_output.structure_pdb_output = mock_pdb
+            mock_run.return_value = mock_output
             
             constraint = Constraint(
                 inputs=[segment],
@@ -80,12 +88,13 @@ ATOM      3  CA  ALA C   1       2.500   4.330   0.000  1.00 90.00           C""
         assert constraint.scoring_function_config.all_to_all_protomer_symmetry == True
     
     def test_wrong_sequence_type(self):
-        """Test that DNA/RNA sequences raise errors (constraint calls ESMFold which validates)."""
+        """Test that DNA/RNA sequences raise errors (ESMFold validates entity types)."""
         segment = create_segment("ATCGATCG", SequenceType.DNA)
         config = ProteinSymmetryRingConfig(n_replications=3)
         
-        with patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold') as mock_run:
-            mock_run.side_effect = ValueError("Can only run ESMFold on a protein sequence.")
+        with patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.ToolCache') as mock_cache:
+            # Mock cache miss
+            mock_cache.get_cached_results.return_value = None
             
             constraint = Constraint(
                 inputs=[segment],
@@ -93,12 +102,13 @@ ATOM      3  CA  ALA C   1       2.500   4.330   0.000  1.00 90.00           C""
                 scoring_function_config=config,
             )
             
-            with pytest.raises(ValueError, match="Can only run ESMFold on a protein sequence"):
+            # ESMFold config validation should fail when setting sequences
+            with pytest.raises(ValueError, match="Invalid entity type 'dna' for ESMFold"):
                 constraint.evaluate()
     
     def test_n_replications_parameter(self):
-        """Test that n_replications is passed correctly."""
-        segment = create_segment("MKTAYIAKQRQISFVK", SequenceType.PROTEIN)
+        """Test that n_replications correctly replicates the sequence."""
+        segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
         config = ProteinSymmetryRingConfig(n_replications=5)
         
         # Create a mock PDB with 5 chains (A, B, C, D, E)
@@ -108,10 +118,16 @@ ATOM      3  CA  ALA C   1       2.500   4.330   0.000  1.00 90.00           C
 ATOM      4  CA  ALA D   1      -2.500   4.330   0.000  1.00 90.00           C
 ATOM      5  CA  ALA E   1      -5.000   0.000   0.000  1.00 90.00           C"""
         
-        with patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold') as mock_run:
-            def mock_esmfold(seq, n_rep, kwargs):
-                seq._metadata["pdb_output"] = mock_pdb
-            mock_run.side_effect = mock_esmfold
+        with patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold') as mock_run, \
+             patch('proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.ToolCache') as mock_cache:
+            # Mock cache miss
+            mock_cache.get_cached_results.return_value = None
+            
+            mock_output = Mock(spec=ESMFoldOutput)
+            mock_output.avg_plddt = 0.9
+            mock_output.ptm = 0.9
+            mock_output.structure_pdb_output = mock_pdb
+            mock_run.return_value = mock_output
             
             constraint = Constraint(
                 inputs=[segment],
@@ -121,7 +137,7 @@ ATOM      5  CA  ALA E   1      -5.000   0.000   0.000  1.00 90.00           C""
             
             constraint.evaluate()
             
-            # Verify n_replications was passed
+            # Verify sequence was replicated 5 times
             mock_run.assert_called_once()
-            call_args = mock_run.call_args
-            assert call_args[0][1] == 5
+            passed_config = mock_run.call_args[0][0]
+            assert passed_config.sequences == ["MKTAYIAK"] * 5

@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from ..base import Sequence, SequenceType, DNA_NUCLEOTIDES
-from ...tools.models.structure_prediction.esmfold import run_esmfold as run_esmfold_tool, ESMFoldConfig
 from ...tools.tool_cache import ToolCache
 from ...utils import resolve_paths
 from ...tools.orf_prediction import run_orfipy_prediction, OrfipyConfig
@@ -102,56 +101,6 @@ def calculate_normalized_deviation(actual: float, target: float) -> float:
         and higher values indicate greater deviation from target.
     """
     return min(MAX_ENERGY, abs(actual - target) / max(target, 1))
-
-
-def run_esmfold(
-    input_sequence: Sequence,
-    n_replications: int = 1,
-    esmfold_config: Optional[ESMFoldConfig] = None,
-) -> None:
-    """
-    Execute ESMFold protein structure prediction with caching for constraint evaluation.
-
-    Args:
-        input_sequence: The protein sequence to fold.
-        n_replications: Number of sequence replications for multimeric prediction (default: 1).
-        esmfold_config: ESMFold configuration (optional, uses defaults if None).
-
-    Note:
-        Results are cached globally to avoid redundant predictions.
-        Updates metadata with 'avg_plddt', 'ptm', 'pdb_output', and 'esmfolded_sequence'.
-    """
-    # Extract config params for caching (exclude sequences which we'll set)
-    config_params = esmfold_config.model_dump(exclude={'sequences'}) if esmfold_config else {}
-
-    # Check cache before running expensive prediction
-    cached_results = ToolCache.get_cached_results(
-        input_sequence, "esmfold", n_replications=n_replications, **config_params
-    )
-    if cached_results:
-        input_sequence._metadata.update(cached_results)
-        return
-
-    # Prepare replicated sequence for multimer prediction
-    replicated_sequence = ":".join([input_sequence.sequence] * n_replications)
-    
-    # Run ESMFold prediction
-    config = ESMFoldConfig(sequences=replicated_sequence, **config_params)
-    output = run_esmfold_tool(config)
-
-    # Store results in metadata
-    results = {
-        "avg_plddt": output.avg_plddt,
-        "ptm": output.ptm,
-        "pdb_output": output.structure_pdb_output,
-        "esmfolded_sequence": replicated_sequence,
-    }
-
-    ToolCache.cache_results(
-        input_sequence, "esmfold", results,
-        n_replications=n_replications, **config_params
-    )
-    input_sequence._metadata.update(results)
 
 
 def run_orfipy_mmseqs_pipeline(

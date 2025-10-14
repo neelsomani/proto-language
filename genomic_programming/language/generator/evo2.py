@@ -187,90 +187,34 @@ class Evo2Generator(Generator):
         # Use provided prompts or fall back to the default prompt
         prompts = prompt_seqs if prompt_seqs is not None else self.prompt_seqs
 
-        # Choose execution mode based on configuration
-        from ...utils import use_cloud_gpu
-        
-        if use_cloud_gpu():
-            # Use cloud for cloud GPU execution
-            print("Using cloud for Evo2 generation...")
-            import cloud
-            evo2_generate_cloud = cloud.Function.from_name('proto-language', 'evo2_generate_cloud')
-            generated_sequences = evo2_generate_cloud.remote(
-                prompt_seqs=prompts,
-                evo2_type=self.evo2_type,
-                evo2_local_path=self.evo2_local_path,
-                n_tokens=self.n_tokens,
-                temperature=self.temperature,
-                top_k=self.top_k,
-                top_p=self.top_p,
-                batched=self.batched,
-                cached_generation=self.cached_generation,
-                verbose=self.verbose,
-                force_prompt_threshold=self.force_prompt_threshold,
-                **self.sampling_kwargs,
-            )
-        else:
-            # Use local GPU execution
-            print("Using local GPU for Evo2 generation...")
-            generated_sequences = self._evo2_generate_gpu(
-                prompt_seqs=prompts,
-                evo2_type=self.evo2_type,
-                evo2_local_path=self.evo2_local_path,
-                n_tokens=self.n_tokens,
-                temperature=self.temperature,
-                top_k=self.top_k,
-                top_p=self.top_p,
-                batched=self.batched,
-                cached_generation=self.cached_generation,
-                verbose=self.verbose,
-                force_prompt_threshold=self.force_prompt_threshold,
-                **self.sampling_kwargs,
-            )
+        # Use the evo2 sampling tool
+        from proto_language.tools.models.language_models.evo2 import (
+            run_evo2_sample,
+            Evo2SampleConfig,
+        )
+
+        # Create config for the tool
+        sample_config = Evo2SampleConfig(
+            prompt_seqs=prompts,
+            model_name=self.evo2_type,
+            local_path=self.evo2_local_path,
+            sequence_length=self.n_tokens,
+            temperature=self.temperature,
+            top_k=self.top_k,
+            top_p=self.top_p,
+            batched=self.batched,
+            cached_generation=self.cached_generation,
+            verbose=self.verbose,
+            force_prompt_threshold=self.force_prompt_threshold,
+            prepend_prompt=self.prepend_prompt,
+            sampling_kwargs=self.sampling_kwargs,
+        )
+
+        # Run the sampling tool
+        result = run_evo2_sample(sample_config)
+        generated_sequences = result.sequences
 
         # Update sequences in the Segment
         for idx, sequence in enumerate(generated_sequences):
-            if self.prepend_prompt:
-                sequence = prompts[idx] + sequence
             self._generator_output.batch_sequences[idx].sequence = sequence
-
-    def _evo2_generate_gpu(
-        self,
-        prompt_seqs: List[str],
-        evo2_type: str,
-        evo2_local_path: Optional[str],
-        n_tokens: int,
-        temperature: float,
-        top_k: int,
-        top_p: float,
-        batched: bool,
-        cached_generation: bool,
-        verbose: int,
-        force_prompt_threshold: Optional[int],
-        **sampling_kwargs
-    ) -> List[str]:
-        """
-        Local GPU function for Evo2 generation.
-        
-        Returns:
-            List of generated sequences
-        """
-        from evo2 import Evo2
-
-        # Load and generate
-        print(f"Loading Evo2 model: {evo2_type}")
-        evo2_model = Evo2(model_name=evo2_type, local_path=evo2_local_path)
-        
-        output = evo2_model.generate(
-            prompt_seqs=prompt_seqs,
-            n_tokens=n_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            batched=batched,
-            cached_generation=cached_generation,
-            verbose=verbose,
-            force_prompt_threshold=force_prompt_threshold,
-            **sampling_kwargs,
-        )
-        return output.sequences
 

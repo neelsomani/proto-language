@@ -15,7 +15,7 @@ from proto_language.language.constraint import (
     protein_globularity_constraint,
     protein_symmetry_ring_constraint,
 )
-from proto_language.language.generator import MCMCGenerator, UniformMutationGenerator
+from proto_language.language.generator import MCMCOptimizer, UniformMutationGenerator
 from proto_language.language.core import Program
 
 
@@ -97,7 +97,7 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
 
 
 program = Program(
-    iterative_generator_type=MCMCGenerator,
+    optimizer_type=MCMCOptimizer,
     constructs=[protomer_construct],
     generators=[uniform_gen],
     constraints=[

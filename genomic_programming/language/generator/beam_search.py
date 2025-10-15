@@ -1,5 +1,5 @@
 """
-Beam Search Generator
+Beam Search Optimizer
 
 Extracted from generator.py for better code organization.
 """
@@ -9,12 +9,12 @@ import copy
 
 import heapq
 
-from ..core import IterativeGenerator, Construct, Segment, Constraint, Sequence, Generator, SequenceType
+from ..core import Optimizer, Construct, Segment, Constraint, Sequence, Generator, SequenceType
 
 
-class BeamSearchGenerator(IterativeGenerator):
+class BeamSearchOptimizer(Optimizer):
     """
-    Beam search generator that processes segments sequentially with context accumulation.
+    Beam search optimizer that processes segments sequentially with context accumulation.
     
     This generator implements a beam search where:
     1. Segments are processed one at a time, in order
@@ -66,9 +66,9 @@ class BeamSearchGenerator(IterativeGenerator):
         if len(constructs) == 0:
             raise ValueError("At least one construct must be provided")
         if len(constructs) > 1:
-            raise ValueError(f"BeamSearchGenerator only supports a single construct, but {len(constructs)} constructs were provided")
+            raise ValueError(f"BeamSearchOptimizer only supports a single construct, but {len(constructs)} constructs were provided")
         
-        # BeamSearchGenerator uses beam_width as its batch_size
+        # BeamSearchOptimizer uses beam_width as its batch_size
         super().__init__(
             constructs=constructs,
             generators=generators,
@@ -738,7 +738,7 @@ class BeamSearchGenerator(IterativeGenerator):
                     total_energy += energy
         
         avg_energy = total_energy / total_candidates if total_candidates > 0 else 0.0
-        print(f"BeamSearchGenerator: {total_candidates} total candidates, avg energy: {avg_energy:.4f}")
+        print(f"BeamSearchOptimizer: {total_candidates} total candidates, avg energy: {avg_energy:.4f}")
     
     def _is_extension_based_generator(self, generator) -> bool:
         """

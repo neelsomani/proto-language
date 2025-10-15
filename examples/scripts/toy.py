@@ -3,7 +3,7 @@ from typing import Tuple
 import sys
 import os
 
-from proto_language.language.generator import UniformMutationGenerator, MCMCGenerator
+from proto_language.language.generator import UniformMutationGenerator, MCMCOptimizer
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -52,7 +52,7 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
 
 # Program
 program = Program(
-    iterative_generator_type=MCMCGenerator,
+    optimizer_type=MCMCOptimizer,
     constructs=[construct],
     generators=[uniform_gen],
     constraints=[gc_constraint],

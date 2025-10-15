@@ -3,7 +3,7 @@ from typing import Tuple
 import sys
 import os
 
-from proto_language.language.generator import Evo2Generator, MCMCGenerator
+from proto_language.language.generator import Evo2Generator, MCMCOptimizer
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -139,7 +139,7 @@ gene_homology = Constraint(
 
 # Initialize Program with correct sequence_order type
 program = Program(
-    iterative_generator_type=MCMCGenerator,
+    optimizer_type=MCMCOptimizer,
     constructs=[construct],
     generators=[evo2_generator],
     constraints=[

@@ -1,5 +1,5 @@
 """
-Mcmc Generator
+MCMC Optimizer
 
 Extracted from generator.py for better code organization.
 """
@@ -11,16 +11,16 @@ import sys
 
 import numpy as np
 
-from ..core import IterativeGenerator, Construct, Generator, Constraint, Sequence, Segment
+from ..core import Optimizer, Construct, Generator, Constraint, Sequence, Segment
 
 # Maximum safe exponent for np.exp() to prevent overflow
 MAX_EXP_ARG = 700.0
 
 
 @final
-class MCMCGenerator(IterativeGenerator):
+class MCMCOptimizer(Optimizer):
     """
-    Metropolis-Hastings MCMC generator for constraint-driven sequence optimization.
+    Metropolis-Hastings MCMC optimizer for constraint-driven sequence optimization.
     
     Batch Size & Candidates Semantics:
         - `batch_size` specifies how many sequences to maintain (default: 1)
@@ -39,7 +39,7 @@ class MCMCGenerator(IterativeGenerator):
     Examples:
         Basic MCMC optimization (single chain):
         >>> constructs = [Construct([segment1, segment2])]
-        >>> mcmc = MCMCGenerator(
+        >>> mcmc = MCMCOptimizer(
         ...     constructs=constructs,
         ...     generators=[evo2_gen, mutation_gen],
         ...     constraints=[gc_constraint, homopolymer_constraint],
@@ -52,7 +52,7 @@ class MCMCGenerator(IterativeGenerator):
         >>> final_constructs = mcmc.constructs
         
         Top-k MCMC optimization (default num_candidates):
-        >>> mcmc_topk = MCMCGenerator(
+        >>> mcmc_topk = MCMCOptimizer(
         ...     constructs=constructs,
         ...     generators=[mutation_gen],
         ...     constraints=[energy_constraint],
@@ -65,7 +65,7 @@ class MCMCGenerator(IterativeGenerator):
         >>> mcmc_topk.sample()
         
         Custom exploration strategy (explicit num_candidates):
-        >>> mcmc_deep = MCMCGenerator(
+        >>> mcmc_deep = MCMCOptimizer(
         ...     constructs=constructs,
         ...     generators=[mutation_gen],
         ...     constraints=[energy_constraint],
@@ -93,7 +93,7 @@ class MCMCGenerator(IterativeGenerator):
         verbose: bool = True,
     ) -> None:
         """
-        Initialize the MCMC generator with sub-generators and constraints.
+        Initialize the MCMC Optimizer with sub-generators and constraints.
 
         Args:
             constructs: List of Construct objects to optimize.
@@ -121,7 +121,7 @@ class MCMCGenerator(IterativeGenerator):
         """
         # Pass batch_size to parent class
         # This makes:
-        # 1. self.batch_size = batch_size (inherited from IterativeGenerator)
+        # 1. self.batch_size = batch_size (inherited from Optimizer)
         # 2. Sub-generators' batch_size gets overridden to match
         # 3. Segments maintain batch_size sequences throughout MCMC
         super().__init__(
@@ -148,12 +148,12 @@ class MCMCGenerator(IterativeGenerator):
 
     def _validate_generator(self) -> None:
         """
-        Validate configuration for MCMCGenerator.
+        Validate configuration for MCMCOptimizer.
 
         Raises:
             ValueError: If temperature parameters or batch_size are invalid.
         """
-        super()._validate_generator()
+        super()._validate_optimizer()
 
         # Validate temperature parameters
         if self.temperature <= 0:

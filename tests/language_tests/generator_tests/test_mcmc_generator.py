@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from proto_language.language.generator import (
     UniformMutationGenerator,
     UniformMutationGeneratorConfig,
-    MCMCGenerator,
+    MCMCOptimizer,
 )
 
 
@@ -39,9 +39,9 @@ def _setup_mcmc_components(
     gc_target_range: Tuple[float, float] = (40.0, 60.0),
     num_mcmc_steps: int = 10,
 ):
-    """Helper function to set up a basic MCMC generator for testing."""
+    """Helper function to set up a basic MCMC Optimizer for testing."""
     # 1. Create the proposal generator and the segment it will modify.
-    # Note: sub-generator batch_size will be overridden to batch_size by MCMCGenerator
+    # Note: sub-generator batch_size will be overridden to batch_size by MCMCOptimizer
     proposal_gen = UniformMutationGenerator(
         UniformMutationGeneratorConfig(sequence_length=seq_length, batch_size=1, num_mutations=1)
     )
@@ -59,7 +59,7 @@ def _setup_mcmc_components(
         ),
     )
 
-    # 3. Create the MCMC generator.
+    # 3. Create the MCMC Optimizer.
     mcmc_kwargs = {
         "constructs": [construct],
         "generators": [proposal_gen],
@@ -70,13 +70,13 @@ def _setup_mcmc_components(
     if num_candidates is not None:
         mcmc_kwargs["num_candidates"] = num_candidates
 
-    mcmc_gen = MCMCGenerator(**mcmc_kwargs)
+    mcmc_gen = MCMCOptimizer(**mcmc_kwargs)
     return mcmc_gen, proposal_gen, constraint, segment
 
 
-class TestMCMCGenerator:
+class TestMCMCOptimizer:
     def test_initialization_and_validation(self):
-        """Tests successful initialization and validation of MCMCGenerator."""
+        """Tests successful initialization and validation of MCMCOptimizer."""
         mcmc_gen, proposal_gen, constraint, segment = _setup_mcmc_components()
 
         assert mcmc_gen.generators == [proposal_gen]
@@ -84,7 +84,7 @@ class TestMCMCGenerator:
         assert mcmc_gen.constraint_weights == [1.0]
         assert (
             mcmc_gen._is_initialized
-        )  # IterativeGenerator base class is auto-initialized
+        )  # Optimizer base class is auto-initialized
 
         # Test validation errors
         # Unassigned generator
@@ -92,7 +92,7 @@ class TestMCMCGenerator:
             UniformMutationGeneratorConfig(sequence_length=10, num_mutations=1)
         )
         with pytest.raises(RuntimeError, match="has not been assigned"):
-            MCMCGenerator(
+            MCMCOptimizer(
                 constructs=[Construct([create_segment("A" * 10)])],
                 generators=[unassigned_gen],
                 constraints=[],
@@ -100,7 +100,7 @@ class TestMCMCGenerator:
 
         # Mismatched weights and constraints
         with pytest.raises(ValueError, match="must match"):
-            MCMCGenerator(
+            MCMCOptimizer(
                 constructs=mcmc_gen.constructs,
                 generators=mcmc_gen.generators,
                 constraints=mcmc_gen.constraints,
@@ -122,7 +122,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
         with pytest.raises(ValueError, match="not assigned to any generator"):
-            MCMCGenerator(
+            MCMCOptimizer(
                 constructs=[construct], generators=[gen], constraints=[dummy_constraint]
             )
 
@@ -192,7 +192,7 @@ class TestMCMCGenerator:
         assert len(mcmc_gen.history) > 1  # Check that history is being tracked
 
     def test_multiple_constraints(self):
-        """Tests the MCMC generator with multiple constraints and weights."""
+        """Tests the MCMC Optimizer with multiple constraints and weights."""
         seq_len = 30
         proposal_gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(sequence_length=seq_len, num_mutations=1)
@@ -208,7 +208,7 @@ class TestMCMCGenerator:
             [segment], sequence_length_constraint, {"target_length": seq_len}
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[gc_con, len_con],
@@ -269,7 +269,7 @@ class TestMCMCGenerator:
             scoring_function_config={"target_length": seq_len * 2},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[mut_gen, inv_gen],
             constraints=[constraint],
@@ -303,7 +303,7 @@ class TestMCMCGenerator:
 
         # Test invalid batch_size
         with pytest.raises(ValueError, match="batch_size must be at least 1"):
-            MCMCGenerator(
+            MCMCOptimizer(
                 constructs=mcmc_gen.constructs,
                 generators=mcmc_gen.generators,
                 constraints=mcmc_gen.constraints,
@@ -312,7 +312,7 @@ class TestMCMCGenerator:
             )
 
         with pytest.raises(ValueError, match="batch_size must be at least 1"):
-            MCMCGenerator(
+            MCMCOptimizer(
                 constructs=mcmc_gen.constructs,
                 generators=mcmc_gen.generators,
                 constraints=mcmc_gen.constraints,
@@ -342,8 +342,8 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        # Create top-k MCMC generator
-        mcmc_gen_topk = MCMCGenerator(
+        # Create top-k MCMC Optimizer
+        mcmc_gen_topk = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -391,7 +391,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -447,7 +447,7 @@ class TestMCMCGenerator:
         )
 
         # Standard MCMC
-        mcmc_standard = MCMCGenerator(
+        mcmc_standard = MCMCOptimizer(
             constructs=[Construct([segment1])],
             generators=[gen1],
             constraints=[constraint1],
@@ -458,7 +458,7 @@ class TestMCMCGenerator:
         )
 
         # Top-k with k=1 (should behave the same)
-        mcmc_topk1 = MCMCGenerator(
+        mcmc_topk1 = MCMCOptimizer(
             constructs=[Construct([segment2])],
             generators=[gen2],
             constraints=[constraint2],
@@ -506,7 +506,7 @@ class TestMCMCGenerator:
         )
 
         # High temperature = more exploratory (more acceptances)
-        mcmc_high_temp = MCMCGenerator(
+        mcmc_high_temp = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -567,7 +567,7 @@ class TestMCMCGenerator:
         )
 
         # Very low temperature = very few acceptances
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -607,7 +607,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen_topk = MCMCGenerator(
+        mcmc_gen_topk = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -658,7 +658,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen_topk = MCMCGenerator(
+        mcmc_gen_topk = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -821,7 +821,7 @@ class TestMCMCGenerator:
             scoring_function_config={"target_length": seq_length},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[gc_constraint, length_constraint],
@@ -871,7 +871,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -934,7 +934,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1015,7 +1015,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1094,7 +1094,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1153,7 +1153,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1207,7 +1207,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1261,7 +1261,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1305,7 +1305,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1349,7 +1349,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 50.0, "max_gc": 50.0},  # Target 50% GC
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1411,7 +1411,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1472,7 +1472,7 @@ class TestMCMCGenerator:
             concatenate=True,
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[gen1, gen2],  # Multiple generators
             constraints=[constraint],
@@ -1520,7 +1520,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1570,7 +1570,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 50.0, "max_gc": 50.0},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1636,7 +1636,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1736,7 +1736,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[gen1, gen2],
             constraints=[constraint],
@@ -1797,7 +1797,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1836,7 +1836,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen1 = MCMCGenerator(
+        mcmc_gen1 = MCMCOptimizer(
             constructs=[construct1],
             generators=[proposal_gen1],
             constraints=[constraint1],
@@ -1872,7 +1872,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen2 = MCMCGenerator(
+        mcmc_gen2 = MCMCOptimizer(
             constructs=[construct2],
             generators=[proposal_gen2],
             constraints=[constraint2],
@@ -1912,7 +1912,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1945,7 +1945,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -1989,7 +1989,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 45.0, "max_gc": 55.0},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[gen1, gen2],
             constraints=[gc_constraint],
@@ -2024,7 +2024,7 @@ class TestMCMCGenerator:
             scoring_function_config={},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],
@@ -2060,7 +2060,7 @@ class TestMCMCGenerator:
             scoring_function_config={"min_gc": 48.0, "max_gc": 52.0},
         )
 
-        mcmc_gen = MCMCGenerator(
+        mcmc_gen = MCMCOptimizer(
             constructs=[construct],
             generators=[proposal_gen],
             constraints=[constraint],

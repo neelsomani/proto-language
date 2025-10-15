@@ -25,9 +25,9 @@ from .esm3 import (
     ESM3GeneratorConfig,
 )
 
-# Optimization generators (not in registry - these are meta-generators)
-from .mcmc import MCMCGenerator
-from .beam_search import BeamSearchGenerator
+# Optimizers (not in registry - these coordinate generators)
+from .mcmc import MCMCOptimizer
+from .beam_search import BeamSearchOptimizer
 
 __all__ = [
     # Registry
@@ -44,7 +44,7 @@ __all__ = [
     "ESM2GeneratorConfig",
     "ESM3Generator",
     "ESM3GeneratorConfig",
-    # Optimization generators
-    "MCMCGenerator",
-    "BeamSearchGenerator",
+    # Optimizers
+    "MCMCOptimizer",
+    "BeamSearchOptimizer",
 ]

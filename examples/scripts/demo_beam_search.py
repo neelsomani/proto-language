@@ -1,5 +1,5 @@
 """
-Demo script for BeamSearchGenerator.
+Demo script for BeamSearchOptimizer.
 
 This script demonstrates how beam search works with multiple segments
 using simplified generators that generate one character at a time.
@@ -15,7 +15,7 @@ import os
 import argparse
 
 from proto_language.language.core import Construct, Segment, Constraint, SequenceType
-from proto_language.language.generator import BeamSearchGenerator, Evo2Generator
+from proto_language.language.generator import BeamSearchOptimizer, Evo2Generator
 
 # Import shared utilities
 from .beam_search_utils import (
@@ -118,7 +118,7 @@ def main():
     """Run the beam search demo."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(
-        description="Demo script for BeamSearchGenerator with optional cloud Evo2Generator support",
+        description="Demo script for BeamSearchOptimizer with optional cloud Evo2Generator support",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -223,8 +223,8 @@ Examples:
         scoring_function_config={}
     )
     
-    # Create beam search generator
-    beam_gen = BeamSearchGenerator(
+    # Create beam search optimizer
+    beam_gen = BeamSearchOptimizer(
         constructs=[construct],
         generators=generators,  # Include all generators
         constraints=[constraint],

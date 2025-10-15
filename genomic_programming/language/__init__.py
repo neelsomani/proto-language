@@ -4,7 +4,7 @@ from .core import (
     Construct,
     Constraint,
     Generator,
-    IterativeGenerator,
+    Optimizer,
 )
 
 from .generator import (
@@ -13,8 +13,8 @@ from .generator import (
     ESM2Generator,
     ESM3Generator,
     SlowMutationGenerator,
-    MCMCGenerator,
-    BeamSearchGenerator,
+    MCMCOptimizer,
+    BeamSearchOptimizer,
     GeneratorRegistry,
 )
 
@@ -27,15 +27,16 @@ __all__ = [
     "Construct",
     "Constraint",
     "Generator",
-    "IterativeGenerator",
+    "Optimizer",
     # Generators
     "UniformMutationGenerator",
     "Evo2Generator",
     "ESM2Generator",
     "ESM3Generator",
     "SlowMutationGenerator",
-    "MCMCGenerator",
-    "BeamSearchGenerator",
+    # Optimizers
+    "MCMCOptimizer",
+    "BeamSearchOptimizer",
     "GeneratorRegistry",
     # Program
     "Program",

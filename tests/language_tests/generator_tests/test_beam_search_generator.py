@@ -1,7 +1,7 @@
 """
-Tests for core BeamSearchGenerator functionality.
+Tests for core BeamSearchOptimizer functionality.
 
-These tests verify the behavior of the BeamSearchGenerator without API dependencies.
+These tests verify the behavior of the BeamSearchOptimizer without API dependencies.
 """
 
 import pytest
@@ -44,17 +44,17 @@ with patch.dict('sys.modules', {
     from proto_language.language.core import (
         Construct, Segment, Constraint, SequenceType)
     from proto_language.language.generator import (
-        BeamSearchGenerator, 
+        BeamSearchOptimizer, 
         UniformMutationGenerator,
         UniformMutationGeneratorConfig
     )
     from examples.scripts.beam_search_utils import MockAutoregressiveGenerator, gc_content_constraint
 
-class TestBeamSearchGenerator:
-    """Test core BeamSearchGenerator functionality."""
+class TestBeamSearchOptimizer:
+    """Test core BeamSearchOptimizer functionality."""
 
     def test_beam_search_generator_initialization(self):
-        """Test basic BeamSearchGenerator initialization."""
+        """Test basic BeamSearchOptimizer initialization."""
         # Create test segments
         segment1 = Segment(sequence="AAAA", sequence_type=SequenceType.DNA)
         segment2 = Segment(sequence="TTTT", sequence_type=SequenceType.DNA)
@@ -99,8 +99,8 @@ class TestBeamSearchGenerator:
             scoring_function_config={}
         )
         
-        # Create beam search generator
-        beam_gen = BeamSearchGenerator(
+        # Create beam search optimizer
+        beam_gen = BeamSearchOptimizer(
             constructs=[construct],
             generators=[gen1, gen2, gen3, gen4],
             constraints=[constraint],
@@ -121,12 +121,12 @@ class TestBeamSearchGenerator:
 
     def test_extension_based_generator_detection(self):
         """Test the _is_extension_based_generator method."""
-        # Create a dummy beam search generator for testing the method
-        # We need at least one construct to initialize BeamSearchGenerator
+        # Create a dummy beam search optimizer for testing the method
+        # We need at least one construct to initialize BeamSearchOptimizer
         segment = Segment(sequence="AAAA", sequence_type=SequenceType.DNA)
         construct = Construct([segment])
         
-        beam_gen = BeamSearchGenerator(
+        beam_gen = BeamSearchOptimizer(
             constructs=[construct],
             generators=[],
             constraints=[],
@@ -182,8 +182,8 @@ class TestBeamSearchGenerator:
             scoring_function_config={}
         )
         
-        # Create beam search generator with same parameters
-        beam_gen = BeamSearchGenerator(
+        # Create beam search optimizer with same parameters
+        beam_gen = BeamSearchOptimizer(
             constructs=[construct],
             generators=generators,
             constraints=[constraint],

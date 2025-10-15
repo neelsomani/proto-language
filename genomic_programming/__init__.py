@@ -4,7 +4,7 @@ from .language.core import (
     Construct,
     Constraint,
     Generator,
-    IterativeGenerator,
+    Optimizer,
     SequenceType,
 )
 from .language.constraint import (
@@ -24,8 +24,8 @@ from .language.generator import (
     UniformMutationGenerator,
     Evo2Generator,
     ESM2Generator,
-    MCMCGenerator,
-    BeamSearchGenerator,
+    MCMCOptimizer,
+    BeamSearchOptimizer,
 )
 from .language.core import Program
 from .tools import (
@@ -77,7 +77,7 @@ __all__ = [
     "Construct",
     "Constraint",
     "Generator",
-    "IterativeGenerator",
+    "Optimizer",
     "SequenceType",
     "Program",
     # Constraints
@@ -96,8 +96,8 @@ __all__ = [
     "UniformMutationGenerator",
     "Evo2Generator",
     "ESM2Generator",
-    "MCMCGenerator",
-    "BeamSearchGenerator",
+    "MCMCOptimizer",
+    "BeamSearchOptimizer",
     # Tool cache functions
     "tool_cache",
     "clear_cache",

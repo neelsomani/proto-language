@@ -11,7 +11,7 @@ from .segment import Segment
 from .construct import Construct
 from .constraint import Constraint
 from .generator import Generator
-from .iterative_generator import IterativeGenerator
+from .optimizer import Optimizer
 from .program import Program
 from proto_language.base_registry import BaseRegistry, BaseSpec
 
@@ -27,7 +27,7 @@ __all__ = [
     "Construct",
     "Constraint",
     "Generator",
-    "IterativeGenerator",
+    "Optimizer",
     "Program",
     "BaseRegistry",
     "BaseSpec",

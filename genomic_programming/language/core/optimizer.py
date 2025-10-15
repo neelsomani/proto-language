@@ -1,29 +1,31 @@
 """
-IterativeGenerator base class for the proto-language.
+Optimizer base class for the proto-language.
 
-Specialized generator for iterative optimization with energy-based evaluation.
+Base class for iterative optimization algorithms that coordinate multiple
+generators and constraints to search for optimal biological sequences.
 """
 
 import copy
 import warnings
-from abc import abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
 from .constraint import Constraint
 from .construct import Construct
 from .generator import Generator
-from .segment import Segment
 
 
-class IterativeGenerator(Generator):
+class Optimizer(ABC):
     """
-    Specialized generator for iterative optimization with energy-based evaluation.
+    Base class for optimization algorithms.
 
-    Extends Generator to support iterative algorithms like MCMC that require
-    energy evaluation and state tracking. The class works with multiple
-    sub-generators and constraints.
+    Coordinates multiple generators and constraints to search for optimal
+    biological sequences through iterative optimization. Unlike generators
+    which modify sequences directly, optimizers orchestrate the search process
+    by coordinating generators, evaluating constraints, and making decisions
+    about which sequences to keep.
     """
 
     def __init__(
@@ -33,10 +35,9 @@ class IterativeGenerator(Generator):
         constraints: List[Constraint],
         constraint_weights: Optional[List[float]] = None,
         batch_size: int = 1,
-        **hyperparameters: Any,
     ) -> None:
         """
-        Initialize the IterativeGenerator.
+        Initialize the Optimizer.
 
         Args:
             constructs: List of Construct objects to optimize.
@@ -44,9 +45,8 @@ class IterativeGenerator(Generator):
             constraints: List of Constraint objects for evaluation.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
             batch_size: Number of sequence variants to generate simultaneously.
-            **hyperparameters: Additional configuration parameters.
         """
-        super().__init__(batch_size=batch_size, **hyperparameters)
+        self.batch_size = batch_size
         self.constructs = constructs
         self.generators = generators
         self.constraints = constraints
@@ -61,8 +61,8 @@ class IterativeGenerator(Generator):
                 if gen.batch_size != 1:
                     warnings.warn(
                         f"Generator {i} ({gen.__class__.__name__}) was initialized with batch_size={gen.batch_size}, "
-                        f"but IterativeGenerator is overwriting it to batch_size={self.batch_size}. "
-                        f"To avoid this warning, do not specify batch_size when creating sub-generators for IterativeGenerator.",
+                        f"but Optimizer is overwriting it to batch_size={self.batch_size}. "
+                        f"To avoid this warning, do not specify batch_size when creating sub-generators for Optimizer.",
                         UserWarning,
                         stacklevel=2
                     )
@@ -78,17 +78,14 @@ class IterativeGenerator(Generator):
         )  # Unused
         self._is_initialized = True
 
-    def _validate_generator(self) -> None:
+    def _validate_optimizer(self) -> None:
         """
         Validate that constructs, generators, constraints are properly configured.
         Must be called in final subclass __init__ to ensure all attributes are set.
 
         Raises:
-            RuntimeError: If called before assign() has been called.
             ValueError: If any validation checks fail.
         """
-        # Ensure basic generator validation
-        super()._validate_generator()
 
         # Ensure constructs, generators, and constraints are non-empty lists
         if not self.constructs:
@@ -159,6 +156,19 @@ class IterativeGenerator(Generator):
                 raise ValueError(f"Constraint {i} has no inputs assigned")
             if not any(id(inp) in generator_segment_ids for inp in constraint.inputs):
                 raise ValueError(f"Constraint {i} has no generator-connected inputs")
+# TODO: Figure out whether we need to remove this
+    def get_generator_outputs(self):
+        """
+        Get all segments from all constructs as a flat tuple.
+
+        Returns:
+            Tuple of all Segment objects across all constructs.
+
+        Note:
+            This method flattens all segments from all constructs into a single tuple,
+            which is useful for iterating over all segments being optimized.
+        """
+        return tuple(seg for construct in self.constructs for seg in construct.segments)
 
     def _replicate_best_sequence(self, best_idx: int) -> None:
         """
@@ -198,9 +208,9 @@ class IterativeGenerator(Generator):
     @abstractmethod
     def sample(self, **kwargs: Any) -> None:
         """
-        Run one or more steps of iterative generation.
+        Run one or more steps of optimization.
 
-        Subclasses should implement this method to run the generation process.
+        Subclasses should implement this method to run the optimization process.
         Implementations should modify generator outputs in-place and may store
         snapshots of constructs in `self.history`.
 
@@ -211,21 +221,6 @@ class IterativeGenerator(Generator):
             NotImplementedError: If not implemented by subclass.
         """
         raise NotImplementedError("Subclasses must implement the sample method.")
-
-    def assign(
-        self, assigned_segments: Segment | Iterable[Segment]
-    ) -> None:
-        """
-        IterativeGenerator doesn't support manual assignment.
-
-        Raises:
-            NotImplementedError: Always, as IterativeGenerator auto-initializes from pre-assigned generators.
-        """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} auto-initializes from pre-assigned generators. "
-            "Manual assignment is not supported. Ensure all sub-generators are assigned before "
-            "creating the IterativeGenerator."
-        )
 
     def score_energy(self, operation: str = "add") -> None:
         """
@@ -241,8 +236,7 @@ class IterativeGenerator(Generator):
                 - 'multiply': Multiply weighted constraint scores
 
         Raises:
-            ValueError: If generator is not properly initialized or operation is not 'add' or 'multiply'.
-            RuntimeError: If called before assign() has been called.
+            ValueError: If optimizer is not properly initialized or operation is not 'add' or 'multiply'.
 
         Note:
             Energy computation uses current sequence values, so it reflects
@@ -250,7 +244,7 @@ class IterativeGenerator(Generator):
             energy scores are accessible via self.energy_scores.
         """
         # Ensure generator is properly initialized
-        self._validate_generator()
+        self._validate_optimizer()
 
         # Get weighted scores from all constraints: shape (n_constraints, n_samples)
         constraint_scores = np.array(

@@ -3,22 +3,22 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from .construct import Construct
 from .constraint import Constraint
 from .generator import Generator
-from .iterative_generator import IterativeGenerator
+from .optimizer import Optimizer
 
 
 class Program:
     """
     Programs represent user-defined biological designs.
 
-    This class is a user-friendly wrapper around iterative generators like MCMC.
+    This class is a user-friendly wrapper around optimizers like MCMC.
     It provides a simplified interface for setting up and
     running sequence optimization workflows with constructs, generators, and constraints.
 
     Examples:
         Basic MCMC optimization program:
-        >>> from proto_language.language.generator import MCMCGenerator
+        >>> from proto_language.language.generator import MCMCOptimizer
         >>> program = Program(
-        ...     iterative_generator_type=MCMCGenerator,
+        ...     optimizer_type=MCMCOptimizer,
         ...     constructs=[construct1, construct2],
         ...     generators=[evo2_gen, mutation_gen],
         ...     constraints=[gc_constraint, length_constraint],
@@ -33,7 +33,7 @@ class Program:
 
     def __init__(
         self,
-        iterative_generator_type: Type[IterativeGenerator],
+        optimizer_type: Type[Optimizer],
         constructs: List[Construct],
         generators: List[Generator],
         constraints: List[Constraint],
@@ -41,21 +41,21 @@ class Program:
         **kwargs: Any,
     ) -> None:
         """
-        Initialize a Program with an iterative generator class and its dependencies.
+        Initialize a Program with an optimizer class and its dependencies.
 
         Args:
-            iterative_generator_type: The IterativeGenerator class to use (e.g., MCMCGenerator).
+            optimizer_type: The Optimizer class to use (e.g., MCMCOptimizer).
             constructs: List of Construct objects to optimize.
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
-            **kwargs: Additional keyword arguments passed to the IterativeGenerator.
+            **kwargs: Additional keyword arguments passed to the Optimizer.
 
         Raises:
-            ValueError: If iterative_generator_type is not a valid IterativeGenerator subclass.
+            ValueError: If optimizer_type is not a valid Optimizer subclass.
         """
         # Store constructor arguments for validation
-        self.iterative_generator_type = iterative_generator_type
+        self.optimizer_type = optimizer_type
         self.constructs = constructs
         self.generators = generators
         self.constraints = constraints
@@ -65,9 +65,9 @@ class Program:
         # Validate before instantiation to catch errors early
         self._validate_program()
 
-        # Create the IterativeGenerator
-        # All generators take constructs (plural)
-        self.ebm = iterative_generator_type(
+        # Create the Optimizer
+        # All optimizers take constructs (plural)
+        self.optimizer = optimizer_type(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
@@ -78,55 +78,54 @@ class Program:
     @property
     def energy_scores(self) -> List[float]:
         """
-        Get energy scores from the underlying generator.
-        
+        Get energy scores from the underlying optimizer.
+
         Returns:
             List of energy scores where lower values indicate better solutions.
         """
-        return self.ebm.energy_scores
+        return self.optimizer.energy_scores
     
-    @property  
+    @property
     def time_step(self) -> int:
         """
-        Get current time step from the underlying generator.
-        
+        Get current time step from the underlying optimizer.
+
         Returns:
             Current iteration step number (latest time_step from history, or 0 if no history).
         """
-        if self.ebm.history:
-            return self.ebm.history[-1]["time_step"]
+        if self.optimizer.history:
+            return self.optimizer.history[-1]["time_step"]
         return 0
 
     @property
     def history(self) -> List[Dict[str, Any]]:
         """
-        Get optimization history from the underlying generator.
-        
+        Get optimization history from the underlying optimizer.
+
         Returns:
             List of history entries, each containing time_step, energy_scores, and constructs.
         """
-        return self.ebm.history
+        return self.optimizer.history
 
     def _validate_program(self) -> None:
         """
         Validate that the inputs and configuration are properly set up.
 
         Raises:
-            ValueError: If iterative_generator_type is not a class or not a subclass
-                of IterativeGenerator.
+            ValueError: If optimizer_type is not a class or not a subclass of Optimizer.
         """
-        # Ensure iterative_generator_type is a class
-        if not isinstance(self.iterative_generator_type, type):
+        # Ensure optimizer_type is a class
+        if not isinstance(self.optimizer_type, type):
             raise ValueError(
-                f"iterative_generator_type must be a class, got {type(self.iterative_generator_type)}. "
+                f"optimizer_type must be a class, got {type(self.optimizer_type)}. "
             )
 
-        # Ensure iterative_generator_type is a subclass of IterativeGenerator
-        if not issubclass(self.iterative_generator_type, IterativeGenerator):
+        # Ensure optimizer_type is a subclass of Optimizer
+        if not issubclass(self.optimizer_type, Optimizer):
             raise ValueError(
-                f"iterative_generator_type must be a subclass of IterativeGenerator, "
-                f"got {self.iterative_generator_type}. "
-                f"Available options include MCMCGenerator and BeamSearchGenerator."
+                f"optimizer_type must be a subclass of Optimizer, "
+                f"got {self.optimizer_type}. "
+                f"Available options include MCMCOptimizer and BeamSearchOptimizer."
             )
 
     def run(self) -> None:
@@ -134,17 +133,17 @@ class Program:
         Execute the sequence optimization process and stores the optimization history in self.history.
 
         Prints initial and final sequence states and energies for monitoring progress.
-        The actual optimization is performed by the underlying IterativeGenerator.
+        The actual optimization is performed by the underlying Optimizer.
         """
 
         # Calculate initial energy scores
-        self.ebm.score_energy()
+        self.optimizer.score_energy()
 
         # Print initial sequences and energies for all batch elements
         print("Initial constructs for all batch elements:")
         if self.energy_scores:
-            # For BeamSearchGenerator: one energy per construct
-            # For other generators: one energy per batch element across all constructs
+            # For BeamSearchOptimizer: one energy per construct
+            # For other optimizers: one energy per batch element across all constructs
             if len(self.energy_scores) == len(self.constructs):
                 for construct_idx, construct in enumerate(self.constructs):
                     print(f"  Construct {construct_idx}:")
@@ -167,14 +166,14 @@ class Program:
         else:
             print("  No energy scores available yet")
 
-        # Run iterative generation
-        self.ebm.sample()
+        # Run optimization
+        self.optimizer.sample()
 
         # Print final sequences and energies for all batch elements
         print("Final constructs for all batch elements:")
         if self.energy_scores:
-            # For BeamSearchGenerator: one energy per construct
-            # For other generators: one energy per batch element across all constructs
+            # For BeamSearchOptimizer: one energy per construct
+            # For other optimizers: one energy per batch element across all constructs
             if len(self.energy_scores) == len(self.constructs):
                 for construct_idx, construct in enumerate(self.constructs):
                     print(f"  Construct {construct_idx}:")

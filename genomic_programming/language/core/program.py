@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from pydantic import BaseModel
 
@@ -44,6 +44,7 @@ class Program:
         generators: List[Generator],
         constraints: List[Constraint],
         constraint_weights: Optional[List[float]] = None,
+        custom_logging: Optional[Callable] = None,
     ) -> None:
         """
         Initialize a Program with an optimizer class and its dependencies.
@@ -55,6 +56,7 @@ class Program:
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
+            custom_logging: Optional custom logging function for tracking optimization progress.
 
         Raises:
             ValueError: If optimizer_type is not a valid Optimizer subclass.
@@ -66,18 +68,24 @@ class Program:
         self.generators = generators
         self.constraints = constraints
         self.constraint_weights = constraint_weights
+        self.custom_logging = custom_logging
 
         # Validate before instantiation to catch errors early
         self._validate_program()
 
-        # Create the Optimizer
-        self.optimizer = optimizer_type(
-            constructs=constructs,
-            generators=generators,
-            constraints=constraints,
-            config=optimizer_config,
-            constraint_weights=constraint_weights,
-        )
+        # Create the Optimizer with optional custom_logging
+        optimizer_kwargs = {
+            "constructs": constructs,
+            "generators": generators,
+            "constraints": constraints,
+            "config": optimizer_config,
+            "constraint_weights": constraint_weights,
+        }
+        
+        if custom_logging is not None:
+            optimizer_kwargs["custom_logging"] = custom_logging
+            
+        self.optimizer = optimizer_type(**optimizer_kwargs)
 
     @property
     def energy_scores(self) -> List[float]:

@@ -19,7 +19,6 @@ from proto_language.language.constraint import gc_content_constraint
 seq1 = Segment(sequence_type=SequenceType.DNA)
 
 # Construct
-
 construct = Construct([seq1])
 
 # Generator
@@ -32,7 +31,6 @@ uniform_gen = UniformMutationGenerator(uniform_gen_config)
 # Assign
 uniform_gen.assign(seq1)
 
-
 # Contraint
 gc_constraint = Constraint(
     inputs=[seq1],
@@ -40,17 +38,14 @@ gc_constraint = Constraint(
     scoring_function_config={"min_gc": 80, "max_gc": 90},
 )
 
-
 def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].batch_sequences[0]
+    gc_content = output_sequence.metadata.get('gc_content', 'N/A')
     print(
-        f"Iteration {step} | "
-        f"time_step: {output_sequence.metadata['time_step']}, "
-        f"sequence: {output_sequence._sequence}, "
-        f"metadata_sequence: {output_sequence.metadata['sequence']}, "
-        f"gc_content: {output_sequence.metadata['gc_content']}, "
+        f"Custom Log - Step {step} | "
+        f"sequence: {output_sequence.sequence}, "
+        f"gc_content: {gc_content}"
     )
-
 
 # Optimizer config
 optimizer_config = MCMCOptimizerConfig(
@@ -66,6 +61,7 @@ program = Program(
     constructs=[construct],
     generators=[uniform_gen],
     constraints=[gc_constraint],
+    custom_logging=custom_logging,
 )
 
 program.run()

@@ -1,9 +1,12 @@
+## NOTE: THIS SCRIPT ONLY WORKS ON CHIMERA DUE TO PHROGS DATABASE PATH
+
 from typing import Tuple
 
 import sys
 import os
 
-from proto_language.language.generator import Evo2Generator, MCMCOptimizer
+from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
+from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -18,11 +21,11 @@ NUM_MCMC_STEPS = 3 # Number of MCMC steps to run
 MIN_GC = 35  # Min target for high GC content (%)
 MAX_GC = 65  # Max target for high GC content (%)
 MAX_HOMOPOLYMER = 10
-MIN_FREQ = 0
-MAX_FREQ = 20
+MIN_FREQ = 0.0  # Min dinucleotide frequency (proportion 0-1)
+MAX_FREQ = 0.20  # Max dinucleotide frequency (proportion 0-1, 20% = 0.20)
 TETRANUCLEOTIDE = "GATC"
-MIN_TUD = 0
-MAX_TUD = 1
+MIN_TUD = 0.0  # Min tetranucleotide usage deviation
+MAX_TUD = 1.0  # Max tetranucleotide usage deviation
 MIN_GENE_HITS = 10  # Min target for gene hits
 MAX_GENE_HITS = 12  # Max target for gene hits
 TRACK_EVERY = 1
@@ -41,15 +44,15 @@ segment = Segment(
 ###############
 
 # Initialize ProgramGenerator
-evo2_generator = Evo2Generator(
+evo2_config = Evo2GeneratorConfig(
     prompt_seqs=["+~GAGTTTTA"],
-    evo2_type="evo2_7b_phage_12k_gen",
-    evo2_local_path="/scratch/hielab/gbrixi/evo2/vortex_interleaved/7b_phage/iter_12000.pt",
+    evo2_type="evo2_7b_microviridae",
     sequence_length=5500,
     temperature=0.9,
     batch_size=10,
     prepend_prompt=True,
 )
+evo2_generator = Evo2Generator(evo2_config)
 
 evo2_generator.assign(segment)
 
@@ -96,15 +99,19 @@ tetranucleotide_usage = Constraint(
 gene_hit_count_config = {
     "min_hits": MIN_GENE_HITS,
     "max_hits": MAX_GENE_HITS,
-    "mmseqs_config": {
-        "database": "/large_storage/hielab/samuelking/phrogs/phrogs_mmseqs_db/phrogs_mmseqs_db",
-        "threads": 96,
-        "sensitivity": 4.0
-    },
     "orfipy_config": {
+        "input_fasta": "",  # Placeholder - filled at runtime
+        "output_dir": "",   # Placeholder - filled at runtime
         "threads": 96,
         "min_len": 30,
         "max_len": 5500
+    },
+    "mmseqs_config": {
+        "query_fasta": "",  # Placeholder - filled at runtime
+        "mmseqs_db": "/large_storage/hielab/samuelking/phrogs/phrogs_mmseqs_db/phrogs_mmseqs_db",
+        "results_dir": "",  # Placeholder - filled at runtime
+        "threads": 96,
+        "sensitivity": 4.0
     }
 }
 gene_hit_count = Constraint(
@@ -116,15 +123,19 @@ gene_hit_count = Constraint(
 gene_homology_config = {
     "min_homology": 80.0,  # Minimum 80% homology
     "max_homology": 100.0,  # Maximum 100% homology
-    "mmseqs_config": {
-        "database": "/large_storage/hielab/samuelking/phrogs/phrogs_mmseqs_db/phrogs_mmseqs_db",
-        "threads": 96,
-        "sensitivity": 4.0
-    },
     "orfipy_config": {
+        "input_fasta": "",  # Placeholder - filled at runtime
+        "output_dir": "",   # Placeholder - filled at runtime
         "threads": 96,
         "min_len": 30,
-        "max_len":5500
+        "max_len": 5500
+    },
+    "mmseqs_config": {
+        "query_fasta": "",  # Placeholder - filled at runtime
+        "mmseqs_db": "/large_storage/hielab/samuelking/phrogs/phrogs_mmseqs_db/phrogs_mmseqs_db",
+        "results_dir": "",  # Placeholder - filled at runtime
+        "threads": 96,
+        "sensitivity": 4.0
     }
 }
 gene_homology = Constraint(
@@ -137,9 +148,16 @@ gene_homology = Constraint(
 ## Program ##
 #############
 
+# Optimizer config
+optimizer_config = MCMCOptimizerConfig(
+    num_steps=NUM_MCMC_STEPS,
+    track_step_size=TRACK_EVERY,
+)
+
 # Initialize Program with correct sequence_order type
 program = Program(
     optimizer_type=MCMCOptimizer,
+    optimizer_config=optimizer_config,
     constructs=[construct],
     generators=[evo2_generator],
     constraints=[
@@ -151,8 +169,6 @@ program = Program(
         gene_hit_count,
         gene_homology,
     ],
-    num_steps=NUM_MCMC_STEPS,
-    track_step_size=TRACK_EVERY,
 )
 
 program.run()

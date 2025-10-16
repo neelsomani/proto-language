@@ -52,6 +52,7 @@ class TestRegistration:
         # Register a test constraint
         @ConstraintRegistry.register(
             key="test-temp-constraint",
+            label="Test Temp Constraint",
             config=TestConfig,
             description="Temporary test constraint"
         )
@@ -80,6 +81,7 @@ class TestRegistration:
         
         @ConstraintRegistry.register(
             key="test-vectorized",
+            label="Test Vectorized",
             config=TestConfig,
             description="Vectorized constraint",
             vectorized=True,
@@ -106,6 +108,7 @@ class TestRegistration:
         
         registered_func = ConstraintRegistry.register(
             key="test-return",
+            label="Test Return",
             config=TestConfig,
             description="Test"
         )(original_func)
@@ -125,6 +128,7 @@ class TestRegistration:
         # First registration should work
         @ConstraintRegistry.register(
             key="test-duplicate-check",
+            label="Test Duplicate Check",
             config=TestConfig,
             description="Test constraint"
         )
@@ -138,6 +142,7 @@ class TestRegistration:
         with pytest.raises(ValueError, match="already registered"):
             @ConstraintRegistry.register(
                 key="test-duplicate-check",  # Same key!
+                label="Test Duplicate Check 2",
                 config=TestConfig,
                 description="Another test"
             )
@@ -158,19 +163,20 @@ class TestDiscovery:
     def test_list_all_returns_all_constraints(self):
         """Test that list_all returns all registered constraints."""
         all_constraints = ConstraintRegistry.list_all()
-        
-        assert isinstance(all_constraints, dict)
+
+        assert isinstance(all_constraints, list)
         assert len(all_constraints) >= 20  # Should have at least 20 constraints
-        
+
         # Check structure of returned data
-        for key, info in all_constraints.items():
-            assert "description" in info
-            assert "vectorized" in info
-            assert "concatenate" in info
-            assert "gpu_required" in info
-            assert "config_schema" in info
-            assert isinstance(info["config_schema"], dict)
-            assert isinstance(info["gpu_required"], bool)
+        for spec in all_constraints:
+            assert spec.key is not None
+            assert spec.label is not None
+            assert spec.description is not None
+            assert hasattr(spec, "vectorized")
+            assert hasattr(spec, "concatenate")
+            assert hasattr(spec, "gpu_required")
+            assert isinstance(spec.parameters, dict)
+            assert isinstance(spec.gpu_required, bool)
     
     def test_count_returns_correct_number(self):
         """Test that count returns the correct number of registered constraints."""
@@ -345,7 +351,8 @@ class TestIntegration:
         """Test complete workflow: list → get schema → create → evaluate."""
         # 1. List all constraints
         constraints = ConstraintRegistry.list_all()
-        assert "gc-content" in constraints
+        constraint_keys = {spec.key for spec in constraints}
+        assert "gc-content" in constraint_keys
         
         # 2. Get schema for form generation
         schema = ConstraintRegistry.get_schema("gc-content")
@@ -369,31 +376,31 @@ class TestIntegration:
     def test_all_registered_constraints_are_creatable(self, dna_segment, protein_segment):
         """Test that all registered constraints can be instantiated."""
         all_constraints = ConstraintRegistry.list_all()
-        
+
         errors = []
-        for key in all_constraints.keys():
+        for spec in all_constraints:
             try:
                 # Try to get schema (should not raise)
-                schema = ConstraintRegistry.get_schema(key)
+                schema = ConstraintRegistry.get_schema(spec.key)
                 
                 # Extract defaults from schema
                 defaults = {k: v.get("default") for k, v in schema.get("properties", {}).items() if "default" in v}
                 
                 # Note: We can't create all constraints without proper config values
                 # This test just verifies the registry methods work for all
-                
+
             except Exception as e:
-                errors.append(f"{key}: {str(e)}")
+                errors.append(f"{spec.key}: {str(e)}")
         
         assert len(errors) == 0, f"Errors accessing constraints: {errors}"
     
     def test_registry_methods_consistent(self):
         """Test that different registry methods return consistent data."""
         # Get constraint keys from different methods
-        keys_from_list_all = set(ConstraintRegistry.list_all().keys())
+        keys_from_list_all = {spec.key for spec in ConstraintRegistry.list_all()}
         keys_from_list_keys = set(sorted(ConstraintRegistry._registry.keys()))
         count = ConstraintRegistry.count()
-        
+
         # All should be consistent
         assert keys_from_list_all == keys_from_list_keys
         assert len(keys_from_list_all) == count
@@ -480,7 +487,7 @@ class TestBuiltinConstraints:
             "protein-globularity",
             "boltz-binding-strength"
         ]
-        
+
         # Constraints that should NOT require GPU
         cpu_constraints = [
             "gc-content",
@@ -489,19 +496,20 @@ class TestBuiltinConstraints:
             "protein-complexity",
             "protein-domain"
         ]
-        
+
         all_constraints = ConstraintRegistry.list_all()
-        
+        constraints_dict = {spec.key: spec for spec in all_constraints}
+
         # Check GPU constraints
         for key in gpu_constraints:
-            assert key in all_constraints, f"GPU constraint {key} not registered"
-            assert all_constraints[key]["gpu_required"] == True, \
+            assert key in constraints_dict, f"GPU constraint {key} not registered"
+            assert constraints_dict[key].gpu_required == True, \
                 f"Constraint {key} should be marked as gpu_required=True"
-        
+
         # Check CPU constraints
         for key in cpu_constraints:
-            assert key in all_constraints, f"CPU constraint {key} not registered"
-            assert all_constraints[key]["gpu_required"] == False, \
+            assert key in constraints_dict, f"CPU constraint {key} not registered"
+            assert constraints_dict[key].gpu_required == False, \
                 f"Constraint {key} should be marked as gpu_required=False"
     
     def test_config_validation_patterns(self):

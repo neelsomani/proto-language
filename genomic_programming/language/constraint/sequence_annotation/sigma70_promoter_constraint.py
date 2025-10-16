@@ -34,6 +34,7 @@ class Sigma70PromoterConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="sigma70-promoter",
+    label="Sigma70 Promoter Strength",
     config=Sigma70PromoterConfig,
     description="Evaluate σ70 promoter strength for DNA sequences",
     vectorized=True,

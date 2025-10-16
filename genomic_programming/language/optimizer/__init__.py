@@ -1,5 +1,5 @@
 # Registry and base infrastructure
-from .optimizer_registry import OptimizerRegistry
+from .optimizer_registry import OptimizerRegistry, OptimizerSpec
 
 # Optimizers
 from .mcmc_optimizer import (
@@ -14,6 +14,7 @@ from .beam_search_optimizer import (
 __all__ = [
     # Registry
     "OptimizerRegistry",
+    "OptimizerSpec",
     # MCMC Optimizer
     "MCMCOptimizer",
     "MCMCOptimizerConfig",

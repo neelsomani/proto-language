@@ -37,11 +37,11 @@ class ESM2GeneratorConfig(BaseConfig):
 
 @GeneratorRegistry.register(
     key="esm2",
+    label="ESM2 Protein Language Model",
     config=ESM2GeneratorConfig,
     description="ESM-2 protein language model for protein sequence generation",
     category="language_model",
     requires_gpu=True,
-    supports_batch=True
 )
 @final
 class ESM2Generator(Generator):

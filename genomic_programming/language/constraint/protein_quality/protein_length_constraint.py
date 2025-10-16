@@ -20,6 +20,7 @@ class ProteinLengthConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="protein-length",
+    label="Protein Length",
     config=ProteinLengthConfig,
     description="Evaluate whether protein length falls within acceptable range",
     vectorized=False,

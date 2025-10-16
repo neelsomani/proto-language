@@ -23,11 +23,11 @@ class UniformMutationGeneratorConfig(BaseConfig):
 
 @GeneratorRegistry.register(
     key="uniform-mutation",
+    label="Uniform Mutation Generator",
     config=UniformMutationGeneratorConfig,
     description="Random point mutations for sequence diversity",
     category="mutation",
     requires_gpu=False,
-    supports_batch=True
 )
 @final
 class UniformMutationGenerator(Generator):

@@ -40,11 +40,11 @@ class Evo2GeneratorConfig(BaseConfig):
 
 @GeneratorRegistry.register(
     key="evo2",
+    label="Evo2 DNA Language Model",
     config=Evo2GeneratorConfig,
     description="Evo2 genome language model for DNA sequence generation",
     category="language_model",
     requires_gpu=True,
-    supports_batch=True
 )
 @final
 class Evo2Generator(Generator):

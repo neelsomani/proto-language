@@ -22,6 +22,7 @@ class SequenceLengthConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="sequence-length",
+    label="Sequence Length",
     config=SequenceLengthConfig,
     description="Evaluate sequence length against target value",
     vectorized=False,

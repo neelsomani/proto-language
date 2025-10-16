@@ -29,6 +29,7 @@ class ESMFoldPLDDTConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="esmfold-plddt",
+    label="ESMFold pLDDT Score",
     config=ESMFoldPLDDTConfig,
     description="Evaluate protein structure quality using ESMFold predicted LDDT score",
     vectorized=False,

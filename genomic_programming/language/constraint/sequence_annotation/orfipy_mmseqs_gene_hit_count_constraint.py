@@ -27,6 +27,7 @@ class ORFipyMMseqsGeneHitCountConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="orfipy-mmseqs-gene-hit-count",
+    label="ORF Gene Hit Count",
     config=ORFipyMMseqsGeneHitCountConfig,
     description="Evaluate whether the number of unique ORFs with hits falls within a target range",
     vectorized=False,

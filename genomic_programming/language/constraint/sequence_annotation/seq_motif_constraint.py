@@ -32,6 +32,7 @@ class SeqMotifConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="seq-motif",
+    label="Sequence Motif Match",
     config=SeqMotifConfig,
     description="Score DNA sequences against motifs using MEME",
     vectorized=True,

@@ -29,6 +29,7 @@ class ESMFoldPTMConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="esmfold-ptm",
+    label="ESMFold pTM Score",
     config=ESMFoldPTMConfig,
     description="Evaluate protein structure quality using ESMFold predicted TM-score",
     vectorized=False,

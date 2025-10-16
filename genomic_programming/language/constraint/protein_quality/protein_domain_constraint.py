@@ -155,6 +155,7 @@ class ProteinDomainConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="protein-domain",
+    label="Protein Domain Match",
     config=ProteinDomainConfig,
     description="Evaluate whether a sequence contains protein domains matching specified keywords",
     vectorized=False,

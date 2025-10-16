@@ -45,6 +45,7 @@ class BeamSearchOptimizerConfig(BaseConfig):
 
 @OptimizerRegistry.register(
     key="beam-search",
+    label="Beam Search Optimizer",
     config=BeamSearchOptimizerConfig,
     description="Beam search optimizer that processes segments sequentially with context accumulation",
 )

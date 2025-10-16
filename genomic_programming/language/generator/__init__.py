@@ -1,5 +1,5 @@
 # Registry and base infrastructure
-from .generator_registry import GeneratorRegistry
+from .generator_registry import GeneratorRegistry, GeneratorSpec
 
 # Simple mutation generators
 from .uniform_mutation import (
@@ -28,6 +28,7 @@ from .esm3 import (
 __all__ = [
     # Registry
     "GeneratorRegistry",
+    "GeneratorSpec",
     # Mutation generators
     "UniformMutationGenerator",
     "UniformMutationGeneratorConfig",

@@ -24,11 +24,11 @@ class SlowMutationGeneratorConfig(BaseConfig):
 
 @GeneratorRegistry.register(
     key="slow-mutation",
+    label="Slow Mutation Generator",
     config=SlowMutationGeneratorConfig,
     description="Slow mutations for testing and demonstration",
     category="mutation",
     requires_gpu=False,
-    supports_batch=True
 )
 @final
 class SlowMutationGenerator(Generator):

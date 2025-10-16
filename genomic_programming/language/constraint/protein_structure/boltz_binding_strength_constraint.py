@@ -28,6 +28,7 @@ class BoltzBindingStrengthConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="boltz-binding-strength",
+    label="Boltz Binding Strength",
     config=BoltzBindingStrengthConfig,
     description="Evaluate protein-protein/protein-ligand binding using Boltz2 structure prediction",
     vectorized=False,

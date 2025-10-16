@@ -25,6 +25,7 @@ class GCContentConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="gc-content",
+    label="GC Content",
     config=GCContentConfig,
     description="Enforce GC content within specified range",
     vectorized=False,

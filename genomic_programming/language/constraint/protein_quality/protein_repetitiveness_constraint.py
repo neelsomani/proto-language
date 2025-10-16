@@ -63,6 +63,7 @@ class ProteinRepetitivenessConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="protein-repetitiveness",
+    label="Protein Repetitiveness",
     config=ProteinRepetitivenessConfig,
     description="Evaluate protein sequence repetitiveness based on k-mer analysis",
     vectorized=False,

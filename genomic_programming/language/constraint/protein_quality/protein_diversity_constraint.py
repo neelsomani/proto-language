@@ -23,6 +23,7 @@ class ProteinDiversityConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="protein-diversity",
+    label="Protein Diversity",
     config=ProteinDiversityConfig,
     description="Evaluate amino acid diversity in a protein sequence",
     vectorized=False,

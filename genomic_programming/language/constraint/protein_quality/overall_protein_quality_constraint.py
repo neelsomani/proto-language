@@ -63,6 +63,7 @@ class OverallProteinQualityConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="overall-protein-quality",
+    label="Overall Protein Quality",
     config=OverallProteinQualityConfig,
     description="Evaluate overall protein quality using multiple sub-constraints",
     vectorized=False,

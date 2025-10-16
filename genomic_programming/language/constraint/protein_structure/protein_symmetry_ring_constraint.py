@@ -43,6 +43,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="protein-symmetry-ring",
+    label="Protein Symmetry Ring Structure",
     config=ProteinSymmetryRingConfig,
     description="Constrain protein to form symmetric ring-like multimeric structure",
     vectorized=False,

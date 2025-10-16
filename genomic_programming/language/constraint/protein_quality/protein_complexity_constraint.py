@@ -27,6 +27,7 @@ class ProteinComplexityConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="protein-complexity",
+    label="Protein Complexity",
     config=ProteinComplexityConfig,
     description="Evaluate protein sequence complexity using segmasker to detect low-complexity regions",
     vectorized=False,

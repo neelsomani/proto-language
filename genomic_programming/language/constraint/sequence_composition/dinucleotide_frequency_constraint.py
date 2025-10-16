@@ -30,6 +30,7 @@ class DinucleotideFrequencyConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="dinucleotide-frequency",
+    label="Dinucleotide Frequency",
     config=DinucleotideFrequencyConfig,
     description="Evaluate whether dinucleotide frequencies fall within acceptable ranges",
     vectorized=False,

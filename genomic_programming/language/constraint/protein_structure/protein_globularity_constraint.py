@@ -37,6 +37,7 @@ class ProteinGlobularityConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="protein-globularity",
+    label="Protein Globularity",
     config=ProteinGlobularityConfig,
     description="Encourage compact, globular protein structures",
     vectorized=False,

@@ -31,6 +31,7 @@ class BalancedAaConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="balanced-aa",
+    label="Balanced Amino Acid Representation",
     config=BalancedAaConfig,
     description="Evaluate the presence of underrepresented amino acids in a protein sequence",
     vectorized=False,

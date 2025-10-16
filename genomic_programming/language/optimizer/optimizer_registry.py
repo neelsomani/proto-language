@@ -5,23 +5,23 @@ Provides a decorator-based API for registering optimizer classes with metadata a
 automatic schema generation for API/client integration.
 """
 
-from typing import Dict, Type
-from dataclasses import dataclass
+from typing import Dict, List, Type
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Optimizer
 
 
-@dataclass
 class OptimizerSpec(BaseSpec):
     """
     Specification for a registered optimizer.
 
     Extends BaseSpec with optimizer-specific metadata for discovery and schema generation.
     """
-    optimizer_class: Type[Optimizer]  # The optimizer class
+
+    # Private field - excluded from serialization
+    optimizer_class: Type[Optimizer] = Field(exclude=True)
 
 class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
     """
@@ -80,6 +80,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
     def register(
         cls,
         key: str,
+        label: str,
         config: Type[BaseModel],
         description: str,
     ):
@@ -91,8 +92,9 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
 
         Args:
             key: Unique identifier (e.g., "mcmc", "beam-search")
+            label: Readable external name (e.g., "MCMC Optimizer", "Beam Search")
             config: Pydantic model class for configuration validation
-            description: Human-readable description for UI display
+            description: Readable description
 
         Returns:
             Decorator that registers the class and returns it unchanged
@@ -100,6 +102,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         Examples:
             >>> @OptimizerRegistry.register(
             ...     key="mcmc",
+            ...     label="MCMC Optimizer",
             ...     config=MCMCOptimizerConfig,
             ...     description="Metropolis-Hastings MCMC optimization",
             ... )
@@ -113,36 +116,30 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
             cls._check_duplicate(key, optimizer_class.__name__)
 
             cls._registry[key] = OptimizerSpec(
-                optimizer_class=optimizer_class,
-                config_model=config,
+                key=key,
+                label=label,
                 description=description,
+                config_model=config,
+                optimizer_class=optimizer_class,
             )
             return optimizer_class
         return decorator
 
     @classmethod
-    def list_all(cls) -> Dict[str, dict]:
+    def list_all(cls) -> List[OptimizerSpec]:
         """
-        List all registered optimizers with metadata and schemas.
+        List all registered optimizers as Pydantic models.
+
+        Returns list of OptimizerSpec models that FastAPI automatically serializes to JSON.
+        Each spec includes key, label, description, and parameters (via computed field).
 
         Returns:
-            Dict mapping optimizer keys to specifications:
-            {
-                "optimizer-key": {
-                    "description": "Human-readable description",
-                    "config_schema": {...}  # JSON Schema
-                }
-            }
+            List of OptimizerSpec Pydantic models
 
         Examples:
             >>> optimizers = OptimizerRegistry.list_all()
-            >>> for key, info in optimizers.items():
-            ...     print(f"{key}: {info['description']}")
+            >>> for spec in optimizers:
+            ...     print(f"{spec.label} ({spec.key})")
+            ...     print(f"  Parameters: {list(spec.parameters.keys())}")
         """
-        return {
-            key: {
-                "description": spec.description,
-                "config_schema": spec.config_model.model_json_schema(),
-            }
-            for key, spec in cls._registry.items()
-        }
+        return list(cls._registry.values())

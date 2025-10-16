@@ -27,6 +27,7 @@ class PromoterStrengthConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="promoter-strength",
+    label="Promoter Strength",
     config=PromoterStrengthConfig,
     description="Evaluate promoter strength using Barrick Lab Promoter Calculator",
     vectorized=True,

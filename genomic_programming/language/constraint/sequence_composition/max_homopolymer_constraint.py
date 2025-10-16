@@ -29,6 +29,7 @@ class MaxHomopolymerConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="max-homopolymer",
+    label="Homopolymer Length",
     config=MaxHomopolymerConfig,
     description="Penalize sequences containing homopolymers longer than specified maximum",
     vectorized=False,

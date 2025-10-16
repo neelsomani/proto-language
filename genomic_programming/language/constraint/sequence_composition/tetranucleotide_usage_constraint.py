@@ -29,6 +29,7 @@ class TetranucleotideUsageConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="tetranucleotide-usage",
+    label="Tetranucleotide Usage",
     config=TetranucleotideUsageConfig,
     description="Evaluate tetranucleotide usage deviation (TUD) for a specific 4-base motif",
     vectorized=False,

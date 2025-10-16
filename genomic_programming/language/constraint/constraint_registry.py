@@ -5,22 +5,23 @@ Provides a decorator-based API for registering constraint functions and
 a factory method for creating Constraint instances.
 """
 
-from typing import Dict, Type, Callable, List, Optional, Any
-from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Type
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from proto_language.base_registry import BaseRegistry, BaseSpec
 from ..core import Constraint, Segment
 
 
-@dataclass
 class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
-    function: Callable
-    vectorized: bool = False
-    concatenate: bool = True
-    gpu_required: bool = False
+
+    vectorized: bool = Field(default=False, description="Whether constraint is vectorized")
+    concatenate: bool = Field(default=True, description="Whether to concatenate segments")
+    gpu_required: bool = Field(default=False, description="Whether constraint requires GPU")
+
+    # Private field - excluded from serialization
+    function: Callable = Field(exclude=True)
 
 
 class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
@@ -80,6 +81,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     def register(
         cls,
         key: str,
+        label: str,
         config: Type[BaseModel],
         description: str,
         vectorized: bool = False,
@@ -88,26 +90,28 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     ):
         """
         Decorator to register a constraint function.
-        
+
         This is the constraint-specific implementation of the abstract register()
         method from BaseRegistry. It adds vectorized and concatenate flags.
-        
+
         Args:
             key: Unique identifier (e.g., "gc-content", "protein-length")
+            label: Readable external name (e.g., "GC Content Range", "Protein Length")
             config: Pydantic model class for configuration validation
-            description: Human-readable description for UI display
+            description: Readable description
             vectorized: If True, function processes List[Sequence] → List[float].
                        If False, function processes Sequence → float.
             concatenate: If True, concatenate multiple segments before evaluation.
                         If False, pass segments as tuple (for disjoint evaluation).
             gpu_required: If True, constraint requires GPU for computation (e.g., ESMFold, Boltz).
-        
+
         Returns:
             Decorator that registers the function and returns it unchanged
-        
+
         Examples:
             >>> @ConstraintRegistry.register(
             ...     key="gc-content",
+            ...     label="GC Content Range",
             ...     config=GCContentConfig,
             ...     description="GC content within range",
             ...     vectorized=False
@@ -118,11 +122,13 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         def decorator(func: Callable):
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, func.__name__)
-            
+
             cls._registry[key] = ConstraintSpec(
-                function=func,
+                key=key,
+                label=label,
                 config_model=config,
                 description=description,
+                function=func,
                 vectorized=vectorized,
                 concatenate=concatenate,
                 gpu_required=gpu_required,
@@ -170,10 +176,10 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             >>> scores = constraint.evaluate()
         """
         spec = cls.get(key)
-        
+
         # Validate config with Pydantic (raises ValidationError if invalid)
         validated_config = spec.config_model(**config_dict)
-        
+
         # Create Constraint with validated Pydantic model
         return Constraint(
             inputs=segments,
@@ -185,38 +191,22 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         )
     
     @classmethod
-    def list_all(cls) -> Dict[str, dict]:
+    def list_all(cls) -> List[ConstraintSpec]:
         """
-        List all registered constraints with metadata and schemas.
-        
-        Overrides BaseRegistry.list_all() to include constraint-specific fields
-        (vectorized and concatenate flags).
-        
+        List all registered constraints as Pydantic models.
+
+        Returns list of ConstraintSpec models that FastAPI automatically serializes to JSON.
+        Each spec includes key, label, description, parameters (via computed field),
+        vectorized, concatenate, and gpu_required flags.
+
         Returns:
-            Dict mapping constraint keys to specifications:
-            {
-                "constraint-key": {
-                    "description": "Human-readable description",
-                    "vectorized": bool,
-                    "concatenate": bool,
-                    "config_schema": {...}  # JSON Schema
-                }
-            }
-        
+            List of ConstraintSpec Pydantic models
+
         Examples:
             >>> constraints = ConstraintRegistry.list_all()
-            >>> for key, info in constraints.items():
-            ...     print(f"{key}: {info['description']}")
-            ...     print(f"  Vectorized: {info['vectorized']}")
-            ...     print(f"  Config params: {list(info['config_schema']['properties'].keys())}")
+            >>> for spec in constraints:
+            ...     print(f"{spec.label} ({spec.key})")
+            ...     print(f"  Vectorized: {spec.vectorized}")
+            ...     print(f"  Parameters: {list(spec.parameters.keys())}")
         """
-        return {
-            key: {
-                "description": spec.description,
-                "vectorized": spec.vectorized,
-                "concatenate": spec.concatenate,
-                "gpu_required": spec.gpu_required,
-                "config_schema": spec.config_model.model_json_schema(),
-            }
-            for key, spec in cls._registry.items()
-        }
+        return list(cls._registry.values())

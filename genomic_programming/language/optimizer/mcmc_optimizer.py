@@ -69,6 +69,7 @@ class MCMCOptimizerConfig(BaseConfig):
 
 @OptimizerRegistry.register(
     key="mcmc",
+    label="Metropolis-Hastings MCMC Optimizer",
     config=MCMCOptimizerConfig,
     description="Metropolis-Hastings MCMC optimizer for constraint-driven sequence optimization",
 )

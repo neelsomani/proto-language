@@ -5,26 +5,26 @@ Provides a decorator-based API for registering generator classes with metadata a
 automatic schema generation for API/client integration.
 """
 
-from typing import Dict, Type, Any
-from dataclasses import dataclass
+from typing import Any, Dict, List, Type
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Generator
 
 
-@dataclass
 class GeneratorSpec(BaseSpec):
     """
     Specification for a registered generator.
-    
+
     Extends BaseSpec with generator-specific metadata for discovery and schema generation.
     """
-    generator_class: Type[Generator]  # The generator class
-    category: str  # Generator category (e.g., "mutation", "language_model", "optimization")
-    requires_gpu: bool = False  # Whether generator requires GPU
-    supports_batch: bool = True  # Whether generator supports batch processing
+
+    category: str = Field(description="Generator category (e.g., 'mutation', 'language_model')")
+    requires_gpu: bool = Field(default=False, description="Whether generator requires GPU")
+
+    # Private field - excluded from serialization
+    generator_class: Type[Generator] = Field(exclude=True)
 
 
 class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
@@ -32,7 +32,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     Registry for generator discovery and schema generation.
     
     Inherits common registry functionality from BaseRegistry and adds
-    generator-specific metadata (category, requires_gpu, supports_batch).
+    generator-specific metadata (category, requires_gpu).
     
     Public Methods:
     - register(): Decorator to register generator classes
@@ -50,7 +50,6 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         ...     description="Random point mutations",
         ...     category="mutation",
         ...     requires_gpu=False,
-        ...     supports_batch=True
         ... )
         ... class UniformMutationGenerator(Generator):
         ...     def __init__(self, config: UniformMutationConfig):
@@ -82,38 +81,38 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     def register(
         cls,
         key: str,
+        label: str,
         config: Type[BaseModel],
         description: str,
         category: str,
         requires_gpu: bool = False,
-        supports_batch: bool = True,
     ):
         """
         Decorator to register a generator class.
-        
+
         This is the generator-specific implementation of the abstract register()
         method from BaseRegistry.
-        
+
         Args:
             key: Unique identifier (e.g., "uniform-mutation", "evo2")
+            label: Readable external name (e.g., "Uniform Mutation Generator", "EVO2 Generator")
             config: Pydantic model class for configuration validation
-            description: Human-readable description for UI display
+            description: Readable description
             category: Generator category (e.g., "mutation", "language_model",
                      "optimization", "pipeline")
             requires_gpu: If True, generator requires GPU for computation
-            supports_batch: If True, generator supports batch processing
-        
+
         Returns:
             Decorator that registers the class and returns it unchanged
-        
+
         Examples:
             >>> @GeneratorRegistry.register(
             ...     key="uniform-mutation",
+            ...     label="Uniform Mutation",
             ...     config=UniformMutationConfig,
             ...     description="Random point mutations",
             ...     category="mutation",
             ...     requires_gpu=False,
-            ...     supports_batch=True
             ... )
             ... class UniformMutationGenerator(Generator):
             ...     def __init__(self, config: UniformMutationConfig):
@@ -123,14 +122,15 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         def decorator(generator_class: Type[Generator]):
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, generator_class.__name__)
-            
+
             cls._registry[key] = GeneratorSpec(
-                generator_class=generator_class,
-                config_model=config,
+                key=key,
+                label=label,
                 description=description,
+                config_model=config,
+                generator_class=generator_class,
                 category=category,
                 requires_gpu=requires_gpu,
-                supports_batch=supports_batch,
             )
             return generator_class
         return decorator
@@ -170,48 +170,31 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             >>> generator.sample()
         """
         spec = cls.get(key)
-        
+
         # Validate config with Pydantic (raises ValidationError if invalid)
         validated_config = spec.config_model(**config_dict)
-        
+
         # Create Generator with validated Pydantic model
         return spec.generator_class(validated_config)
     
     @classmethod
-    def list_all(cls) -> Dict[str, dict]:
+    def list_all(cls) -> List[GeneratorSpec]:
         """
-        List all registered generators with metadata and schemas.
-        
-        Overrides BaseRegistry.list_all() to include generator-specific fields
-        (category, requires_gpu, supports_batch).
-        
+        List all registered generators as Pydantic models.
+
+        Returns list of GeneratorSpec models that FastAPI automatically serializes to JSON.
+        Each spec includes key, label, description, parameters (via computed field),
+        category and requires_gpu.
+
         Returns:
-            Dict mapping generator keys to specifications:
-            {
-                "generator-key": {
-                    "description": "Human-readable description",
-                    "category": "mutation",
-                    "requires_gpu": False,
-                    "supports_batch": True,
-                    "config_schema": {...}  # JSON Schema
-                }
-            }
-        
+            List of GeneratorSpec Pydantic models
+
         Examples:
             >>> generators = GeneratorRegistry.list_all()
-            >>> for key, info in generators.items():
-            ...     print(f"{key}: {info['description']}")
-            ...     print(f"  Category: {info['category']}")
-            ...     print(f"  GPU Required: {info['requires_gpu']}")
+            >>> for spec in generators:
+            ...     print(f"{spec.label} ({spec.key})")
+            ...     print(f"  Category: {spec.category}")
+            ...     print(f"  GPU Required: {spec.requires_gpu}")
         """
-        return {
-            key: {
-                "description": spec.description,
-                "category": spec.category,
-                "requires_gpu": spec.requires_gpu,
-                "supports_batch": spec.supports_batch,
-                "config_schema": spec.config_model.model_json_schema(),
-            }
-            for key, spec in cls._registry.items()
-        }
+        return list(cls._registry.values())
 

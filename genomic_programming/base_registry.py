@@ -4,20 +4,82 @@ Base registry pattern for decorator-based component registration.
 Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry.
 """
 
-from typing import Dict, Type, Any, TypeVar, Generic, Optional
+from typing import Any, Dict, Generic, List, Type, TypeVar
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, computed_field
 
 
-SpecType = TypeVar('SpecType')
+SpecType = TypeVar('SpecType', bound='BaseSpec')
 
 
-@dataclass
-class BaseSpec:
-    """Base specification for registered components."""
-    config_model: Type[BaseModel]
-    description: str
+class BaseSpec(BaseModel):
+    """
+    Base specification for registered components.
+
+    This Pydantic model serves dual purposes:
+    1. Internal: Stores component metadata in registry
+    2. API: Automatically serialized by FastAPI to JSON
+
+    Subclasses extend this to add component-specific metadata
+    """
+
+    # Public fields - exposed in API
+    key: str = Field(description="Internal identifier (e.g., 'mcmc', 'gc-content')")
+    label: str = Field(description="External UI display name (e.g., 'MCMC Optimizer', 'GC Content Range')")
+    description: str = Field(description="Detailed description of component functionality")
+
+    # Private field - excluded from serialization
+    config_model: Type[BaseModel] = Field(exclude=True)
+
+    model_config = {
+        "extra": "allow",  # Allow subclasses to add fields
+        "arbitrary_types_allowed": True,  # Allow Type[BaseModel] in config_model
+    }
+
+    # TODO: we can remove this and use standard json schema once client is synced.
+    @computed_field
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        """
+        Parameter schema in flattened, form-friendly format.
+
+        Transforms Pydantic's standard JSON Schema (which has 'properties' and 'required'
+        at the top level) into a flattened format where each parameter name maps directly
+        to its schema with 'required' as a boolean field. This format is more convenient
+        for client form generators.
+
+        Returns:
+            Dict mapping parameter names to their schema definitions:
+            {
+                "param_name": {
+                    "type": "number",
+                    "description": "Parameter description",
+                    "required": true,
+                    "default": 42,
+                    "minimum": 0,
+                    "maximum": 100,
+                    ...
+                }
+            }
+
+        Note:
+            This is a convenience transformation of the standard JSON Schema from
+            config_model.model_json_schema(). For the full JSON Schema, access
+            spec.config_model.model_json_schema() directly.
+        """
+        # Get standard JSON Schema from Pydantic
+        schema = self.config_model.model_json_schema()
+        properties = schema.get("properties", {})
+        required_set = set(schema.get("required", []))
+
+        # Transform to parameter-centric format by adding 'required' field
+        return {
+            param_name: {
+                **param_schema,  # Spread all fields from JSON Schema
+                "required": param_name in required_set,  # Add required as boolean
+            }
+            for param_name, param_schema in properties.items()
+        }
 
 
 class BaseRegistry(ABC, Generic[SpecType]):
@@ -48,8 +110,8 @@ class BaseRegistry(ABC, Generic[SpecType]):
     
     @classmethod
     @abstractmethod
-    def list_all(cls) -> Dict[str, dict]:
-        """List all components with descriptions and schemas. Implemented by subclasses."""
+    def list_all(cls) -> List[SpecType]:
+        """List all components as Pydantic models. Implemented by subclasses."""
         raise NotImplementedError(f"{cls.__name__}.list_all() must be implemented by subclass")
     
     @classmethod
@@ -135,12 +197,8 @@ class BaseRegistry(ABC, Generic[SpecType]):
             component_type = cls._component_type()
             existing_spec = cls._registry[key]
             
-            # Try to get function name from the existing spec if available
-            existing_name = getattr(existing_spec, 'function', None)
-            if existing_name:
-                existing_name = getattr(existing_name, '__name__', str(existing_name))
-            else:
-                existing_name = "unknown"
+            # Try to get name from the existing spec label
+            existing_name = getattr(existing_spec, 'label', 'unknown')
             
             error_msg = (
                 f"{component_type.capitalize()} '{key}' is already registered. "

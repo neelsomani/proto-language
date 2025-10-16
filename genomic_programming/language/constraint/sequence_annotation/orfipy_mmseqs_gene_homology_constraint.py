@@ -29,6 +29,7 @@ class ORFipyMMseqsGeneHomologyConfig(BaseConfig):
 
 @ConstraintRegistry.register(
     key="orfipy-mmseqs-gene-homology",
+    label="ORF Gene Homology",
     config=ORFipyMMseqsGeneHomologyConfig,
     description="Evaluate the homology (percent identity) of each individual ORF hit",
     vectorized=False,

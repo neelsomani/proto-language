@@ -37,11 +37,11 @@ class ESM3GeneratorConfig(BaseConfig):
 
 @GeneratorRegistry.register(
     key="esm3",
+    label="ESM3 Protein Language Model",
     config=ESM3GeneratorConfig,
     description="ESM-3 open protein language model for protein sequence generation",
     category="language_model",
     requires_gpu=True,
-    supports_batch=True
 )
 @final
 class ESM3Generator(Generator):

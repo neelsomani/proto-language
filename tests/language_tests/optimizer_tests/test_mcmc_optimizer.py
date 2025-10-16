@@ -95,11 +95,18 @@ class TestMCMCOptimizer:
         unassigned_gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(sequence_length=10, num_mutations=1)
         )
+        test_segment = create_segment("A" * 10)
+        # Need at least one constraint to pass empty constraints validation
+        dummy_constraint = Constraint(
+            inputs=[test_segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={},
+        )
         with pytest.raises(RuntimeError, match="has not been assigned"):
             MCMCOptimizer(
-                constructs=[Construct([create_segment("A" * 10)])],
+                constructs=[Construct([test_segment])],
                 generators=[unassigned_gen],
-                constraints=[],
+                constraints=[dummy_constraint],
                 config=MCMCOptimizerConfig(),
             )
 

@@ -68,17 +68,17 @@ def test_construct_concatenation():
     seg2 = create_segment("GGG")
     seg3 = create_segment("TAA")
     construct = Construct([seg1, seg2, seg3])
-    assert len(construct.batch_sequences) == 1
-    assert construct.batch_sequences[0].sequence == "ATGGGGTAA"
+    assert len(construct.joined_sequences) == 1
+    assert construct.joined_sequences[0].sequence == "ATGGGGTAA"
 
     # Test with batches
     batch_seg1 = create_batched_segment(["ATG", "ATG"])
     batch_seg2 = create_batched_segment(["GGG", "CCC"])
     batch_seg3 = create_batched_segment(["TAA", "TGA"])
     batch_construct = Construct([batch_seg1, batch_seg2, batch_seg3])
-    assert len(batch_construct.batch_sequences) == 2
-    assert batch_construct.batch_sequences[0].sequence == "ATGGGGTAA"
-    assert batch_construct.batch_sequences[1].sequence == "ATG" + "CCC" + "TGA"
+    assert len(batch_construct.joined_sequences) == 2
+    assert batch_construct.joined_sequences[0].sequence == "ATGGGGTAA"
+    assert batch_construct.joined_sequences[1].sequence == "ATG" + "CCC" + "TGA"
 
 
 def test_mock_constraint_with_batched_segment():

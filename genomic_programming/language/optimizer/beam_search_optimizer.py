@@ -753,7 +753,7 @@ class BeamSearchOptimizer(Optimizer):
         for construct in self.constructs:
             # Calculate min energy across all batch sequences for this construct
             construct_energies = []
-            for seq in construct.batch_sequences:
+            for seq in construct.joined_sequences:
                 if hasattr(seq, '_metadata') and 'energy' in seq._metadata:
                     construct_energies.append(seq._metadata['energy'])
             # Use min energy if available, otherwise 0

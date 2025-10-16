@@ -152,14 +152,14 @@ class Program:
                 for construct_idx, construct in enumerate(self.constructs):
                     print(f"  Construct {construct_idx}:")
                     energy = self.energy_scores[construct_idx]
-                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                    for batch_idx, batch_sequence in enumerate(construct.joined_sequences):
                         sequence = batch_sequence.sequence
                         print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
             else:
                 global_batch_idx = 0
                 for construct_idx, construct in enumerate(self.constructs):
                     print(f"  Construct {construct_idx}:")
-                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                    for batch_idx, batch_sequence in enumerate(construct.joined_sequences):
                         sequence = batch_sequence.sequence
                         if global_batch_idx < len(self.energy_scores):
                             energy = self.energy_scores[global_batch_idx]
@@ -182,14 +182,14 @@ class Program:
                 for construct_idx, construct in enumerate(self.constructs):
                     print(f"  Construct {construct_idx}:")
                     energy = self.energy_scores[construct_idx]
-                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                    for batch_idx, batch_sequence in enumerate(construct.joined_sequences):
                         sequence = batch_sequence.sequence
                         print(f"    Batch {batch_idx}: {sequence} (energy: {energy})")
             else:
                 global_batch_idx = 0
                 for construct_idx, construct in enumerate(self.constructs):
                     print(f"  Construct {construct_idx}:")
-                    for batch_idx, batch_sequence in enumerate(construct.batch_sequences):
+                    for batch_idx, batch_sequence in enumerate(construct.joined_sequences):
                         sequence = batch_sequence.sequence
                         if global_batch_idx < len(self.energy_scores):
                             energy = self.energy_scores[global_batch_idx]

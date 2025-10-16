@@ -77,15 +77,11 @@ class Construct:
         self._valid_chars: Optional[Set[str]] = self.segments[0]._valid_chars
 
     @property
-    def batch_sequences(self) -> Tuple[Sequence, ...]:
+    def joined_sequences(self) -> Tuple[Sequence, ...]:
         """
         Get the joined Sequence objects batch that represent one user-facing Construct.
-
-        Returns:
-            Tuple of joined Sequence objects where each element represents
-            the joining of the i-th sequence from each segment in order.
         """
-        # Join corresponding sequences from each segment with metadata propagation
+        # Join corresponding i-th sequence from each segment with metadata propagation
         # Example: [Seq("AAA"), Seq("TTT"), Seq("GGG")] → [Sequence("AAATTTGGG")]
         joined_sequences = []
         batch_size = self.segments[0].batch_size

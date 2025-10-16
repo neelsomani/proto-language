@@ -3,7 +3,8 @@ from typing import Tuple
 import sys
 import os
 
-from proto_language.language.generator import UniformMutationGenerator, MCMCOptimizer
+from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
+from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -22,10 +23,11 @@ seq1 = Segment(sequence_type=SequenceType.DNA)
 construct = Construct([seq1])
 
 # Generator
-uniform_gen = UniformMutationGenerator(
+uniform_gen_config = UniformMutationGeneratorConfig(
     sequence_length=20,
     batch_size=1,
 )
+uniform_gen = UniformMutationGenerator(uniform_gen_config)
 
 # Assign
 uniform_gen.assign(seq1)
@@ -50,24 +52,27 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
     )
 
 
-# Program
-program = Program(
-    optimizer_type=MCMCOptimizer,
-    constructs=[construct],
-    generators=[uniform_gen],
-    constraints=[gc_constraint],
+# Optimizer config
+optimizer_config = MCMCOptimizerConfig(
     num_steps=10,
     track_step_size=1,
-    custom_logging=custom_logging,
     temperature=2.0,
 )
 
-sequence_history = program.run()
+# Program
+program = Program(
+    optimizer_type=MCMCOptimizer,
+    optimizer_config=optimizer_config,
+    constructs=[construct],
+    generators=[uniform_gen],
+    constraints=[gc_constraint],
+)
+
+program.run()
 
 # Outputs
-last_sequence_history: Tuple[Construct, ...] = sequence_history[-1]
-last_construct: Construct = last_sequence_history[0]
-last_sequence_batch: Tuple[Sequence, ...] = last_construct.batch_sequences
+last_construct: Construct = program.constructs[0]
+last_sequence_batch: Tuple[Sequence, ...] = last_construct.joined_sequences
 last_sequence: Sequence = last_sequence_batch[0]
 print("---------FINAL SEQUENCE------------")
 print(last_sequence)

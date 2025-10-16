@@ -10,7 +10,7 @@ import random
 import sys
 
 import numpy as np
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ..core import Optimizer, Construct, Generator, Constraint, Sequence, Segment
 from proto_language.base_config import BaseConfig
@@ -65,6 +65,24 @@ class MCMCOptimizerConfig(BaseConfig):
         default=True,
         description="Whether to print progress information"
     )
+
+    @model_validator(mode='after')
+    def validate_cross_field_constraints(self):
+        """Validate cross-field constraints."""
+        # Validate temperature_min < temperature for annealing
+        if self.temperature_min >= self.temperature:
+            raise ValueError(
+                f"temperature_min ({self.temperature_min}) must be less than temperature ({self.temperature}) for annealing to work properly"
+            )
+
+        # Validate batch_size <= num_candidates for diversity (only if num_candidates is set)
+        if self.num_candidates is not None and self.batch_size > self.num_candidates:
+            raise ValueError(
+                f"batch_size ({self.batch_size}) cannot be greater than num_candidates ({self.num_candidates}). "
+                f"This ensures enough proposal diversity."
+            )
+
+        return self
 
 
 @OptimizerRegistry.register(
@@ -196,43 +214,8 @@ class MCMCOptimizer(Optimizer):
         self.verbose = config.verbose
         self.custom_logging = custom_logging
 
-        self._validate_generator()
-
-    def _validate_generator(self) -> None:
-        """
-        Validate configuration for MCMCOptimizer.
-
-        Raises:
-            ValueError: If temperature parameters or batch_size are invalid.
-        """
-        super()._validate_optimizer()
-
-        # Validate temperature parameters
-        if self.temperature <= 0:
-            raise ValueError(f"temperature must be positive, got {self.temperature}")
-        if self.temperature_min <= 0:
-            raise ValueError(
-                f"temperature_min must be positive, got {self.temperature_min}"
-            )
-        if self.temperature_min >= self.temperature:
-            raise ValueError(
-                f"temperature_min ({self.temperature_min}) must be less than temperature ({self.temperature}) for annealing to work properly"
-            )
-
-        # Validate batch_size parameter
-        if self.batch_size < 1:
-            raise ValueError(f"batch_size must be at least 1, got {self.batch_size}")
-
-        # Validate num_candidates
-        if self.num_candidates < 1:
-            raise ValueError(f"num_candidates must be at least 1, got {self.num_candidates}")
-
-        # Validate batch_size <= num_candidates for diversity
-        if self.batch_size > self.num_candidates:
-            raise ValueError(
-                f"batch_size ({self.batch_size}) cannot be greater than num_candidates ({self.num_candidates}). "
-                f"This ensures enough proposal diversity."
-            )
+        # Validate optimizer (e.g., constructs, generators, constraints)
+        self._validate_optimizer()
 
     def sample(self) -> None:
         """
@@ -318,7 +301,7 @@ class MCMCOptimizer(Optimizer):
         expanded_batch_size = self.batch_size * self.num_candidates
 
         # Expand and replicate for each segment
-        for segment in self.get_generator_outputs():
+        for segment in self.segments:
             new_batch = []
             for parent_idx in top_k_idx:
                 source_seq = segment.batch_sequences[parent_idx]
@@ -360,7 +343,7 @@ class MCMCOptimizer(Optimizer):
                 'segments': {},
                 'energy': self.energy_scores[parent_idx]
             }
-            for segment in self.get_generator_outputs():
+            for segment in self.segments:
                 seg_id = id(segment)
                 # Deepcopy captures complete Sequence state (sequence, metadata, all attributes)
                 parent_states[parent_idx]['segments'][seg_id] = copy.deepcopy(
@@ -386,7 +369,7 @@ class MCMCOptimizer(Optimizer):
                 Sequence objects and energy scores.
         """
         # Deepcopy again to ensure independent Sequence objects at each batch position
-        for segment in self.get_generator_outputs():
+        for segment in self.segments:
             seg_id = id(segment)
             segment.batch_sequences[target_idx] = copy.deepcopy(
                 parent_states[parent_idx]['segments'][seg_id]
@@ -469,21 +452,18 @@ class MCMCOptimizer(Optimizer):
         Args:
             top_k_idx: Indices of the top batch_size sequences to keep (length = batch_size).
         """
-        for segment in self.get_generator_outputs():
+        for segment in self.segments:
             segment.batch_sequences = [segment.batch_sequences[i] for i in top_k_idx]
 
         # Also trim energy_scores to match
         self.energy_scores = [self.energy_scores[i] for i in top_k_idx]
 
+
+    # ==================== Helper Methods ====================
+
+
     def _log_topk_progress(self, step: int) -> None:
-        """Log optimization progress.
-
-        Prints current step, energy statistics, and temperature for monitoring.
-        When batch_size=1, only best energy is meaningful (mean=best, std=0).
-
-        Args:
-            step: Current MCMC iteration number.
-        """
+        """Log optimization progress"""
         best_energy = min(self.energy_scores)
         mean_energy = np.mean(self.energy_scores)
         worst_energy = max(self.energy_scores)
@@ -508,16 +488,12 @@ class MCMCOptimizer(Optimizer):
             )
 
         if self.custom_logging:
-            self.custom_logging(step, self.get_generator_outputs())
+            self.custom_logging(step, self.segments)
         sys.stdout.flush()
-
-    # ==================== Helper Methods ====================
 
     def _calculate_temperature(self, step: int) -> float:
         """
-        Calculate annealed temperature for given step.
-
-        Uses exponential cooling schedule: T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1))
+        Calculate annealed temperature for given step: T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1))
 
         For num_steps=1, T(step) = T_max
         For num_steps>1, T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1))
@@ -532,16 +508,16 @@ class MCMCOptimizer(Optimizer):
         return self.temperature * (self.temperature_min / self.temperature) ** ((step - 1) / (self.num_steps - 1))
 
     def _compute_acceptance_prob(self, current_energy: float, proposed_energy: float, temperature: float) -> float:
-        """Compute Metropolis-Hastings acceptance probability."""
+        """Compute Metropolis-Hastings acceptance probability"""
         energy_diff = -(proposed_energy - current_energy) / temperature
         energy_diff = min(energy_diff, MAX_EXP_ARG)
         return min(1.0, np.exp(energy_diff))
 
     def _should_track_history(self, step: int) -> bool:
-        """Check if current step should be tracked in history."""
+        """Check if current step should be tracked in history"""
         return step % self.track_step_size == 0
 
     def _track_final_state_if_needed(self) -> None:
-        """Save final state to history if it wasn't already tracked."""
+        """Save final state to history if it wasn't already tracked"""
         if self.num_steps % self.track_step_size != 0:
             self.append_snapshot_to_history(step=self.num_steps)

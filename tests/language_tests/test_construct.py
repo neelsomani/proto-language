@@ -15,7 +15,7 @@ class TestConstruct:
         seg3 = Segment("TAA", SequenceType.DNA)
         construct = Construct([seg1, seg2, seg3])
 
-        final_sequences = construct.batch_sequences
+        final_sequences = construct.joined_sequences
         assert len(final_sequences) == 1
         assert final_sequences[0].sequence == "ATGCGC" + "TAA"
 
@@ -30,7 +30,7 @@ class TestConstruct:
         seg2[1].sequence = "T"
 
         construct = Construct([seg1, seg2])
-        final_sequences = construct.batch_sequences
+        final_sequences = construct.joined_sequences
         assert len(final_sequences) == 2
         assert final_sequences[0].sequence == "AC"
         assert final_sequences[1].sequence == "GT"
@@ -53,7 +53,7 @@ class TestConstruct:
         seg2 = Segment("C", metadata={"id": 2, "status": "new"})
 
         construct = Construct([seg1, seg2])
-        final_meta = construct.batch_sequences[0]._metadata
+        final_meta = construct.joined_sequences[0]._metadata
 
         # Metadata from later segments overwrites earlier ones on collision
         assert final_meta["id"] == 2

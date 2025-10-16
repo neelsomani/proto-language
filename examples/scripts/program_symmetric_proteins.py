@@ -123,6 +123,6 @@ program.run()
 with open("design.pdb", "w") as f:
     # Outputs
     final_construct: Construct = program.constructs[0]
-    final_sequence_batch: Tuple[Sequence, ...] = final_construct.batch_sequences
+    final_sequence_batch: Tuple[Sequence, ...] = final_construct.joined_sequences
     final_sequence: Sequence = final_sequence_batch[0]
     f.write(final_sequence._metadata["pdb_output"] + "\n")

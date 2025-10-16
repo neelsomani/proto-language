@@ -63,8 +63,8 @@ def protein_globularity_constraint(
         Evaluating protein globularity:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> kwargs = ESMFoldConfig(verbose=True)
-        >>> cfg = ProteinGlobularityConfig(n_replications=1, esmfold_config=kwargs)
+        >>> config = ESMFoldConfig(verbose=True)
+        >>> cfg = ProteinGlobularityConfig(n_replications=1, esmfold_config=config)
         >>> score = protein_globularity_constraint(seq, config=cfg)
     """
     # Create or copy ESMFold config

@@ -24,7 +24,6 @@ class ProteinComplexityConfig(BaseConfig):
         description="Path to NCBI segmasker executable for detecting low-complexity regions. Must be installed separately."
     )
 
-
 @ConstraintRegistry.register(
     key="protein-complexity",
     label="Protein Complexity",

@@ -87,12 +87,9 @@ class Generator(ABC):
         )
 
     @abstractmethod
-    def sample(self, **kwargs: Any) -> None:
+    def sample(self) -> None:
         """
         Sample new sequences by modifying generator outputs in-place.
-
-        Args:
-            **kwargs: Keyword arguments for sampling (subclass-specific).
 
         Raises:
             RuntimeError: If called before assign() has been called.
@@ -100,6 +97,7 @@ class Generator(ABC):
 
         Note:
             This method should modify sequences in-place for efficiency.
+            Subclasses may define additional parameters with proper type hints.
         """
         raise NotImplementedError("Subclasses must implement the sample method.")
 

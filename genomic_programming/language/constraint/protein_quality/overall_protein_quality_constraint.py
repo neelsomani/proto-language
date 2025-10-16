@@ -60,7 +60,6 @@ class OverallProteinQualityConfig(BaseConfig):
             raise ValueError("At least one protein quality sub-constraint must be specified")
         return self
 
-
 @ConstraintRegistry.register(
     key="overall-protein-quality",
     label="Overall Protein Quality",

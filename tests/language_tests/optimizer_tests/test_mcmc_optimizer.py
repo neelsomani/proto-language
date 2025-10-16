@@ -373,7 +373,7 @@ class TestMCMCOptimizer:
         proposal_gen.assign(segment)
         construct = Construct([segment])
 
-        def count_a_constraint(seq, **kwargs):
+        def count_a_constraint(seq, config=None):
             return -seq.sequence.count("A")  # Lower energy = more A's
 
         constraint = Constraint(
@@ -476,7 +476,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Constraint that strongly prefers 'G'
-        def count_g_constraint(seq, **kwargs):
+        def count_g_constraint(seq, config=None):
             return -seq.sequence.count("G")
 
         constraint = Constraint(
@@ -529,7 +529,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Very strict constraint
-        def perfect_gc_constraint(seq, **kwargs):
+        def perfect_gc_constraint(seq, config=None):
             gc_count = seq.sequence.count("G") + seq.sequence.count("C")
             if gc_count == seq_length:
                 return 0.0
@@ -1035,7 +1035,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Constraint that makes current state optimal (any mutation makes it worse)
-        def strict_g_constraint(seq, **kwargs):
+        def strict_g_constraint(seq, config=None):
             return 0.0 if seq.sequence == "G" * seq_length else 100.0
 
         constraint = Constraint(
@@ -1089,7 +1089,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Constraint with known energies based on 'G' count
-        def g_count_energy(seq, **kwargs):
+        def g_count_energy(seq, config=None):
             return -seq.sequence.count("G")  # More G = lower energy
 
         constraint = Constraint(
@@ -1135,7 +1135,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Constraint that allows multiple local optima
-        def diversity_constraint(seq, **kwargs):
+        def diversity_constraint(seq, config=None):
             g_count = seq.sequence.count("G")
             c_count = seq.sequence.count("C")
             # Prefer either high G OR high C (creates multiple optima)
@@ -1226,7 +1226,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Constraint that makes current state optimal
-        def perfect_g_constraint(seq, **kwargs):
+        def perfect_g_constraint(seq, config=None):
             if seq.sequence == "G" * seq_length:
                 return 0.0
             return 1000.0  # Huge penalty for any mutation
@@ -1322,7 +1322,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Constraint that strongly encourages changes (high GC better)
-        def strong_gc_constraint(seq, **kwargs):
+        def strong_gc_constraint(seq, config=None):
             gc_count = seq.sequence.count("G") + seq.sequence.count("C")
             return -gc_count  # More GC = lower energy = better
 
@@ -1421,7 +1421,7 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
 
         # Constraint with clear global optimum (all G's)
-        def perfect_g_energy(seq, **kwargs):
+        def perfect_g_energy(seq, config=None):
             g_count = seq.sequence.count("G")
             return seq_length - g_count  # Perfect = 0 energy
 

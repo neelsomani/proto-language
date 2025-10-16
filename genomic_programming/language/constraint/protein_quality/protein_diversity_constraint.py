@@ -20,7 +20,6 @@ class ProteinDiversityConfig(BaseConfig):
         description="Minimum acceptable amino acid diversity (0.0-1.0). Calculated as (unique amino acids) / 20. Higher values require more diverse amino acid usage. Typical values: 0.4-0.7."
     )
 
-
 @ConstraintRegistry.register(
     key="protein-diversity",
     label="Protein Diversity",

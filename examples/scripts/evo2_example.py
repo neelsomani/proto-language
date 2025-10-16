@@ -96,12 +96,12 @@ tetranucleotide_usage = Constraint(
 gene_hit_count_config = {
     "min_hits": MIN_GENE_HITS,
     "max_hits": MAX_GENE_HITS,
-    "mmseqs_kwargs": {
+    "mmseqs_config": {
         "database": "/large_storage/hielab/samuelking/phrogs/phrogs_mmseqs_db/phrogs_mmseqs_db",
         "threads": 96,
         "sensitivity": 4.0
     },
-    "orfipy_kwargs": {
+    "orfipy_config": {
         "threads": 96,
         "min_len": 30,
         "max_len": 5500
@@ -116,12 +116,12 @@ gene_hit_count = Constraint(
 gene_homology_config = {
     "min_homology": 80.0,  # Minimum 80% homology
     "max_homology": 100.0,  # Maximum 100% homology
-    "mmseqs_kwargs": {
+    "mmseqs_config": {
         "database": "/large_storage/hielab/samuelking/phrogs/phrogs_mmseqs_db/phrogs_mmseqs_db",
         "threads": 96,
         "sensitivity": 4.0
     },
-    "orfipy_kwargs": {
+    "orfipy_config": {
         "threads": 96,
         "min_len": 30,
         "max_len":5500

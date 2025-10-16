@@ -4,7 +4,7 @@ Boltz binding strength constraint for protein-protein and protein-ligand interac
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from pydantic import Field
 
@@ -14,15 +14,83 @@ from ..constraint_registry import ConstraintRegistry
 from ....tools.models.structure_prediction.boltz import run_boltz, BoltzConfig
 
 
+# Default target values and tolerances for binding strength metrics
+DEFAULT_DESIRED_HIGHER = {
+    "iptm": 0.90,
+    "ligand_iptm": 0.80,
+    "protein_iptm": 0.85,
+    "complex_iplddt": 0.85,
+    "complex_plddt": 0.80,
+    "ptm": 0.70,
+    "confidence_score": 0.85,
+}
+
+DEFAULT_DESIRED_LOWER = {
+    "complex_ipde": 2.0,  # Angstroms
+    "complex_pde": 2.0,   # Angstroms
+}
+
+DEFAULT_TOL_HIGHER = {
+    "iptm": 0.05,
+    "ligand_iptm": 0.10,
+    "protein_iptm": 0.07,
+    "complex_iplddt": 0.10,
+    "complex_plddt": 0.15,
+    "ptm": 0.15,
+    "confidence_score": 0.10,
+}
+
+DEFAULT_TOL_LOWER = {
+    "complex_ipde": 2.0,  # Angstroms
+    "complex_pde": 3.0,   # Angstroms
+}
+
+
 class BoltzBindingStrengthConfig(BaseConfig):
     """Configuration for Boltz binding strength constraint."""
-    boltz_config: Optional[Dict[str, Any]] = Field(
+    
+    # Constraint-specific parameters
+    desired_higher: Dict[str, float] = Field(
+        default_factory=lambda: DEFAULT_DESIRED_HIGHER.copy(),
+        description="Target values for 'higher is better' metrics. Provide partial dict to override specific metrics while keeping defaults for others."
+    )
+    desired_lower: Dict[str, float] = Field(
+        default_factory=lambda: DEFAULT_DESIRED_LOWER.copy(),
+        description="Target values for 'lower is better' metrics (in Angstroms). Provide partial dict to override specific metrics."
+    )
+    tol_higher: Dict[str, float] = Field(
+        default_factory=lambda: DEFAULT_TOL_HIGHER.copy(),
+        description="Tolerances for 'higher is better' metrics (distance below target = penalty 1.0). Provide partial dict to override."
+    )
+    tol_lower: Dict[str, float] = Field(
+        default_factory=lambda: DEFAULT_TOL_LOWER.copy(),
+        description="Tolerances for 'lower is better' metrics (distance above target = penalty 1.0, in Angstroms). Provide partial dict to override."
+    )
+    weights: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Boltz2 configuration dictionary containing desired_higher, desired_lower, tol_higher, tol_lower, weights, include_confidence_score, on_error, batch_size, and predict_kwargs. See function docstring for detailed structure."
+        description="Weights for combining penalties. If None, defaults based on complex type (monomer/ligand/protein-protein)"
+    )
+    include_confidence_score: bool = Field(
+        default=True,
+        description="Whether to include confidence_score in penalty calculation (adds weight 0.10)"
+    )
+    on_error: str = Field(
+        default="penalize",
+        description="How to handle prediction errors: 'penalize' (return 1.0) or 'raise' (raise exception)"
+    )
+    batch_size: Optional[int] = Field(
+        default=None,
+        description="Number of complexes to fold at once (None = process all together)"
     )
     return_component: str = Field(
         default="total_penalty",
         description="Component to return: 'total_penalty' (weighted combination) or specific metric name like 'iptm', 'ligand_iptm', 'complex_iplddt', etc."
+    )
+    
+    # Nested Boltz2 configuration
+    boltz_config: Optional[BoltzConfig] = Field(
+        default=None,
+        description="Optional Boltz2 configuration (use_msa_server, msa_server_url, recycling_steps, sampling_steps, diffusion_samples, num_workers, devices, verbose). If None, uses defaults. Sequences and entity_types will be set programmatically from input."
     )
 
 
@@ -60,56 +128,12 @@ def boltz_binding_strength_constraint(
            [Sequence("C"), Sequence("D")]]         # multiple pairs
 
       config (BoltzBindingStrengthConfig):
-        Configuration containing boltz_config (dict) and return_component (str).
-        
-      boltz_config (dict):
-        - desired_higher: dict target values for "higher is better" metrics
-            default {
-              "iptm": 0.90, "ligand_iptm": 0.80, "protein_iptm": 0.85,
-              "complex_iplddt": 0.85, "complex_plddt": 0.80,
-              "ptm": 0.70, "confidence_score": 0.85
-            }
-        - desired_lower: dict target values for "lower is better" metrics
-            default { "complex_ipde": 2.0, "complex_pde": 2.0 }  # Å
-        - tol_higher: dict tolerances (distance below target = penalty 1.0)
-            default {
-              "iptm": 0.05, "ligand_iptm": 0.10, "protein_iptm": 0.07,
-              "complex_iplddt": 0.10, "complex_plddt": 0.15,
-              "ptm": 0.15, "confidence_score": 0.10
-            }
-        - tol_lower: dict tolerances (distance above target = penalty 1.0)
-            default { "complex_ipde": 2.0, "complex_pde": 3.0 }  # Å
-        - weights: dict weights for combining penalties
-            default depends on complex type:
-              - monomer:
-                { "ptm": 0.35, "complex_plddt": 0.45, "complex_pde": 0.20 }
-              - protein–ligand:
-                { "ligand_iptm": 0.50, "complex_iplddt": 0.25,
-                  "complex_ipde": 0.15, "complex_plddt": 0.10 }
-              - protein–protein / mixed:
-                { "iptm": 0.45, "complex_iplddt": 0.30,
-                  "complex_ipde": 0.15, "complex_plddt": 0.10 }
-        - include_confidence_score: bool (default True, adds weight 0.10)
-        - on_error: "penalize" or "raise" (default "penalize").
-                    If penalize, returns 1.0 on failure.
-        - batch_size: int (fold this many complexes at once)
-        - predict_kwargs: dict of pass-through kwargs to BoltzConfig
-                          (e.g., msa_server_url, recycling_steps, diffusion_samples, etc.)
-
-      return_component (str):
-        - "total_penalty" (default): weighted combination in [0,1]
-        - or any individual metric penalty name among those used:
-            e.g., "iptm", "ligand_iptm", "protein_iptm",
-                  "complex_iplddt", "complex_plddt",
-                  "complex_ipde", "complex_pde",
-                  "ptm", "confidence_score"
+        Configuration containing penalty calculation parameters and Boltz2 prediction parameters.
+        See BoltzBindingStrengthConfig for full parameter descriptions
 
     Returns:
       float or list[float]: penalty score(s).
     """
-    if config is None:
-        config = {}
-
     # Normalize input → list of complexes (each complex = list of Sequences)
     def _normalize(x):
         # Single Sequence
@@ -132,40 +156,12 @@ def boltz_binding_strength_constraint(
 
     complexes = _normalize(complexes)
     is_single = len(complexes) == 1
-    # Config
-    boltz_cfg = config.boltz_config or {}
-    return_component = config.return_component
-    batch_size = boltz_cfg.get("batch_size", None)
-    predict_kwargs = dict(boltz_cfg.get("predict_kwargs", {}))
-
-    # Default targets and tolerances
-    desired_higher = {
-        "iptm": 0.90,
-        "ligand_iptm": 0.80,
-        "protein_iptm": 0.85,
-        "complex_iplddt": 0.85,
-        "complex_plddt": 0.80,
-        "ptm": 0.70,
-        "confidence_score": 0.85,
-    }
-    desired_higher.update(boltz_cfg.get("desired_higher", {}))
-
-    desired_lower = {"complex_ipde": 2.0, "complex_pde": 2.0}
-    desired_lower.update(boltz_cfg.get("desired_lower", {}))
-
-    tol_higher = {
-        "iptm": 0.05,
-        "ligand_iptm": 0.10,
-        "protein_iptm": 0.07,
-        "complex_iplddt": 0.10,
-        "complex_plddt": 0.15,
-        "ptm": 0.15,
-        "confidence_score": 0.10,
-    }
-    tol_higher.update(boltz_cfg.get("tol_higher", {}))
-
-    tol_lower = {"complex_ipde": 2.0, "complex_pde": 3.0}
-    tol_lower.update(boltz_cfg.get("tol_lower", {}))
+    
+    # Merge user overrides with defaults (allows partial specification)
+    desired_higher = {**DEFAULT_DESIRED_HIGHER, **config.desired_higher}
+    desired_lower = {**DEFAULT_DESIRED_LOWER, **config.desired_lower}
+    tol_higher = {**DEFAULT_TOL_HIGHER, **config.tol_higher}
+    tol_lower = {**DEFAULT_TOL_LOWER, **config.tol_lower}
 
     def _clamp(x, a=0.0, b=1.0):
         return a if x < a else b if x > b else x
@@ -199,33 +195,47 @@ def boltz_binding_strength_constraint(
     def _process_batch(batch):
         try:
             if len(batch) == 1:
-                config = BoltzConfig(
-                    sequences=batch[0]["sequences"],
-                    entity_types=batch[0]["entity_types"],
-                    **predict_kwargs,
-                )
-                out_list = [run_boltz(config)]
+                # Create or copy Boltz config
+                if config.boltz_config is None:
+                    boltz_cfg = BoltzConfig(
+                        sequences=batch[0]["sequences"],
+                        entity_types=batch[0]["entity_types"],
+                    )
+                else:
+                    # Copy to avoid mutating the input
+                    boltz_cfg = BoltzConfig(
+                        **config.boltz_config.model_dump(exclude={'sequences', 'entity_types'}),
+                        sequences=batch[0]["sequences"],
+                        entity_types=batch[0]["entity_types"],
+                    )
+                out_list = [run_boltz(boltz_cfg)]
             else:
                 # Note: Boltz doesn't support batch processing in the new API yet
                 # Process sequentially
                 out_list = []
                 for b in batch:
-                    config = BoltzConfig(
-                        sequences=b["sequences"],
-                        entity_types=b["entity_types"],
-                        **predict_kwargs,
-                    )
-                    out_list.append(run_boltz(config))
+                    if config.boltz_config is None:
+                        boltz_cfg = BoltzConfig(
+                            sequences=b["sequences"],
+                            entity_types=b["entity_types"],
+                        )
+                    else:
+                        boltz_cfg = BoltzConfig(
+                            **config.boltz_config.model_dump(exclude={'sequences', 'entity_types'}),
+                            sequences=b["sequences"],
+                            entity_types=b["entity_types"],
+                        )
+                    out_list.append(run_boltz(boltz_cfg))
         except Exception:
-            if str(boltz_cfg.get("on_error", "penalize")).lower() == "raise":
+            if config.on_error.lower() == "raise":
                 raise
             out_list = [None for _ in batch]
         return out_list
 
-    if batch_size and batch_size < len(inputs):
+    if config.batch_size and config.batch_size < len(inputs):
         outputs = []
-        for i in range(0, len(inputs), batch_size):
-            outputs.extend(_process_batch(inputs[i : i + batch_size]))
+        for i in range(0, len(inputs), config.batch_size):
+            outputs.extend(_process_batch(inputs[i : i + config.batch_size]))
     else:
         outputs = _process_batch(inputs)
 
@@ -254,25 +264,26 @@ def boltz_binding_strength_constraint(
         is_monomer = n_chains == 1
 
         # Default weights by case
-        if is_monomer:
-            default = {"ptm": 0.35, "complex_plddt": 0.45, "complex_pde": 0.20}
-        elif has_ligand:
-            default = {
-                "ligand_iptm": 0.50,
-                "complex_iplddt": 0.25,
-                "complex_ipde": 0.15,
-                "complex_plddt": 0.10,
-            }
+        if config.weights is not None:
+            weights = dict(config.weights)
         else:
-            default = {
-                "iptm": 0.45,
-                "complex_iplddt": 0.30,
-                "complex_ipde": 0.15,
-                "complex_plddt": 0.10,
-            }
-        weights = dict(default)
-        weights.update(boltz_cfg.get("weights", {}))
-        if boltz_cfg.get("include_confidence_score", True):
+            if is_monomer:
+                weights = {"ptm": 0.35, "complex_plddt": 0.45, "complex_pde": 0.20}
+            elif has_ligand:
+                weights = {
+                    "ligand_iptm": 0.50,
+                    "complex_iplddt": 0.25,
+                    "complex_ipde": 0.15,
+                    "complex_plddt": 0.10,
+                }
+            else:
+                weights = {
+                    "iptm": 0.45,
+                    "complex_iplddt": 0.30,
+                    "complex_ipde": 0.15,
+                    "complex_plddt": 0.10,
+                }
+        if config.include_confidence_score:
             weights.setdefault("confidence_score", 0.10)
 
         penalties_dict = {}
@@ -359,13 +370,13 @@ def boltz_binding_strength_constraint(
             )
 
         # If user requests a specific component
-        if return_component != "total_penalty":
-            key = return_component.strip()
+        if config.return_component != "total_penalty":
+            key = config.return_component.strip()
             if not key.endswith("_penalty"):
                 key = f"{key}_penalty"
             if key not in penalties_dict:
                 raise ValueError(
-                    f"Requested component '{return_component}' not available."
+                    f"Requested component '{config.return_component}' not available."
                 )
             penalty = _clamp(float(penalties_dict[key]))
         else:

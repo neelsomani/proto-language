@@ -42,19 +42,17 @@ class TestBoltzBindingStrengthConstraint:
         config = BoltzBindingStrengthConfig(return_component="iptm")
         assert config.return_component == "iptm"
     
-    def test_config_with_boltz_config(self):
-        """Test config with custom boltz_config."""
-        boltz_cfg = {
-            "desired_higher": {"iptm": 0.95},
-            "weights": {"iptm": 0.5},
-            "on_error": "raise",
-        }
+    def test_config_with_custom_params(self):
+        """Test config with custom parameters."""
         config = BoltzBindingStrengthConfig(
-            boltz_config=boltz_cfg,
+            desired_higher={"iptm": 0.95},
+            weights={"iptm": 0.5},
+            on_error="raise",
             return_component="iptm"
         )
-        assert config.boltz_config["desired_higher"]["iptm"] == 0.95
-        assert config.boltz_config["weights"]["iptm"] == 0.5
+        assert config.desired_higher["iptm"] == 0.95
+        assert config.weights["iptm"] == 0.5
+        assert config.on_error == "raise"
         assert config.return_component == "iptm"
     
     def test_via_registry_minimal(self):
@@ -83,50 +81,48 @@ class TestBoltzBindingStrengthConstraint:
         assert constraint.scoring_function_config.return_component == "ligand_iptm"
     
     def test_via_registry_with_full_config(self):
-        """Test registry with full boltz_config."""
+        """Test registry with full config parameters."""
         segment = create_segment("MKTAYIAKQRQISFVK", SequenceType.PROTEIN)
-        
-        boltz_cfg = {
-            "desired_higher": {"iptm": 0.90, "ptm": 0.70},
-            "desired_lower": {"complex_ipde": 2.0},
-            "tol_higher": {"iptm": 0.05},
-            "tol_lower": {"complex_ipde": 2.0},
-            "weights": {"iptm": 0.50, "complex_iplddt": 0.30},
-            "include_confidence_score": True,
-            "on_error": "penalize",
-        }
         
         constraint = ConstraintRegistry.create(
             key="boltz-binding-strength",
             segments=[segment],
             config_dict={
-                "boltz_config": boltz_cfg,
+                "desired_higher": {"iptm": 0.90, "ptm": 0.70},
+                "desired_lower": {"complex_ipde": 2.0},
+                "tol_higher": {"iptm": 0.05},
+                "tol_lower": {"complex_ipde": 2.0},
+                "weights": {"iptm": 0.50, "complex_iplddt": 0.30},
+                "include_confidence_score": True,
+                "on_error": "penalize",
                 "return_component": "total_penalty"
             }
         )
         
-        assert constraint.scoring_function_config.boltz_config["desired_higher"]["iptm"] == 0.90
-        assert constraint.scoring_function_config.boltz_config["weights"]["iptm"] == 0.50
+        assert constraint.scoring_function_config.desired_higher["iptm"] == 0.90
+        assert constraint.scoring_function_config.weights["iptm"] == 0.50
     
     def test_config_with_batch_size(self):
-        """Test config with batch_size in boltz_config."""
-        boltz_cfg = {
-            "batch_size": 4,
-            "on_error": "penalize",
-        }
-        config = BoltzBindingStrengthConfig(boltz_config=boltz_cfg)
-        assert config.boltz_config["batch_size"] == 4
+        """Test config with batch_size."""
+        config = BoltzBindingStrengthConfig(
+            batch_size=4,
+            on_error="penalize",
+        )
+        assert config.batch_size == 4
+        assert config.on_error == "penalize"
     
-    def test_config_with_predict_kwargs(self):
-        """Test config with predict_kwargs."""
-        boltz_cfg = {
-            "predict_kwargs": {
-                "recycling_steps": 3,
-                "diffusion_samples": 1,
-            }
-        }
+    def test_config_with_boltz_params(self):
+        """Test config with Boltz prediction parameters."""
+        from proto_language.tools.models.structure_prediction.boltz import BoltzConfig
+        
+        boltz_cfg = BoltzConfig(
+            sequences=["DUMMY"],  # Will be overridden
+            recycling_steps=3,
+            diffusion_samples=1,
+        )
         config = BoltzBindingStrengthConfig(boltz_config=boltz_cfg)
-        assert config.boltz_config["predict_kwargs"]["recycling_steps"] == 3
+        assert config.boltz_config.recycling_steps == 3
+        assert config.boltz_config.diffusion_samples == 1
     
     def test_constraint_spec_not_vectorized(self):
         """Test that constraint is registered as not vectorized."""

@@ -69,8 +69,8 @@ def protein_symmetry_ring_constraint(
         Evaluating ring symmetry:
 
         >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
-        >>> kwargs = ESMFoldConfig(verbose=True)
-        >>> cfg = ProteinSymmetryRingConfig(n_replications=6, all_to_all_protomer_symmetry=False, esmfold_config=kwargs)
+        >>> config = ESMFoldConfig(verbose=True)
+        >>> cfg = ProteinSymmetryRingConfig(n_replications=6, all_to_all_protomer_symmetry=False, esmfold_config=config)
         >>> score = protein_symmetry_ring_constraint(seq, config=cfg)  # Hexameric ring
     """
     from biotite.structure import get_chains

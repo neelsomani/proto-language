@@ -32,11 +32,6 @@ class BeamSearchOptimizerConfig(BaseConfig):
         ge=1,
         description="Number of candidates to generate per beam candidate (N)"
     )
-    temperature: float = Field(
-        default=1.0,
-        gt=0.0,
-        description="Temperature for candidate generation"
-    )
     verbose: bool = Field(
         default=True,
         description="Whether to print progress information"
@@ -81,7 +76,6 @@ class BeamSearchOptimizer(Optimizer):
         >>> config = BeamSearchOptimizerConfig(
         ...     beam_width=5,
         ...     num_candidates=10,
-        ...     temperature=1.0
         ... )
         >>> beam_search = BeamSearchOptimizer(
         ...     constructs=constructs,
@@ -135,7 +129,6 @@ class BeamSearchOptimizer(Optimizer):
 
         self.beam_width = config.beam_width
         self.num_candidates = config.num_candidates
-        self.temperature = config.temperature
         self.verbose = config.verbose
 
         # Cache expensive operations
@@ -153,16 +146,6 @@ class BeamSearchOptimizer(Optimizer):
 
         # Populate caches for expensive operations
         self._populate_caches()
-
-        # After adjusting segment batch sizes, recreate constraints with correct batch size
-        self._recreate_constraints_with_correct_batch_size()
-
-    def _recreate_constraints_with_correct_batch_size(self) -> None:
-        """Recreate constraints with the correct batch size after segments have been adjusted."""
-        # Note: Constraints now dynamically compute batch_size from their input segments,
-        # so no manual adjustment is needed. This method is kept for backwards compatibility
-        # but is now a no-op.
-        pass
 
     def _generate_candidates_for_segment_with_prompts(self, segment: Segment, prompts: List[str]) -> List[Sequence]:
         """
@@ -294,8 +277,6 @@ class BeamSearchOptimizer(Optimizer):
             # Restore the original generator assignment
             generator._generator_output = original_generator_output
 
-
-
     def _record_generation_step(self, metadata: Dict[str, Any], generator: Generator, generator_idx: int,
                               current_sequence: str, new_sequence: str, temp_segment: Segment) -> None:
         """Record metadata about a generation step."""
@@ -382,8 +363,6 @@ class BeamSearchOptimizer(Optimizer):
             print(f"Evaluated {len(evaluated_combinations)} concatenated combinations")
 
         return evaluated_combinations
-
-
 
     def _select_top_combinations(self, evaluated_combinations: List[Tuple[Dict[int, Sequence], float]]) -> List[Tuple[Dict[int, Sequence], float]]:
         """

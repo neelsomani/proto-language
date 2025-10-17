@@ -130,29 +130,3 @@ class Generator(ABC):
             RuntimeError: If called before assign() has been called.
         """
         return len(self.get_generator_outputs())
-
-    def get_iteration_count(self) -> int:
-        """
-        Get the number of times sample() has been invoked since the last reset.
-
-        Returns:
-            Current iteration count as an integer.
-        """
-        return self.iteration_count
-
-    def reset_iteration_count(self) -> None:
-        """
-        Reset the internal iteration counter to zero.
-        """
-        self.iteration_count = 0
-
-    def _increment_iteration_count(self) -> None:
-        """
-        Protected helper to increment the iteration counter by one.
-
-        Subclasses should call this at the end of their sample() implementations
-        if they want to use the shared iteration counter and any schedulers
-        that depend on it.
-        """
-        self.iteration_count += 1
-

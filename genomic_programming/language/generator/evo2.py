@@ -6,7 +6,7 @@ Extracted from generator.py for better code organization.
 
 from typing import Any, List, Optional, Dict, final
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from ..core import Generator, Segment
 from proto_language.base_config import BaseConfig
@@ -27,7 +27,7 @@ class Evo2GeneratorConfig(BaseConfig):
     verbose: int = Field(default=1, ge=0, description="Verbosity level for logging")
     force_prompt_threshold: Optional[int] = Field(default=None, description="Optional threshold for forcing prompt continuation")
     batch_size: int = Field(default=1, ge=1, description="Number of sequences to generate")
-    prepend_prompt: bool = Field(default=False, description="Whether to prepend prompt to generated sequences")
+    prepend_prompt: bool = Field(default=True, description="Whether to prepend prompt to generated sequences")
     sampling_kwargs: Dict[str, Any] = Field(default_factory=dict, description="Additional sampling arguments")
     
     @field_validator('prompt_seqs')
@@ -36,6 +36,33 @@ class Evo2GeneratorConfig(BaseConfig):
         if not v:
             raise ValueError("prompt_seqs must not be empty")
         return v
+    
+    @model_validator(mode='after')
+    def validate_prompt_seqs_batch_size(self):
+        """Validate that prompt_seqs is compatible with batch_size."""
+        if len(self.prompt_seqs) == 1:
+            # Single prompt will be replicated
+            return self
+        
+        # Multiple prompts must match batch_size exactly
+        if len(self.prompt_seqs) != self.batch_size:
+            raise ValueError(
+                f"Multiple prompts ({len(self.prompt_seqs)}) must equal batch_size ({self.batch_size})"
+            )
+        
+        # All prompts must have same length
+        if len(set(len(seq) for seq in self.prompt_seqs)) != 1:
+            raise ValueError(
+                f"All prompts must have same length, got: {[len(seq) for seq in self.prompt_seqs]}"
+            )
+        
+        return self
+    
+    def get_prompts(self) -> List[str]:
+        """Get prompt sequences replicated to match batch_size."""
+        if len(self.prompt_seqs) == 1:
+            return self.prompt_seqs * self.batch_size
+        return self.prompt_seqs
 
 
 @GeneratorRegistry.register(
@@ -99,21 +126,7 @@ class Evo2Generator(Generator):
         """
         super().__init__(batch_size=config.batch_size)
         self.config = config
-
-        # Handle batch_size: replicate single prompt or validate multiple prompts
-        if len(config.prompt_seqs) == 1:
-            self.prompt_seqs = config.prompt_seqs * config.batch_size
-        else:
-            if len(config.prompt_seqs) != config.batch_size:
-                raise ValueError(
-                    f"Multiple prompts ({len(config.prompt_seqs)}) must equal batch_size ({config.batch_size})"
-                )
-            if len(set(len(seq) for seq in config.prompt_seqs)) != 1:
-                raise ValueError(
-                    f"All prompts must have same length, got: {[len(seq) for seq in config.prompt_seqs]}"
-                )
-            self.prompt_seqs = config.prompt_seqs
-
+        self.prompt_seqs = config.get_prompts()
         self.batch_size = config.batch_size
         self.evo2_type = config.evo2_type
         self.evo2_local_path = config.evo2_local_path
@@ -144,14 +157,6 @@ class Evo2Generator(Generator):
             Any existing sequences in the assigned segment will be overwritten when sample()
             is called, as Evo2 performs autoregressive generation from prompt sequences.
         """
-        # Validate that we received a single Segment, not a list or other type
-        if not isinstance(assigned_segments, Segment):
-            raise ValueError(
-                f"Evo2Generator.assign() expects a single Segment object, "
-                f"got {type(assigned_segments).__name__}. If you have multiple segments, "
-                f"assign them to separate generator instances."
-            )
-
         # Warn user if existing sequences will be overwritten
         existing_sequences = [
             seq.sequence for seq in assigned_segments.batch_sequences if seq.sequence

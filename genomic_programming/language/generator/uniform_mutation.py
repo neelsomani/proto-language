@@ -149,7 +149,3 @@ class UniformMutationGenerator(Generator):
                 )
             
             sequence.sequence = current_sequence
-
-        # Increment iteration count (shared helper on base class)
-        self._increment_iteration_count()
-

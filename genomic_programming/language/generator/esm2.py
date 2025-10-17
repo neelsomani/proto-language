@@ -103,14 +103,6 @@ class ESM2Generator(Generator):
             ValueError: If assigned_segments is not a single Segment object.
             AssertionError: If provided sequence length doesn't match configured length.
         """
-        # Validate that we received a single Segment, not a list or other type
-        if not isinstance(assigned_segments, Segment):
-            raise ValueError(
-                f"ESM2Generator.assign() expects a single Segment object, "
-                f"got {type(assigned_segments).__name__}. If you have multiple segments, "
-                f"assign them to separate generator instances."
-            )
-
         # Validate provided sequence length if not empty
         initial_sequence = assigned_segments.batch_sequences[0].sequence
         if initial_sequence != "":

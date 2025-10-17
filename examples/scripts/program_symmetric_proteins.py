@@ -15,11 +15,18 @@ from proto_language.language.constraint import (
     protein_globularity_constraint,
     protein_symmetry_ring_constraint,
 )
-from proto_language.language.generator import MCMCOptimizer, UniformMutationGenerator
+from proto_language.language.optimizer import (
+    MCMCOptimizer,
+    MCMCOptimizerConfig,
+)
+from proto_language.language.generator import (
+    UniformMutationGenerator,
+    UniformMutationGeneratorConfig,
+)
 from proto_language.language.core import Program
 
 
-MONOMER_LENGTH = 150
+MONOMER_LENGTH = 50
 N_SYMMETRIC_UNITS = 3
 N_STEPS = 30_000
 
@@ -42,10 +49,11 @@ protomer_construct = Construct([protomer])
 ## Generators ##
 ################
 
-uniform_gen = UniformMutationGenerator(
+uniform_gen_config = UniformMutationGeneratorConfig(
     batch_size=1,
     sequence_length=MONOMER_LENGTH,
 )
+uniform_gen = UniformMutationGenerator(uniform_gen_config)
 
 uniform_gen.assign(protomer)
 
@@ -84,20 +92,41 @@ globularity = Constraint(
 ## Program ##
 #############
 
-
 def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].batch_sequences[0]
+    metakeys = list(output_sequence._metadata.keys())
+    folded_sequence = output_sequence._metadata[
+        next(key for key in metakeys if key.endswith('esmfolded_sequence'))
+    ]
+    plddt = output_sequence._metadata[
+        next(key for key in metakeys if key.endswith('avg_plddt'))
+    ]
+    ptm = output_sequence._metadata[
+        next(key for key in metakeys if key.endswith('ptm'))
+    ]
     print(
-        f"Iteration {step} | "
-        f"sequence (real): {output_sequence._sequence}, "
-        f"sequence: {output_sequence._metadata['esmfolded_sequence']}, "
-        f"pLDDT: {output_sequence._metadata['avg_plddt']}, "
-        f"pTM: {output_sequence._metadata['ptm']}"
+        f"Iteration {step} | \n"
+        f"\tsequence (monomer): {output_sequence._sequence}, \n"
+        f"\tsequence (duplicated): {folded_sequence}, \n"
+        f"\tpLDDT: {plddt}, \n"
+        f"\tpTM: {ptm}"
     )
+
+
+mcmc_optimizer_config = MCMCOptimizerConfig(
+    batch_size=1,
+    num_candidates=1,
+    num_steps=N_STEPS,
+    temperature=1.,
+    temperature_min=0.0001,
+    track_step_size=1,
+    verbose=True,
+)
 
 
 program = Program(
     optimizer_type=MCMCOptimizer,
+    optimizer_config=mcmc_optimizer_config,
     constructs=[protomer_construct],
     generators=[uniform_gen],
     constraints=[
@@ -112,9 +141,6 @@ program = Program(
         1.0,
         1.0,
     ],
-    num_steps=N_STEPS,
-    track_step_size=1,
-    temperature=2.0,
     custom_logging=custom_logging,
 )
 

@@ -6,10 +6,6 @@ from .uniform_mutation import (
     UniformMutationGenerator,
     UniformMutationGeneratorConfig,
 )
-from .slow_mutation import (
-    SlowMutationGenerator,
-    SlowMutationGeneratorConfig,
-)
 
 # Language model generators
 from .evo2 import (
@@ -32,8 +28,6 @@ __all__ = [
     # Mutation generators
     "UniformMutationGenerator",
     "UniformMutationGeneratorConfig",
-    "SlowMutationGenerator",
-    "SlowMutationGeneratorConfig",
     # Language model generators
     "Evo2Generator",
     "Evo2GeneratorConfig",

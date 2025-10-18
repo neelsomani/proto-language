@@ -4,8 +4,9 @@ UniformMutationGenerator for random point mutations.
 A sequence generator that proposes random point mutations.
 """
 
-from typing import final, Optional, Callable
+from typing import final
 import random
+import time
 
 from pydantic import Field
 
@@ -19,6 +20,7 @@ class UniformMutationGeneratorConfig(BaseConfig):
     batch_size: int = Field(default=1, ge=1, description="Number of sequence variants to generate")
     sequence_length: int = Field(default=100, ge=1, description="Length of sequences to generate")
     num_mutations: int = Field(default=1, ge=0, description="Number of mutations per sequence per sample")
+    debug_with_sleep_calls: bool = Field(default=False, description="Enable debug mode with sleep calls (for testing purposes only)")
 
 
 @GeneratorRegistry.register(
@@ -72,6 +74,7 @@ class UniformMutationGenerator(Generator):
         self.config = config
         self.sequence_length = config.sequence_length
         self.num_mutations = config.num_mutations
+        self.debug_with_sleep_calls = config.debug_with_sleep_calls
         self.mutation_scheduler = None  # Can be set after initialization if needed
 
     def assign(
@@ -115,6 +118,10 @@ class UniformMutationGenerator(Generator):
             RuntimeError: If called before assign().
         """
         self._validate_generator()
+
+        # Sleep for testing purposes if debug_with_sleep_calls is enabled
+        if self.debug_with_sleep_calls:
+            time.sleep(1.0)
 
         # Determine number of mutations for this iteration
         if self.mutation_scheduler is not None:

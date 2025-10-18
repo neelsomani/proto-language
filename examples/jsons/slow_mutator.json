@@ -37,10 +37,10 @@
   "generators": [
     {
       "id": "slow_mutation",
-      "key": "slow-mutation",
+      "key": "uniform-mutation",
       "config": {
         "sequence_length": 15,
-        "sleep_time": 1.0
+        "debug_with_sleep_calls": true
       },
       "targets": ["segment1"]
     }

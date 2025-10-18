@@ -13,7 +13,6 @@ from .generator import (
     Evo2Generator,
     ESM2Generator,
     ESM3Generator,
-    SlowMutationGenerator,
     GeneratorRegistry,
 )
 
@@ -39,7 +38,6 @@ __all__ = [
     "Evo2Generator",
     "ESM2Generator",
     "ESM3Generator",
-    "SlowMutationGenerator",
     "GeneratorRegistry",
     # Optimizers
     "MCMCOptimizer",

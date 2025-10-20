@@ -14,25 +14,25 @@ class Generator(ABC):
     """
     Generator base class that creates/modifies sequences during optimization.
 
-    Subclasses must implement assign() to assign sequences to generators and
-    sample() to propose modified sequences.
+    Generators write to the candidate_sequences pool of assigned segments.
+    The optimizer manages transitions between candidate and selected pools.
+
+    Subclasses must implement `assign()` (Assign segments to the generator) 
+    and `sample()` (Generate/modify candidate sequences in-place)
     """
 
     def __init__(
         self,
         batch_size: int = 1,
-        **hyperparameters: Any,
     ) -> None:
         """
         Initialize the generator with configuration parameters.
 
         Args:
-            batch_size: Number of sequence variants to generate simultaneously.
-            **hyperparameters: Additional configuration specific to the generator type.
-                These are stored and can be accessed by subclasses.
+            batch_size: Number of candidate sequences to generate per sample() call.
+                       This will be overridden by the optimizer to match num_candidates.
         """
         self.batch_size: int = batch_size
-        self.hyperparameters: Dict[str, Any] = hyperparameters
         self._is_initialized: bool = False
         self.iteration_count: int = 0
 
@@ -82,9 +82,7 @@ class Generator(ABC):
             Most generators should use _generator_output for simplicity.
             Use _generator_outputs only when the generator manages multiple distinct outputs.
         """
-        raise NotImplementedError(
-            f"Subclass {self.__class__.__name__} must implement the assign method."
-        )
+        raise NotImplementedError(f"Subclass {self.__class__.__name__} must implement the assign method.")
 
     @abstractmethod
     def sample(self) -> None:
@@ -99,7 +97,7 @@ class Generator(ABC):
             This method should modify sequences in-place for efficiency.
             Subclasses may define additional parameters with proper type hints.
         """
-        raise NotImplementedError("Subclasses must implement the sample method.")
+        raise NotImplementedError(f"Subclass {self.__class__.__name__} must implement the assign method.")
 
     def get_generator_outputs(self) -> Tuple[Segment, ...]:
         """

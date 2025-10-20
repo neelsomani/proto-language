@@ -47,10 +47,10 @@ class TestTetranucleotideUsageConstraint:
         assert abs(constraint_bal.evaluate()[0] - 1.0) < 1e-9
         assert (
             "segment_0.tetranucleotide_usage_constraint.GATC_tud"
-            in seq_balanced[0]._metadata
+            in seq_balanced.candidate_sequences[0]._metadata
         )
         assert (
-            seq_balanced[0]._metadata[
+            seq_balanced.candidate_sequences[0]._metadata[
                 "segment_0.tetranucleotide_usage_constraint.GATC_tud"
             ]
             > 3.0
@@ -64,7 +64,7 @@ class TestTetranucleotideUsageConstraint:
         # TUD is 0, deviation is (0.8-0)/0.8 = 1.0
         assert abs(constraint_no_gatc.evaluate()[0] - 1.0) < 1e-9
         assert (
-            seq_no_gatc[0]._metadata[
+            seq_no_gatc.candidate_sequences[0]._metadata[
                 "segment_0.tetranucleotide_usage_constraint.GATC_tud"
             ]
             == 0.0
@@ -86,7 +86,7 @@ class TestTetranucleotideUsageConstraint:
         )
         assert constraint_short.evaluate()[0] == 0.0
         assert (
-            seq_short[0]._metadata[
+            seq_short.candidate_sequences[0]._metadata[
                 "segment_0.tetranucleotide_usage_constraint.GATC_tud"
             ]
             == 0.0
@@ -119,7 +119,7 @@ class TestTetranucleotideUsageConstraint:
         # Check constraint-specific metadata
         assert (
             abs(
-                seq_all_a[0]._metadata[
+                seq_all_a.candidate_sequences[0]._metadata[
                     "segment_0.tetranucleotide_usage_constraint.AAAA_tud"
                 ]
                 - 1.0

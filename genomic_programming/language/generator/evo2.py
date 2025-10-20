@@ -27,7 +27,7 @@ class Evo2GeneratorConfig(BaseConfig):
     verbose: int = Field(default=1, ge=0, description="Verbosity level for logging")
     force_prompt_threshold: Optional[int] = Field(default=None, description="Optional threshold for forcing prompt continuation")
     batch_size: int = Field(default=1, ge=1, description="Number of sequences to generate")
-    prepend_prompt: bool = Field(default=True, description="Whether to prepend prompt to generated sequences")
+    prepend_prompt: bool = Field(default=False, description="Whether to prepend prompt to generated sequences")
     sampling_kwargs: Dict[str, Any] = Field(default_factory=dict, description="Additional sampling arguments")
     
     @field_validator('prompt_seqs')
@@ -72,6 +72,7 @@ class Evo2GeneratorConfig(BaseConfig):
     description="Evo2 genome language model for DNA sequence generation",
     category="language_model",
     requires_gpu=True,
+    autoregressive=True,
 )
 @final
 class Evo2Generator(Generator):
@@ -141,9 +142,7 @@ class Evo2Generator(Generator):
         self.prepend_prompt = config.prepend_prompt
         self.sampling_kwargs = config.sampling_kwargs
 
-    def assign(
-        self, assigned_segments: Segment
-    ) -> None:
+    def assign(self, assigned_segments: Segment) -> None:
         """
         Assign a Segment to this generator.
 
@@ -154,24 +153,20 @@ class Evo2Generator(Generator):
             ValueError: If assigned_segments is not a single Segment object.
 
         Warning:
-            Any existing sequences in the assigned segment will be overwritten when sample()
-            is called, as Evo2 performs autoregressive generation from prompt sequences.
+            Evo2 performs autoregressive generation from prompt sequences.
+            It will overwrite candidate_sequences during sample().
         """
-        # Warn user if existing sequences will be overwritten
-        existing_sequences = [
-            seq.sequence for seq in assigned_segments.batch_sequences if seq.sequence
-        ]
-        if existing_sequences:
+        # Warn user if existing candidate sequences will be overwritten
+        if assigned_segments.candidate_sequences:
             print(
-                f"Warning: Evo2Generator will overwrite {len(existing_sequences)} existing sequence(s) "
-                f"when sample() is called due to autoregressive generation."
+                f"Warning: Evo2Generator will overwrite {len(assigned_segments.candidate_sequences)} "
+                f"existing candidate sequence(s) when sample() is called due to autoregressive generation."
             )
 
-        # Initialize _generator_output (singular) and create batch
         self._generator_output = assigned_segments
         self._generator_output._is_assigned = True
-        self._generator_output.create_batch(self.batch_size)
         self._is_initialized = True
+        self.autoregressive = True
 
     def sample(self, prompt_seqs: Optional[List[str]] = None) -> None:
         """
@@ -191,6 +186,17 @@ class Evo2Generator(Generator):
 
         # Use provided prompts or fall back to the default prompt
         prompts = prompt_seqs if prompt_seqs is not None else self.prompt_seqs
+
+        # Replicate single prompt to match candidate pool size if needed
+        if len(prompts) == 1:
+            prompts = prompts * len(self._generator_output.candidate_sequences)
+
+        # Validate number of prompts matches candidate pool size
+        if len(prompts) != len(self._generator_output.candidate_sequences):
+            raise ValueError(
+                f"Number of prompts ({len(prompts)}) must match candidate pool size "
+                f"({len(self._generator_output.candidate_sequences)})"
+            )
 
         # Use the evo2 sampling tool
         from proto_language.tools.models.language_models.evo2 import (
@@ -219,7 +225,6 @@ class Evo2Generator(Generator):
         result = run_evo2_sample(sample_config)
         generated_sequences = result.sequences
 
-        # Update sequences in the Segment
+        # Update candidate sequences
         for idx, sequence in enumerate(generated_sequences):
-            self._generator_output.batch_sequences[idx].sequence = sequence
-
+            self._generator_output.candidate_sequences[idx].sequence = sequence

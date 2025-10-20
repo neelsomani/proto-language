@@ -100,7 +100,7 @@ class TestOrfipyMmseqsConstraints:
         assert isinstance(scores[0], float)
         assert scores[0] >= 0.0  # Score should be non-negative
 
-        metadata = segment[0]._metadata
+        metadata = segment.candidate_sequences[0]._metadata
         assert (
             "segment_0.orfipy_mmseqs_gene_hit_count_constraint.orfipy_orfs" in metadata
         )
@@ -144,7 +144,7 @@ class TestOrfipyMmseqsConstraints:
         assert isinstance(scores[0], float)
         assert scores[0] >= 0.0
 
-        metadata = segment[0]._metadata
+        metadata = segment.candidate_sequences[0]._metadata
         assert (
             "segment_0.orfipy_mmseqs_gene_homology_constraint.orfs_with_acceptable_homology"
             in metadata
@@ -198,7 +198,7 @@ class TestOrfipyMmseqsConstraints:
         assert isinstance(scores[0], float)
         assert scores[0] >= 0.0  # Should have a penalty for not meeting min_hits
         assert (
-            segment[0]._metadata[
+            segment.candidate_sequences[0]._metadata[
                 "segment_0.orfipy_mmseqs_gene_hit_count_constraint.unique_orfs_with_hits"
             ]
             == 0

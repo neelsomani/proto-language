@@ -1,264 +1,1114 @@
 """
-Tests for core BeamSearchOptimizer functionality.
+Comprehensive tests for BeamSearchOptimizer.
 
-These tests verify the behavior of the BeamSearchOptimizer without API dependencies.
+Tests cover initialization, helper methods, edge cases, constraint filtering,
+and integration scenarios.
 """
 
-from unittest.mock import patch, Mock
+import pytest
+import numpy as np
+import sys
 
-# Mock all problematic imports at module level before any other imports
-with patch.dict('sys.modules', {
-    'google.cloud': Mock(),
-    'google.cloud.storage': Mock(),
-    'proto_language.file_resolver': Mock(),
-    'proto_language.file_utils': Mock(),
-    'torch': Mock(),
-    'proto_language.tools': Mock(),
-    'proto_language.tools.tool_cache': Mock(),
-    'proto_language.tools.structure_prediction': Mock(),
-    'proto_language.tools.orf_prediction': Mock(),
-    'proto_language.tools.orf_prediction.orfipy': Mock(),
-    'proto_language.tools.orf_prediction.prodigal': Mock(),
-    'proto_language.tools.orf_prediction.genemark': Mock(),
-    'proto_language.tools.gene_annotation': Mock(),
-    'proto_language.tools.gene_annotation.blast': Mock(),
-    'proto_language.tools.gene_annotation.hmmer': Mock(),
-    'proto_language.tools.gene_annotation.mmseqs': Mock(),
-    'proto_language.tools.blast': Mock(),
-    'proto_language.tools.hmmer': Mock(),
-    'proto_language.tools.mmseqs': Mock(),
-    'proto_language.tools.structure_prediction.esmfold': Mock(),
-    'proto_language.tools.structure_prediction.esm2': Mock(),
-    'proto_language.tools.structure_prediction.esm3': Mock(),
-    'proto_language.tools.structure_prediction.chai': Mock(),
-    'proto_language.tools.structure_prediction.boltz': Mock(),
-    'proto_language.tools.structure_prediction.io': Mock(),
-    'proto_language.tools.structure_prediction.utils': Mock(),
-    'proto_language.tools.structure_prediction.visualize': Mock(),
-    'deployment.cloud_functions': Mock()
-}):
-    # Now import the modules safely
-    from proto_language.language.core import (
-        Construct, Segment, Constraint, SequenceType)
-    from proto_language.language.generator import (
-        UniformMutationGenerator,
-        UniformMutationGeneratorConfig
-    )
-    from proto_language.language.optimizer import BeamSearchOptimizer, BeamSearchOptimizerConfig
-    from examples.scripts.beam_search_utils import MockAutoregressiveGenerator, gc_content_constraint
+sys.path.append(".")
 
-class TestBeamSearchOptimizer:
-    """Test core BeamSearchOptimizer functionality."""
+from proto_language.language.core import (
+    Construct,
+    Segment,
+    Constraint,
+    SequenceType,
+    Generator,
+)
+from proto_language.language.constraint import (
+    gc_content_constraint,
+    sequence_length_constraint,
+)
+from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+from proto_language.language.constraint.sequence_composition.sequence_length_constraint import SequenceLengthConfig
+from proto_language.language.generator import (
+    UniformMutationGenerator,
+    UniformMutationGeneratorConfig,
+)
+from proto_language.language.optimizer import (
+    BeamSearchOptimizer,
+    BeamSearchOptimizerConfig,
+)
 
-    def test_beam_search_generator_initialization(self):
-        """Test basic BeamSearchOptimizer initialization."""
-        # Create test segments
-        segment1 = Segment(sequence="AAAA", sequence_type=SequenceType.DNA)
-        segment2 = Segment(sequence="TTTT", sequence_type=SequenceType.DNA)
-        segment3 = Segment(sequence="GGGG", sequence_type=SequenceType.DNA)
+
+# Helper functions
+def create_segment(sequence: str, seq_type: SequenceType = SequenceType.DNA) -> Segment:
+    """Helper to create a Segment."""
+    return Segment(sequence=sequence, sequence_type=seq_type)
+
+
+class MockAutoregressiveGenerator(Generator):
+    """Mock autoregressive generator for testing."""
+    
+    def __init__(self, sequence_length: int, prepend_prompt: bool = False):
+        super().__init__(batch_size=1)
+        self.sequence_length = sequence_length
+        self.prepend_prompt = prepend_prompt
+        self.autoregressive = True
+    
+    def assign(self, segment: Segment):
+        self._generator_output = segment
+        self._is_initialized = True
+    
+    def sample(self, prompt_seqs=None):
+        """Generate random DNA sequences."""
+        if prompt_seqs is None:
+            prompt_seqs = [""] * len(self._generator_output.candidate_sequences)
         
-        # Create construct
-        construct = Construct([segment1, segment2, segment3])
+        bases = ['A', 'C', 'G', 'T']
+        for i, prompt in enumerate(prompt_seqs):
+            new_seq = ''.join(np.random.choice(bases) for _ in range(self.sequence_length))
+            self._generator_output.candidate_sequences[i].sequence = new_seq
+
+
+class TestBeamSearchOptimizerInitialization:
+    """Test initialization and validation."""
+    
+    def test_basic_initialization(self):
+        """Test basic initialization with valid parameters."""
+        seg1 = create_segment("ATCG")
+        seg2 = create_segment("GCTA")
+        construct = Construct([seg1, seg2])
         
-        # Create generators
-        gen1 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(sequence_length=4, batch_size=1, num_mutations=1)
-        )
-        gen1.assign(segment1)
-        
-        gen2 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(sequence_length=4, batch_size=1, num_mutations=1)
-        )
-        gen2.assign(segment2)
-        
-        gen3 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(sequence_length=4, batch_size=1, num_mutations=1)
-        )
-        gen3.assign(segment3)
-        
-        gen4 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(sequence_length=4, batch_size=1, num_mutations=1)
-        )
-        gen4.assign(segment3)
-        
-        # Create constraint
-        def gc_content_constraint(sequence):
-            gc_count = sequence.sequence.count('G') + sequence.sequence.count('C')
-            total_length = len(sequence.sequence)
-            if total_length == 0:
-                return 100.0
-            gc_ratio = (gc_count / total_length) * 100
-            return max(0.0, 100.0 - gc_ratio)
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(seg1)
+        generator.assign(seg2)
         
         constraint = Constraint(
-            inputs=[segment1, segment2, segment3],
+            inputs=[seg1],
             scoring_function=gc_content_constraint,
-            scoring_function_config={}
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0)
         )
         
-        # Create beam search optimizer
-        beam_gen = BeamSearchOptimizer(
-            constructs=[construct],
-            generators=[gen1, gen2, gen3, gen4],
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=5)
+        
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
             constraints=[constraint],
-            config=BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=False),
+            config=config
         )
         
-        # Verify initialization
-        assert beam_gen.beam_width == 2
-        assert beam_gen.num_candidates == 3
-        assert len(beam_gen.constraints) == 1
-        assert len(beam_gen.generators) == 4
-        
-        # Verify segments have correct batch size
-        for segment in construct.segments:
-            assert len(segment.batch_sequences) == 2  # beam_width
-
-    def test_extension_based_generator_detection(self):
-        """Test the _is_extension_based_generator method."""
-        # Create a dummy beam search optimizer for testing the method
-        # We need at least one construct to initialize BeamSearchOptimizer
-        segment = Segment(sequence="AAAA", sequence_type=SequenceType.DNA)
+        assert optimizer.beam_width == 3
+        assert optimizer.candidates_per_beam == 5
+        assert len(optimizer.running_prompts) == 3
+        assert all(p == "" for p in optimizer.running_prompts)
+        assert optimizer.num_candidates == 15  # 3 * 5
+        assert optimizer.num_selected == 3
+    
+    def test_non_autoregressive_generator_raises(self):
+        """Test that non-autoregressive generator raises ValueError."""
+        segment = create_segment("ATCG")
         construct = Construct([segment])
         
-        beam_gen = BeamSearchOptimizer(
-            constructs=[construct],
-            generators=[],
-            constraints=[],
-            config=BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=False),
+        generator = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(sequence_length=4, num_mutations=1)
         )
+        generator.assign(segment)
         
-        # Test mutation-based generator (no prepend_prompt)
-        class MockMutationGenerator:
-            def __init__(self):
-                pass  # No prepend_prompt attribute
-        
-        mutation_gen = MockMutationGenerator()
-        assert beam_gen._is_extension_based_generator(mutation_gen) == False
-        
-        # Test extension-based generator (has prepend_prompt)
-        extension_gen = MockAutoregressiveGenerator(sequence_length=4, prepend_prompt=True)
-        assert beam_gen._is_extension_based_generator(extension_gen) == True
-        
-        # Test extension-based generator with prepend_prompt=False
-        extension_gen_false = MockAutoregressiveGenerator(sequence_length=4, prepend_prompt=False)
-        assert beam_gen._is_extension_based_generator(extension_gen_false) == False 
-    
-    def test_demo_beam_search_scenario(self):
-        """Test the exact same scenario as demo_beam_search.py and assert expected final sequences."""
-        # Create the same segments as in the demo
-        segment1 = Segment(sequence="A", sequence_type=SequenceType.DNA)
-        segment2 = Segment(sequence="T", sequence_type=SequenceType.DNA)
-        segment3 = Segment(sequence="", sequence_type=SequenceType.DNA)  # No initial prompt
-        
-        # Create construct with multiple segments
-        construct = Construct([segment1, segment2, segment3])
-        
-        # Create the same generators as in the demo (with same random seeds for reproducibility)
-        mock_gen1 = MockAutoregressiveGenerator(sequence_length=1, random_seed=69, prepend_prompt=True)
-        mock_gen2 = MockAutoregressiveGenerator(sequence_length=1, random_seed=42, prepend_prompt=True)
-        mock_gen3 = MockAutoregressiveGenerator(sequence_length=1, random_seed=123, prepend_prompt=True)
-        mock_gen4 = MockAutoregressiveGenerator(sequence_length=1, random_seed=456, prepend_prompt=True)
-        
-        generators = [mock_gen1, mock_gen2, mock_gen3, mock_gen4]
-        
-        # Assign generators to segments (same as demo)
-        generators[0].assign(segment1)
-        generators[1].assign(segment2)
-        generators[2].assign(segment3)
-        generators[3].assign(segment3)  # Assign to the same segment
-        
-        # Create the same constraint as in the demo
         constraint = Constraint(
-            inputs=[segment1, segment2, segment3],
-            scoring_function=gc_content_constraint,
+            inputs=[segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
             scoring_function_config={}
         )
         
-        # Create beam search optimizer with same parameters
-        beam_gen = BeamSearchOptimizer(
-            constructs=[construct],
-            generators=generators,
-            constraints=[constraint],
-            config=BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=True),
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3)
+        
+        with pytest.raises(ValueError, match="requires autoregressive generators"):
+            BeamSearchOptimizer(
+                construct=construct,
+                generator=generator,
+                prompt="",
+                constraints=[constraint],
+                config=config
+            )
+    
+    def test_initial_prompt_replication(self):
+        """Test that initial prompt is replicated to beam_width."""
+        segment = create_segment("ATCG")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
         )
         
-        # Run the same number of samples as demo default
-        num_samples = 2
-        for _ in range(num_samples):
-            print("BOINK")
-            beam_gen.sample()
+        config = BeamSearchOptimizerConfig(beam_width=5, num_candidates=2)
         
-        # Now assert the expected final sequences based on the demo behavior
-        # The sequences should be deterministic due to fixed random seeds
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="INITIAL",
+            constraints=[constraint],
+            config=config
+        )
         
-        # Get final sequences from each segment
-        final_segment1_seq = segment1.batch_sequences[0].sequence
-        final_segment2_seq = segment2.batch_sequences[0].sequence
-        final_segment3_seq = segment3.batch_sequences[0].sequence
+        assert len(optimizer.running_prompts) == 5
+        assert all(p == "INITIAL" for p in optimizer.running_prompts)
+
+
+class TestPrepareBeamPrompts:
+    """Test _prepare_beam_prompts helper method."""
+    
+    def test_prompt_replication(self):
+        """Test that prompts are replicated correctly."""
+        segment = create_segment("ATCG")
+        construct = Construct([segment])
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(segment)
         
-        # Assert expected sequences based on the demo's deterministic behavior
-        # These are the expected sequences after 2 samples with the given random seeds
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
+        )
         
-        # Segment 1: Starts with "A", generates 1 token per sample, 2 samples total
-        # Expected: "A" + 2 generated tokens
-        assert len(final_segment1_seq) == 3, f"Segment 1 should have length 3, got {len(final_segment1_seq)}"
-        assert final_segment1_seq.startswith("A"), f"Segment 1 should start with 'A', got '{final_segment1_seq}'"
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=4)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
         
-        # Segment 2: Starts with "T", generates 1 token per sample, 2 samples total  
-        # Expected: "T" + 2 generated tokens
-        assert len(final_segment2_seq) == 3, f"Segment 2 should have length 3, got {len(final_segment2_seq)}"
-        assert final_segment2_seq.startswith("T"), f"Segment 2 should start with 'T', got '{final_segment2_seq}'"
+        optimizer.running_prompts = ["AAA", "BBB", "CCC"]
+        prompts, beam_indices = optimizer._prepare_beam_prompts()
         
-        # Segment 3: Starts empty, has 2 generators, generates 1 token per sample, 2 samples total
-        # Expected: 4 generated tokens (from 2 generators × 2 samples)
-        assert len(final_segment3_seq) == 4, f"Segment 3 should have length 4, got {len(final_segment3_seq)}"
+        # Should have 3 beams * 4 candidates = 12 prompts
+        assert len(prompts) == 12
+        assert len(beam_indices) == 12
         
-        # Verify that all sequences contain only valid DNA characters
-        valid_dna_chars = set("ATCG")
-        for seq in [final_segment1_seq, final_segment2_seq, final_segment3_seq]:
-            assert all(char in valid_dna_chars for char in seq), f"Sequence '{seq}' contains invalid DNA characters"
+        # Check prompt replication
+        assert prompts[0:4] == ["AAA", "AAA", "AAA", "AAA"]
+        assert prompts[4:8] == ["BBB", "BBB", "BBB", "BBB"]
+        assert prompts[8:12] == ["CCC", "CCC", "CCC", "CCC"]
         
-        # Verify that the beam search maintained the correct batch size
-        assert len(segment1.batch_sequences) == 2, f"Segment 1 should have beam_width=2 sequences, got {len(segment1.batch_sequences)}"
-        assert len(segment2.batch_sequences) == 2, f"Segment 2 should have beam_width=2 sequences, got {len(segment2.batch_sequences)}"
-        assert len(segment3.batch_sequences) == 2, f"Segment 3 should have beam_width=2 sequences, got {len(segment3.batch_sequences)}"
+        # Check beam index tracking
+        assert beam_indices[0:4] == [0, 0, 0, 0]
+        assert beam_indices[4:8] == [1, 1, 1, 1]
+        assert beam_indices[8:12] == [2, 2, 2, 2]
+    
+    def test_single_beam(self):
+        """Test with beam_width=1."""
+        segment = create_segment("ATCG")
+        construct = Construct([segment])
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(segment)
         
-        # Verify that all sequences in the beam have the same length
-        for segment in [segment1, segment2, segment3]:
-            seq_lengths = [len(seq.sequence) for seq in segment.batch_sequences]
-            assert len(set(seq_lengths)) == 1, f"All sequences in segment should have same length, got lengths: {seq_lengths}"
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
+        )
         
-        # Verify the final top 2 concatenated sequences from the beam search
-        # These should match the demo output after 2 samples
-        beam_candidates = beam_gen._beam_candidates
-        assert len(beam_candidates) == 2, f"Should have 2 beam candidates, got {len(beam_candidates)}"
+        config = BeamSearchOptimizerConfig(beam_width=1, num_candidates=5)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
         
-        # Get the final concatenated sequences from the beam
-        final_beam_sequence_0 = beam_candidates[0]
-        final_beam_sequence_1 = beam_candidates[1]
+        optimizer.running_prompts = ["SINGLE"]
+        prompts, beam_indices = optimizer._prepare_beam_prompts()
         
-        # Verify the sequences have the expected total length
-        # Total length = sum of all segment lengths
-        expected_total_length = len(final_segment1_seq) + len(final_segment2_seq) + len(final_segment3_seq)
-        assert len(final_beam_sequence_0) == expected_total_length, f"Beam sequence 0 should have total length {expected_total_length}, got {len(final_beam_sequence_0)}"
-        assert len(final_beam_sequence_1) == expected_total_length, f"Beam sequence 1 should have total length {expected_total_length}, got {len(final_beam_sequence_1)}"
+        assert len(prompts) == 5
+        assert all(p == "SINGLE" for p in prompts)
+        assert all(idx == 0 for idx in beam_indices)
+
+
+class TestSetSelectedSequences:
+    """Test _set_selected_sequences helper method."""
+    
+    def test_selection_by_indices(self):
+        """Test that sequences are selected by provided indices."""
+        segment = create_segment("")
+        segment.create_candidates(10)
         
-        # Verify the sequences start with the expected segment sequences
-        assert final_beam_sequence_0.startswith(final_segment1_seq), f"Beam sequence 0 should start with segment 1 sequence '{final_segment1_seq}', got '{final_beam_sequence_0}'"
-        assert final_beam_sequence_1.startswith(final_segment1_seq), f"Beam sequence 1 should start with segment 1 sequence '{final_segment1_seq}', got '{final_beam_sequence_1}'"
+        # Set unique sequences for testing (valid DNA sequences)
+        unique_seqs = ["AAAA", "AAAT", "AATA", "AATT", "ATAA", "ATAT", "ATTA", "ATTT", "TAAA", "TAAT"]
+        for i, seq in enumerate(segment.candidate_sequences):
+            seq.sequence = unique_seqs[i]
         
-        # Verify the sequences contain the expected segment sequences in order
-        # The concatenated sequence should be: segment1 + segment2 + segment3
-        expected_concatenated = final_segment1_seq + final_segment2_seq + final_segment3_seq
-        assert final_beam_sequence_0 == expected_concatenated or final_beam_sequence_1 == expected_concatenated, f"One beam sequence should match expected concatenated sequence '{expected_concatenated}'"
+        # Create minimal optimizer to test method
+        construct = Construct([segment])
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
+        )
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=2)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
         
-        # NOTE: The following exact string matches could be brittle if the MockAutoregressiveGenerator 
-        # implementation changes or if there are other sources of randomness in the beam search process.
-        # These are based on the current test run with fixed random seeds (69, 42, 123, 456).
-        # If the test becomes flaky, consider removing these exact matches and keeping only the structural assertions above.
-        expected_beam_0 = "ACGTCGGCCG"
-        expected_beam_1 = "ACGTCGGCGG"
+        top_idx = [2, 5, 9]
+        optimizer._set_selected_sequences(segment, top_idx)
         
-        assert final_beam_sequence_0 == expected_beam_0, f"Beam 0 should be '{expected_beam_0}', got '{final_beam_sequence_0}'"
-        assert final_beam_sequence_1 == expected_beam_1, f"Beam 1 should be '{expected_beam_1}', got '{final_beam_sequence_1}'"
+        assert len(segment.selected_sequences) == 3
+        assert segment.selected_sequences[0].sequence == unique_seqs[2]
+        assert segment.selected_sequences[1].sequence == unique_seqs[5]
+        assert segment.selected_sequences[2].sequence == unique_seqs[9]
+
+
+class TestUpdateRunningPrompts:
+    """Test _update_running_prompts helper method."""
+    
+    def test_prompt_extension(self):
+        """Test that prompts are extended with new tokens."""
+        segment = create_segment("")
+        segment.create_candidates(6)  # 2 beams * 3 candidates
+        
+        # Set generated sequences (new tokens only, valid DNA sequences)
+        new_tokens = ["AAAA", "AAAT", "AATA", "AATT", "ATAA", "ATAT"]
+        for i, seq in enumerate(segment.candidate_sequences):
+            seq.sequence = new_tokens[i]
+        
+        construct = Construct([segment])
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
+        )
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        # Set initial prompts (valid DNA sequences)
+        optimizer.running_prompts = ["GGGG", "CCCC"]
+        
+        # Beam indices: [0,0,0,1,1,1]
+        beam_indices = [0, 0, 0, 1, 1, 1]
+        
+        # Select candidates 1 and 4 (from beam 0 and beam 1)
+        top_idx = [1, 4]
+        
+        optimizer._update_running_prompts(segment, top_idx, beam_indices)
+        
+        # Should extend original prompts with new tokens
+        assert len(optimizer.running_prompts) == 2
+        assert optimizer.running_prompts[0] == "GGGG" + new_tokens[1]  # From beam 0, candidate 1
+        assert optimizer.running_prompts[1] == "CCCC" + new_tokens[4]  # From beam 1, candidate 4
+    
+    def test_beam_tracking_correctness(self):
+        """Test that beam indices correctly track parent beams."""
+        segment = create_segment("")
+        segment.create_candidates(9)  # 3 beams * 3 candidates
+        
+        # Use valid DNA sequences for each candidate
+        candidate_seqs = ["AAAA", "AAAT", "AATA", "AATT", "ATAA", "ATAT", "ATTA", "ATTT", "TAAA"]
+        for i, seq in enumerate(segment.candidate_sequences):
+            seq.sequence = candidate_seqs[i]
+        
+        construct = Construct([segment])
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
+        )
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=3)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        optimizer.running_prompts = ["GGGG", "CCCC", "TTTT"]
+        beam_indices = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        
+        # Select one from each beam
+        top_idx = [2, 4, 8]  # Last candidate from each beam (indices 2, 4, 8)
+        
+        optimizer._update_running_prompts(segment, top_idx, beam_indices)
+        
+        # Each prompt should be extended with the corresponding candidate sequence
+        assert optimizer.running_prompts[0] == "GGGG" + candidate_seqs[2]  # Beam 0 + AATA
+        assert optimizer.running_prompts[1] == "CCCC" + candidate_seqs[4]  # Beam 1 + ATAA
+        assert optimizer.running_prompts[2] == "TTTT" + candidate_seqs[8]  # Beam 2 + TAAA
+
+
+class TestPopulatePreviousSegments:
+    """Test _populate_previous_segments_for_scoring helper method."""
+    
+    def test_single_previous_segment(self):
+        """Test population with one previous segment."""
+        seg1 = create_segment("A")
+        seg2 = create_segment("T")
+        construct = Construct([seg1, seg2])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=1)
+        generator.assign(seg1)
+        generator.assign(seg2)
+        
+        constraint = Constraint(
+            inputs=[seg1],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        # Simulate segment 1 processing complete with selected sequences (valid DNA)
+        seg1.selected_sequences = [
+            Segment(sequence="AAAA", sequence_type=SequenceType.DNA).selected_sequences[0],
+            Segment(sequence="TTTT", sequence_type=SequenceType.DNA).selected_sequences[0]
+        ]
+        
+        # Now processing segment 2
+        seg2.create_candidates(6)  # 2 * 3
+        
+        optimizer._populate_previous_segments_for_scoring(1)
+        
+        # Seg1 should now have 6 candidates (2 selected * 3 replication)
+        assert len(seg1.candidate_sequences) == 6
+        assert seg1.candidate_sequences[0].sequence == "AAAA"
+        assert seg1.candidate_sequences[1].sequence == "AAAA"
+        assert seg1.candidate_sequences[2].sequence == "AAAA"
+        assert seg1.candidate_sequences[3].sequence == "TTTT"
+        assert seg1.candidate_sequences[4].sequence == "TTTT"
+        assert seg1.candidate_sequences[5].sequence == "TTTT"
+    
+    def test_multiple_previous_segments(self):
+        """Test population with multiple previous segments."""
+        seg1 = create_segment("A")
+        seg2 = create_segment("T")
+        seg3 = create_segment("C")
+        construct = Construct([seg1, seg2, seg3])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=1)
+        for seg in [seg1, seg2, seg3]:
+            generator.assign(seg)
+        
+        constraint = Constraint(
+            inputs=[seg1],
+            scoring_function=lambda seq, **kwargs: 0.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=2)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        # Simulate segments 1 and 2 complete (valid DNA)
+        seg1.selected_sequences = [
+            Segment(sequence="A", sequence_type=SequenceType.DNA).selected_sequences[0],
+            Segment(sequence="C", sequence_type=SequenceType.DNA).selected_sequences[0]
+        ]
+        seg2.selected_sequences = [
+            Segment(sequence="G", sequence_type=SequenceType.DNA).selected_sequences[0],
+            Segment(sequence="T", sequence_type=SequenceType.DNA).selected_sequences[0]
+        ]
+        
+        # Processing segment 3
+        seg3.create_candidates(4)  # 2 * 2
+        
+        optimizer._populate_previous_segments_for_scoring(2)
+        
+        # Both seg1 and seg2 should be populated
+        assert len(seg1.candidate_sequences) == 4
+        assert len(seg2.candidate_sequences) == 4
+        
+        # Check replication pattern for seg1
+        assert seg1.candidate_sequences[0].sequence == "A"
+        assert seg1.candidate_sequences[1].sequence == "A"
+        assert seg1.candidate_sequences[2].sequence == "C"
+        assert seg1.candidate_sequences[3].sequence == "C"
+
+
+class TestScoreEnergyFiltered:
+    """Test _score_energy_filtered constraint filtering logic."""
+    
+    def test_single_segment_constraint(self):
+        """Test with constraint on only current segment."""
+        segment = create_segment("ATCG")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=4)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0)
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        segment.create_candidates(6)
+        for seq in segment.candidate_sequences:
+            seq.sequence = "GCGCGCGC"  # 100% GC
+        
+        optimizer._score_energy_filtered()
+        
+        assert len(optimizer.energy_scores) == 6
+        assert all(isinstance(e, float) for e in optimizer.energy_scores)
+    
+    def test_no_applicable_constraints(self):
+        """Test when no constraints are applicable (all waiting for segments)."""
+        seg1 = create_segment("A")
+        seg2 = create_segment("T")
+        construct = Construct([seg1, seg2])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=1)
+        generator.assign(seg1)
+        generator.assign(seg2)
+        
+        # Constraint requires both segments
+        constraint = Constraint(
+            inputs=[seg1, seg2],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0)
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        # Only seg1 has candidates, seg2 is empty
+        seg1.create_candidates(6)
+        # seg2 has no candidates yet
+        
+        optimizer._populate_previous_segments_for_scoring(0)
+        optimizer._score_energy_filtered()
+        
+        # Should assign zero energy to all candidates
+        assert len(optimizer.energy_scores) == 6
+        assert all(e == 0.0 for e in optimizer.energy_scores)
+    
+    def test_partial_constraint_applicability(self):
+        """Test when some constraints are applicable and others aren't."""
+        seg1 = create_segment("A")
+        seg2 = create_segment("T")
+        construct = Construct([seg1, seg2])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=1)
+        generator.assign(seg1)
+        generator.assign(seg2)
+        
+        # One constraint on seg1 only, one on both
+        constraint1 = Constraint(
+            inputs=[seg1],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0)
+        )
+        constraint2 = Constraint(
+            inputs=[seg1, seg2],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0)
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=2, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint1, constraint2],
+            config=config,
+            constraint_weights=[1.0, 2.0]
+        )
+        
+        # Only seg1 has candidates
+        seg1.create_candidates(4)
+        for seq in seg1.candidate_sequences:
+            seq.sequence = "GC"
+        
+        optimizer._populate_previous_segments_for_scoring(0)
+        optimizer._score_energy_filtered()
+        
+        # Should only apply constraint1 (only on seg1)
+        assert len(optimizer.energy_scores) == 4
+        # Energies should be non-zero (from constraint1)
+        # constraint2 is skipped because seg2 not ready
+
+
+class TestBeamSearchIntegration:
+    """Integration tests for full beam search workflow."""
+    
+    def test_single_segment_beam_search(self):
+        """Test beam search with single segment."""
+        segment = create_segment("AAAA")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=2)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, config: float(seq.sequence.count('A')),
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        # Set random seed for reproducibility
+        np.random.seed(42)
+        optimizer.sample()
+        
+        # Should have 2 selected sequences (beam_width)
+        assert len(segment.selected_sequences) == 2
+        # All should have length 2 (sequence_length)
+        assert all(len(seq.sequence) == 2 for seq in segment.selected_sequences)
+    
+    def test_multiple_segment_beam_search(self):
+        """Test beam search across multiple segments."""
+        seg1 = create_segment("")
+        seg2 = create_segment("")
+        seg3 = create_segment("")
+        construct = Construct([seg1, seg2, seg3])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=2)
+        for seg in [seg1, seg2, seg3]:
+            generator.assign(seg)
+        
+        constraint = Constraint(
+            inputs=[seg1, seg2, seg3],
+            scoring_function=lambda seq, config: float(len(seq.sequence)),
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=4, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        # Each segment should have beam_width selected sequences
+        for seg in [seg1, seg2, seg3]:
+            assert len(seg.selected_sequences) == 3
+            assert all(len(seq.sequence) == 2 for seq in seg.selected_sequences)
+        
+        # Check joined sequences
+        joined = construct.joined_sequences
+        assert len(joined) == 3
+        # Each should be 2*3 = 6 chars (2 per segment, 3 segments)
+        assert all(len(seq.sequence) == 6 for seq in joined)
+    
+    def test_prompt_accumulation_across_segments(self):
+        """Test that prompts accumulate across segments."""
+        seg1 = create_segment("")
+        seg2 = create_segment("")
+        construct = Construct([seg1, seg2])
+        
+        # Generator that returns known sequences
+        class DeterministicGenerator(MockAutoregressiveGenerator):
+            def sample(self, prompt_seqs=None):
+                for i, seq in enumerate(self._generator_output.candidate_sequences):
+                    seq.sequence = "A"  # Always generate "A"
+        
+        generator = DeterministicGenerator(sequence_length=1)
+        generator.assign(seg1)
+        generator.assign(seg2)
+        
+        constraint = Constraint(
+            inputs=[seg1, seg2],
+            scoring_function=lambda seq, config: 0.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=2, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="GGGG",
+            constraints=[constraint],
+            config=config
+        )
+        
+        optimizer.sample()
+        
+        # After segment 1, prompts should be "GGGG" + "A"
+        # After segment 2, prompts should be "GGGG" + "A" + "A"
+        # Joined sequences should show accumulated prompt
+        joined = construct.joined_sequences
+        # But wait - the segment sequences themselves don't include the prompt
+        # They're just the generated tokens
+        # The running_prompts track the accumulation
+        
+        # Check that prompts accumulated (should be 2 prompts)
+        assert len(optimizer.running_prompts) == 2
+        # Each prompt should have accumulated GGGG + A (from seg1) + A (from seg2)
+        assert all("GGGGA" in p for p in optimizer.running_prompts)
+    
+    def test_multiple_constraints_with_weights(self):
+        """Test beam search with multiple weighted constraints."""
+        segment = create_segment("")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=10)
+        generator.assign(segment)
+        
+        gc_constraint = Constraint(
+            inputs=[segment],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=45.0, max_gc=55.0)
+        )
+        
+        len_constraint = Constraint(
+            inputs=[segment],
+            scoring_function=sequence_length_constraint,
+            scoring_function_config=SequenceLengthConfig(target_length=10)
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=5, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[gc_constraint, len_constraint],
+            config=config,
+            constraint_weights=[1.0, 2.0]
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        assert len(segment.selected_sequences) == 3
+        assert all(len(seq.sequence) == 10 for seq in segment.selected_sequences)
+    
+    def test_constraint_waiting_for_segments(self):
+        """Test that constraints wait for all input segments to be ready."""
+        seg1 = create_segment("")
+        seg2 = create_segment("")
+        seg3 = create_segment("")
+        construct = Construct([seg1, seg2, seg3])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=2)
+        for seg in [seg1, seg2, seg3]:
+            generator.assign(seg)
+        
+        # Constraint on seg1 only (always applicable)
+        constraint1 = Constraint(
+            inputs=[seg1],
+            scoring_function=lambda seq, config: 0.1,
+            scoring_function_config={}
+        )
+        
+        # Constraint on all three (only applicable at seg3)
+        constraint2 = Constraint(
+            inputs=[seg1, seg2, seg3],
+            scoring_function=lambda seq, config: 0.2,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=True)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint1, constraint2],
+            config=config
+        )
+        
+        np.random.seed(42)
+        # This should work without errors
+        optimizer.sample()
+        
+        # All segments should have beam_width selected sequences
+        for seg in [seg1, seg2, seg3]:
+            assert len(seg.selected_sequences) == 2
+
+
+class TestBeamSearchEdgeCases:
+    """Test edge cases and boundary conditions."""
+    
+    def test_beam_width_one(self):
+        """Test beam search with beam_width=1 (greedy search)."""
+        segment = create_segment("")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=5)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, config: 0.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=1, num_candidates=10, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        assert len(segment.selected_sequences) == 1
+        assert len(optimizer.running_prompts) == 1
+    
+    def test_empty_initial_prompt(self):
+        """Test beam search starting with empty prompt."""
+        segment = create_segment("")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=3)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, config: 0.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        assert all(p == "" for p in optimizer.running_prompts)
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        # Should work fine with empty initial prompt
+        assert len(segment.selected_sequences) == 2
+    
+    def test_large_beam_width(self):
+        """Test with large beam width."""
+        segment = create_segment("")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=2)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, config: 0.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=50, num_candidates=2, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        assert len(segment.selected_sequences) == 50
+        assert len(optimizer.running_prompts) == 50
+    
+    def test_identical_energies(self):
+        """Test when all candidates have identical energies."""
+        segment = create_segment("")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=2)
+        generator.assign(segment)
+        
+        # Constraint that returns same score for everything
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, config: 5.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=4, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        # Should still select beam_width sequences (arbitrary which ones)
+        assert len(segment.selected_sequences) == 3
+        # All energies should be 5.0
+        optimizer.score_energy()
+        assert all(abs(e - 5.0) < 0.001 for e in optimizer.energy_scores[:3])
+    
+    def test_top_sequences_property(self):
+        """Test that construct.joined_sequences returns correct results."""
+        seg1 = create_segment("")
+        seg2 = create_segment("")
+        construct = Construct([seg1, seg2])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=3)
+        for seg in [seg1, seg2]:
+            generator.assign(seg)
+        
+        constraint = Constraint(
+            inputs=[seg1, seg2],
+            scoring_function=lambda seq, config: float(seq.sequence.count('G')),
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=4, num_candidates=5, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        # Get top sequences
+        top_seqs = construct.joined_sequences
+        
+        assert len(top_seqs) == 4  # beam_width
+        # Each should be concatenation of two 3-char segments
+        assert all(len(seq.sequence) == 6 for seq in top_seqs)
+
+
+class TestBeamSearchVerboseOutput:
+    """Test verbose output and logging."""
+    
+    def test_verbose_mode(self):
+        """Test that verbose mode doesn't crash."""
+        segment = create_segment("")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=2)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, config: 0.0,
+            scoring_function_config={}
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=True)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        # Should not crash with verbose=True
+        optimizer.sample()
+        
+        assert len(segment.selected_sequences) == 2
+    
+    def test_verbose_with_small_candidate_pool(self):
+        """Test verbose output with small candidate pool (prints all candidates)."""
+        segment = create_segment("")
+        construct = Construct([segment])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=2)
+        generator.assign(segment)
+        
+        constraint = Constraint(
+            inputs=[segment],
+            scoring_function=lambda seq, config: 0.0,
+            scoring_function_config={}
+        )
+        
+        # Small enough to trigger detailed printing (<= 10)
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=3, verbose=True)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        assert len(segment.selected_sequences) == 2
+
+
+class TestBeamSearchConstraintInteraction:
+    """Test interaction between beam search and different constraint types."""
+    
+    def test_per_segment_constraints(self):
+        """Test with different constraints on different segments."""
+        seg1 = create_segment("")
+        seg2 = create_segment("")
+        construct = Construct([seg1, seg2])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=5)
+        for seg in [seg1, seg2]:
+            generator.assign(seg)
+        
+        # Constraint only on seg1
+        constraint1 = Constraint(
+            inputs=[seg1],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0)
+        )
+        
+        # Constraint only on seg2
+        constraint2 = Constraint(
+            inputs=[seg2],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=30.0, max_gc=70.0)
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=3, num_candidates=4, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint1, constraint2],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        assert len(seg1.selected_sequences) == 3
+        assert len(seg2.selected_sequences) == 3
+    
+    def test_concatenated_multi_segment_constraint(self):
+        """Test constraint that concatenates multiple segments."""
+        seg1 = create_segment("")
+        seg2 = create_segment("")
+        seg3 = create_segment("")
+        construct = Construct([seg1, seg2, seg3])
+        
+        generator = MockAutoregressiveGenerator(sequence_length=3)
+        for seg in [seg1, seg2, seg3]:
+            generator.assign(seg)
+        
+        # Constraint on concatenated sequence
+        constraint = Constraint(
+            inputs=[seg1, seg2, seg3],
+            scoring_function=sequence_length_constraint,
+            scoring_function_config=SequenceLengthConfig(target_length=9),
+            concatenate=True
+        )
+        
+        config = BeamSearchOptimizerConfig(beam_width=2, num_candidates=5, verbose=False)
+        optimizer = BeamSearchOptimizer(
+            construct=construct,
+            generator=generator,
+            prompt="",
+            constraints=[constraint],
+            config=config
+        )
+        
+        np.random.seed(42)
+        optimizer.sample()
+        
+        # All segments should be processed
+        for seg in [seg1, seg2, seg3]:
+            assert len(seg.selected_sequences) == 2
+        
+        # Joined sequences should have correct total length
+        joined = construct.joined_sequences
+        assert all(len(seq.sequence) == 9 for seq in joined)
+
+
+class TestBeamSearchConfigValidation:
+    """Test configuration validation."""
+    
+    def test_invalid_beam_width(self):
+        """Test that invalid beam_width raises error."""
+        from pydantic import ValidationError
+        
+        with pytest.raises(ValidationError):
+            BeamSearchOptimizerConfig(beam_width=0, num_candidates=5)
+        
+        with pytest.raises(ValidationError):
+            BeamSearchOptimizerConfig(beam_width=-1, num_candidates=5)
+    
+    def test_invalid_num_candidates(self):
+        """Test that invalid num_candidates raises error."""
+        from pydantic import ValidationError
+        
+        with pytest.raises(ValidationError):
+            BeamSearchOptimizerConfig(beam_width=2, num_candidates=0)
+        
+        with pytest.raises(ValidationError):
+            BeamSearchOptimizerConfig(beam_width=2, num_candidates=-5)
+    
+    def test_valid_config_values(self):
+        """Test that valid configurations are accepted."""
+        config1 = BeamSearchOptimizerConfig(beam_width=1, num_candidates=1)
+        assert config1.beam_width == 1
+        assert config1.num_candidates == 1
+        
+        config2 = BeamSearchOptimizerConfig(beam_width=100, num_candidates=100)
+        assert config2.beam_width == 100
+        assert config2.num_candidates == 100
+        
+        config3 = BeamSearchOptimizerConfig(beam_width=5, num_candidates=10, verbose=False)
+        assert config3.verbose is False

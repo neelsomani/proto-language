@@ -39,7 +39,7 @@ gc_constraint = Constraint(
 )
 
 def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
-    output_sequence: Sequence = outputs[0].batch_sequences[0]
+    output_sequence: Sequence = outputs[0].candidate_sequences[0]
     gc_content = output_sequence.metadata.get('gc_content', 'N/A')
     print(
         f"Custom Log - Step {step} | "

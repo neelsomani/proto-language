@@ -61,12 +61,12 @@ class TestDinucleotideFrequencyConstraint:
         assert constraint_violate.evaluate()[0] > 0.0
         assert (
             "segment_0.dinucleotide_frequency_constraint.dinucleotide_freqs"
-            in seq_violate[0]._metadata
+            in seq_violate.candidate_sequences[0]._metadata
         )
         # ATATATAT has AT freq ~0.57 and TA freq ~0.43
         assert (
             abs(
-                seq_violate[0]._metadata[
+                seq_violate.candidate_sequences[0]._metadata[
                     "segment_0.dinucleotide_frequency_constraint.dinucleotide_freqs"
                 ]["AT"]
                 - 4 / 7

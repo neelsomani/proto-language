@@ -42,6 +42,7 @@ class ESM2GeneratorConfig(BaseConfig):
     description="ESM-2 protein language model for protein sequence generation",
     category="language_model",
     requires_gpu=True,
+    autoregressive=False,
 )
 @final
 class ESM2Generator(Generator):
@@ -87,6 +88,7 @@ class ESM2Generator(Generator):
         self.top_k = config.top_k
         self.batch_size = config.batch_size
         self.prepend_prompt = config.prepend_prompt
+        self.autoregressive = False
 
     def assign(self, assigned_segments: Segment) -> None:
         """
@@ -103,17 +105,12 @@ class ESM2Generator(Generator):
             ValueError: If assigned_segments is not a single Segment object.
             AssertionError: If provided sequence length doesn't match configured length.
         """
-        # Validate provided sequence length if not empty
-        initial_sequence = assigned_segments.batch_sequences[0].sequence
-        if initial_sequence != "":
-            assert len(initial_sequence) == self.sequence_length, (
-                f"Provided sequence length ({len(initial_sequence)}) must match "
-                f"configured sequence_length ({self.sequence_length})"
-            )
+        initial_sequence = assigned_segments.selected_sequences[0].sequence
+        if initial_sequence != "" and len(initial_sequence) != self.sequence_length:
+            raise ValueError(f"Provided sequence length ({len(initial_sequence)}) must match configured sequence_length ({self.sequence_length})")
 
         self._generator_output = assigned_segments
         self._generator_output._is_assigned = True
-        self._generator_output.create_batch(self.batch_size)
         self._is_initialized = True
 
     def sample(self) -> None:
@@ -128,7 +125,7 @@ class ESM2Generator(Generator):
             RuntimeError: If called before assign().
         """
         self._validate_generator()
-        sequences = [self._generator_output.batch_sequences[i].sequence for i in range(self.batch_size)]
+        sequences = [self._generator_output.candidate_sequences[i].sequence for i in range(self.batch_size)]
 
         # Use ESM2 sampling tool
         from ...tools.models.language_models.esm2.esm2 import run_esm2_sample, ESM2SampleConfig
@@ -149,4 +146,4 @@ class ESM2Generator(Generator):
 
         # Update sequences in the batch
         for i, sequence in enumerate(mutated_sequences):
-            self._generator_output.batch_sequences[i].sequence = sequence
+            self._generator_output.candidate_sequences[i].sequence = sequence

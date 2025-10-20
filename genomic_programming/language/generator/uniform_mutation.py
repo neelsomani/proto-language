@@ -30,6 +30,7 @@ class UniformMutationGeneratorConfig(BaseConfig):
     description="Random point mutations for sequence diversity",
     category="mutation",
     requires_gpu=False,
+    autoregressive=False,
 )
 @final
 class UniformMutationGenerator(Generator):
@@ -76,46 +77,48 @@ class UniformMutationGenerator(Generator):
         self.num_mutations = config.num_mutations
         self.debug_with_sleep_calls = config.debug_with_sleep_calls
         self.mutation_scheduler = None  # Can be set after initialization if needed
+        self.autoregressive = False
 
-    def assign(
-        self, assigned_segments: Segment
-    ) -> None:
+    def assign(self, assigned_segments: Segment) -> None:
         """
-        Assign a Segment to this generator.
+        Initializes the segment's selected pool with a sequence of the configured length.
+        Generator will write to candidate_sequences during sample() calls.
 
         Args:
             assigned_segments: A single Segment to be assigned to this generator.
         """
-        # Initialize _generator_output (singular) and create batch
         self._generator_output = assigned_segments
         self._generator_output._is_assigned = True
 
-        initial_sequence = self._generator_output.batch_sequences[0].sequence
+        initial_sequence = self._generator_output.selected_sequences[0].sequence
         valid_chars = self._generator_output._valid_chars - set(" ")
         valid_chars_list = list(valid_chars)
+
         if initial_sequence == "":
-            self._generator_output.batch_sequences[0].sequence = "".join(
+            # Generate random sequence
+            self._generator_output.selected_sequences[0].sequence = "".join(
                 random.choice(valid_chars_list) for _ in range(self.sequence_length)
             )
         else:
-            assert len(initial_sequence) == self.sequence_length, (
-                f"Provided sequence length ({len(initial_sequence)}) must match "
-                f"configured sequence_length ({self.sequence_length})"
-            )
-        self._generator_output.create_batch(self.batch_size)
+            # Validate provided sequence
+            if len(initial_sequence) != self.sequence_length:
+                raise ValueError(
+                    f"Provided sequence length ({len(initial_sequence)}) must match "
+                    f"configured sequence_length ({self.sequence_length})"
+                )
 
-        # No model initialization needed for this generator
         self._is_initialized = True
 
     def sample(self) -> None:
         """
-        Introduce random point mutations in each sequence.
+        Introduce random point mutations in candidate sequences.
 
-        For each sequence in the batch, selects random positions and replaces
-        the characters with different random characters from the vocabulary.
+        Mutates each sequence in the candidate pool by selecting random positions
+        and replacing characters with different random characters from the vocabulary.
 
         Raises:
             RuntimeError: If called before assign().
+            ValueError: If candidate pool is empty.
         """
         self._validate_generator()
 
@@ -129,21 +132,21 @@ class UniformMutationGenerator(Generator):
         else:
             current_mutations = self.num_mutations
 
-        # Sample mutations for each output in the segment batch
-        for sequence in self._generator_output.batch_sequences:
+        # Mutate each candidate sequence
+        for sequence in self._generator_output.candidate_sequences:
             current_sequence = sequence.sequence
             sequence_length = len(current_sequence)
-            
+
             # Ensure we don't try to mutate more positions than available
             actual_mutations = min(current_mutations, sequence_length)
-            
+
             # Select random positions to mutate (without replacement)
             positions_to_mutate = random.sample(range(sequence_length), actual_mutations)
-            
+
             # Apply mutations
             for pos in positions_to_mutate:
                 current_char = current_sequence[pos]
-                
+
                 # Make sure the mutated character is different from the current one
                 possible_mutations = [
                     c for c in self._generator_output._valid_chars if c != current_char
@@ -152,7 +155,7 @@ class UniformMutationGenerator(Generator):
                 current_sequence = (
                     current_sequence[:pos]
                     + mutated_char
-                    + current_sequence[pos + 1 :]
+                    + current_sequence[pos + 1:]
                 )
-            
+
             sequence.sequence = current_sequence

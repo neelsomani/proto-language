@@ -21,11 +21,7 @@ MAX_EXP_ARG = 700.0
 
 
 class MCMCOptimizerConfig(BaseConfig):
-    """Configuration for MCMCOptimizer algorithm parameters only.
-
-    Runtime objects (constructs, generators, constraints) should be passed
-    separately to the optimizer's __init__ method, not in the config.
-    """
+    """Configuration for MCMCOptimizer"""
     batch_size: int = Field(
         default=1,
         ge=1,
@@ -185,28 +181,23 @@ class MCMCOptimizer(Optimizer):
         Raises:
             ValueError: If any validation checks fail.
         """
-        # Pass batch_size to parent class
-        # This makes:
-        # 1. self.batch_size = batch_size (inherited from Optimizer)
-        # 2. Sub-generators' batch_size gets overridden to match
-        # 3. Segments maintain batch_size sequences throughout MCMC
+        # Initialize with dual-pool semantics
+        # num_candidates: size of candidate pool for proposals
+        # num_selected: size of result pool (batch_size sequences to maintain)
         super().__init__(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
             constraint_weights=constraint_weights,
-            batch_size=config.batch_size,
+            num_candidates=config.num_candidates or config.batch_size,
+            num_selected=config.batch_size,
         )
+        
+        # Store batch_size separately for backward compatibility
+        self.batch_size = config.batch_size
 
-        # Store config
-        self.config = config
 
         # MCMC-specific parameters
-        # Default num_candidates to batch_size if not provided
-        if config.num_candidates is None:
-            self.num_candidates = config.batch_size
-        else:
-            self.num_candidates = config.num_candidates
         self.num_steps = config.num_steps
         self.temperature = config.temperature
         self.temperature_min = config.temperature_min
@@ -288,7 +279,11 @@ class MCMCOptimizer(Optimizer):
     def _expand_batch_for_proposals(self, top_k_idx: np.ndarray) -> None:
         """Expand batch and replicate parent sequences for proposal generation.
 
-        After trimming, segments contain only batch_size (top_k) sequences. This method:
+        TODO: HACKY
+        Due to the tight coupling between segments, generators, and constraints, segments 
+        contain only batch_size (top_k) sequences.
+
+        This method:
         1. Expands batch to batch_size x num_candidates
         2. Replicates each parent to its designated block of positions:
            - Parent 0: positions [0, num_candidates)
@@ -447,7 +442,7 @@ class MCMCOptimizer(Optimizer):
 
         After MCMC selection, segments contain expanded batch of sequences
         (batch_size x num_candidates). This method trims them back to batch_size,
-        keeping only the selected top sequences, making them ready for user inspection.
+        keeping only the selected top sequences.
 
         Args:
             top_k_idx: Indices of the top batch_size sequences to keep (length = batch_size).

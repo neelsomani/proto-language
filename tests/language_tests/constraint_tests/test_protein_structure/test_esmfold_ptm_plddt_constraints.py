@@ -164,7 +164,7 @@ class TestESMFoldPLDDTConstraint:
             constraint.evaluate()
             
             # Verify metadata was stored (with constraint-specific prefix)
-            metadata = segment[0]._metadata
+            metadata = segment.candidate_sequences[0]._metadata
             prefix = "segment_0.esmfold_plddt_constraint."
             assert f"{prefix}avg_plddt" in metadata
             assert metadata[f"{prefix}avg_plddt"] == 0.92
@@ -282,7 +282,7 @@ class TestESMFoldPTMConstraint:
             constraint.evaluate()
             
             # Verify metadata was stored (with constraint-specific prefix)
-            metadata = segment[0]._metadata
+            metadata = segment.candidate_sequences[0]._metadata
             prefix = "segment_0.esmfold_ptm_constraint."
             assert f"{prefix}avg_plddt" in metadata
             assert metadata[f"{prefix}avg_plddt"] == 0.92

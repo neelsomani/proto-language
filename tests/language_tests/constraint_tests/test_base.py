@@ -51,30 +51,33 @@ def test_sequence_validation():
 
 
 def test_segment_batching():
-    """Tests batch creation for Segment."""
+    """Tests candidate pool creation for Segment (dual-pool API)."""
     segment = create_segment("ATCG")
-    assert segment.batch_size == 1
-    segment.create_batch(5)
-    assert segment.batch_size == 5
-    assert all(s.sequence == "ATCG" for s in segment.batch_sequences)
-    segment.batch_sequences[0].sequence = "GGGG"
-    assert segment.batch_sequences[0].sequence == "GGGG"
-    assert segment.batch_sequences[1].sequence == "ATCG"
+    assert segment.num_candidates == 1  # create_segment populates 1 candidate
+    segment.create_candidates(5)
+    assert segment.num_candidates == 5
+    assert all(s.sequence == "ATCG" for s in segment.candidate_sequences)
+    segment.candidate_sequences[0].sequence = "GGGG"
+    assert segment.candidate_sequences[0].sequence == "GGGG"
+    assert segment.candidate_sequences[1].sequence == "ATCG"
 
 
 def test_construct_concatenation():
-    """Tests sequence concatenation in Construct objects."""
-    seg1 = create_segment("ATG")
-    seg2 = create_segment("GGG")
-    seg3 = create_segment("TAA")
+    """Tests sequence concatenation in Construct objects (from selected pools)."""
+    seg1 = Segment(sequence="ATG", sequence_type=SequenceType.DNA)
+    seg2 = Segment(sequence="GGG", sequence_type=SequenceType.DNA)
+    seg3 = Segment(sequence="TAA", sequence_type=SequenceType.DNA)
     construct = Construct([seg1, seg2, seg3])
     assert len(construct.joined_sequences) == 1
     assert construct.joined_sequences[0].sequence == "ATGGGGTAA"
 
-    # Test with batches
-    batch_seg1 = create_batched_segment(["ATG", "ATG"])
-    batch_seg2 = create_batched_segment(["GGG", "CCC"])
-    batch_seg3 = create_batched_segment(["TAA", "TGA"])
+    # Test with multiple selected sequences per segment
+    batch_seg1 = Segment(sequence="ATG", sequence_type=SequenceType.DNA)
+    batch_seg1.selected_sequences.append(Sequence(sequence="ATG", sequence_type=SequenceType.DNA))
+    batch_seg2 = Segment(sequence="GGG", sequence_type=SequenceType.DNA)
+    batch_seg2.selected_sequences.append(Sequence(sequence="CCC", sequence_type=SequenceType.DNA))
+    batch_seg3 = Segment(sequence="TAA", sequence_type=SequenceType.DNA)
+    batch_seg3.selected_sequences.append(Sequence(sequence="TGA", sequence_type=SequenceType.DNA))
     batch_construct = Construct([batch_seg1, batch_seg2, batch_seg3])
     assert len(batch_construct.joined_sequences) == 2
     assert batch_construct.joined_sequences[0].sequence == "ATGGGGTAA"
@@ -128,9 +131,9 @@ def test_mock_constraint_with_batched_segment():
             scores_multi_input[i] == expected_score
         ), f"Score mismatch for multi input at index {i}"
 
-        # Ensure metadata is propagated correctly
-        sequence_metadata = single_batch_input.batch_sequences[i]._metadata
-        sequence_metadata_multi = multi_batch_input.batch_sequences[i]._metadata
+        # Ensure metadata is propagated correctly (metadata stored in candidate_sequences)
+        sequence_metadata = single_batch_input.candidate_sequences[i]._metadata
+        sequence_metadata_multi = multi_batch_input.candidate_sequences[i]._metadata
 
         # Check that metadata was propagated with proper prefixes
         expected_prefix_single = "segment_0.mock_single_input_scoring_function"
@@ -224,8 +227,8 @@ def test_mock_constraint_with_single_sequence_input():
     ), f"Multi input score mismatch: {scores_multi_input[0]} vs {expected_score}"
 
     # Check metadata propagation for single sequence
-    sequence_metadata = single_seq_segment.batch_sequences[0]._metadata
-    sequence_metadata_multi = multi_seq_segment.batch_sequences[0]._metadata
+    sequence_metadata = single_seq_segment.candidate_sequences[0]._metadata
+    sequence_metadata_multi = multi_seq_segment.candidate_sequences[0]._metadata
 
     # Check that metadata was propagated with proper prefixes
     expected_prefix_single = "segment_0.mock_single_input_scoring_function"
@@ -336,10 +339,10 @@ def test_mock_constraint_with_multi_segment_input():
         ), f"Score mismatch for multi input at index {i}"
 
         # For CONTIGUOUS constraints, metadata should be propagated to both segments
-        sequence_metadata_a = single_batch_input_a.batch_sequences[i]._metadata
-        sequence_metadata_b = single_batch_input_b.batch_sequences[i]._metadata
-        sequence_metadata_multi_a = multi_batch_input_a.batch_sequences[i]._metadata
-        sequence_metadata_multi_b = multi_batch_input_b.batch_sequences[i]._metadata
+        sequence_metadata_a = single_batch_input_a.candidate_sequences[i]._metadata
+        sequence_metadata_b = single_batch_input_b.candidate_sequences[i]._metadata
+        sequence_metadata_multi_a = multi_batch_input_a.candidate_sequences[i]._metadata
+        sequence_metadata_multi_b = multi_batch_input_b.candidate_sequences[i]._metadata
 
         # Check that metadata was propagated with proper prefixes for CONTIGUOUS
         expected_prefix = "segment_0-segment_1.mock_single_input_scoring_function"
@@ -468,12 +471,12 @@ def test_mock_constraint_with_disjoint_input():
 
     for i in range(len(input_sequences_a)):
         # Check metadata in segment A
-        metadata_a_single = single_batch_input_a.batch_sequences[i]._metadata
-        metadata_a_multi = multi_batch_input_a.batch_sequences[i]._metadata
+        metadata_a_single = single_batch_input_a.candidate_sequences[i]._metadata
+        metadata_a_multi = multi_batch_input_a.candidate_sequences[i]._metadata
 
         # Check metadata in segment B
-        metadata_b_single = single_batch_input_b.batch_sequences[i]._metadata
-        metadata_b_multi = multi_batch_input_b.batch_sequences[i]._metadata
+        metadata_b_single = single_batch_input_b.candidate_sequences[i]._metadata
+        metadata_b_multi = multi_batch_input_b.candidate_sequences[i]._metadata
 
         # Verify metadata prefixes exist
         assert any(
@@ -554,11 +557,11 @@ def test_empty_inputs_raises_error():
 
 
 def test_mixed_batch_sizes_raises_error():
-    """Test that inconsistent batch sizes raise ValueError."""
-    seg1 = create_batched_segment(["ATCG", "GGGG"])  # batch_size=2
-    seg2 = create_batched_segment(["TTTT"])  # batch_size=1
+    """Test that inconsistent candidate pool sizes raise ValueError."""
+    seg1 = create_batched_segment(["ATCG", "GGGG"])  # 2 candidates
+    seg2 = create_batched_segment(["TTTT"])  # 1 candidate
     config = MockConstraintConfig()
-    with pytest.raises(ValueError, match="same batch size"):
+    with pytest.raises(ValueError, match="same number of candidates"):
         Constraint(
             inputs=[seg1, seg2],
             scoring_function=mock_single_input_scoring_function,
@@ -612,7 +615,7 @@ def test_custom_label_in_metadata():
     scores = constraint.evaluate()
     
     # Metadata should use custom label, not "mock_single_input_scoring_function"
-    metadata_keys = [key for key in segment[0]._metadata.keys() 
+    metadata_keys = [key for key in segment.candidate_sequences[0]._metadata.keys() 
                      if key not in ["sequence", "sequence_length"]]
     
     assert any("my_custom_label" in key for key in metadata_keys), \
@@ -622,9 +625,9 @@ def test_custom_label_in_metadata():
         f"Function name found in metadata instead of custom label: {metadata_keys}"
     
     # Verify specific metadata keys use custom label
-    assert "segment_0.my_custom_label.t_count" in segment[0]._metadata
-    assert "segment_0.my_custom_label.total_length" in segment[0]._metadata
-    assert "segment_0.my_custom_label.t_fraction" in segment[0]._metadata
+    assert "segment_0.my_custom_label.t_count" in segment.candidate_sequences[0]._metadata
+    assert "segment_0.my_custom_label.total_length" in segment.candidate_sequences[0]._metadata
+    assert "segment_0.my_custom_label.t_fraction" in segment.candidate_sequences[0]._metadata
 
 
 def test_custom_label_disjoint_mode():
@@ -644,17 +647,17 @@ def test_custom_label_disjoint_mode():
     scores = constraint.evaluate()
     
     # Check both segments have metadata with custom label
-    metadata_keys_seg1 = [key for key in seg1[0]._metadata.keys() 
+    metadata_keys_seg1 = [key for key in seg1.candidate_sequences[0]._metadata.keys() 
                           if key not in ["sequence", "sequence_length"]]
-    metadata_keys_seg2 = [key for key in seg2[0]._metadata.keys() 
+    metadata_keys_seg2 = [key for key in seg2.candidate_sequences[0]._metadata.keys() 
                           if key not in ["sequence", "sequence_length"]]
     
     assert any("disjoint_custom_label" in key for key in metadata_keys_seg1)
     assert any("disjoint_custom_label" in key for key in metadata_keys_seg2)
     
     # Verify each segment has its own prefixed metadata
-    assert "segment_0.disjoint_custom_label.t_percent" in seg1[0]._metadata
-    assert "segment_1.disjoint_custom_label.c_percent" in seg2[0]._metadata
+    assert "segment_0.disjoint_custom_label.t_percent" in seg1.candidate_sequences[0]._metadata
+    assert "segment_1.disjoint_custom_label.c_percent" in seg2.candidate_sequences[0]._metadata
 
 
 # =============================================================================
@@ -682,7 +685,7 @@ def test_large_batch_processing():
         assert 0.0 <= score <= 1.0
     
     # Verify metadata was propagated to all sequences
-    for seq in segment.batch_sequences:
+    for seq in segment.candidate_sequences:
         assert "segment_0.mock_multi_input_scoring_function.t_count" in seq._metadata
 
 
@@ -707,14 +710,14 @@ def test_three_or_more_segments_contiguous():
     expected_prefix = "segment_0-segment_1-segment_2.mock_single_input_scoring_function"
     
     for seg in [seg1, seg2, seg3]:
-        metadata_keys = list(seg[0]._metadata.keys())
+        metadata_keys = list(seg.candidate_sequences[0]._metadata.keys())
         assert any(expected_prefix in key for key in metadata_keys), \
             f"Expected prefix '{expected_prefix}' not found in segment metadata: {metadata_keys}"
         
         # Verify specific metadata keys
-        assert f"{expected_prefix}.t_count" in seg[0]._metadata
-        assert f"{expected_prefix}.total_length" in seg[0]._metadata
-        assert f"{expected_prefix}.t_fraction" in seg[0]._metadata
+        assert f"{expected_prefix}.t_count" in seg.candidate_sequences[0]._metadata
+        assert f"{expected_prefix}.total_length" in seg.candidate_sequences[0]._metadata
+        assert f"{expected_prefix}.t_fraction" in seg.candidate_sequences[0]._metadata
 
 
 def test_three_or_more_segments_disjoint():
@@ -750,14 +753,14 @@ def test_three_or_more_segments_disjoint():
     assert abs(scores[0] - 1.0) < 1e-9
     
     # Check that each segment has its own prefixed metadata
-    assert "segment_0.mock_triple_input_scoring_function.a_percent" in seg1[0]._metadata
-    assert "segment_1.mock_triple_input_scoring_function.t_percent" in seg2[0]._metadata
-    assert "segment_2.mock_triple_input_scoring_function.g_percent" in seg3[0]._metadata
+    assert "segment_0.mock_triple_input_scoring_function.a_percent" in seg1.candidate_sequences[0]._metadata
+    assert "segment_1.mock_triple_input_scoring_function.t_percent" in seg2.candidate_sequences[0]._metadata
+    assert "segment_2.mock_triple_input_scoring_function.g_percent" in seg3.candidate_sequences[0]._metadata
     
     # Verify the metadata values are correct
-    assert seg1[0]._metadata["segment_0.mock_triple_input_scoring_function.a_percent"] == 1.0
-    assert seg2[0]._metadata["segment_1.mock_triple_input_scoring_function.t_percent"] == 1.0
-    assert seg3[0]._metadata["segment_2.mock_triple_input_scoring_function.g_percent"] == 1.0
+    assert seg1.candidate_sequences[0]._metadata["segment_0.mock_triple_input_scoring_function.a_percent"] == 1.0
+    assert seg2.candidate_sequences[0]._metadata["segment_1.mock_triple_input_scoring_function.t_percent"] == 1.0
+    assert seg3.candidate_sequences[0]._metadata["segment_2.mock_triple_input_scoring_function.g_percent"] == 1.0
 
 
 def test_constraint_repr():
@@ -778,7 +781,6 @@ def test_constraint_repr():
     assert "vectorized=False" in repr_str
     assert "concatenate=True" in repr_str
     assert "num_segments=1" in repr_str
-    assert "batch_size=1" in repr_str
 
 
 def test_empty_sequence_in_batch():

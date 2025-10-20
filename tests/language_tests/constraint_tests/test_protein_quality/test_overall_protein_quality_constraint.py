@@ -106,9 +106,9 @@ class TestOverallProteinQualityConstraint:
         assert scores[0] < 0.5
         
         # Check constraint-specific metadata fields
-        assert any("overall_protein_quality_constraint" in key for key in segment[0]._metadata.keys())
-        assert any("avg_constraint_score" in key for key in segment[0]._metadata.keys())
-        assert any("is_high_quality" in key for key in segment[0]._metadata.keys())
+        assert any("overall_protein_quality_constraint" in key for key in segment.candidate_sequences[0]._metadata.keys())
+        assert any("avg_constraint_score" in key for key in segment.candidate_sequences[0]._metadata.keys())
+        assert any("is_high_quality" in key for key in segment.candidate_sequences[0]._metadata.keys())
     
     def test_protein_input_repetitive(self):
         """Test with repetitive protein."""

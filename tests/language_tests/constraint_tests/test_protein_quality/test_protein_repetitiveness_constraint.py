@@ -46,11 +46,11 @@ class TestProteinRepetitivenessConstraint:
         assert score >= 0.0
         assert (
             "segment_0.protein_repetitiveness_constraint.repetitiveness_score"
-            in segment[0]._metadata
+            in segment.candidate_sequences[0]._metadata
         )
         assert (
             "segment_0.protein_repetitiveness_constraint.max_repetitive_fraction"
-            in segment[0]._metadata
+            in segment.candidate_sequences[0]._metadata
         )
 
     def test_highly_repetitive_protein(self):
@@ -66,7 +66,7 @@ class TestProteinRepetitivenessConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        rep_score = segment[0]._metadata[
+        rep_score = segment.candidate_sequences[0]._metadata[
             "segment_0.protein_repetitiveness_constraint.repetitiveness_score"
         ]
         assert rep_score > 0.5  # Highly repetitive
@@ -84,7 +84,7 @@ class TestProteinRepetitivenessConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        rep_score = segment[0]._metadata[
+        rep_score = segment.candidate_sequences[0]._metadata[
             "segment_0.protein_repetitiveness_constraint.repetitiveness_score"
         ]
         assert rep_score > 0.3

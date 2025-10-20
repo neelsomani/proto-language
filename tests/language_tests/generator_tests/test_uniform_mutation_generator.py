@@ -8,14 +8,8 @@ import sys
 
 sys.path.append(".")
 from proto_language.language.core import (
-    Construct,
     Segment,
-    Constraint,
     SequenceType,
-)
-from proto_language.language.constraint import (
-    gc_content_constraint,
-    sequence_length_constraint,
 )
 from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
 
@@ -47,22 +41,22 @@ class TestUniformMutationGenerator:
         assert gen._is_initialized
         assert gen._generator_output is segment
         assert segment._is_assigned
-        assert segment.batch_size == 3
-        assert len(segment[0]) == seq_len
-        assert all(c in "ACGU" for c in segment[0].sequence)
+        assert segment.num_selected == 1  # assign() initializes one selected sequence
+        assert len(segment.selected_sequences[0].sequence) == seq_len
+        assert all(c in "ACGU" for c in segment.selected_sequences[0].sequence)
 
         # Test assign with a pre-defined sequence
         predefined_seq = "A" * seq_len
         segment_pre = create_segment(predefined_seq, seq_type=SequenceType.RNA)
         gen.assign(segment_pre)
-        assert segment_pre[0].sequence == predefined_seq
+        assert segment_pre.selected_sequences[0].sequence == predefined_seq
 
     def test_assign_errors(self):
         """Tests runtime validation for the assign method."""
         config = UniformMutationGeneratorConfig(sequence_length=10)
         gen = UniformMutationGenerator(config)
         # Should raise error if provided sequence length doesn't match configured length
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="Provided sequence length"):
             gen.assign(create_segment("A" * 5))
 
     def test_sample_mutates_sequence(self):
@@ -73,9 +67,11 @@ class TestUniformMutationGenerator:
         segment = create_segment("A" * seq_len, seq_type=SequenceType.PROTEIN)
         gen.assign(segment)
 
-        initial_sequence = segment[0].sequence
+        # Create candidates before sampling (sample() mutates candidate_sequences)
+        segment.create_candidates(1)
+        initial_sequence = segment.candidate_sequences[0].sequence
         gen.sample()
-        mutated_sequence = segment[0].sequence
+        mutated_sequence = segment.candidate_sequences[0].sequence
 
         assert len(mutated_sequence) == seq_len
         # Check that exactly one position has changed
@@ -94,15 +90,17 @@ class TestUniformMutationGenerator:
         assert mutated_char != initial_sequence[diff_indices[0]]
 
     def test_sample_batch(self):
-        """Tests that sample mutates all sequences in a batch independently."""
+        """Tests that sample mutates all sequences in a batch of candidates independently."""
         config = UniformMutationGeneratorConfig(sequence_length=30, batch_size=5)
         gen = UniformMutationGenerator(config)
         segment = create_segment("A" * 30)
         gen.assign(segment)
 
-        initial_sequences = [s.sequence for s in segment]
+        # Create multiple candidates
+        segment.create_candidates(5)
+        initial_sequences = [s.sequence for s in segment.candidate_sequences]
         gen.sample()
-        mutated_sequences = [s.sequence for s in segment]
+        mutated_sequences = [s.sequence for s in segment.candidate_sequences]
 
         for i in range(len(initial_sequences)):
             assert initial_sequences[i] != mutated_sequences[i]
@@ -122,10 +120,15 @@ class TestUniformMutationGenerator:
             gen = UniformMutationGenerator(config)
             segment = create_segment("", seq_type=SequenceType.DNA)
             gen.assign(segment)
-            initial_seq = segment[0].sequence
+            initial_seq = segment.selected_sequences[0].sequence
+            # Create one candidate and mutate it multiple times
+            segment.create_candidates(1)
             for _ in range(10):
                 gen.sample()
-            final_seq = segment[0].sequence
+                # Copy mutated candidate back to selected for next iteration
+                segment.selected_sequences[0].sequence = segment.candidate_sequences[0].sequence
+                segment.create_candidates(1)
+            final_seq = segment.candidate_sequences[0].sequence
             return initial_seq, final_seq
 
         init1, final1 = run_with_seed(42)
@@ -144,9 +147,10 @@ class TestUniformMutationGenerator:
         segment = create_segment("A", seq_type=SequenceType.DNA)
         gen.assign(segment)
 
-        initial_char = segment[0].sequence
+        segment.create_candidates(1)
+        initial_char = segment.candidate_sequences[0].sequence
         gen.sample()
-        mutated_char = segment[0].sequence
+        mutated_char = segment.candidate_sequences[0].sequence
 
         assert len(mutated_char) == 1
         assert mutated_char in "CGT"
@@ -161,9 +165,10 @@ class TestUniformMutationGenerator:
         segment = create_segment("A" * seq_len, seq_type=SequenceType.DNA)
         gen.assign(segment)
 
-        initial_sequence = segment[0].sequence
+        segment.create_candidates(1)
+        initial_sequence = segment.candidate_sequences[0].sequence
         gen.sample()
-        mutated_sequence = segment[0].sequence
+        mutated_sequence = segment.candidate_sequences[0].sequence
 
         diff_count = sum(
             1 for a, b in zip(initial_sequence, mutated_sequence) if a != b
@@ -179,9 +184,10 @@ class TestUniformMutationGenerator:
         segment = create_segment("A" * seq_len, seq_type=SequenceType.DNA)
         gen.assign(segment)
 
-        initial_sequence = segment[0].sequence
+        segment.create_candidates(1)
+        initial_sequence = segment.candidate_sequences[0].sequence
         gen.sample()
-        mutated_sequence = segment[0].sequence
+        mutated_sequence = segment.candidate_sequences[0].sequence
 
         diff_count = sum(
             1 for a, b in zip(initial_sequence, mutated_sequence) if a != b

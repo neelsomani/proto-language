@@ -368,7 +368,10 @@ class TestIntegration:
             config_dict={"min_gc": 40.0, "max_gc": 60.0}
         )
         
-        # 5. Evaluate
+        # 5. Create candidates before evaluation (constraints evaluate candidate_sequences)
+        dna_segment.create_candidates(1)
+        
+        # 6. Evaluate
         scores = constraint.evaluate()
         assert len(scores) == 1
         assert 0.0 <= scores[0] <= 1.0

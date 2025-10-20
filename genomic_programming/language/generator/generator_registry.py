@@ -22,6 +22,7 @@ class GeneratorSpec(BaseSpec):
 
     category: str = Field(description="Generator category (e.g., 'mutation', 'language_model')")
     requires_gpu: bool = Field(default=False, description="Whether generator requires GPU")
+    autoregressive: bool = Field(default=False, description="Whether generator is autoregressive")
 
     # Private field - excluded from serialization
     generator_class: Type[Generator] = Field(exclude=True)
@@ -86,6 +87,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         description: str,
         category: str,
         requires_gpu: bool = False,
+        autoregressive: bool = False,
     ):
         """
         Decorator to register a generator class.
@@ -131,6 +133,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
                 generator_class=generator_class,
                 category=category,
                 requires_gpu=requires_gpu,
+                autoregressive=autoregressive,
             )
             return generator_class
         return decorator
@@ -195,6 +198,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             ...     print(f"{spec.label} ({spec.key})")
             ...     print(f"  Category: {spec.category}")
             ...     print(f"  GPU Required: {spec.requires_gpu}")
+            ...     print(f"  Autoregressive: {spec.autoregressive}")
         """
         return list(cls._registry.values())
 

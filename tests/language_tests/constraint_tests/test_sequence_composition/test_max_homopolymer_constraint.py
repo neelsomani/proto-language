@@ -63,14 +63,14 @@ class TestMaxHomopolymerConstraint:
                 len(list(g)) for _, g in itertools.groupby(sequence)
             )
             assert (
-                segment[0]._metadata[
+                segment.candidate_sequences[0]._metadata[
                     "segment_0.max_homopolymer_constraint.max_homopolymer_length"
                 ]
                 == expected_max_homopolymer
             )
         else:
             assert (
-                segment[0]._metadata[
+                segment.candidate_sequences[0]._metadata[
                     "segment_0.max_homopolymer_constraint.max_homopolymer_length"
                 ]
                 == 0

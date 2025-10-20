@@ -20,18 +20,22 @@ from proto_language.language.core import (
 
 # Helper functions
 def create_segment(sequence: str, seq_type: SequenceType = SequenceType.DNA) -> Segment:
-    """Helper to create a Segment with a single sequence."""
-    return Segment(sequence=sequence, sequence_type=seq_type)
+    """Helper to create a Segment with candidate sequence populated for constraint evaluation."""
+    segment = Segment(sequence=sequence, sequence_type=seq_type)
+    # Constraints evaluate candidate_sequences, so populate with one candidate
+    segment.create_candidates(1)
+    segment.candidate_sequences[0].sequence = sequence
+    return segment
 
 
 def create_batched_segment(
     sequences: List[str], seq_type: SequenceType = SequenceType.DNA
 ) -> Segment:
-    """Helper to create a Segment with a batch of sequences."""
+    """Helper to create a Segment with candidate sequences (for constraint evaluation)."""
     segment = Segment(sequence=sequences[0], sequence_type=seq_type)
-    segment.create_batch(len(sequences))
+    segment.create_candidates(len(sequences))
     for i, seq_str in enumerate(sequences):
-        segment.batch_sequences[i].sequence = seq_str
+        segment.candidate_sequences[i].sequence = seq_str
     return segment
 
 

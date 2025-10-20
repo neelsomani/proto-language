@@ -48,11 +48,11 @@ class TestGCContentConstraint:
             scoring_function_config=config,
         )
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9
-        # Check metadata
+        # Check metadata (stored in candidate sequences which constraints evaluate)
         gc_content = 100.0 * sum(nt in "GC" for nt in sequence) / max(len(sequence), 1)
         assert (
             abs(
-                segment[0]._metadata["segment_0.gc_content_constraint.gc_content"]
+                segment.candidate_sequences[0]._metadata["segment_0.gc_content_constraint.gc_content"]
                 - gc_content
             )
             < 1e-9

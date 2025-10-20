@@ -6,7 +6,6 @@ generators and constraints to search for optimal biological sequences.
 """
 
 import copy
-import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -33,44 +32,33 @@ class Optimizer(ABC):
         constructs: List[Construct],
         generators: List[Generator],
         constraints: List[Constraint],
+        num_candidates: int,
+        num_selected: int,
         constraint_weights: Optional[List[float]] = None,
-        batch_size: int = 1,
     ) -> None:
         """
-        Initialize the Optimizer.
+        Initialize the Optimizer with dual-pool semantics.
 
         Args:
             constructs: List of Construct objects to optimize.
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
+            num_candidates: Number of candidate proposals to generate per iteration.
+            num_selected: Number of sequences to select and maintain as results.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
-            batch_size: Number of sequence variants to generate simultaneously.
         """
-        self.batch_size = batch_size
         self.constructs = constructs
         self.generators = generators
         self.constraints = constraints
         self.constraint_weights = constraint_weights or [1.0] * len(constraints)
+        self.num_candidates = num_candidates
+        self.num_selected = num_selected
         self.history: List[Dict[str, Any]] = []  # Each entry: {"time_step": int, "energy_scores": List[float], "constructs": List[Construct]}
-        self.energy_scores: List[float] = []  # Each index corresponds to a batch element, empty until first score_energy() call
+        self.energy_scores: List[float] = []  # Each index corresponds to a candidate, empty until first score_energy() call
 
-        # Any batch_size specified during sub-generator construction is overwritten
-        for i, gen in enumerate(self.generators):
-            if gen.batch_size != self.batch_size:
-                # Only warn if the generator was explicitly initialized with a non-default batch_size
-                if gen.batch_size != 1:
-                    warnings.warn(
-                        f"Generator {i} ({gen.__class__.__name__}) was initialized with batch_size={gen.batch_size}, "
-                        f"but Optimizer is overwriting it to batch_size={self.batch_size}. "
-                        f"To avoid this warning, do not specify batch_size when creating sub-generators for Optimizer.",
-                        UserWarning,
-                        stacklevel=2
-                    )
-                # Expand the generator's assigned segment(s) to match the new batch_size
-                for segment in gen.get_generator_outputs():
-                    if segment.batch_size != self.batch_size:
-                        segment.create_batch(self.batch_size)
-            gen.batch_size = self.batch_size
+        # Set generator batch_size to num_candidates (generators write to candidate pool)
+        for gen in self.generators:
+            gen.batch_size = self.num_candidates
 
         self._is_initialized = True
 

@@ -47,11 +47,11 @@ class TestBalancedAAConstraint:
         assert score >= 0.0
         assert (
             "segment_0.balanced_aa_constraint.underrepresented_aa_score"
-            in segment[0]._metadata
+            in segment.candidate_sequences[0]._metadata
         )
         assert (
             "segment_0.balanced_aa_constraint.underrepresented_amino_acids"
-            in segment[0]._metadata
+            in segment.candidate_sequences[0]._metadata
         )
 
     def test_unbalanced_protein(self):
@@ -72,15 +72,15 @@ class TestBalancedAAConstraint:
         # Check constraint-specific metadata fields
         assert (
             "segment_0.balanced_aa_constraint.underrepresented_aa_count"
-            in segment[0]._metadata
+            in segment.candidate_sequences[0]._metadata
         )
         assert (
             "segment_0.balanced_aa_constraint.underrepresented_aa_score"
-            in segment[0]._metadata
+            in segment.candidate_sequences[0]._metadata
         )
         assert (
             "segment_0.balanced_aa_constraint.underrepresented_amino_acids"
-            in segment[0]._metadata
+            in segment.candidate_sequences[0]._metadata
         )
 
     def test_empty_sequence(self):

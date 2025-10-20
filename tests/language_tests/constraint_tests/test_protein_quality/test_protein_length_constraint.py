@@ -39,7 +39,7 @@ class TestProteinLengthConstraint:
 
         assert constraint.evaluate()[0] == 0.0
         assert (
-            segment[0]._metadata["segment_0.protein_length_constraint.protein_length"]
+            segment.candidate_sequences[0]._metadata["segment_0.protein_length_constraint.protein_length"]
             == 21
         )
 
@@ -57,7 +57,7 @@ class TestProteinLengthConstraint:
         score = constraint.evaluate()[0]
         assert score > 0.0
         assert (
-            segment[0]._metadata["segment_0.protein_length_constraint.protein_length"]
+            segment.candidate_sequences[0]._metadata["segment_0.protein_length_constraint.protein_length"]
             == 5
         )
 
@@ -75,7 +75,7 @@ class TestProteinLengthConstraint:
         score = constraint.evaluate()[0]
         assert score > 0.0
         assert (
-            segment[0]._metadata["segment_0.protein_length_constraint.protein_length"]
+            segment.candidate_sequences[0]._metadata["segment_0.protein_length_constraint.protein_length"]
             == 100
         )
 

@@ -93,7 +93,7 @@ globularity = Constraint(
 #############
 
 def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
-    output_sequence: Sequence = outputs[0].batch_sequences[0]
+    output_sequence: Sequence = outputs[0].selected_sequences[0]
     metakeys = list(output_sequence._metadata.keys())
     folded_sequence = output_sequence._metadata[
         next(key for key in metakeys if key.endswith('esmfolded_sequence'))

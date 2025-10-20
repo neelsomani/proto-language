@@ -20,14 +20,12 @@ class TestConstruct:
         assert final_sequences[0].sequence == "ATGCGC" + "TAA"
 
     def test_batched_concatenation(self):
-        """Tests concatenation of batched segments."""
+        """Tests concatenation of segments with multiple selected sequences."""
         seg1 = Segment("A")
-        seg1.create_batch(2)
-        seg1[1].sequence = "G"
+        seg1.selected_sequences.append(Sequence(sequence="G", sequence_type=SequenceType.DNA))
 
         seg2 = Segment("C")
-        seg2.create_batch(2)
-        seg2[1].sequence = "T"
+        seg2.selected_sequences.append(Sequence(sequence="T", sequence_type=SequenceType.DNA))
 
         construct = Construct([seg1, seg2])
         final_sequences = construct.joined_sequences

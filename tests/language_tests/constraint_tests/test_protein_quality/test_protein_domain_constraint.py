@@ -74,7 +74,7 @@ class TestProteinDomainConstraint:
             assert scores[0] == 0.0  # Keyword found, score = 0.0
             
             # Check constraint-specific metadata
-            metadata = segment[0]._metadata
+            metadata = segment.candidate_sequences[0]._metadata
             assert "segment_0.protein_domain_constraint.domain_keywords_found" in metadata
             assert "kinase" in metadata["segment_0.protein_domain_constraint.domain_keywords_found"]
     

@@ -115,69 +115,70 @@ class Constraint:
     
     def evaluate(self) -> List[float]:
         """
-        Evaluate the constraint on all sequences in the batch.
-        
+        Evaluate the constraint on all candidate sequences.
+
         This method orchestrates the evaluation by:
-        1. Extracting sequences from input segments
+        1. Extracting candidate sequences from input segments
         2. Calling the scoring function (vectorized or sequential)
-        3. Propagating scores back to original sequence metadata
-        
+        3. Propagating scores back to original candidate sequence metadata
+
         Returns:
-            List of scores (0.0-1.0), one per batch position.
+            List of scores (0.0-1.0), one per candidate.
             Lower scores are better (0.0 = perfect).
         """
-        batch_size = self.inputs[0].batch_size
-        
+        num_candidates = self.inputs[0].num_candidates
+
         if self.vectorized:
-            # Vectorized mode: process all sequences at once
-            sequences_vector = [self._preprocess_sequence_at_index(batch_idx) for batch_idx in range(batch_size)]
+            # Vectorized mode: process all candidates at once
+            sequences_vector = [self._preprocess_candidate_at_index(candidate_idx) for candidate_idx in range(num_candidates)]
             scores = self.scoring_function(sequences_vector, config=self.scoring_function_config)
-            
+
             # Propagate metadata from each scored sequence back to originals
-            for batch_idx, scored_seq in enumerate(sequences_vector):
-                self._propagate_metadata(batch_idx, scored_seq)
-            
+            for candidate_idx, scored_seq in enumerate(sequences_vector):
+                self._propagate_metadata_to_candidate(candidate_idx, scored_seq)
+
             return scores
         else:
-            # Sequential mode: process one sequence at a time
+            # Sequential mode: process one candidate at a time
             scores = []
-            for batch_idx in range(batch_size):
-                sequence = self._preprocess_sequence_at_index(batch_idx)
+            for candidate_idx in range(num_candidates):
+                sequence = self._preprocess_candidate_at_index(candidate_idx)
                 score = self.scoring_function(sequence, config=self.scoring_function_config)
                 scores.append(score)
-                
+
                 # Propagate metadata from scored sequence back to original
-                self._propagate_metadata(batch_idx, sequence)
-            
+                self._propagate_metadata_to_candidate(candidate_idx, sequence)
+
             return scores
     
-    def _preprocess_sequence_at_index(self, batch_idx: int) -> Sequence | Tuple[Sequence, ...]:
+    def _preprocess_candidate_at_index(self, candidate_idx: int) -> Sequence | Tuple[Sequence, ...]:
         """
-        Preprocess sequence(s) at a specific batch position for scoring by creating dummy Sequence 
-        objects with clean metadata to pass to the scoring function.
+        Preprocess candidate sequence(s) at a specific index for scoring.
+
+        Creates clean Sequence objects with minimal metadata to pass to the scoring function (prevents collisions).
 
         Args:
-            batch_idx: Index position in the batch (0-based)
-            
+            candidate_idx: Index position in the candidate pool (0-based)
+
         Returns:
             If concatenate=True: Sequence - merged Sequence object from all segments (contiguous)
             If concatenate=False: Tuple[Sequence, ...] - tuple of clean Sequence objects (disjoint)
         """
         if self.concatenate:
             # CONTIGUOUS: Merge all segments into single Sequence object
-            # Example: batch_idx=0, segments=[Seg([Seq("AAA"), Seq("TTT")]), Seg([Seq("CCC"), Seq("GGG")])]
+            # Example: candidate_idx=0, segments with candidates=[Seq("AAA"), ...], [Seq("CCC"), ...]
             #          → Sequence("AAACCC")
             return Sequence.from_sequences(
-                subsequences=[seg.batch_sequences[batch_idx] for seg in self.inputs],
+                subsequences=[seg.candidate_sequences[candidate_idx] for seg in self.inputs],
                 merge_metadata=False  # Clean metadata - only basic system keys
             )
         else:
             # DISJOINT: Return tuple of clean Sequence objects
-            # Example: batch_idx=0, segments=[Seg([Seq("AAA"), Seq("TTT")]), Seg([Seq("CCC"), Seq("GGG")])]
+            # Example: candidate_idx=0, segments with candidates=[Seq("AAA"), ...], [Seq("CCC"), ...]
             #          → (Seq("AAA"), Seq("CCC"))
             dummy_sequences = []
             for seg in self.inputs:
-                original = seg.batch_sequences[batch_idx]
+                original = seg.candidate_sequences[candidate_idx]
                 # Create clean Sequence with only essential properties
                 dummy_seq = Sequence(
                     sequence=original.sequence,
@@ -187,16 +188,16 @@ class Constraint:
                 dummy_sequences.append(dummy_seq)
             return tuple(dummy_sequences)
     
-    def _propagate_metadata(self, batch_idx: int, scored_sequence: Sequence | Tuple[Sequence, ...]) -> None:
+    def _propagate_metadata_to_candidate(self, candidate_idx: int, scored_sequence: Sequence | Tuple[Sequence, ...]) -> None:
         """
-        Write constraint results back to original sequence metadata.
-        
+        Write constraint results back to original candidate sequence metadata.
+
         Extracts metadata from the scored Sequence object(s) and propagates it back to
-        the original sequences in the input segments. Metadata keys are prefixed with
-        segment labels and constraint name to prevent collisions.
-        
+        the original candidate sequences in the input segments. Metadata keys are prefixed
+        with segment labels and constraint name to prevent collisions.
+
         Args:
-            batch_idx: Index position in the batch (0-based)
+            candidate_idx: Index position in the candidate pool (0-based)
             scored_sequence: The Sequence (or tuple of Sequences) that was scored,
                            containing metadata written by the scoring function
         """
@@ -206,9 +207,9 @@ class Constraint:
             segment_labels = [seg.label or f"segment_{i}" for i, seg in enumerate(self.inputs)]
             combined_label = "-".join(segment_labels)
             prefix = f"{combined_label}.{self.label}"
-            
+
             for segment in self.inputs:
-                original_seq = segment.batch_sequences[batch_idx]
+                original_seq = segment.candidate_sequences[candidate_idx]
                 propagate_metadata(
                     source_metadata=scored_sequence._metadata,
                     target_metadata=original_seq._metadata,
@@ -218,10 +219,10 @@ class Constraint:
             # For disjoint: propagate from each scored Sequence to its corresponding original
             # scored_sequence is a tuple of Sequences, one per segment
             for seg_idx, (segment, scored_seq) in enumerate(zip(self.inputs, scored_sequence)):
-                original_seq = segment.batch_sequences[batch_idx]
+                original_seq = segment.candidate_sequences[candidate_idx]
                 segment_label = segment.label or f"segment_{seg_idx}"
                 prefix = f"{segment_label}.{self.label}"
-                
+
                 propagate_metadata(
                     source_metadata=scored_seq._metadata,
                     target_metadata=original_seq._metadata,
@@ -251,24 +252,24 @@ class Constraint:
             return None
     
     def _validate_inputs(self) -> None:
-        """Validate that all input segments have consistent batch sizes and sequence types."""
+        """Validate that all input segments have consistent candidate pool sizes and sequence types."""
         if not self.inputs:
             raise ValueError("At least one segment must be provided")
-        
-        # Check batch size consistency
-        batch_sizes = [seg.batch_size for seg in self.inputs]
-        if not all(size == batch_sizes[0] for size in batch_sizes):
+
+        # Check candidate pool size consistency
+        candidate_sizes = [seg.num_candidates for seg in self.inputs]
+        if not all(size == candidate_sizes[0] for size in candidate_sizes):
             raise ValueError(
-                f"All segments must have the same batch size. Found: {batch_sizes}"
+                f"All segments must have the same number of candidates. Found: {candidate_sizes}"
             )
-        
+
         # Check sequence type consistency
         sequence_types = [seg.sequence_type for seg in self.inputs]
         if not all(st == sequence_types[0] for st in sequence_types):
             raise ValueError(
                 f"All segments must have the same sequence type. Found: {sequence_types}"
             )
-        
+
         # Check valid_chars consistency (alphabet)
         first_valid_chars = self.inputs[0]._valid_chars
         for seg in self.inputs[1:]:
@@ -285,5 +286,5 @@ class Constraint:
             f"vectorized={self.vectorized}, "
             f"concatenate={self.concatenate}, "
             f"num_segments={len(self.inputs)}, "
-            f"batch_size={self.inputs[0].batch_size})"
+            f"num_candidates={self.inputs[0].num_candidates})"
         )

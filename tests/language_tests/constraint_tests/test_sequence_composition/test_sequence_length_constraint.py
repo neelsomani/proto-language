@@ -53,13 +53,13 @@ class TestSequenceLengthConstraint:
         assert abs(constraint_short.evaluate()[0] - 0.5) < 1e-9
         assert abs(constraint_long.evaluate()[0] - 1.0) < 1e-9
         assert (
-            seg_match.batch_sequences[0]._metadata[
+            seg_match.candidate_sequences[0]._metadata[
                 "segment_0.sequence_length_constraint.length"
             ]
             == target_len
         )
         assert (
-            seg_short.batch_sequences[0]._metadata[
+            seg_short.candidate_sequences[0]._metadata[
                 "segment_0.sequence_length_constraint.length"
             ]
             == target_len // 2
@@ -82,13 +82,13 @@ class TestSequenceLengthConstraint:
         assert constraint.evaluate()[0] == 0.0
         # Check metadata propagation to original segments
         assert (
-            seg1.batch_sequences[0]._metadata[
+            seg1.candidate_sequences[0]._metadata[
                 "segment_0-segment_1.sequence_length_constraint.length"
             ]
             == target_len
         )
         assert (
-            seg2.batch_sequences[0]._metadata[
+            seg2.candidate_sequences[0]._metadata[
                 "segment_0-segment_1.sequence_length_constraint.length"
             ]
             == target_len

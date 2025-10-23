@@ -153,11 +153,57 @@ def _setup_beam_search_components(
 
 
 def create_mock_kv_cache():
-    """Create a mock KV cache structure for testing."""
+    """Create a mock KV cache structure for testing without GPU dependencies."""
+    # Create mock objects that simulate the cache structure without importing vortex
+    # This allows CPU tests to run without GPU dependencies
+
+    # Mock InferenceParams structure
+    mock_mha = Mock()
+    mock_mha.max_seqlen = 512
+    mock_mha.max_batch_size = 8
+    mock_mha.seqlen_offset = 10
+    mock_mha.batch_size_offset = 0
+    mock_mha.key_value_memory_dict = {0: Mock()}  # Mock tensor
+
+    # Mock HyenaCascadeIIRInferenceParams structure
+    mock_hcl = Mock()
+    mock_hcl.fir_filter_length = 4
+    mock_hcl.state_dim = 8
+    mock_hcl.seqlen_offset = 10
+    mock_hcl.fir_state_dict = {0: Mock()}  # Mock tensor
+    mock_hcl.state_dict = {0: Mock()}  # Mock tensor
+
+    # Mock HyenaCascadeFIRInferenceParams structure (used for both hcm and hcs)
+    mock_hcm = Mock()
+    mock_hcm.fir_filter_length = 4
+    mock_hcm.seqlen_offset = 10
+    mock_hcm.fir_inner_filter_length = 2
+    mock_hcm.fir_state_dict = {0: Mock()}  # Mock tensor
+    mock_hcm.fir_inner_state_dict = {0: Mock()}  # Mock tensor
+    mock_hcm.state_dict = {0: Mock()}  # Mock tensor
+
+    mock_hcs = Mock()
+    mock_hcs.fir_filter_length = 4
+    mock_hcs.seqlen_offset = 10
+    mock_hcs.fir_inner_filter_length = 2
+    mock_hcs.fir_state_dict = {0: Mock()}  # Mock tensor
+    mock_hcs.fir_inner_state_dict = {0: Mock()}  # Mock tensor
+    mock_hcs.state_dict = {0: Mock()}  # Mock tensor
+
+    return {
+        'mha': mock_mha,
+        'hcl': mock_hcl,
+        'hcm': mock_hcm,
+        'hcs': mock_hcs,
+    }
+
+
+def create_real_kv_cache():
+    """Create a real KV cache structure for GPU testing with actual vortex objects."""
     import torch
     from vortex.model.cache import InferenceParams, HyenaCascadeIIRInferenceParams, HyenaCascadeFIRInferenceParams
 
-    # Create minimal mock cache data
+    # Create minimal cache data with real torch tensors
     batch_size = 1
     mock_kv = torch.randn(batch_size, 2, 4, 8, 16)  # [batch, num_heads, seq_len, head_dim, features]
     mock_fir_state = torch.randn(batch_size, 8, 16)
@@ -367,8 +413,8 @@ class TestBeamSearchOptimizer:
             config=config,
         )
 
-        # Create a mock cache
-        mock_cache = create_mock_kv_cache()
+        # Create a real cache for GPU testing
+        mock_cache = create_real_kv_cache()
 
         # Test replication
         n_replicates = 5

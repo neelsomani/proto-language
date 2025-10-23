@@ -13,7 +13,7 @@ import math
 from .constraint import Constraint
 from .construct import Construct
 from .generator import Generator
-from ...tools import clear_cache as _clear_cache, clear_tool_cache as _clear_tool_cache
+from ...tools.tool_cache import ToolCache, _program_tool_cache
 
 
 class Optimizer(ABC):
@@ -58,6 +58,11 @@ class Optimizer(ABC):
         self.num_selected = num_selected
         self.clear_tool_cache = clear_tool_cache
         self.energy_scores: List[float] = []  # Each index corresponds to a candidate, empty until first score_energy() call
+
+        # Create program-scoped tool cache
+        self.tool_cache = ToolCache()
+        _program_tool_cache.set(self.tool_cache)
+
         self._initialize_sequence_pools()
         self._validate_optimizer()
 
@@ -108,10 +113,10 @@ class Optimizer(ABC):
         # After evaluating all constraints, optionally clear the cache.
         if self.clear_tool_cache:
             if isinstance(self.clear_tool_cache, bool):
-                _clear_cache()
+                self.tool_cache.clear()
             elif isinstance(self.clear_tool_cache, list):
                 for tool in self.clear_tool_cache:
-                    _clear_tool_cache(tool)
+                    self.tool_cache.clear(tool)
             else:
                 raise ValueError(f"Invalid type of clear_tool_cache: {type(self.clear_tool_cache)}")
 

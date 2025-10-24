@@ -35,7 +35,7 @@ class UniformMutationGeneratorConfig(BaseConfig):
                     f"Mutation window must have two entries, found: {self.mutation_window}"
                 )
             if self.mutation_window[0] >= self.sequence_length or \
-               self.mutation_window[1] >= self.sequence_length:
+               self.mutation_window[1] > self.sequence_length:
                 raise ValueError(
                     f"Mutation window incompatible with a sequence length of {self.sequence_length}, "
                     f"found: {self.mutation_window}"

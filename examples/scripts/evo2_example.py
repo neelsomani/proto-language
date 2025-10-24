@@ -1,0 +1,73 @@
+from typing import Tuple
+
+from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
+from proto_language.language.optimizer import TopKOptimizer, TopKOptimizerConfig
+from proto_language.language.core import (
+    Constraint,
+    Construct,
+    Segment,
+    SequenceType,
+    Sequence,
+)
+from proto_language.language.core import Program
+from proto_language.language.constraint import gc_content_constraint
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+BATCH_SIZE = 200
+PROMPTS = ["ATG"] * BATCH_SIZE # 200 prompts of 3 tokens each
+NUM_TOKENS: int = 1000 # Number of tokens to generate for each prompt
+MIN_GC: float = 80 # Minimum GC content
+MAX_GC: float = 90 # Maximum GC content
+
+
+# Construct Segment
+seq1 = Segment(sequence_type=SequenceType.DNA)
+
+# Construct
+construct = Construct([seq1])
+
+# Generator
+evo2_gen_config = Evo2GeneratorConfig(
+    prompts=PROMPTS,
+    num_tokens=NUM_TOKENS,
+)
+evo2_gen = Evo2Generator(evo2_gen_config)
+
+# Assign
+evo2_gen.assign(seq1)
+
+# Contraint
+gc_constraint = Constraint(
+    inputs=[seq1],
+    scoring_function=gc_content_constraint,
+    scoring_function_config={"min_gc": MIN_GC, "max_gc": MAX_GC},
+)
+
+# Optimizer config
+config = TopKOptimizerConfig(
+    min_candidates=BATCH_SIZE,
+    k=2,                     
+    max_candidates=BATCH_SIZE * 2,       
+    verbose=True,
+    batch_size=BATCH_SIZE
+)
+
+# Program
+program = Program(
+    optimizer_type=TopKOptimizer,
+    optimizer_config=config,
+    constructs=[construct],
+    generators=[evo2_gen],
+    constraints=[gc_constraint],
+)
+
+program.run()
+
+# Outputs
+last_construct: Construct = program.constructs[0]
+last_sequence_batch: Tuple[Sequence, ...] = last_construct.joined_sequences
+last_sequence: Sequence = last_sequence_batch[0]
+print("---------FINAL SEQUENCE------------")
+print(last_sequence)

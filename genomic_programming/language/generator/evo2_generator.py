@@ -2,7 +2,7 @@
 Evo2 Generator for DNA sequence generation
 """
 
-from typing import List, Optional, Dict, final
+from typing import List, Optional, Dict, final, Union
 import warnings
 
 from pydantic import Field, model_validator
@@ -19,16 +19,23 @@ from .generator_registry import GeneratorRegistry
 
 class Evo2GeneratorConfig(BaseConfig):
     """Configuration for Evo2Generator."""
-    prompts: List[str] = Field(description="Prompts for DNA sequence generation (single prompt or multiple)")
+    # Required parameters
+    prompts: Union[str, List[str]] = Field(description="Prompts for DNA sequence generation (single prompt or multiple)")
+    num_tokens: int = Field(ge=1, description="Number of tokens to generate after prompt")
+
+    # Optional parameters (have defaults)
     model_name: str = Field(default="evo2_7b", description="Evo2 model variant to use")
     local_path: Optional[str] = Field(default=None, description="Optional path to local model weights")
     top_k: int = Field(default=4, ge=1, description="Top-k sampling parameter")
     top_p: float = Field(default=1, gt=0.0, le=1.0, description="Top-p sampling parameter")
     temperature: float = Field(default=1.0, gt=0.0, description="Sampling temperature")
-    num_tokens: int = Field(default=32, ge=1, description="Number of tokens to generate after prompt")
     force_prompt_threshold: Optional[int] = Field(default=None, description="Optional number of tokens to prefill in parallel before switching to prompt forcing. Used to reduce peak memory usage and support longer prompts")
     max_seqlen: Optional[int] = Field(default=None, description="Optional maximum sequence length to generate. Determines the max size of the cache if larger. Otherwise automatically determined using prompt length + max_tokens")
     stop_at_eos: bool = Field(default=True, description="Whether to stop at end-of-sequence token")
+    batched: bool = Field(default=True, description="Whether to use batched generation, set to true if # of prompts > 1.")
+    cached_generation: bool = Field(default=True, description="Whether to use cached generation")
+    store_kv_cache: bool = Field(default=False, description="Whether to store and reuse kv cache")
+    prepend_prompt: bool = Field(default=False, description="Whether to prepend prompt to generation")
     verbose: bool = Field(default=False, description="Whether to print verbose output")
     
     @model_validator(mode='after')
@@ -57,7 +64,7 @@ class Evo2Generator(Generator):
     Examples:
         >>> from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
         >>> config = Evo2GeneratorConfig(
-        ...     prompts=["ATG"],
+        ...     prompts="ATG",
         ...     evo2_type="evo2_7b",
         ...     sequence_length=1000,
         ...     temperature=0.8
@@ -90,6 +97,10 @@ class Evo2Generator(Generator):
         self.max_seqlen = config.max_seqlen
         self.stop_at_eos = config.stop_at_eos
         self.verbose = config.verbose
+        self.cached_generation = config.cached_generation
+        self.batched = config.batched
+        self.store_kv_cache = config.store_kv_cache
+        self.prepend_prompt = config.prepend_prompt
         self.autoregressive = True
 
         # store old KV caches for cached generation
@@ -105,21 +116,17 @@ class Evo2Generator(Generator):
         self._assigned_segment._is_assigned = True
         self.autoregressive = True
 
-    def sample(self, prompts: Optional[List[str]] = None, prepend_prompt: bool = False, cached_generation: bool = False, old_kv_cache: Optional[Dict] = None) -> None:
+    def sample(self, prompts: Optional[List[str]] = None, prepend_prompt: Optional[bool] = None, old_kv_cache: Optional[Dict] = None) -> None:
         """
         Generate sequences using the Evo2 model and update generator output.
 
-        When cached_generation=True, stores KV caches in self.kv_caches for access
+        When store_kv_cache=True, stores KV caches in self.kv_caches for access
         by beam search optimizer. The caches are overwritten on each call to sample().
 
         Args:
             prompts: Optional list of prompt sequences to use instead of self.prompts.
-            prepend_prompt: Whether to prepend the prompt to the generated sequence in the output.
-            cached_generation: Whether to enable KV caching. Set to True for beam search
-                and other sequential generation contexts. Set to False (default) for 
-                independent sampling (MCMC, TopK). When True, stores caches in self.kv_caches.
+            prepend_prompt: Optional boolean to prepend prompts to generated sequences.
             old_kv_cache: Optional cache state to continue from (batched format). 
-                Requires cached_generation=True.
         """
         self._validate_generator()
 
@@ -133,26 +140,28 @@ class Evo2Generator(Generator):
         # Create config for the tool
         inputs = Evo2SampleInput(prompts=sampling_prompts)
         sample_config = Evo2SampleConfig(
-            prepend_prompt=prepend_prompt,
+            prompts=sampling_prompts,
+            prepend_prompt=prepend_prompt if prepend_prompt is not None else self.prepend_prompt,
             model_name=self.model_name,
             local_path=self.local_path,
             top_k=self.top_k,
             top_p=self.top_p,
             temperature=self.temperature,
             num_tokens=self.num_tokens,
-            cached_generation=cached_generation,
+            cached_generation=self.cached_generation,
             force_prompt_threshold=self.force_prompt_threshold,
             max_seqlen=self.max_seqlen,
             verbose=self.verbose,
             stop_at_eos=self.stop_at_eos,
             old_kv_cache=old_kv_cache,
             keep_on_device=True,
+            batched=True
         )
 
         # Run the sampling tool
         evo2_output = run_evo2_sample(inputs=inputs, config=sample_config)
         generated_sequences = evo2_output.sequences
-        self.kv_caches = evo2_output.kv_caches if cached_generation else None
+        self.kv_caches = evo2_output.kv_caches if self.store_kv_cache else None
 
         # Update candidate sequences
         for idx, sequence in enumerate(generated_sequences):

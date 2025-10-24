@@ -137,6 +137,10 @@ class BeamSearchOptimizer(Optimizer):
         
         # IMPORTANT: set max_seqlen to the total construct length!!
         self.generator.max_seqlen = len(prompt) + len(self.segments) * self.generator.num_tokens
+        # Need to store kv caching as well if kv caching is enabled
+        self.generator.store_kv_cache = self.use_kv_caching
+        # Always use cached generation internally
+        self.generator.cached_generation = True
 
     def run(self) -> None:
         """
@@ -213,8 +217,7 @@ class BeamSearchOptimizer(Optimizer):
 
             self.generator.sample(
                 prompts=replicated_prompts,
-                prepend_prompt=False,
-                cached_generation=self.use_kv_caching,
+                prepend_prompt=True if beam_idx == 0 else False,
                 old_kv_cache=replicated_kv_cache
             )
 

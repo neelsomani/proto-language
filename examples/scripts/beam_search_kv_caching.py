@@ -20,7 +20,7 @@ from proto_language.language.constraint.sequence_composition.gc_content_constrai
 
 # Beam search parameters
 TOTAL_TOKEN_COUNT: int = 1_000 
-BEAM_LENGTH: int = 200
+BEAM_LENGTH: int = 100
 BEAM_WIDTH: int = 2
 N_CANDIDATES_PER_BEAM: int = 2
 
@@ -28,10 +28,10 @@ N_CANDIDATES_PER_BEAM: int = 2
 INITIAL_PROMPT: str = "ATCGATCGATCG"
 
 # Target GC content for constraint
-TARGET_GC_CONTENT: float = 0.5
+TARGET_GC_CONTENT: float = 0.9
 
 # Number of timing runs for averaging
-NUM_TIMING_RUNS: int = 2
+NUM_TIMING_RUNS: int = 1
 
 # ============================================================================
 
@@ -71,6 +71,7 @@ def run_beam_search(
     gen_config = Evo2GeneratorConfig(
         prompts=[prompt],
         num_tokens=beam_length,  # Tokens per segment
+        stop_at_eos=False,
     )
     generator = Evo2Generator(config=gen_config)
 
@@ -114,7 +115,7 @@ def run_beam_search(
         print(f"\nERROR during beam search optimization:")
         print(f"  {type(e).__name__}: {str(e)}")
         print(f"\nThis may be due to:")
-        print(f"  - GPU memory issues (try reducing DESIRED_TOKEN_COUNT or N_CHUNKS_PER_SAMPLE)")
+        print(f"  - GPU memory issues (try reducing TOTAL_TOKEN_COUNT or BEAM_LENGTH)")
         print(f"  - CUDA errors (check GPU status with 'nvidia-smi')")
         print(f"  - Model loading issues (check model cache)")
         raise
@@ -128,10 +129,11 @@ def main():
     print("=" * 80)
     print()
     print("Configuration:")
-    print(f"  Desired token count: {TOTAL_TOKEN_COUNT:,}")
-    print(f"  Chunk size: {BEAM_LENGTH:,}")
-    print(f"  Beam width (n_samples_retained): {BEAM_WIDTH}")
-    print(f"  Candidates per beam (n_chunks_per_sample): {N_CANDIDATES_PER_BEAM}")
+    print(f"  Total sequence length (including prompt): {TOTAL_TOKEN_COUNT + len(INITIAL_PROMPT):,}")
+    print(f"  Total tokens to generate: {TOTAL_TOKEN_COUNT:,}")
+    print(f"  Tokens per segment: {BEAM_LENGTH:,}")
+    print(f"  Beam width: {BEAM_WIDTH}")
+    print(f"  Candidates per beam: {N_CANDIDATES_PER_BEAM}")
     print(f"  Number of segments: {TOTAL_TOKEN_COUNT // BEAM_LENGTH}")
     print(f"  Number of timing runs: {NUM_TIMING_RUNS}")
     print()
@@ -153,7 +155,7 @@ def main():
             total_token_count=TOTAL_TOKEN_COUNT,
             prompt=INITIAL_PROMPT,
             target_gc=TARGET_GC_CONTENT,
-            verbose=False
+            verbose=True
         )
         uncached_times.append(elapsed)
         print(f"  Completed in {elapsed:.2f} seconds")
@@ -174,7 +176,7 @@ def main():
             total_token_count=TOTAL_TOKEN_COUNT,
             prompt=INITIAL_PROMPT,
             target_gc=TARGET_GC_CONTENT,
-            verbose=False
+            verbose=True
         )
         cached_times.append(elapsed)
         print(f"  Completed in {elapsed:.2f} seconds")

@@ -129,7 +129,7 @@ class TestEvo2Generator:
             inputs = Evo2SampleInput(prompts=prompt)
             config_no_cache = Evo2SampleConfig(
                 num_tokens=continuation_length,
-                cached_generation=False,
+                cached_generation=True,
                 stop_at_eos=False,
                 print_generation=False,
                 verbose=False,
@@ -196,7 +196,7 @@ class TestEvo2Generator:
             inputs3 = Evo2SampleInput(prompts=[first_seq])
             config_control = Evo2SampleConfig(
                 num_tokens=second_half,
-                cached_generation=False,
+                cached_generation=True,
                 stop_at_eos=False,
                 print_generation=False,
                 verbose=False,

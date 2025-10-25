@@ -37,7 +37,6 @@ from .sequence_annotation import (
     sigma70_promoter_constraint,
     seq_motif_constraint,
     promoter_strength_constraint,
-    run_orfipy_mmseqs_pipeline,
 )
 
 __all__ = [
@@ -70,5 +69,4 @@ __all__ = [
     "sigma70_promoter_constraint",
     "seq_motif_constraint",
     "promoter_strength_constraint",
-    "run_orfipy_mmseqs_pipeline",
 ]

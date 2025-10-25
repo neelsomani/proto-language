@@ -561,7 +561,7 @@ def test_mixed_batch_sizes_raises_error():
     seg1 = create_batched_segment(["ATCG", "GGGG"])  # 2 candidates
     seg2 = create_batched_segment(["TTTT"])  # 1 candidate
     config = MockConstraintConfig()
-    with pytest.raises(ValueError, match="same number of candidates"):
+    with pytest.raises(ValueError, match="All segments must have the same number of candidate sequences"):
         Constraint(
             inputs=[seg1, seg2],
             scoring_function=mock_single_input_scoring_function,

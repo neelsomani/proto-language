@@ -2,27 +2,26 @@
 ESM3 Generator for protein sequence generation
 """
 
-from typing import List, final, Optional
+from typing import final
 
 from pydantic import Field, field_validator
 
 from ..core import Generator, Segment
 from proto_language.base_config import BaseConfig
+from proto_language.tools.models.language_models.esm3.esm3 import run_esm3_sample, ESM3SampleConfig, LanguageModelInput
 from .generator_registry import GeneratorRegistry
 
 
 class ESM3GeneratorConfig(BaseConfig):
     """Configuration for ESM3Generator."""
+    # Required parameters
+    sequence_length: int = Field(ge=1, description="Length of protein sequences to generate")
+
+    # Optional parameters (have defaults)
     esm3_type: str = Field(default="esm3_sm_open_v1", description="ESM3 model variant")
-    esm3_local_path: Optional[str] = Field(default=None, description="Optional path to local model weights")
-    sequence_length: int = Field(default=100, ge=1, description="Length of protein sequences to generate")
     temperature: float = Field(default=1.0, gt=0.0, description="Sampling temperature")
-    decoding_method: str = Field(
-        default="entropy",
-        description="Position selection strategy: 'entropy', 'max_logit', or 'random'"
-    )
+    decoding_method: str = Field(default="entropy", description="Position selection strategy: 'entropy', 'max_logit', or 'random'")
     top_k: int = Field(default=5, ge=1, description="Number of positions to sample per iteration")
-    prepend_prompt: bool = Field(default=False, description="Whether to prepend prompt to generated sequences")
     
     @field_validator('top_k')
     @classmethod
@@ -75,12 +74,10 @@ class ESM3Generator(Generator):
         """
         super().__init__()
         self.esm3_type = config.esm3_type
-        self.esm3_local_path = config.esm3_local_path
         self.sequence_length = config.sequence_length
         self.temperature = config.temperature
         self.decoding_method = config.decoding_method
         self.top_k = config.top_k
-        self.prepend_prompt = config.prepend_prompt
         self.autoregressive = False
         
     def assign(
@@ -89,21 +86,9 @@ class ESM3Generator(Generator):
         """
         Assign a Segment to this generator.
 
-        Creates initial sequences by running ESM3 on sequences of mask tokens
-        and sampling amino acids from the resulting probability distributions.
-        If the segment already contains sequences, they will be used as starting points.
-
-        Args:
-            assigned_segment: A single Segment to be assigned to this generator.
-
-        Raises:
-            ValueError: If assigned_segment is not a single Segment object.
-            AssertionError: If provided sequence length doesn't match configured length.
+        - If starting sequence is provided, validates that the sequence length matches the configured length.
         """
-        initial_sequence = assigned_segment.selected_sequences[0].sequence
-        if initial_sequence != "" and len(initial_sequence) != self.sequence_length:
-            raise ValueError(f"Provided sequence length ({len(initial_sequence)}) must match configured sequence_length ({self.sequence_length})")
-
+        super().assign(assigned_segment)
         self._assigned_segment = assigned_segment
         self._assigned_segment._is_assigned = True
 
@@ -118,14 +103,8 @@ class ESM3Generator(Generator):
         Raises:
             RuntimeError: If called before assign().
         """
-        self._validate_generator()
-        sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
-
-        # Use ESM3 sampling tool
-        from ...tools.models.language_models.esm3.esm3 import run_esm3_sample, ESM3SampleConfig
-        from ...tools.models.language_models.schemas import LanguageModelInput
-
         # Create input and config objects
+        sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
         esm3_input = LanguageModelInput(sequences=sequences)
         config = ESM3SampleConfig(
             model_name=self.esm3_type,

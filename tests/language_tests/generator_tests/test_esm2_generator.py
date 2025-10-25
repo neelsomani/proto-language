@@ -137,3 +137,19 @@ class TestESM2Generator:
         segment_wrong_length = Segment(sequence="A" * 20, sequence_type=SequenceType.PROTEIN)
         with pytest.raises(ValueError, match="Provided sequence length"):
             esm2_generator.assign(segment_wrong_length)
+
+    def test_constant_segment_rejection(self):
+        """Tests that generators reject constant segments during assign()."""
+        config = ESM2GeneratorConfig(sequence_length=10)
+        gen = ESM2Generator(config)
+        
+        # Create a constant segment
+        constant_segment = Segment(
+            sequence="MMMMPPPP",
+            sequence_type=SequenceType.PROTEIN,
+            constant=True
+        )
+        
+        # Should raise ValueError when trying to assign a constant segment
+        with pytest.raises(ValueError, match="Cannot assign constant segment"):
+            gen.assign(constant_segment)

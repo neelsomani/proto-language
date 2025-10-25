@@ -42,3 +42,16 @@ class TestSegment:
         segment.selected_sequences.append(Sequence(sequence="C", sequence_type=SequenceType.DNA))
         sequences = [s.sequence for s in segment]
         assert sequences == ["A", "T", "C"]
+
+    def test_constant_segment_initialization(self):
+        """Tests that constant segments are initialized correctly."""
+        # Regular segment
+        regular_segment = Segment("ATCG", SequenceType.DNA)
+        assert regular_segment.constant is False
+        assert regular_segment._is_assigned is False
+        
+        # Constant segment
+        constant_segment = Segment("ATCG", SequenceType.DNA, constant=True)
+        assert constant_segment.constant is True
+        assert constant_segment._is_assigned is True  # Constant segments should be pre-assigned
+        assert constant_segment.selected_sequences[0].sequence == "ATCG"

@@ -100,31 +100,28 @@ class UniformMutationGenerator(Generator):
 
     def assign(self, assigned_segment: Segment) -> None:
         """
-        Initializes the segment's selected pool with a sequence of the configured length.
-        Generator will write to candidate_sequences during sample() calls.
+        Assign a Segment to this generator.
 
-        Args:
-            assigned_segment: A single Segment to be assigned to this generator.
+        - If no starting sequence, initialize a uniformly random sequence of configured length.
+        - If starting sequence is provided, validates that the sequence length matches the configured length.
         """
-        self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
+        super().assign(assigned_segment)
 
-        initial_sequence = self._assigned_segment.selected_sequences[0].sequence
-        valid_chars = self._assigned_segment._valid_chars - set(" ")
+        valid_chars = assigned_segment._valid_chars - set(" ")
         valid_chars_list = list(valid_chars)
 
-        if initial_sequence == "":
+        if not assigned_segment.original_sequence:
             # Generate random sequence
-            self._assigned_segment.selected_sequences[0].sequence = "".join(
+            assigned_segment.original_sequence.sequence = "".join(
                 random.choice(valid_chars_list) for _ in range(self.sequence_length)
             )
         else:
             # Validate provided sequence
-            if len(initial_sequence) != self.sequence_length:
-                raise ValueError(
-                    f"Provided sequence length ({len(initial_sequence)}) must match "
-                    f"configured sequence_length ({self.sequence_length})"
-                )
+            if len(assigned_segment.original_sequence.sequence) != self.sequence_length:
+                raise ValueError(f"Provided sequence length ({len(assigned_segment.original_sequence.sequence)}) must match generator's configured sequence_length ({self.sequence_length}).")
+
+        self._assigned_segment = assigned_segment
+        self._assigned_segment._is_assigned = True
 
     def sample(self) -> None:
         """
@@ -137,8 +134,6 @@ class UniformMutationGenerator(Generator):
             RuntimeError: If called before assign().
             ValueError: If candidate pool is empty.
         """
-        self._validate_generator()
-
         # Sleep for testing purposes if debug_with_sleep_calls is enabled
         if self.debug_with_sleep_calls:
             time.sleep(1.0)

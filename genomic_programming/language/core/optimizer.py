@@ -27,6 +27,7 @@ class Optimizer(ABC):
     about which sequences to keep.
     """
 
+    @abstractmethod
     def __init__(
         self,
         constructs: List[Construct],
@@ -126,7 +127,9 @@ class Optimizer(ABC):
         Must be called in final subclass __init__ to ensure all attributes are set.
 
         Raises:
-            ValueError: If any validation checks fail.
+            ValueError: If user inputs are invalid (empty lists, invalid weights, etc.).
+            TypeError: If objects have incorrect types.
+            RuntimeError: If optimizer state is invalid (unassigned segments, etc.).
         """
 
         # Ensure constructs, generators, and constraints are non-empty lists
@@ -148,44 +151,31 @@ class Optimizer(ABC):
         if len(self.constraints) != len(self.constraint_weights):
             raise ValueError(f"Constraint count ({len(self.constraints)}) must match weight count ({len(self.constraint_weights)})")
 
-        # Ensure types for all constructs, generators, and constraints are correct
+        # Ensure all constructs have correct type and have segments
         for i, construct in enumerate(self.constructs):
             if not isinstance(construct, Construct):
-                raise ValueError(f"Construct {i} has type {type(construct)}, expected Construct")
+                raise TypeError(f"Construct {i} has type {type(construct)}, expected Construct")
+            if not construct.segments:
+                raise ValueError(f"Construct {i} has no segments")
 
+        # Ensure all generators have correct type and have assigned segments
         for i, generator in enumerate(self.generators):
             if not isinstance(generator, Generator):
-                raise ValueError(f"Generator {i} has type {type(generator)}, expected Generator")
+                raise TypeError(f"Generator {i} has type {type(generator)}, expected Generator")
+            if not generator._assigned_segment:
+                raise RuntimeError(f"Generator {i} ({generator.__class__.__name__}) has no segment assigned")
 
+        # Ensure all constraints have correct type and have input segments
         for i, constraint in enumerate(self.constraints):
             if not isinstance(constraint, Constraint):
-                raise ValueError(f"Constraint {i} has type {type(constraint)}, expected Constraint")
-
-        # Call each generator's validation
-        for generator in self.generators:
-            generator._validate_generator()
-
-        # Ensure all segments are assigned to a generator
-        unassigned_segments = [
-            segment
-            for construct in self.constructs
-            for segment in construct.segments
-            if not segment._is_assigned
-        ]
-        if unassigned_segments:
-            raise ValueError(f"Found {len(unassigned_segments)} construct segments not assigned to any generator.")
-
-        # Ensure all constraints have at least one generator-assigned input Segment
-        generator_segment_ids = set()
-        for generator in self.generators:
-            if generator._assigned_segment is not None:
-                generator_segment_ids.add(id(generator._assigned_segment))
-        for i, constraint in enumerate(self.constraints):
+                raise TypeError(f"Constraint {i} has type {type(constraint)}, expected Constraint")
             if not constraint.inputs:
-                raise ValueError(f"Constraint {i} has no inputs assigned")
-        # TODO: re-evaluate if we need this check
-        #     if not any(id(inp) in generator_segment_ids for inp in constraint.inputs):
-        #         raise ValueError(f"Constraint {i} has no generator-connected inputs")
+                raise RuntimeError(f"Constraint {i} has no input segment(s) assigned")
+
+        # Ensure all segments are assigned
+        unassigned_segments = [segment for segment in self.segments if not segment._is_assigned]
+        if unassigned_segments:
+            raise RuntimeError(f"Found {len(unassigned_segments)} non-constant segments not assigned to any generator.")
 
     def _initialize_sequence_pools(self) -> None:
         """Initialize the sequence pools for all segments.

@@ -190,3 +190,20 @@ class TestUniformMutationGenerator:
             1 for a, b in zip(initial_sequence, mutated_sequence) if a != b
         )
         assert diff_count == seq_len
+
+    def test_constant_segment_rejection(self):
+        """Tests that generators reject constant segments during assign()."""
+        config = UniformMutationGeneratorConfig(sequence_length=10)
+        gen = UniformMutationGenerator(config)
+        
+        # Create a constant segment
+        constant_segment = Segment(
+            sequence="ATCGATCGAT",
+            sequence_type=SequenceType.DNA,
+            label="promoter",
+            constant=True
+        )
+        
+        # Should raise ValueError when trying to assign a constant segment
+        with pytest.raises(ValueError, match="Cannot assign constant segment"):
+            gen.assign(constant_segment)

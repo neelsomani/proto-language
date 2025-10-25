@@ -9,11 +9,7 @@ from pydantic import Field, model_validator
 
 from ..core import Generator, Segment
 from proto_language.base_config import BaseConfig
-from proto_language.tools.models.language_models.evo2 import (
-    run_evo2_sample,
-    Evo2SampleInput,
-    Evo2SampleConfig,
-)
+from proto_language.tools.models.language_models.evo2 import run_evo2_sample, Evo2SampleInput, Evo2SampleConfig
 from .generator_registry import GeneratorRegistry
 
 
@@ -107,14 +103,14 @@ class Evo2Generator(Generator):
         self.kv_caches: List[Dict] = []
 
     def assign(self, assigned_segment: Segment) -> None:
-        """Assign a Segment to this generator"""
-        # Warn user if existing candidate sequences will be overwritten
-        if assigned_segment.original_sequence:
-            print(f"Warning: Evo2Generator will overwrite {assigned_segment.original_sequence.sequence} when sample() is called due to autoregressive generation.")
+        """
+        Assign a Segment to this generator.
 
+        If starting sequence is provided, warn user it will be overwritten by sample().
+        """
+        super().assign(assigned_segment)
         self._assigned_segment = assigned_segment
         self._assigned_segment._is_assigned = True
-        self.autoregressive = True
 
     def sample(self, prompts: Optional[List[str]] = None, prepend_prompt: Optional[bool] = None, old_kv_cache: Optional[Dict] = None) -> None:
         """
@@ -128,8 +124,6 @@ class Evo2Generator(Generator):
             prepend_prompt: Optional boolean to prepend prompts to generated sequences.
             old_kv_cache: Optional cache state to continue from (batched format). 
         """
-        self._validate_generator()
-
         # Use provided prompts or fall back to the default prompt
         sampling_prompts = prompts if prompts is not None else self.prompts
 

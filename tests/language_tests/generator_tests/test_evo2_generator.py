@@ -228,3 +228,19 @@ class TestEvo2Generator:
                 f"time_cached={time_second_half:.3f}s, time_non_cached={time_control_second_half:.3f}s. "
                 f"This suggests the KV cache is not being used properly"
             )
+
+    def test_constant_segment_rejection(self):
+        """Tests that generators reject constant segments during assign()."""
+        config = Evo2GeneratorConfig(prompts=["ATCG"], num_tokens=100)
+        gen = Evo2Generator(config)
+        
+        # Create a constant segment
+        constant_segment = Segment(
+            sequence="ATCGATCGAT",
+            sequence_type=SequenceType.DNA,
+            constant=True
+        )
+        
+        # Should raise ValueError when trying to assign a constant segment
+        with pytest.raises(ValueError, match="Cannot assign constant segment"):
+            gen.assign(constant_segment)

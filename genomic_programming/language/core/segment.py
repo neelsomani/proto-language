@@ -29,6 +29,7 @@ class Segment:
         valid_chars: Optional[Set[str]] = None,
         label: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        constant: bool = False,
     ) -> None:
         """
         Initialize a Segment with dual sequence pools.
@@ -39,6 +40,7 @@ class Segment:
             valid_chars: Optional custom set of valid characters for sequence validation.
             label: Optional label for this segment (e.g., "promoter", "coding_region").
             metadata: Additional data associated with this sequence.
+            constant: If True, the sequence is constant and cannot be mutated.
         """
         seq = Sequence(
             sequence=sequence,
@@ -53,8 +55,14 @@ class Segment:
 
         self.sequence_type: SequenceType = SequenceType(seq.sequence_type)
         self._valid_chars: Optional[Set[str]] = seq._valid_chars
-        self._is_assigned: bool = False
         self.label: Optional[str] = label
+
+        if constant and not self.original_sequence.sequence:
+            raise ValueError("Constant segment must be initialized with a non-empty sequence.")
+
+        # Constant segment is assigned by default
+        self.constant = constant
+        self._is_assigned: bool = True if constant else False
 
     @property
     def num_selected(self) -> int:

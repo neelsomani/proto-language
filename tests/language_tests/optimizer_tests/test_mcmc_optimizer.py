@@ -100,7 +100,7 @@ class TestMCMCOptimizer:
             scoring_function=lambda seq, **kwargs: 0.0,
             scoring_function_config={},
         )
-        with pytest.raises(RuntimeError, match="has not been assigned"):
+        with pytest.raises(RuntimeError, match="has no segment assigned"):
             MCMCOptimizer(
                 constructs=[Construct([test_segment])],
                 generators=[unassigned_gen],

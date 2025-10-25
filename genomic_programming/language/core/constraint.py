@@ -242,22 +242,15 @@ class Constraint:
         # Check that all segments have the same number of candidates
         candidate_sizes = [seg.num_candidates for seg in self.inputs]
         if not all(size == candidate_sizes[0] for size in candidate_sizes):
-            raise ValueError(
-                f"All segments must have the same number of candidates. Found: {candidate_sizes}"
-            )
+            raise ValueError(f"All segments must have the same number of candidate sequences. Found: {candidate_sizes}")
 
         # Check that all segments have the same sequence type
         sequence_types = [seg.sequence_type for seg in self.inputs]
         if not all(st == sequence_types[0] for st in sequence_types):
-            raise ValueError(
-                f"All segments must have the same sequence type. Found: {sequence_types}"
-            )
+            raise ValueError(f"All segments must have the same sequence type. Found: {sequence_types}")
 
         # Check that all segments have the same valid_chars (alphabet)
         first_valid_chars = self.inputs[0]._valid_chars
         for seg in self.inputs[1:]:
             if seg._valid_chars != first_valid_chars:
-                raise ValueError(
-                    f"All segments must have the same valid_chars. "
-                    f"Expected: {first_valid_chars}, Found: {seg._valid_chars}"
-                )
+                raise ValueError(f"All segments must have the same valid_chars. Expected: {first_valid_chars}, Found: {seg._valid_chars}")

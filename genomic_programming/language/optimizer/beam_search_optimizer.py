@@ -16,6 +16,10 @@ from .optimizer_registry import OptimizerRegistry
 
 class BeamSearchOptimizerConfig(BaseConfig):
     """Configuration for BeamSearchOptimizer"""
+    prepend_prompt: bool = Field(
+        default=True,
+        description="Whether to prepend the prompt to the generated sequence in the output"
+    )
     beam_width: int = Field(
         ge=1,
         description="Number of top sequences to maintain (K)"
@@ -126,11 +130,12 @@ class BeamSearchOptimizer(Optimizer):
         )
         self.construct: Construct = construct
         self.generator: Generator = generator
+        self.prepend_prompt: bool = config.prepend_prompt
         self.beam_width: int = config.beam_width
         self.candidates_per_beam: int = config.candidates_per_beam
         self.use_kv_caching: bool = config.use_kv_caching
         self.verbose: bool = config.verbose
-
+        
         # Beam search state parameters (running prompts and corresponding KV caches)
         self.running_prompts: List[str] = [prompt] * self.beam_width
         self.top_beam_kv_caches: List[Optional[Dict]] = [None] * self.beam_width
@@ -217,7 +222,7 @@ class BeamSearchOptimizer(Optimizer):
 
             self.generator.sample(
                 prompts=replicated_prompts,
-                prepend_prompt=True if beam_idx == 0 else False,
+                prepend_prompt=self.prepend_prompt if beam_idx == 0 else False,
                 old_kv_cache=replicated_kv_cache
             )
 

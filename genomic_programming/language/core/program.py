@@ -146,7 +146,7 @@ class Program:
 
         # Run optimization
         self.optimizer.run()
-        
+
         # Print final sequences and energies for all batch elements
         print("Optimization complete. Final constructs for all batch elements:")
         num_seqs = len(self.constructs[0].joined_sequences)
@@ -157,3 +157,16 @@ class Program:
                 seq = construct.joined_sequences[seq_idx]
                 seq_preview = seq[:80] + ('...' if len(seq) > 80 else '')
                 print(f"    Construct {construct_idx}: {seq_preview}")
+
+        # Clean up model caches
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Clean up cached models to free GPU memory."""
+        from proto_language.tools.models.language_models.evo2.evo2 import clear_evo2_cache
+        from proto_language.tools.models.language_models.esm3.esm3 import clear_esm3_cache
+        from proto_language.tools.models.language_models.esm2.esm2 import clear_esm2_cache
+
+        clear_evo2_cache()
+        clear_esm3_cache()
+        clear_esm2_cache()

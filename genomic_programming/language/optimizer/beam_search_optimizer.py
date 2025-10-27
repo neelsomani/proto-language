@@ -182,7 +182,7 @@ class BeamSearchOptimizer(Optimizer):
                 self._log_beamsearch_progress(segment_idx, segment, top_idx)
 
 
-    def _generate_candidates(self, segment: Segment, is_first_segment: bool) -> List[Dict]:
+    def _generate_candidates(self, segment: Segment, is_first_segment: bool = False) -> List[Dict]:
         """
         Generate candidates in-place for each beam sequentially and accumulate all candidates.
         
@@ -195,6 +195,7 @@ class BeamSearchOptimizer(Optimizer):
         
         Args:
             segment: The current segment being processed
+            is_first_segment: Whether this is the first segment being processed
         """
         all_candidates = []
         all_kv_caches = []

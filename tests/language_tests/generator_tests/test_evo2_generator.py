@@ -137,7 +137,7 @@ class TestEvo2Generator:
                 temperature=1.0,
                 top_k=4,
                 top_p=1.0,
-                keep_on_device=True
+                keep_on_gpu=True
             )
 
             start = time.time()
@@ -160,7 +160,7 @@ class TestEvo2Generator:
                 temperature=1.0,
                 top_k=4,
                 top_p=1.0,
-                keep_on_device=True
+                keep_on_gpu=True
             )
 
             start_first_half = time.time()
@@ -183,7 +183,7 @@ class TestEvo2Generator:
                 temperature=1.0,
                 top_k=4,
                 top_p=1.0,
-                keep_on_device=True
+                keep_on_gpu=True
             )
 
             start_second_half = time.time()
@@ -204,7 +204,7 @@ class TestEvo2Generator:
                 temperature=1.0,
                 top_k=4,
                 top_p=1.0,
-                keep_on_device=True
+                keep_on_gpu=True
             )
 
             start_control = time.time()

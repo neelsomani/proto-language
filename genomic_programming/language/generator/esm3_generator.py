@@ -111,7 +111,7 @@ class ESM3Generator(Generator):
             temperature=self.temperature,
             decoding_method=self.decoding_method,
             num_mutations=self.num_mutations,
-            keep_on_device=True,  # Keep for repeated calls
+            keep_on_gpu=True,  # Keep for repeated calls
             verbose=False
         )
 

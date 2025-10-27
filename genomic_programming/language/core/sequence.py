@@ -98,7 +98,7 @@ class Sequence:
         """
         invalid_chars = _return_invalid_chars(sequence, self._valid_chars)
         if invalid_chars:
-            raise ValueError(f"Invalid characters found: {', '.join(invalid_chars)}. Valid characters are: {', '.join(sorted(self._valid_chars))}")
+            warnings.warn(f"Invalid characters found: {', '.join(invalid_chars)}. Valid characters are: {', '.join(sorted(self._valid_chars))}")
 
     @property 
     def metadata(self) -> Dict[str, Any]:
@@ -136,12 +136,6 @@ class Sequence:
         Raises:
             ValueError: If the new sequence contains invalid characters.
         """
-        # TODO: REVISIT THIS TRUNCATION
-        # # Truncate at the first space character (EOS/space token)
-        # space_index = new_sequence.find(' ')
-        # if space_index != -1:
-        #     new_sequence = new_sequence[:space_index]
-
         self._validate_sequence(new_sequence)
         self._sequence = new_sequence
         self._metadata["sequence"] = new_sequence

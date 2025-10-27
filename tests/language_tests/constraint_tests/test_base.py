@@ -37,16 +37,16 @@ class MockConstraintConfig(BaseModel):
 # Tests for Sequence and Segment basics
 def test_sequence_validation():
     """Tests character validation for Sequence objects."""
-    with pytest.raises(ValueError, match=r"Invalid characters found: (X, Z|Z, X)"):
+    with pytest.warns(UserWarning, match=r"Invalid characters found: (X, Z|Z, X)"):
         Sequence("ATCGXZ", SequenceType.DNA)
-    with pytest.raises(ValueError, match="Invalid characters found: T"):
+    with pytest.warns(UserWarning, match="Invalid characters found: T"):
         Sequence("ACGUUUT", SequenceType.RNA)
-    with pytest.raises(ValueError, match=r"Invalid characters found: (J, O|O, J)"):
+    with pytest.warns(UserWarning, match=r"Invalid characters found: (J, O|O, J)"):
         Sequence("MVLSPADKTNVKJO", SequenceType.PROTEIN)
     # Test custom valid characters
     seq = Sequence("123", valid_chars=set("123"))
     assert seq.sequence == "123"
-    with pytest.raises(ValueError, match="Invalid characters found: 4"):
+    with pytest.warns(UserWarning, match="Invalid characters found: 4"):
         seq.sequence = "1234"
 
 

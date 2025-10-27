@@ -70,15 +70,6 @@ class UniformMutationGenerator(Generator):
         >>> segment = Segment(sequence="", sequence_type=SequenceType.DNA)
         >>> gen.assign(segment)
         >>> gen.sample()  # Introduces 2 random mutations
-
-        Using a mutation scheduler:
-        >>> def mutation_scheduler(iteration: int) -> int:
-        ...     return max(1, 10 - iteration // 10)  # Decrease mutations over time
-        >>> config = UniformMutationGeneratorConfig(
-        ...     sequence_length=100,
-        ...     mutation_scheduler=mutation_scheduler
-        ... )
-        >>> gen = UniformMutationGenerator(config)
     """
 
     def __init__(self, config: UniformMutationGeneratorConfig) -> None:
@@ -92,8 +83,6 @@ class UniformMutationGenerator(Generator):
         self.sequence_length = config.sequence_length
         self.num_mutations = config.num_mutations
         self.debug_with_sleep_calls = config.debug_with_sleep_calls
-        self.mutation_scheduler = None  # Can be set after initialization if needed
-        self.iteration_count = 0 # TODO: Fix?
         self.mutation_window = config.mutation_window
         self.type = GeneratorType.MUTATION
 
@@ -137,19 +126,13 @@ class UniformMutationGenerator(Generator):
         if self.debug_with_sleep_calls:
             time.sleep(1.0)
 
-        # Determine number of mutations for this iteration
-        if self.mutation_scheduler is not None:
-            current_mutations = self.mutation_scheduler(self.iteration_count)
-        else:
-            current_mutations = self.num_mutations
-
         # Mutate each candidate sequence
         for sequence in self._assigned_segment.candidate_sequences:
             current_sequence = sequence.sequence
             sequence_length = len(current_sequence)
 
             # Ensure we don't try to mutate more positions than available
-            actual_mutations = min(current_mutations, sequence_length)
+            actual_mutations = min(self.num_mutations, sequence_length)
 
             # Define the positions to mutate
             if self.mutation_window is None:

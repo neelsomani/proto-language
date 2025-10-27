@@ -23,11 +23,11 @@ class TestSequence:
         assert seq.sequence == valid_seq
 
         # Test invalid character on creation
-        with pytest.raises(ValueError):
+        with pytest.warns(UserWarning):
             Sequence(valid_seq + invalid_char, seq_type)
 
         # Test invalid character on setter
-        with pytest.raises(ValueError):
+        with pytest.warns(UserWarning):
             seq.sequence = valid_seq + invalid_char
 
     def test_custom_validation(self):
@@ -35,7 +35,7 @@ class TestSequence:
         custom_chars = {"0", "1"}
         seq = Sequence("0101", valid_chars=custom_chars)
         assert seq.sequence == "0101"
-        with pytest.raises(ValueError):
+        with pytest.warns(UserWarning):
             seq.sequence = "01012"
 
     def test_metadata(self):

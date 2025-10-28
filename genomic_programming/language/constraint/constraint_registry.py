@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from proto_language.base_registry import BaseRegistry, BaseSpec
 from ..core import Constraint, Segment
 
+from pydantic.json_schema import SkipJsonSchema
 
 class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
@@ -21,7 +22,7 @@ class ConstraintSpec(BaseSpec):
     gpu_required: bool = Field(default=False, description="Whether constraint requires GPU")
 
     # Private field - excluded from serialization
-    function: Callable = Field(exclude=True)
+    function: SkipJsonSchema[Callable] = Field(exclude=True)
 
 
 class ConstraintRegistry(BaseRegistry[ConstraintSpec]):

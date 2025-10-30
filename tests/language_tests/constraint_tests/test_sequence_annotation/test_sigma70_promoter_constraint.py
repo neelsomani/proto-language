@@ -22,7 +22,6 @@ class TestSigma70PromoterConstraint:
             inputs=[segment],
             scoring_function=sigma70_promoter_constraint,
             scoring_function_config=config,
-            vectorized=True,  # This is a vectorized constraint
         )
         
         scores = constraint.evaluate()
@@ -41,7 +40,6 @@ class TestSigma70PromoterConstraint:
             inputs=[segment],
             scoring_function=sigma70_promoter_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         scores = constraint.evaluate()
@@ -60,7 +58,6 @@ class TestSigma70PromoterConstraint:
             inputs=[segment],
             scoring_function=sigma70_promoter_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         scores = constraint.evaluate()
@@ -80,7 +77,6 @@ class TestSigma70PromoterConstraint:
             inputs=[segment],
             scoring_function=sigma70_promoter_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         scores = constraint.evaluate()
@@ -102,7 +98,6 @@ class TestSigma70PromoterConstraint:
             inputs=[segment],
             scoring_function=sigma70_promoter_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         scores = constraint.evaluate()

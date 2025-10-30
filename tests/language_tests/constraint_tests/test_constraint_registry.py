@@ -85,7 +85,7 @@ class TestRegistration:
             config=TestConfig,
             description="Vectorized constraint",
             vectorized=True,
-            concatenate=False
+            concatenate=False,
         )
         def test_constraint(sequences, config):
             return [0.0] * len(sequences)

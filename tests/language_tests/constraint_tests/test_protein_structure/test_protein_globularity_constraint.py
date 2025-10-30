@@ -54,7 +54,6 @@ ATOM      5  CA  LYS A   2       4.000   4.000   4.000  1.00 90.00           C""
                 inputs=[segment],
                 scoring_function=protein_globularity_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
             
             scores = constraint.evaluate()
@@ -84,7 +83,6 @@ ATOM      5  CA  LYS A   2       4.000   4.000   4.000  1.00 90.00           C""
                 inputs=[segment],
                 scoring_function=protein_globularity_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
 
             # DNA sequences are translated to protein before evaluation
@@ -115,7 +113,6 @@ ATOM      5  CA  LYS A   2       4.000   4.000   4.000  1.00 90.00           C""
                 inputs=[segment],
                 scoring_function=protein_globularity_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
             
             constraint.evaluate()

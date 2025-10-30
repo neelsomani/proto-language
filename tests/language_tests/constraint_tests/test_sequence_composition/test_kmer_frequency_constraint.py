@@ -35,7 +35,6 @@ class TestKmerFrequencyConstraint:
             inputs=[seq],
             scoring_function=kmer_frequency_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         score = constraint.evaluate()[0]
@@ -64,7 +63,6 @@ class TestKmerFrequencyConstraint:
             inputs=[seq],
             scoring_function=kmer_frequency_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         score = constraint.evaluate()[0]
@@ -90,7 +88,6 @@ class TestKmerFrequencyConstraint:
             inputs=[seq],
             scoring_function=kmer_frequency_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         score = constraint.evaluate()[0]
@@ -114,7 +111,6 @@ class TestKmerFrequencyConstraint:
             inputs=[seq],
             scoring_function=kmer_frequency_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         score = constraint.evaluate()[0]
@@ -135,7 +131,6 @@ class TestKmerFrequencyConstraint:
             inputs=[seq],
             scoring_function=kmer_frequency_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         score = constraint.evaluate()[0]

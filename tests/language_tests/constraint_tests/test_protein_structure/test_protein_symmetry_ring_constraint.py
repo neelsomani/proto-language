@@ -54,7 +54,6 @@ ATOM      3  CA  ALA C   1       2.500   4.330   0.000  1.00 90.00           C""
                 inputs=[segment],
                 scoring_function=protein_symmetry_ring_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
 
             scores = constraint.evaluate()
@@ -100,7 +99,6 @@ ATOM      3  CA  ALA C   1       2.500   4.330   0.000  1.00 90.00           C""
                 inputs=[segment],
                 scoring_function=protein_symmetry_ring_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
 
             # DNA sequences are translated to protein before evaluation
@@ -136,7 +134,6 @@ ATOM      5  CA  ALA E   1      -5.000   0.000   0.000  1.00 90.00           C""
                 inputs=[segment],
                 scoring_function=protein_symmetry_ring_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
 
             constraint.evaluate()

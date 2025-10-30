@@ -22,7 +22,6 @@ class TestProteinDiversityConstraint:
             inputs=[segment],
             scoring_function=protein_diversity_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]
@@ -52,7 +51,6 @@ class TestProteinDiversityConstraint:
             inputs=[segment],
             scoring_function=protein_diversity_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]
@@ -77,7 +75,6 @@ class TestProteinDiversityConstraint:
             inputs=[segment],
             scoring_function=protein_diversity_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]
@@ -104,7 +101,6 @@ class TestProteinDiversityConstraint:
             inputs=[segment],
             scoring_function=protein_diversity_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         with pytest.raises(ValueError, match="Sequence is non-existent"):

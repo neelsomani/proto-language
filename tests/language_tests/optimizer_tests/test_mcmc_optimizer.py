@@ -1,12 +1,11 @@
 import pytest
-import random
-import numpy as np
 import copy
 from typing import Tuple
 
 import sys
 
 sys.path.append(".")
+from pydantic import BaseModel
 from proto_language.language.core import (
     Construct,
     Segment,
@@ -27,6 +26,11 @@ from proto_language.language.optimizer import (
     MCMCOptimizer,
     MCMCOptimizerConfig,
 )
+
+
+# Empty config for test constraints
+class EmptyConfig(BaseModel):
+    pass
 
 
 # Helper function
@@ -59,7 +63,6 @@ def _setup_mcmc_components(
             min_gc=gc_target_range[0],
             max_gc=gc_target_range[1],
         ),
-        vectorized=True,
     )
 
     # 3. Create the MCMC Optimizer config
@@ -96,10 +99,18 @@ class TestMCMCOptimizer:
             UniformMutationGeneratorConfig(sequence_length=10, num_mutations=1)
         )
         test_segment = create_segment("A" * 10)
+        
+        # Create a dummy scoring function with required attributes
+        def dummy_scoring_func(seq, config=None):
+            return 0.0
+        dummy_scoring_func._constraint_vectorized = False
+        dummy_scoring_func._constraint_concatenate = True
+        dummy_scoring_func._constraint_config_class = EmptyConfig
+        
         dummy_constraint = Constraint(
             inputs=[test_segment],
-            scoring_function=lambda seq, **kwargs: 0.0,
-            scoring_function_config={},
+            scoring_function=dummy_scoring_func,
+            scoring_function_config=EmptyConfig(),
         )
         with pytest.raises(RuntimeError, match="has no segment assigned"):
             MCMCOptimizer(
@@ -206,11 +217,9 @@ class TestMCMCOptimizer:
 
         gc_con = Constraint(
             [segment], gc_content_constraint, GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True
         )
         len_con = Constraint(
             [segment], sequence_length_constraint, SequenceLengthConfig(target_length=seq_len),
-            vectorized=True
         )
 
         optimizer = MCMCOptimizer(
@@ -255,7 +264,6 @@ class TestMCMCOptimizer:
             inputs=[segment1, segment2],
             scoring_function=sequence_length_constraint,
             scoring_function_config=SequenceLengthConfig(target_length=seq_len * 2),
-            vectorized=True,
         )
 
         optimizer = MCMCOptimizer(
@@ -305,7 +313,6 @@ class TestMCMCOptimizer:
             inputs=[segment],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
         )
 
         optimizer = MCMCOptimizer(
@@ -479,7 +486,6 @@ class TestMCMCOptimizer:
             inputs=[segment],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=50.0, max_gc=50.0),
-            vectorized=True,
         )
 
         optimizer = MCMCOptimizer(
@@ -526,11 +532,16 @@ class TestMCMCOptimizer:
         def perfect_g_energy(seq, config=None):
             g_count = seq.sequence.count("G")
             return seq_length - g_count
+        
+        # Add required attributes for the scoring function
+        perfect_g_energy._constraint_vectorized = False
+        perfect_g_energy._constraint_concatenate = True
+        perfect_g_energy._constraint_config_class = EmptyConfig
 
         constraint = Constraint(
             inputs=[segment],
             scoring_function=perfect_g_energy,
-            scoring_function_config={},
+            scoring_function_config=EmptyConfig(),
         )
 
         optimizer = MCMCOptimizer(
@@ -582,7 +593,6 @@ class TestMCMCOptimizer:
             inputs=[segment],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
         )
 
         optimizer = MCMCOptimizer(
@@ -621,7 +631,6 @@ class TestMCMCOptimizer:
             inputs=[segment1],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
         )
 
         optimizer1 = MCMCOptimizer(
@@ -655,7 +664,6 @@ class TestMCMCOptimizer:
             inputs=[segment2],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
         )
 
         optimizer2 = MCMCOptimizer(
@@ -695,11 +703,18 @@ class TestMCMCOptimizer:
             seq._metadata["seq_id"] = f"seq_{i}"
             seq._metadata["nested"] = {"count": i, "tags": [f"tag_{i}"]}
 
+        # Create a dummy scoring function with required attributes
+        def dummy_scoring_func(seq, config=None):
+            return 0.0
+        dummy_scoring_func._constraint_vectorized = False
+        dummy_scoring_func._constraint_concatenate = True
+        dummy_scoring_func._constraint_config_class = EmptyConfig
+
         construct = Construct([segment])
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=lambda seq, **kwargs: 0.0,
-            scoring_function_config={},
+            scoring_function=dummy_scoring_func,
+            scoring_function_config=EmptyConfig(),
         )
 
         optimizer = MCMCOptimizer(
@@ -747,7 +762,6 @@ class TestMCMCOptimizer:
             inputs=[segment1, segment2],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=45.0, max_gc=55.0),
-            vectorized=True,
         )
 
         optimizer = MCMCOptimizer(

@@ -71,7 +71,6 @@ class TestMMseqsHomologyConstraint:
                 inputs=[segment],
                 scoring_function=mmseqs_homology_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
             
             scores = constraint.evaluate()
@@ -108,7 +107,6 @@ class TestMMseqsHomologyConstraint:
                 inputs=[segment],
                 scoring_function=mmseqs_homology_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
             
             scores = constraint.evaluate()
@@ -155,7 +153,6 @@ class TestMMseqsHomologyConstraint:
                 inputs=[segment],
                 scoring_function=mmseqs_homology_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
             
             scores = constraint.evaluate()

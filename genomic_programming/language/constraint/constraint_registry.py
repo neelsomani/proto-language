@@ -17,9 +17,9 @@ from pydantic.json_schema import SkipJsonSchema
 class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
 
-    vectorized: bool = Field(default=False, description="Whether constraint is vectorized")
-    concatenate: bool = Field(default=True, description="Whether to concatenate segments")
-    gpu_required: bool = Field(default=False, description="Whether constraint requires GPU")
+    vectorized: bool = Field(description="Whether constraint is vectorized")
+    concatenate: bool = Field(description="Whether to concatenate segments")
+    gpu_required: bool = Field(description="Whether constraint requires GPU")
 
     # Private field - excluded from serialization
     function: SkipJsonSchema[Callable] = Field(exclude=True)
@@ -68,6 +68,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         
         Direct Library Usage (no registry needed):
         >>> # Users can bypass registry entirely
+        >>> # vectorized and concatenate are automatically read from function attributes
         >>> constraint = Constraint(
         ...     inputs=[segment],
         ...     scoring_function=gc_content_constraint,
@@ -123,6 +124,12 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         def decorator(func: Callable):
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, func.__name__)
+
+            # Store vectorized and concatenate as function attributes
+            func._constraint_vectorized = vectorized
+            func._constraint_concatenate = concatenate
+            func._constraint_gpu_required = gpu_required
+            func._constraint_config_class = config
 
             cls._registry[key] = ConstraintSpec(
                 key=key,
@@ -186,8 +193,6 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             inputs=segments,
             scoring_function=spec.function,
             scoring_function_config=validated_config,
-            vectorized=spec.vectorized,
-            concatenate=spec.concatenate,
             label=label,
         )
     

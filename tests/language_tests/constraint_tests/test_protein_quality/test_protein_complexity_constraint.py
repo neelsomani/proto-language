@@ -56,7 +56,6 @@ class TestProteinComplexityConstraint:
                 inputs=[segment],
                 scoring_function=protein_complexity_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
             
             scores = constraint.evaluate()
@@ -90,7 +89,6 @@ class TestProteinComplexityConstraint:
                 inputs=[segment],
                 scoring_function=protein_complexity_constraint,
                 scoring_function_config=config,
-                vectorized=True,
             )
             
             # The constraint should raise ValueError
@@ -106,7 +104,6 @@ class TestProteinComplexityConstraint:
             inputs=[segment],
             scoring_function=protein_complexity_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         
         with pytest.raises(AssertionError):

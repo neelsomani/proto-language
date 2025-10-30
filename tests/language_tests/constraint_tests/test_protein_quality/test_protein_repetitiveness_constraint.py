@@ -22,7 +22,6 @@ class TestProteinRepetitivenessConstraint:
             inputs=[segment],
             scoring_function=protein_repetitiveness_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]
@@ -45,7 +44,6 @@ class TestProteinRepetitivenessConstraint:
             inputs=[segment],
             scoring_function=protein_repetitiveness_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]
@@ -64,7 +62,6 @@ class TestProteinRepetitivenessConstraint:
             inputs=[segment],
             scoring_function=protein_repetitiveness_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]

@@ -133,8 +133,6 @@ def _setup_beam_search_components(
             min_gc=gc_target_range[0],
             max_gc=gc_target_range[1],
         ),
-        vectorized=True,
-        concatenate=True,
     )
 
     # 4. Create the BeamSearchOptimizer config
@@ -277,8 +275,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
-            concatenate=True,
         )
 
         config = BeamSearchOptimizerConfig(
@@ -307,8 +303,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
-            concatenate=True,
         )
 
         config = BeamSearchOptimizerConfig(
@@ -353,8 +347,7 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=sequence_length_constraint,
             scoring_function_config=SequenceLengthConfig(target_length=20),
-            vectorized=True,
-            concatenate=True,
+
         )
 
         # Recreate optimizer with custom weights
@@ -406,8 +399,7 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
-            concatenate=True,
+
         )
         
         config = BeamSearchOptimizerConfig(
@@ -471,8 +463,7 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
-            concatenate=True,
+
         )
         
         config = BeamSearchOptimizerConfig(
@@ -548,8 +539,7 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0], segments[1]],
             scoring_function=sequence_length_constraint,
             scoring_function_config=SequenceLengthConfig(target_length=40),
-            vectorized=True,
-            concatenate=True,
+
         )
 
         # Create constraint that only depends on segment 0
@@ -557,8 +547,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
-            concatenate=True,
         )
 
         config = BeamSearchOptimizerConfig(
@@ -610,8 +598,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0], segments[1]],
             scoring_function=sequence_length_constraint,
             scoring_function_config=SequenceLengthConfig(target_length=40),
-            vectorized=True,
-            concatenate=True,
         )
 
         config = BeamSearchOptimizerConfig(
@@ -870,8 +856,6 @@ class TestBeamSearchOptimizer:
                 inputs=[segments[0]],
                 scoring_function=gc_content_constraint,
                 scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-                vectorized=True,
-                concatenate=True,
             )
 
             config = BeamSearchOptimizerConfig(
@@ -960,8 +944,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
-            concatenate=True,
         )
 
         # Constraint on segments 0 and 1 together
@@ -969,8 +951,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0], segments[1]],
             scoring_function=sequence_length_constraint,
             scoring_function_config=SequenceLengthConfig(target_length=60),
-            vectorized=True,
-            concatenate=True,
         )
 
         # Constraint on all three segments
@@ -978,8 +958,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0], segments[1], segments[2]],
             scoring_function=sequence_length_constraint,
             scoring_function_config=SequenceLengthConfig(target_length=90),
-            vectorized=True,
-            concatenate=True,
         )
 
         config = BeamSearchOptimizerConfig(
@@ -1147,8 +1125,6 @@ class TestBeamSearchOptimizer:
             inputs=[segments[0]],
             scoring_function=gc_content_constraint,
             scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
-            vectorized=True,
-            concatenate=True,
         )
 
         config = BeamSearchOptimizerConfig(

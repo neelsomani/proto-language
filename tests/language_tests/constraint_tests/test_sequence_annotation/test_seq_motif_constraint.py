@@ -85,7 +85,6 @@ class TestSeqMotifConstraint:
                     inputs=[segment],
                     scoring_function=seq_motif_constraint,
                     scoring_function_config=config,
-                    vectorized=True
                 )
                 
                 scores = constraint.evaluate()
@@ -125,7 +124,6 @@ class TestSeqMotifConstraint:
                     inputs=[segment],
                     scoring_function=seq_motif_constraint,
                     scoring_function_config=config,
-                    vectorized=True
                 )
                 
                 scores = constraint.evaluate()

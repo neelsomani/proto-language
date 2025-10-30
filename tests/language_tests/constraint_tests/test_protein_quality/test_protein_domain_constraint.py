@@ -28,13 +28,16 @@ from ..utils import create_segment
 TEST_HMM = (
     Path(__file__).parent.parent.parent.parent / "dummy_data" / "test_multiple_hmm.hmm"
 )
-sequence_iterator = SeqIO.parse(
+
+# Load test sequence and properly close the file handle
+TEST_FASTA_PATH = (
     Path(__file__).parent.parent.parent.parent
     / "dummy_data"
-    / "test_sequences_for_pyhmmer.fasta",
-    "fasta",
+    / "test_sequences_for_pyhmmer.fasta"
 )
-SAMPLE_SEQUENCE = [str(seq.seq) for seq in sequence_iterator][0]
+with open(TEST_FASTA_PATH, "r") as fasta_file:
+    sequence_iterator = SeqIO.parse(fasta_file, "fasta")
+    SAMPLE_SEQUENCE = [str(seq.seq) for seq in sequence_iterator][0]
 
 class TestProteinDomainConstraint:
     """Tests for Protein Domain constraint."""
@@ -60,7 +63,6 @@ class TestProteinDomainConstraint:
             inputs=[segment],
             scoring_function=protein_domain_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         scores = constraint.evaluate()
 
@@ -90,7 +92,6 @@ class TestProteinDomainConstraint:
             inputs=[segment],
             scoring_function=protein_domain_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         # Evaluate the constraint
@@ -122,7 +123,6 @@ class TestProteinDomainConstraint:
             inputs=[segment],
             scoring_function=protein_domain_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         scores = constraint.evaluate()
@@ -147,7 +147,6 @@ class TestProteinDomainConstraint:
                 inputs=[segment],
                 scoring_function=protein_domain_constraint,
                 scoring_function_config=config,
-            vectorized=True,
             )
 
             with pytest.raises(ValueError, match="HMM database not found"):
@@ -184,7 +183,6 @@ class TestProteinDomainConstraint:
                 inputs=[segment],
                 scoring_function=protein_domain_constraint,
                 scoring_function_config=config,
-            vectorized=True,
             )
 
             scores = constraint.evaluate()
@@ -217,7 +215,6 @@ class TestProteinDomainConstraint:
                 inputs=[segment],
                 scoring_function=protein_domain_constraint,
                 scoring_function_config=config,
-            vectorized=True,
             )
 
             scores = constraint.evaluate()

@@ -41,7 +41,6 @@ class TestPromoterStrengthConstraint:
                 inputs=[segment],
                 scoring_function=promoter_strength_constraint,
                 scoring_function_config=config,
-                vectorized=True
             )
             
             scores = constraint.evaluate()
@@ -65,7 +64,6 @@ class TestPromoterStrengthConstraint:
                 inputs=[segment],
                 scoring_function=promoter_strength_constraint,
                 scoring_function_config=config,
-                vectorized=True
             )
             
             scores = constraint.evaluate()
@@ -89,7 +87,6 @@ class TestPromoterStrengthConstraint:
                 inputs=[segment],
                 scoring_function=promoter_strength_constraint,
                 scoring_function_config=config,
-                vectorized=True
             )
             
             scores = constraint.evaluate()
@@ -113,7 +110,6 @@ class TestPromoterStrengthConstraint:
                 inputs=[segment],
                 scoring_function=promoter_strength_constraint,
                 scoring_function_config=config,
-                vectorized=True
             )
             
             scores = constraint.evaluate()
@@ -138,7 +134,6 @@ class TestPromoterStrengthConstraint:
                 inputs=[segment],
                 scoring_function=promoter_strength_constraint,
                 scoring_function_config=config,
-                vectorized=True
             )
             
             scores = constraint.evaluate()
@@ -168,7 +163,6 @@ class TestPromoterStrengthConstraint:
                 inputs=[segment],
                 scoring_function=promoter_strength_constraint,
                 scoring_function_config=config,
-                vectorized=True
             )
             
             constraint.evaluate()

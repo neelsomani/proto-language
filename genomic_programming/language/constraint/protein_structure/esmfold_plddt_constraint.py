@@ -43,7 +43,7 @@ class ESMFoldPLDDTConfig(BaseConfig):
     config=ESMFoldPLDDTConfig,
     description="Evaluate protein structure quality using ESMFold predicted LDDT score",
     vectorized=True,
-    concatenate=False,
+    concatenate=True,
     gpu_required=True
 )
 def esmfold_plddt_constraint(

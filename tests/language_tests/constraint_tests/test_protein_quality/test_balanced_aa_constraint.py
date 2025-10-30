@@ -23,7 +23,6 @@ class TestBalancedAAConstraint:
             inputs=[segment],
             scoring_function=balanced_aa_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]
@@ -46,7 +45,6 @@ class TestBalancedAAConstraint:
             inputs=[segment],
             scoring_function=balanced_aa_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         score = constraint.evaluate()[0]
@@ -76,7 +74,6 @@ class TestBalancedAAConstraint:
             inputs=[segment],
             scoring_function=balanced_aa_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
 
         scores = constraint.evaluate()

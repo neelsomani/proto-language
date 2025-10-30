@@ -85,6 +85,11 @@ def mock_single_input_scoring_function(sequence: Sequence, config=None) -> float
     sequence._metadata["t_fraction"] = score
     return score
 
+# Set attributes that would normally be set by registry decorator
+mock_single_input_scoring_function._constraint_vectorized = False
+mock_single_input_scoring_function._constraint_concatenate = True
+mock_single_input_scoring_function._constraint_config_class = None
+
 
 def mock_multi_input_scoring_function(sequences: List[Sequence], config=None) -> List[float]:
     """
@@ -109,6 +114,11 @@ def mock_multi_input_scoring_function(sequences: List[Sequence], config=None) ->
         sequence._metadata["t_fraction"] = score
         scores.append(score)
     return scores
+
+# Set attributes that would normally be set by registry decorator
+mock_multi_input_scoring_function._constraint_vectorized = True
+mock_multi_input_scoring_function._constraint_concatenate = True
+mock_multi_input_scoring_function._constraint_config_class = None
 
 
 def mock_single_input_scoring_function_disjoint(
@@ -139,6 +149,11 @@ def mock_single_input_scoring_function_disjoint(
     
     score = (t_percent + c_percent) / 2
     return score
+
+# Set attributes that would normally be set by registry decorator
+mock_single_input_scoring_function_disjoint._constraint_vectorized = False
+mock_single_input_scoring_function_disjoint._constraint_concatenate = False
+mock_single_input_scoring_function_disjoint._constraint_config_class = None
 
 
 def mock_multi_input_scoring_function_disjoint(
@@ -171,6 +186,11 @@ def mock_multi_input_scoring_function_disjoint(
         sequence_tuple[1]._metadata["c_percent"] = c_percent
     
     return scores
+
+# Set attributes that would normally be set by registry decorator
+mock_multi_input_scoring_function_disjoint._constraint_vectorized = True
+mock_multi_input_scoring_function_disjoint._constraint_concatenate = False
+mock_multi_input_scoring_function_disjoint._constraint_config_class = None
 
 
 # =============================================================================

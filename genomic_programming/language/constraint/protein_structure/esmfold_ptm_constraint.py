@@ -43,7 +43,7 @@ class ESMFoldPTMConfig(BaseConfig):
     config=ESMFoldPTMConfig,
     description="Evaluate protein structure quality using ESMFold predicted TM score",
     vectorized=True,
-    concatenate=False,
+    concatenate=True,
     gpu_required=True
 )
 def esmfold_ptm_constraint(

@@ -10,7 +10,7 @@ Key Features:
     - Automatic metadata propagation back to original sequences
 """
 
-from typing import Callable, List, Optional, Tuple, Union, Dict, Any, get_type_hints, Type
+from typing import Callable, List, Optional, Tuple, Union, Dict, Any
 
 from pydantic import BaseModel
 
@@ -58,8 +58,6 @@ class Constraint:
         inputs: List[Segment],
         scoring_function: Callable,
         scoring_function_config: Union[BaseModel, Dict[str, Any]],
-        vectorized: bool = False,
-        concatenate: bool = True,
         label: Optional[str] = None,
     ):
         """
@@ -70,27 +68,24 @@ class Constraint:
             scoring_function: The constraint scoring function that returns scores between 0.0-1.0.
                 For sequential mode: (Sequence, config=ConfigModel) -> float or (Tuple[Sequence, ...], config=ConfigModel) -> float
                 For vectorized mode: (List[Sequence], config=ConfigModel) -> List[float] or (List[Tuple[Sequence, ...]], config=ConfigModel) -> List[float]
+                The function must be registered with @ConstraintRegistry.register() which sets the
+                vectorized and concatenate properties.
             scoring_function_config: Configuration parameters. Can be either:
                 Pydantic BaseModel instance (recommended)
                 Dict that will be converted to the appropriate config model
-            vectorized: If True, pass all sequences at once for batch processing.
-                If False, evaluate sequences one at a time.
-            concatenate: If True, concatenate multiple segments before evaluation. If False, pass segments separately (tuple of sequences).
             label: Optional label for metadata tracking. Defaults to the name of the scoring function.
         """
         self.inputs = inputs
         self.scoring_function = scoring_function
-        self.vectorized = vectorized
-        self.concatenate = concatenate
         self.label = label or scoring_function.__name__
-        
+        # Read vectorized and concatenate from function attributes (set by registry)
+        self.vectorized = scoring_function._constraint_vectorized 
+        self.concatenate = scoring_function._constraint_concatenate
+
         # Convert dict configs to Pydantic models for validation
         if isinstance(scoring_function_config, dict):
-            config_class = self._try_extract_config_class(scoring_function)
-            self.scoring_function_config = (
-                config_class(**scoring_function_config) if config_class 
-                else scoring_function_config
-            )
+            config_class = scoring_function._constraint_config_class
+            self.scoring_function_config = config_class(**scoring_function_config)
         else:
             self.scoring_function_config = scoring_function_config
         
@@ -149,16 +144,14 @@ class Constraint:
         """
         if self.concatenate:
             # CONTIGUOUS: Merge all segments into single Sequence object
-            # Example: candidate_idx=0, segments with candidates=[Seq("AAA"), ...], [Seq("CCC"), ...]
-            #          → Sequence("AAACCC")
+            # Example: candidate_idx=0, segments with candidates=[Seq("AAA"), ...], [Seq("CCC"), ...] → Sequence("AAACCC")
             return Sequence.from_sequences(
                 subsequences=[seg.candidate_sequences[candidate_idx] for seg in self.inputs],
                 merge_metadata=False  # Clean metadata - only basic system keys
             )
         else:
             # DISJOINT: Return tuple of clean Sequence objects
-            # Example: candidate_idx=0, segments with candidates=[Seq("AAA"), ...], [Seq("CCC"), ...]
-            #          → (Seq("AAA"), Seq("CCC"))
+            # Example: candidate_idx=0, segments with candidates=[Seq("AAA"), ...], [Seq("CCC"), ...] → (Seq("AAA"), Seq("CCC"))
             dummy_sequences = []
             for seg in self.inputs:
                 original = seg.candidate_sequences[candidate_idx]
@@ -212,28 +205,6 @@ class Constraint:
                     prefix=prefix
                 )
                 
-    def _try_extract_config_class(self, func: Callable) -> Optional[Type[BaseModel]]:
-        """
-        Extract config class from function's type hints, returning None if unavailable.
-        
-        Supports production constraints with proper type hints and test mocks without them.
-        """
-        try:
-            hints = get_type_hints(func)
-            if 'config' not in hints:
-                return None
-            
-            config_type = hints['config']
-            
-            # Handle Union types (e.g., Optional[ConfigClass])
-            if hasattr(config_type, '__origin__'):
-                args = getattr(config_type, '__args__', ())
-                config_type = next((arg for arg in args if arg is not type(None)), config_type)
-            
-            return config_type if isinstance(config_type, type) else None
-        except Exception:
-            return None
-    
     def _validate_inputs(self) -> None:
         """Validate that all input segments have consistent candidate pool sizes and sequence types."""
         if not self.inputs:

@@ -103,14 +103,12 @@ def test_mock_constraint_with_batched_segment():
         inputs=[single_batch_input],
         scoring_function=mock_single_input_scoring_function,
         scoring_function_config=empty_config,
-        vectorized=False,
     )
     scores_single_input = constraint_single_input.evaluate()
     constraint_multi_input = Constraint(
         inputs=[multi_batch_input],
         scoring_function=mock_multi_input_scoring_function,
         scoring_function_config=empty_config,
-        vectorized=True,
     )
     scores_multi_input = constraint_multi_input.evaluate()
 
@@ -192,7 +190,6 @@ def test_mock_constraint_with_single_sequence_input():
         inputs=[single_seq_segment],
         scoring_function=mock_single_input_scoring_function,
         scoring_function_config=empty_config,
-        vectorized=False,
     )
     scores_single_input = constraint_single_input.evaluate()
 
@@ -200,7 +197,6 @@ def test_mock_constraint_with_single_sequence_input():
         inputs=[multi_seq_segment],
         scoring_function=mock_multi_input_scoring_function,
         scoring_function_config=empty_config,
-        vectorized=True,
     )
     scores_multi_input = constraint_multi_input.evaluate()
 
@@ -305,8 +301,6 @@ def test_mock_constraint_with_multi_segment_input():
         inputs=[single_batch_input_a, single_batch_input_b],
         scoring_function=mock_single_input_scoring_function,
         scoring_function_config=empty_config,
-        concatenate=True,
-        vectorized=False,
     )
     scores_single_input = constraint_single_input.evaluate()
 
@@ -314,8 +308,6 @@ def test_mock_constraint_with_multi_segment_input():
         inputs=[multi_batch_input_a, multi_batch_input_b],
         scoring_function=mock_multi_input_scoring_function,
         scoring_function_config=empty_config,
-        concatenate=True,
-        vectorized=True,
     )
     scores_multi_input = constraint_multi_input.evaluate()
 
@@ -422,8 +414,6 @@ def test_mock_constraint_with_disjoint_input():
         inputs=[single_batch_input_a, single_batch_input_b],
         scoring_function=mock_single_input_scoring_function_disjoint,
         scoring_function_config=empty_config,
-        concatenate=False,
-        vectorized=False,
     )
     scores_single_input = constraint_single_input.evaluate()
 
@@ -431,8 +421,6 @@ def test_mock_constraint_with_disjoint_input():
         inputs=[multi_batch_input_a, multi_batch_input_b],
         scoring_function=mock_multi_input_scoring_function_disjoint,
         scoring_function_config=empty_config,
-        concatenate=False,
-        vectorized=True,
     )
     scores_multi_input = constraint_multi_input.evaluate()
 
@@ -635,7 +623,6 @@ def test_custom_label_disjoint_mode():
         inputs=[seg1, seg2],
         scoring_function=mock_single_input_scoring_function_disjoint,
         scoring_function_config=config,
-        concatenate=False,
         label="disjoint_custom_label"
     )
     
@@ -669,7 +656,6 @@ def test_large_batch_processing():
         inputs=[segment],
         scoring_function=mock_multi_input_scoring_function,
         scoring_function_config=config,
-        vectorized=True,
     )
     
     scores = constraint.evaluate()
@@ -695,7 +681,6 @@ def test_three_or_more_segments_contiguous():
         inputs=[seg1, seg2, seg3],
         scoring_function=mock_single_input_scoring_function,
         scoring_function_config=config,
-        concatenate=True,
     )
     
     scores = constraint.evaluate()
@@ -730,6 +715,11 @@ def test_three_or_more_segments_disjoint():
         
         return (a_count + t_count + g_count) / 3
     
+    # Set attributes that would normally be set by registry decorator
+    mock_triple_input_scoring_function._constraint_vectorized = False
+    mock_triple_input_scoring_function._constraint_concatenate = False
+    mock_triple_input_scoring_function._constraint_config_class = None
+    
     seg1 = create_segment("AAAA", SequenceType.DNA)
     seg2 = create_segment("TTTT", SequenceType.DNA)
     seg3 = create_segment("GGGG", SequenceType.DNA)
@@ -739,7 +729,6 @@ def test_three_or_more_segments_disjoint():
         inputs=[seg1, seg2, seg3],
         scoring_function=mock_triple_input_scoring_function,
         scoring_function_config=config,
-        concatenate=False,
     )
     
     scores = constraint.evaluate()
@@ -773,7 +762,6 @@ def test_empty_sequence_in_batch():
         inputs=[segment],
         scoring_function=mock_multi_input_scoring_function,
         scoring_function_config=config,
-        vectorized=True,
     )
     
     # Most scoring functions will fail on empty sequences (division by zero)

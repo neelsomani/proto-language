@@ -31,7 +31,6 @@ class TestGCContentConstraint:
             inputs=[segment],
             scoring_function=gc_content_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9
         # Check metadata (stored in candidate sequences which constraints evaluate)
@@ -58,7 +57,6 @@ class TestGCContentConstraint:
             inputs=[segment],
             scoring_function=gc_content_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9
 
@@ -70,7 +68,6 @@ class TestGCContentConstraint:
             inputs=[segment],
             scoring_function=gc_content_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         with pytest.raises(ValueError):
             constraint.evaluate()

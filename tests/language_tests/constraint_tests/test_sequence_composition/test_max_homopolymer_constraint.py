@@ -38,7 +38,6 @@ class TestMaxHomopolymerConstraint:
             inputs=[segment],
             scoring_function=max_homopolymer_constraint,
             scoring_function_config=config,
-            vectorized=True,
         )
         score = constraint.evaluate()[0]
         assert abs(score - expected_score) < 1e-9

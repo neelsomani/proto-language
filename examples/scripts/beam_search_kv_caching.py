@@ -91,6 +91,7 @@ def run_beam_search(
 
     # Create optimizer
     optimizer_config = BeamSearchOptimizerConfig(
+        prompt=prompt,
         beam_width=beam_width,
         candidates_per_beam=candidates_per_beam,
         use_kv_caching=use_kv_caching,
@@ -98,9 +99,8 @@ def run_beam_search(
     )
 
     optimizer = BeamSearchOptimizer(
-        construct=construct,
-        generator=generator,
-        prompt=prompt,
+        constructs=[construct],
+        generators=[generator],
         constraints=[constraint],
         config=optimizer_config
     )

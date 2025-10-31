@@ -137,6 +137,7 @@ def _setup_beam_search_components(
 
     # 4. Create the BeamSearchOptimizer config
     config = BeamSearchOptimizerConfig(
+        prompt=prompt,
         beam_width=beam_width,
         candidates_per_beam=candidates_per_beam,
         use_kv_caching=use_kv_caching,
@@ -144,9 +145,8 @@ def _setup_beam_search_components(
     )
 
     optimizer = BeamSearchOptimizer(
-        construct=construct,
-        generator=generator,
-        prompt=prompt,
+        constructs=[construct],
+        generators=[generator],
         constraints=[constraint],
         config=config,
     )
@@ -278,15 +278,75 @@ class TestBeamSearchOptimizer:
         )
 
         config = BeamSearchOptimizerConfig(
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
         )
 
         with pytest.raises(ValueError, match="requires autoregressive generators"):
             BeamSearchOptimizer(
-                construct=construct,
-                generator=generator,
-                prompt="ATCG",
+                constructs=[construct],
+                generators=[generator],
+                constraints=[constraint],
+                config=config,
+            )
+
+    def test_initialization_with_multiple_constructs(self):
+        """Tests that BeamSearchOptimizer rejects multiple constructs."""
+        segments1 = [create_segment("") for _ in range(2)]
+        segments2 = [create_segment("") for _ in range(2)]
+        construct1 = Construct(segments1)
+        construct2 = Construct(segments2)
+
+        generator = MockAutoregressiveGenerator(num_tokens=20)
+        generator._assigned_segment = segments1[0]
+
+        constraint = Constraint(
+            inputs=[segments1[0]],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
+            beam_width=3,
+            candidates_per_beam=5,
+        )
+
+        with pytest.raises(ValueError, match="only supports a single construct"):
+            BeamSearchOptimizer(
+                constructs=[construct1, construct2],
+                generators=[generator],
+                constraints=[constraint],
+                config=config,
+            )
+
+    def test_initialization_with_multiple_generators(self):
+        """Tests that BeamSearchOptimizer rejects multiple generators."""
+        segments = [create_segment("") for _ in range(2)]
+        construct = Construct(segments)
+
+        generator1 = MockAutoregressiveGenerator(num_tokens=20)
+        generator1._assigned_segment = segments[0]
+        generator2 = MockAutoregressiveGenerator(num_tokens=20)
+        generator2._assigned_segment = segments[0]
+
+        constraint = Constraint(
+            inputs=[segments[0]],
+            scoring_function=gc_content_constraint,
+            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
+            beam_width=3,
+            candidates_per_beam=5,
+        )
+
+        with pytest.raises(ValueError, match="only supports a single generator"):
+            BeamSearchOptimizer(
+                constructs=[construct],
+                generators=[generator1, generator2],
                 constraints=[constraint],
                 config=config,
             )
@@ -306,15 +366,15 @@ class TestBeamSearchOptimizer:
         )
 
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
         )
 
         with pytest.warns(UserWarning, match="will overwrite"):
             BeamSearchOptimizer(
-                construct=construct,
-                generator=generator,
-                prompt="ATCG",
+                constructs=[construct],
+                generators=[generator],
                 constraints=[constraint],
                 config=config,
             )
@@ -324,19 +384,24 @@ class TestBeamSearchOptimizer:
         from pydantic import ValidationError
 
         # Valid configs
-        config = BeamSearchOptimizerConfig(beam_width=5, candidates_per_beam=10)
+        config = BeamSearchOptimizerConfig(prompt="ATCG", beam_width=5, candidates_per_beam=10)
+        assert config.prompt == "ATCG"
         assert config.beam_width == 5
         assert config.candidates_per_beam == 10
         assert config.use_kv_caching is True
         assert config.verbose is False
 
+        # Missing prompt should fail
+        with pytest.raises(ValidationError):
+            BeamSearchOptimizerConfig(beam_width=5, candidates_per_beam=10)
+
         # Negative beam_width should fail
         with pytest.raises(ValidationError):
-            BeamSearchOptimizerConfig(beam_width=0, candidates_per_beam=5)
+            BeamSearchOptimizerConfig(prompt="ATCG", beam_width=0, candidates_per_beam=5)
 
         # Negative candidates_per_beam should fail
         with pytest.raises(ValidationError):
-            BeamSearchOptimizerConfig(beam_width=5, candidates_per_beam=0)
+            BeamSearchOptimizerConfig(prompt="ATCG", beam_width=5, candidates_per_beam=0)
 
     def test_constraint_weights(self):
         """Tests that constraint weights are properly handled."""
@@ -355,15 +420,15 @@ class TestBeamSearchOptimizer:
         generator._assigned_segment = segments[0]  # Required for validation
 
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
         )
 
         construct = Construct(segments)
         optimizer = BeamSearchOptimizer(
-            construct=construct,
-            generator=generator,
-            prompt="ATCG",
+            constructs=[construct],
+            generators=[generator],
             constraints=[optimizer.constraints[0], constraint2],
             constraint_weights=[1.0, 2.0],
             config=config,
@@ -374,9 +439,8 @@ class TestBeamSearchOptimizer:
         # Mismatched weights and constraints should fail
         with pytest.raises(ValueError, match="must match"):
             BeamSearchOptimizer(
-                construct=construct,
-                generator=generator,
-                prompt="ATCG",
+                constructs=[construct],
+                generators=[generator],
                 constraints=[optimizer.constraints[0], constraint2],
                 constraint_weights=[1.0, 2.0, 3.0],
                 config=config,
@@ -403,6 +467,7 @@ class TestBeamSearchOptimizer:
         )
         
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             use_kv_caching=True,
@@ -410,9 +475,8 @@ class TestBeamSearchOptimizer:
         )
         
         optimizer = BeamSearchOptimizer(
-            construct=construct,
-            generator=generator,
-            prompt="ATCG",
+            constructs=[construct],
+            generators=[generator],
             constraints=[constraint],
             config=config,
         )
@@ -467,6 +531,7 @@ class TestBeamSearchOptimizer:
         )
         
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             use_kv_caching=True,
@@ -474,9 +539,8 @@ class TestBeamSearchOptimizer:
         )
         
         optimizer = BeamSearchOptimizer(
-            construct=construct,
-            generator=generator,
-            prompt="ATCG",
+            constructs=[construct],
+            generators=[generator],
             constraints=[constraint],
             config=config,
         )
@@ -550,14 +614,14 @@ class TestBeamSearchOptimizer:
         )
 
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=2,
             candidates_per_beam=3,
         )
 
         optimizer = BeamSearchOptimizer(
-            construct=construct,
-            generator=generator,
-            prompt="ATCG",
+            constructs=[construct],
+            generators=[generator],
             constraints=[constraint_01, constraint_0],
             config=config,
         )
@@ -601,14 +665,14 @@ class TestBeamSearchOptimizer:
         )
 
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=2,
             candidates_per_beam=3,
         )
 
         optimizer = BeamSearchOptimizer(
-            construct=construct,
-            generator=generator,
-            prompt="ATCG",
+            constructs=[construct],
+            generators=[generator],
             constraints=[constraint],
             config=config,
         )
@@ -859,6 +923,7 @@ class TestBeamSearchOptimizer:
             )
 
             config = BeamSearchOptimizerConfig(
+        prompt="ATCGATCGATCG",
                 beam_width=3,
                 candidates_per_beam=5,
                 use_kv_caching=use_kv_caching,
@@ -866,9 +931,8 @@ class TestBeamSearchOptimizer:
             )
 
             return BeamSearchOptimizer(
-                construct=construct,
-                generator=generator,
-                prompt="ATCGATCGATCG",
+                constructs=[construct],
+                generators=[generator],
                 constraints=[constraint],
                 config=config,
             )
@@ -961,15 +1025,15 @@ class TestBeamSearchOptimizer:
         )
 
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             verbose=False,
         )
 
         optimizer = BeamSearchOptimizer(
-            construct=construct,
-            generator=generator,
-            prompt="ATCG",
+            constructs=[construct],
+            generators=[generator],
             constraints=[constraint_0, constraint_01, constraint_012],
             constraint_weights=[1.0, 1.0, 1.0],
             config=config,
@@ -1128,6 +1192,7 @@ class TestBeamSearchOptimizer:
         )
 
         config = BeamSearchOptimizerConfig(
+        prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             use_kv_caching=True,
@@ -1135,9 +1200,8 @@ class TestBeamSearchOptimizer:
         )
 
         optimizer = BeamSearchOptimizer(
-            construct=construct,
-            generator=generator,
-            prompt="ATCG",
+            constructs=[construct],
+            generators=[generator],
             constraints=[constraint],
             config=config,
         )

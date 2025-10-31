@@ -17,6 +17,9 @@ from .optimizer_registry import OptimizerRegistry
 
 class BeamSearchOptimizerConfig(BaseConfig):
     """Configuration for BeamSearchOptimizer"""
+    prompt: str = Field(
+        description="The DNA sequence prompt to start the beam search (e.g., 'ATCG')"
+    )
     prepend_prompt: bool = Field(
         default=True,
         description="Whether to prepend the prompt to the generated sequence in the output"
@@ -66,13 +69,13 @@ class BeamSearchOptimizer(Optimizer):
         >>>
         >>> construct = Construct([segment1, segment2, segment3])
         >>> config = BeamSearchOptimizerConfig(
+        ...     prompt="ATCG",
         ...     beam_width=5,
         ...     candidates_per_beam=10,
         ... )
         >>> beam_search = BeamSearchOptimizer(
-        ...     construct=construct,
-        ...     generator=generator,
-        ...     prompt="",
+        ...     constructs=[construct],
+        ...     generators=[generator],
         ...     constraints=[gc_constraint, homopolymer_constraint],
         ...     config=config,
         ...     constraint_weights=[1.0, 2.0]
@@ -85,9 +88,8 @@ class BeamSearchOptimizer(Optimizer):
 
     def __init__(
         self,
-        construct: Construct,
-        generator: Generator,
-        prompt: str,
+        constructs: List[Construct],
+        generators: List[Generator],
         constraints: List[Constraint],
         config: BeamSearchOptimizerConfig,
         constraint_weights: Optional[List[float]] = None,
@@ -98,20 +100,30 @@ class BeamSearchOptimizer(Optimizer):
         Initialize the Beam Search Optimizer.
 
         Args:
-            construct: A single Construct object to optimize.
-            generator: A single autoregressive Generator object (must have type=GeneratorType.AUTOREGRESSIVE).
-            prompt: The DNA sequence prompt to start the beam search.
+            constructs: List containing a single Construct object to optimize.
+            generators: List containing a single autoregressive Generator object (must have type=GeneratorType.AUTOREGRESSIVE).
             constraints: List of Constraint objects for evaluation (lower scores are better).
-            config: Configuration object containing algorithm parameters (beam_width, candidates_per_beam, etc.).
+            config: Configuration object containing algorithm parameters (prompt, beam_width, candidates_per_beam, etc.).
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
             custom_logging: Optional custom logging function called after each segment.
             clear_tool_cache: (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
         """
+        # Validate that we have exactly one construct and one generator
+        if len(constructs) != 1:
+            raise ValueError(f"BeamSearchOptimizer only supports a single construct, but received {len(constructs)} constructs.")
+
+        if len(generators) != 1:
+            raise ValueError(f"BeamSearchOptimizer only supports a single generator, but received {len(generators)} generators.")
+
+        construct = constructs[0]
+        generator = generators[0]
+        prompt = config.prompt  # Extract prompt from config
+
         # Beam Search only works with autoregressive generators with non-empty prompts
         if generator.type != GeneratorType.AUTOREGRESSIVE:
             raise ValueError(f"BeamSearchOptimizer requires autoregressive generators. The provided generator '{generator.__class__.__name__}' is not autoregressive.")
-        
+
         if not prompt:
             raise ValueError("BeamSearchOptimizer requires a non-empty prompt to start beam search.")
 
@@ -121,13 +133,13 @@ class BeamSearchOptimizer(Optimizer):
             # BeamSearch overwrites segment.candidate_sequences during run()
             if any(seq.sequence for seq in segment.candidate_sequences):
                 warnings.warn(f"BeamSearchOptimizer will overwrite {segment.num_candidates} existing candidate(s) in segment '{segment.label or 'unlabeled'}' during run()")
-        
+
         # Required for validation in base class. Assign the generator to the first segment to pass validation
         generator.assign(construct.segments[0])
-        
+
         super().__init__(
-            constructs=[construct],
-            generators=[generator],
+            constructs=constructs,
+            generators=generators,
             constraints=constraints,
             constraint_weights=constraint_weights,
             num_candidates=config.beam_width * config.candidates_per_beam,

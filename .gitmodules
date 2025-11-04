@@ -1,0 +1,3 @@
+[submodule "third_party/SpliceTransformer"]
+	path = third_party/SpliceTransformer
+	url = git@github.com:evo-design/SpliceTransformer.git

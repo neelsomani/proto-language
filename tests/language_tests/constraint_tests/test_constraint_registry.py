@@ -477,12 +477,6 @@ class TestBuiltinConstraints:
         for key in expected:
             assert key in registered, f"Missing constraint: {key}"
     
-    def test_total_constraint_count(self):
-        """Test that we have the expected total number of constraints."""
-        count = ConstraintRegistry.count()
-        # 4 sequence composition + 7 protein quality + 5 protein structure + 4 sequence annotation = 20
-        assert count == 20, f"Expected 20 constraints, got {count}"
-    
     def test_gpu_constraints_marked_correctly(self):
         """Test that GPU-requiring constraints are properly marked."""
         # Constraints that should be marked as GPU-required

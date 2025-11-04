@@ -76,6 +76,9 @@ dependencies = [
     # Sequence scoring (CPU-only)
     "alphagenome>=0.2.0",
 
+    # Splice Transformer
+    "sinkhorn-transformer",
+
     # Testing
     "pytest>=7.3.0",
     "pytest-asyncio>=0.21.0",

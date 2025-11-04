@@ -29,6 +29,12 @@ from .protein_quality import (
     protein_domain_constraint,
 )
 
+# RNA splicing constraints
+from .rna_splicing import (
+    splice_transformer_intron_boundary,
+    splice_transformer_specificity,
+)
+
 # Sequence annotation constraints
 from .sequence_annotation import (
     mmseqs_homology_constraint,

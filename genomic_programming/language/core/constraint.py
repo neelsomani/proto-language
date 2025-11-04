@@ -79,7 +79,7 @@ class Constraint:
         self.scoring_function = scoring_function
         self.label = label or scoring_function.__name__
         # Read vectorized and concatenate from function attributes (set by registry)
-        self.vectorized = scoring_function._constraint_vectorized 
+        self.vectorized = scoring_function._constraint_vectorized
         self.concatenate = scoring_function._constraint_concatenate
 
         # Convert dict configs to Pydantic models for validation

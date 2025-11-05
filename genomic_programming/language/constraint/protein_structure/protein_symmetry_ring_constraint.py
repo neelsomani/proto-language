@@ -14,6 +14,9 @@ from pydantic import Field
 from proto_language.language.core import Sequence, SequenceType
 from proto_language.base_config import BaseConfig
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.tools.models.structure_prediction.schemas import (
+    StructurePredictionComplex,
+)
 from proto_language.tools.models.structure_prediction.esmfold import (
     ESMFoldInput,
     ESMFoldConfig,
@@ -32,7 +35,6 @@ from proto_language.utils import (
     pdb_file_to_atomarray,
     MAX_ENERGY,
 )
-
 
 
 class ProteinSymmetryRingConfig(BaseConfig):
@@ -103,14 +105,26 @@ def _evaluate_protein_symmetry(
     config: ProteinSymmetryRingConfig
 ) -> List[float]:
     """Evaluate protein ring symmetry directly."""
-    batch_sequences = [[seq.sequence] * config.n_replications for seq in protein_sequences]
-    
-    esmfold_input = ESMFoldInput(sequences=batch_sequences)
-    esmfold_config = config.esmfold_config or ESMFoldConfig()
-    output = run_esmfold(inputs=esmfold_input, config=esmfold_config)
 
+    # Create complexes with n_replications of each protein sequence
+    complexes = [
+        StructurePredictionComplex(
+            chains=[seq.sequence] * config.n_replications,
+            entity_types=["protein"] * config.n_replications,
+        )
+        for seq in protein_sequences
+    ]
+
+    # Run ESMFold
+    output = run_esmfold(
+        inputs=ESMFoldInput(complexes=complexes),
+        config=config.esmfold_config or ESMFoldConfig(),
+    )
+
+    # Determine distance function
     distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
-    
+
+    # Update sequence metadata with ESMFold output and calculate scores for each sequence
     scores = []
     for seq, structure in zip(protein_sequences, output.structures):
         seq._metadata.update({
@@ -119,25 +133,25 @@ def _evaluate_protein_symmetry(
             "pdb_output": structure.structure_pdb_output,
             "esmfolded_sequence": ":".join([seq.sequence] * config.n_replications),
         })
-        
+
         # Calculate ring symmetry
         atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb_output))
-        
+
         centroids = []
         for chain_id in get_chains(atom_array):
             chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord
             centroids.append(get_centroid(chain_backbone))
-        
+
         assert len(centroids) == config.n_replications
         centroids = np.vstack(centroids)
-        
+
         symmetry_std = float(np.std(distance_func(centroids)))
         normalized_score = min(1.0, symmetry_std / config.max_symmetry_std)
-        
+
         seq._metadata["symmetry_std_raw"] = symmetry_std
         seq._metadata["symmetry_score_normalized"] = normalized_score
         scores.append(normalized_score)
-    
+
     return scores
 
 def _evaluate_dna_symmetry(
@@ -149,10 +163,10 @@ def _evaluate_dna_symmetry(
         ProdigalInput(input_sequences=[seq.sequence for seq in dna_sequences]),
         ProdigalConfig()
     )
-    
+
     distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
     scores = []
-    
+
     for dna_seq, proteins_df, num_genes in zip(
         dna_sequences,
         prodigal_result.results_per_sequence,
@@ -162,19 +176,28 @@ def _evaluate_dna_symmetry(
             "prodigal_proteins": proteins_df,
             "prodigal_protein_count": num_genes
         })
-        
+
+        # If there are no genes predicted, score is MAX_ENERGY
         if num_genes == 0 or len(proteins_df) == 0:
             scores.append(MAX_ENERGY)
             continue
-        
+
+        # Create complexes with n_replications of each protein sequence
         protein_seqs = proteins_df['protein_sequence'].tolist()
-        batch = [[seq] * config.n_replications for seq in protein_seqs]
-        
+        complexes = [
+            StructurePredictionComplex(
+                chains=[seq] * config.n_replications,
+                entity_types=["protein"] * config.n_replications,
+            )
+            for seq in protein_seqs
+        ]
+
+        # Run ESMFold
         esmfold_output = run_esmfold(
-            ESMFoldInput(sequences=batch),
-            config.esmfold_config or ESMFoldConfig()
+            inputs=ESMFoldInput(complexes=complexes),
+            config=config.esmfold_config or ESMFoldConfig(),
         )
-        
+
         # Calculate symmetry for all proteins, use best (lowest std)
         symmetry_stds = []
         for structure in esmfold_output.structures:
@@ -183,17 +206,17 @@ def _evaluate_dna_symmetry(
             for chain_id in get_chains(atom_array):
                 chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord
                 centroids.append(get_centroid(chain_backbone))
-            
+
             centroids = np.vstack(centroids)
             symmetry_stds.append(float(np.std(distance_func(centroids))))
-        
+
         best_symmetry_std = min(symmetry_stds)
         normalized_score = min(1.0, best_symmetry_std / config.max_symmetry_std)
-        
+
         dna_seq._metadata["esmfold_protein_symmetry_stds"] = symmetry_stds
         dna_seq._metadata["esmfold_best_symmetry"] = best_symmetry_std
         scores.append(normalized_score)
-    
+
     return scores
 
 

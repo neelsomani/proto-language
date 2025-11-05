@@ -52,7 +52,7 @@ class Constraint:
         ...     config_dict={"min_gc": 40, "max_gc": 60}
         ... )
     """
-    
+
     def __init__(
         self,
         inputs: List[Segment],
@@ -88,10 +88,10 @@ class Constraint:
             self.scoring_function_config = config_class(**scoring_function_config)
         else:
             self.scoring_function_config = scoring_function_config
-        
+
         # Validate inputs
         self._validate_inputs()
-    
+
     def evaluate(self) -> List[float]:
         """
         Evaluate the constraint on all candidate sequences.
@@ -129,7 +129,7 @@ class Constraint:
                 self._propagate_metadata_to_candidate(candidate_idx, sequence)
 
             return scores
-    
+
     def _preprocess_candidate_at_index(self, candidate_idx: int) -> Sequence | Tuple[Sequence, ...]:
         """
         Preprocess sequence(s) at a specific batch position for scoring by creating dummy Sequence 
@@ -163,7 +163,7 @@ class Constraint:
                 )
                 dummy_sequences.append(dummy_seq)
             return tuple(dummy_sequences)
-    
+
     def _propagate_metadata_to_candidate(self, candidate_idx: int, scored_sequence: Sequence | Tuple[Sequence, ...]) -> None:
         """
         Write constraint results back to original candidate sequence metadata.
@@ -204,7 +204,7 @@ class Constraint:
                     target_metadata=original_seq._metadata,
                     prefix=prefix
                 )
-                
+
     def _validate_inputs(self) -> None:
         """Validate that all input segments have consistent candidate pool sizes and sequence types."""
         if not self.inputs:
@@ -215,13 +215,19 @@ class Constraint:
         if not all(size == candidate_sizes[0] for size in candidate_sizes):
             raise ValueError(f"All segments must have the same number of candidate sequences. Found: {candidate_sizes}")
 
-        # Check that all segments have the same sequence type
-        sequence_types = [seg.sequence_type for seg in self.inputs]
-        if not all(st == sequence_types[0] for st in sequence_types):
-            raise ValueError(f"All segments must have the same sequence type. Found: {sequence_types}")
+        # If concatenate is True, all segments must have the same sequence type and valid_chars
+        if self.concatenate:
+            ex = self.inputs[0]
+            sequence_type = ex.sequence_type
+            valid_chars = ex._valid_chars
 
-        # Check that all segments have the same valid_chars (alphabet)
-        first_valid_chars = self.inputs[0]._valid_chars
-        for seg in self.inputs[1:]:
-            if seg._valid_chars != first_valid_chars:
-                raise ValueError(f"All segments must have the same valid_chars. Expected: {first_valid_chars}, Found: {seg._valid_chars}")
+            # Check the sequences in all other segments
+            for ind, seg in enumerate(self.inputs[1:]):
+                if seg.sequence_type != sequence_type:
+                    raise ValueError(
+                        f"All segments must have the same sequence type. Expected: {sequence_type}, Found: {seg.sequence_type} at index {ind}"
+                    )
+                if seg._valid_chars != valid_chars:
+                    raise ValueError(
+                        f"All segments must have the same valid_chars. Expected: {valid_chars}, Found: {seg._valid_chars} at index {ind}"
+                    )

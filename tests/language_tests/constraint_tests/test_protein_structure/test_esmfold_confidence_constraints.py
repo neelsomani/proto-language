@@ -16,133 +16,187 @@ from unittest.mock import Mock, patch
 sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
-from proto_language.language.constraint import esmfold_plddt_constraint, esmfold_ptm_constraint
-from proto_language.language.constraint.protein_structure.esmfold_plddt_constraint import ESMFoldPLDDTConfig
-from proto_language.language.constraint.protein_structure.esmfold_ptm_constraint import ESMFoldPTMConfig
-from proto_language.tools.models.structure_prediction.esmfold import ESMFoldConfig, ESMFoldOutput
-from proto_language.tools.models.structure_prediction.esmfold.esmfold import ESMFoldStructureOutput
+from proto_language.language.constraint import (
+    esmfold_plddt_constraint,
+    esmfold_ptm_constraint,
+)
+from proto_language.language.constraint.protein_structure.esmfold_confidence_constraints import (
+    ESMFoldConfidenceConfig,
+)
+from proto_language.tools.models.structure_prediction import (
+    ESMFoldConfig,
+    ESMFoldStructure,
+    StructurePredictionOutput,
+)
 from ..utils import create_segment
 
 
 class TestESMFoldPLDDTConstraint:
     """Tests for ESMFold pLDDT constraint."""
-    
-    @pytest.mark.parametrize("avg_plddt, expected_score", [
-        (1.0, 0.0),  # Perfect confidence
-        (0.9, 0.1),
-        (0.5, 0.5),
-        (0.0, 1.0),  # No confidence
-    ])
+
+    @pytest.mark.parametrize(
+        "avg_plddt, expected_score",
+        [
+            (1.0, 0.0),  # Perfect confidence
+            (0.9, 0.1),
+            (0.5, 0.5),
+            (0.0, 1.0),  # No confidence
+        ],
+    )
     def test_scoring_calculation(self, avg_plddt, expected_score):
         """Test that constraint score = 1.0 - avg_plddt."""
         segment = create_segment("MKTAYIAKQRQISFVK", SequenceType.PROTEIN)
-        config = ESMFoldPLDDTConfig()
+        config = ESMFoldConfidenceConfig()
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_plddt_constraint.run_esmfold") as mock_esmfold:
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = avg_plddt
             mock_structure.ptm = 0.9
             mock_structure.structure_pdb_output = "MOCK PDB"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_plddt_constraint,
                 scoring_function_config=config,
             )
-            
+
             scores = constraint.evaluate()
             assert abs(scores[0] - expected_score) < 1e-9
-    
+
     def test_sequence_replication(self):
         """Test that sequences are replicated correctly for multimers."""
         segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        config = ESMFoldPLDDTConfig(n_replications=3)
+        config = ESMFoldConfidenceConfig(n_replications=3)
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_plddt_constraint.run_esmfold") as mock_esmfold:
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.9
             mock_structure.ptm = 0.9
             mock_structure.structure_pdb_output = "MOCK PDB"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_plddt_constraint,
                 scoring_function_config=config,
             )
-            
+
             constraint.evaluate()
-            
+
             # Verify the sequence was replicated 3 times
             # After Pydantic validation, sequences becomes a list of lists
             mock_esmfold.assert_called_once()
-            passed_input = mock_esmfold.call_args.kwargs['inputs']  # Function called with keyword args
-            assert passed_input.sequences == [["MKTAYIAK", "MKTAYIAK", "MKTAYIAK"]]
-    
+            passed_input = mock_esmfold.call_args.kwargs[
+                "inputs"
+            ]  # Function called with keyword args
+            assert passed_input.complexes[0].chains == [
+                "MKTAYIAK",
+                "MKTAYIAK",
+                "MKTAYIAK",
+            ]
+
+            assert passed_input.complexes[0].entity_types == [
+                "protein",
+                "protein",
+                "protein",
+            ]
+
     def test_esmfold_config_passthrough(self):
         """Test that custom ESMFold config parameters are passed through."""
         segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        
-        esmfold_cfg = ESMFoldConfig(
-            verbose=True,
-            residue_idx_offset=256,
-            chain_linker="GGGGG"
-        )
-        config = ESMFoldPLDDTConfig(esmfold_config=esmfold_cfg)
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_plddt_constraint.run_esmfold") as mock_esmfold:
+        esmfold_cfg = ESMFoldConfig(
+            verbose=True, residue_idx_offset=256, chain_linker="GGGGG"
+        )
+        config = ESMFoldConfidenceConfig(esmfold_config=esmfold_cfg)
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.9
             mock_structure.ptm = 0.9
             mock_structure.structure_pdb_output = "MOCK PDB"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_plddt_constraint,
                 scoring_function_config=config,
             )
-            
+
             constraint.evaluate()
-            
+
             # Verify config parameters were passed through
-            passed_input = mock_esmfold.call_args.kwargs['inputs']  # Function called with keyword args
-            passed_config = mock_esmfold.call_args.kwargs['config']
+            passed_input = mock_esmfold.call_args.kwargs[
+                "inputs"
+            ]  # Function called with keyword args
+            passed_config = mock_esmfold.call_args.kwargs["config"]
             assert passed_config.verbose == True
             assert passed_config.residue_idx_offset == 256
             assert passed_config.chain_linker == "GGGGG"
-    
+
     def test_caching(self):
         """Test that multiple evaluations produce consistent results."""
         segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        config = ESMFoldPLDDTConfig()
+        config = ESMFoldConfidenceConfig()
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_plddt_constraint.run_esmfold") as mock_esmfold:
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.9
             mock_structure.ptm = 0.85
             mock_structure.structure_pdb_output = "MOCK PDB"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
 
             constraint = Constraint(
@@ -164,32 +218,40 @@ class TestESMFoldPLDDTConstraint:
 
             # Score should be the same
             assert scores2[0] == scores[0]
-    
+
     def test_metadata_storage(self):
         """Test that results are stored in sequence metadata."""
         segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        config = ESMFoldPLDDTConfig()
+        config = ESMFoldConfidenceConfig()
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_plddt_constraint.run_esmfold") as mock_esmfold:
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.92
             mock_structure.ptm = 0.88
             mock_structure.structure_pdb_output = "MOCK PDB OUTPUT"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_plddt_constraint,
                 scoring_function_config=config,
             )
-            
+
             constraint.evaluate()
-            
+
             # Verify metadata was stored (with constraint-specific prefix)
             metadata = segment.candidate_sequences[0]._metadata
             prefix = "segment_0.esmfold_plddt_constraint."
@@ -202,133 +264,170 @@ class TestESMFoldPLDDTConstraint:
 
 class TestESMFoldPTMConstraint:
     """Tests for ESMFold pTM constraint."""
-    
-    @pytest.mark.parametrize("ptm, expected_score", [
-        (1.0, 0.0),  # Perfect quality
-        (0.9, 0.1),
-        (0.5, 0.5),
-        (0.0, 1.0),  # Poor quality
-    ])
+
+    @pytest.mark.parametrize(
+        "ptm, expected_score",
+        [
+            (1.0, 0.0),  # Perfect quality
+            (0.9, 0.1),
+            (0.5, 0.5),
+            (0.0, 1.0),  # Poor quality
+        ],
+    )
     def test_scoring_calculation(self, ptm, expected_score):
         """Test that constraint score = 1.0 - ptm."""
         segment = create_segment("MKTAYIAKQRQISFVK", SequenceType.PROTEIN)
-        config = ESMFoldPTMConfig()
+        config = ESMFoldConfidenceConfig()
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_ptm_constraint.run_esmfold") as mock_esmfold:
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.9
             mock_structure.ptm = ptm
             mock_structure.structure_pdb_output = "MOCK PDB"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_ptm_constraint,
                 scoring_function_config=config,
             )
-            
+
             scores = constraint.evaluate()
             assert abs(scores[0] - expected_score) < 1e-9
-    
+
     def test_sequence_replication(self):
         """Test that sequences are replicated correctly for multimers."""
         segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        config = ESMFoldPTMConfig(n_replications=2)
+        config = ESMFoldConfidenceConfig(n_replications=2)
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_ptm_constraint.run_esmfold") as mock_esmfold:
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.9
             mock_structure.ptm = 0.85
             mock_structure.structure_pdb_output = "MOCK PDB"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_ptm_constraint,
                 scoring_function_config=config,
             )
-            
+
             constraint.evaluate()
-            
+
             # Verify the sequence was replicated 2 times
             # After Pydantic validation, sequences becomes a list of lists
             mock_esmfold.assert_called_once()
-            passed_input = mock_esmfold.call_args.kwargs['inputs']  # Function called with keyword args
-            assert passed_input.sequences == [["MKTAYIAK", "MKTAYIAK"]]
-    
+            passed_input = mock_esmfold.call_args.kwargs[
+                "inputs"
+            ]  # Function called with keyword args
+            assert passed_input.complexes[0].chains == ["MKTAYIAK", "MKTAYIAK"]
+
     def test_esmfold_config_passthrough(self):
         """Test that custom ESMFold config parameters are passed through."""
         segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        
-        esmfold_cfg = ESMFoldConfig(
-            verbose=False,
-            residue_idx_offset=1024,
-            chain_linker="AAAAA"
-        )
-        config = ESMFoldPTMConfig(esmfold_config=esmfold_cfg)
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_ptm_constraint.run_esmfold") as mock_esmfold:
+        esmfold_cfg = ESMFoldConfig(
+            verbose=False, residue_idx_offset=1024, chain_linker="AAAAA"
+        )
+        config = ESMFoldConfidenceConfig(esmfold_config=esmfold_cfg)
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.9
             mock_structure.ptm = 0.85
             mock_structure.structure_pdb_output = "MOCK PDB"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_ptm_constraint,
                 scoring_function_config=config,
             )
-            
+
             constraint.evaluate()
-            
+
             # Verify config parameters were passed through
-            passed_input = mock_esmfold.call_args.kwargs['inputs']  # Function called with keyword args
-            passed_config = mock_esmfold.call_args.kwargs['config']
+            passed_input = mock_esmfold.call_args.kwargs[
+                "inputs"
+            ]  # Function called with keyword args
+            passed_config = mock_esmfold.call_args.kwargs["config"]
             assert passed_config.verbose == False
             assert passed_config.residue_idx_offset == 1024
             assert passed_config.chain_linker == "AAAAA"
-    
+
     def test_metadata_storage(self):
         """Test that results are stored in sequence metadata."""
         segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        config = ESMFoldPTMConfig()
+        config = ESMFoldConfidenceConfig()
 
-        with patch("proto_language.language.constraint.protein_structure.esmfold_ptm_constraint.run_esmfold") as mock_esmfold:
+        with patch(
+            "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
+        ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructureOutput)
+            mock_structure = Mock(spec=ESMFoldStructure)
             mock_structure.avg_plddt = 0.92
             mock_structure.ptm = 0.88
             mock_structure.structure_pdb_output = "MOCK PDB OUTPUT"
-            
+
             # Create mock output with structures list
-            mock_output = Mock(spec=ESMFoldOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_esmfold.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=esmfold_ptm_constraint,
                 scoring_function_config=config,
             )
-            
+
             constraint.evaluate()
-            
+
             # Verify metadata was stored (with constraint-specific prefix)
             metadata = segment.candidate_sequences[0]._metadata
             prefix = "segment_0.esmfold_ptm_constraint."

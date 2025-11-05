@@ -4,18 +4,25 @@ Boltz binding strength constraint for protein-protein and protein-ligand interac
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any
 
 from pydantic import Field
 
-from ...core import Sequence, SequenceType
+from proto_language.language.core import Sequence, SequenceType
 from proto_language.base_config import BaseConfig
-from ..constraint_registry import ConstraintRegistry
-from ....tools.models.structure_prediction.boltz import (
+from proto_language.language.constraint.constraint_registry import (
+    ConstraintRegistry,
+)
+from proto_language.tools.models.structure_prediction.boltz import (
     run_boltz,
     BoltzInput,
     BoltzConfig,
 )
+from proto_language.tools.models.structure_prediction.schemas import (
+    StructurePredictionComplex,
+)
+from proto_language.language.core.sequence import SequenceType
+from numpy import clip
 
 
 # Default target values and tolerances for binding strength metrics
@@ -31,7 +38,7 @@ DEFAULT_DESIRED_HIGHER = {
 
 DEFAULT_DESIRED_LOWER = {
     "complex_ipde": 2.0,  # Angstroms
-    "complex_pde": 2.0,   # Angstroms
+    "complex_pde": 2.0,  # Angstroms
 }
 
 DEFAULT_TOL_HIGHER = {
@@ -46,7 +53,7 @@ DEFAULT_TOL_HIGHER = {
 
 DEFAULT_TOL_LOWER = {
     "complex_ipde": 2.0,  # Angstroms
-    "complex_pde": 3.0,   # Angstroms
+    "complex_pde": 3.0,  # Angstroms
 }
 
 
@@ -55,40 +62,40 @@ class BoltzBindingStrengthConfig(BaseConfig):
 
     # Constraint-specific parameters
     desired_higher: Dict[str, float] = Field(
-        default_factory=lambda: DEFAULT_DESIRED_HIGHER.copy(),
-        description="Target values for 'higher is better' metrics. Provide partial dict to override specific metrics while keeping defaults for others."
+        default_factory=lambda: dict(),
+        description="Target values for 'higher is better' metrics. Provide partial dict to override specific metrics while keeping defaults for others.",
     )
     desired_lower: Dict[str, float] = Field(
-        default_factory=lambda: DEFAULT_DESIRED_LOWER.copy(),
-        description="Target values for 'lower is better' metrics (in Angstroms). Provide partial dict to override specific metrics."
+        default_factory=lambda: dict(),
+        description="Target values for 'lower is better' metrics (in Angstroms). Provide partial dict to override specific metrics.",
     )
     tol_higher: Dict[str, float] = Field(
-        default_factory=lambda: DEFAULT_TOL_HIGHER.copy(),
-        description="Tolerances for 'higher is better' metrics (distance below target = penalty 1.0). Provide partial dict to override."
+        default_factory=lambda: dict(),
+        description="Tolerances for 'higher is better' metrics (distance below target = penalty 1.0). Provide partial dict to override.",
     )
     tol_lower: Dict[str, float] = Field(
-        default_factory=lambda: DEFAULT_TOL_LOWER.copy(),
-        description="Tolerances for 'lower is better' metrics (distance above target = penalty 1.0, in Angstroms). Provide partial dict to override."
+        default_factory=lambda: dict(),
+        description="Tolerances for 'lower is better' metrics (distance above target = penalty 1.0, in Angstroms). Provide partial dict to override.",
     )
     weights: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Weights for combining penalties. If None, defaults based on complex type (monomer/ligand/protein-protein)"
+        description="Weights for combining penalties. If None, defaults based on complex type (monomer/ligand/protein-protein)",
     )
     include_confidence_score: bool = Field(
         default=True,
-        description="Whether to include confidence_score in penalty calculation (adds weight 0.10)"
+        description="Whether to include confidence_score in penalty calculation (adds weight 0.10)",
     )
     on_error: str = Field(
         default="penalize",
-        description="How to handle prediction errors: 'penalize' (return 1.0) or 'raise' (raise exception)"
+        description="How to handle prediction errors: 'penalize' (return 1.0) or 'raise' (raise exception)",
     )
     batch_size: Optional[int] = Field(
         default=None,
-        description="Number of complexes to fold at once (None = process all together)"
+        description="Number of complexes to fold at once (None = process all together)",
     )
     return_component: str = Field(
         default="total_penalty",
-        description="Component to return: 'total_penalty' (weighted combination) or specific metric name like 'iptm', 'ligand_iptm', 'complex_iplddt', etc."
+        description="Component to return: 'total_penalty' (weighted combination) or specific metric name like 'iptm', 'ligand_iptm', 'complex_iplddt', etc.",
     )
 
     # Nested Boltz2 configuration
@@ -97,161 +104,80 @@ class BoltzBindingStrengthConfig(BaseConfig):
         description="Optional Boltz2 configuration (use_msa_server, msa_server_url, recycling_steps, sampling_steps, diffusion_samples, num_workers, devices, verbose). If None, uses defaults.",
     )
 
-# TODO: Convert complexes to Sequences
+    def model_post_init(self, __context: Any) -> None:
+        """
+        Merges user overrides with defaults after validation. If no user overrides
+        are provided, uses defaults.
+        """
+        super().model_post_init(__context)
+        self.desired_higher = {**DEFAULT_DESIRED_HIGHER, **self.desired_higher}
+        self.desired_lower = {**DEFAULT_DESIRED_LOWER, **self.desired_lower}
+        self.tol_higher = {**DEFAULT_TOL_HIGHER, **self.tol_higher}
+        self.tol_lower = {**DEFAULT_TOL_LOWER, **self.tol_lower}
+
+
 @ConstraintRegistry.register(
     key="boltz-binding-strength",
     label="Boltz Binding Strength",
     config=BoltzBindingStrengthConfig,
     description="Evaluate protein-protein/protein-ligand binding using Boltz2 structure prediction",
-    vectorized=False,
+    vectorized=True,
     concatenate=False,  # Boltz handles multi-chain complexes
-    gpu_required=True
+    gpu_required=True,
 )
-def boltz_binding_strength_constraint(complexes: Union[Sequence, List[Sequence], List[List[Sequence]]], config: BoltzBindingStrengthConfig) -> Union[float, List[float]]:
+def boltz_binding_strength_constraint(
+    complex_sequences: List[List[Sequence]], config: BoltzBindingStrengthConfig
+) -> Union[float, List[float]]:
     """
-    Run Boltz2 to predict structure(s)/complex(es) and compute a binding-strength
+    Runs Boltz2 to predict structure(s)/complex(es) and computes a binding-strength
     penalty in [0,1], where:
         0 = close to ideal (desired binding/structure)
-        1 = poor (≥ tolerance away from targets)
-
-    Works for monomers, pairs, or multi-chain complexes. Supports batch evaluation.
+        1 = poor (>= tolerance away from targets)
 
     Args:
-      complexes:
-        - Single Sequence (monomer), or
-        - List/Tuple of Sequences (complex), or
-        - List of such complexes.
-        Examples:
-          Sequence("protA")                        # monomer
-          [Sequence("protA"), Sequence("protB")]  # protein–protein pair
-          [Sequence("prot"), Sequence("rna")]      # protein–RNA complex
-          [[Sequence("A"), Sequence("B")],
-           [Sequence("C"), Sequence("D")]]         # multiple pairs
+      complex_sequences: List[List[Sequence]]:
+        List of lists of sequences where each inner list is a complex containing
+            all the sequences that should be predicted within a single complex.
 
-      config (BoltzBindingStrengthConfig):
+      config: BoltzBindingStrengthConfig:
         Configuration containing penalty calculation parameters and Boltz2 prediction parameters.
         See BoltzBindingStrengthConfig for full parameter descriptions
 
     Returns:
       float or list[float]: penalty score(s).
     """
-    # Normalize input → list of complexes (each complex = list of Sequences)
-    def _normalize(x):
-        # Single Sequence
-        if isinstance(x, Sequence):
-            return [[x]]
-
-        # A single complex: list of Sequences
-        if isinstance(x, list) and all(isinstance(s, Sequence) for s in x):
-            return [x]
-
-        # Multiple complexes: list of list-of-Sequences
-        if isinstance(x, list) and all(
-            isinstance(c, list) and all(isinstance(s, Sequence) for s in c) for c in x
-        ):
-            return x
-
-        raise ValueError(
-            "Unsupported input format. Expected Sequence, list[Sequence], or list[list[Sequence]]."
-        )
-
-    complexes = _normalize(complexes)
-    is_single = len(complexes) == 1
-
-    # Merge user overrides with defaults (allows partial specification)
-    desired_higher = {**DEFAULT_DESIRED_HIGHER, **config.desired_higher}
-    desired_lower = {**DEFAULT_DESIRED_LOWER, **config.desired_lower}
-    tol_higher = {**DEFAULT_TOL_HIGHER, **config.tol_higher}
-    tol_lower = {**DEFAULT_TOL_LOWER, **config.tol_lower}
-
-    def _clamp(x, a=0.0, b=1.0):
-        return a if x < a else b if x > b else x
-
-    def _penalty_hi(val, tgt, tol):
-        return 1.0 if val is None else _clamp((tgt - val) / max(tol, 1e-9))
-
-    def _penalty_lo(val, tgt, tol):
-        return 1.0 if val is None else _clamp((val - tgt) / max(tol, 1e-9))
-
-    def _map_entity_type(seq: Sequence) -> str:
-        if seq.sequence_type == SequenceType.DNA:
-            return "dna"
-        elif seq.sequence_type == SequenceType.RNA:
-            return "rna"
-        elif seq.sequence_type == SequenceType.PROTEIN:
-            return "protein"
-        else:
-            raise ValueError(f"Unsupported sequence_type: {seq.sequence_type}")
 
     # Prepare inputs for Boltz2
-    inputs = []
-    for complex in complexes:
-        seqs = [s.sequence for s in complex]
-        ets = [_map_entity_type(s) for s in complex]
-        inputs.append({"sequences": seqs, "entity_types": ets, "seq_objs": complex})
+    inputs = BoltzInput(
+        complexes=[
+            StructurePredictionComplex(
+                chains=[s.sequence for s in seq_list],
+                entity_types=[s.sequence_type for s in seq_list],
+            )  # entity types are auto-inferred
+            for seq_list in complex_sequences
+        ]
+    )
 
-    penalties = []
-
-    # Batch processing
-    def _process_batch(batch):
-        try:
-            # Note: Boltz doesn't support batch processing in the new API yet
-            # Process sequentially
-            out_list = []
-            for b in batch:
-                boltz_input = BoltzInput(
-                    sequences=b["sequences"],
-                    entity_types=b["entity_types"],
-                )
-                boltz_cfg = (
-                    config.boltz_config
-                    if config.boltz_config is not None
-                    else BoltzConfig()
-                )
-                out_list.append(run_boltz(boltz_input, boltz_cfg))
-        except Exception:
-            if config.on_error.lower() == "raise":
-                raise
-            out_list = [None for _ in batch]
-        return out_list
-
-    if config.batch_size and config.batch_size < len(inputs):
-        outputs = []
-        for i in range(0, len(inputs), config.batch_size):
-            outputs.extend(_process_batch(inputs[i : i + config.batch_size]))
-    else:
-        outputs = _process_batch(inputs)
+    # Run Boltz2
+    outputs = run_boltz(inputs=inputs, config=config.boltz_config or BoltzConfig())
 
     # Scoring each complex
-    for inp, out in zip(inputs, outputs):
-        seq_objs = inp["seq_objs"]
-
-        if out is None:
-            penalty = 1.0
-            for s in seq_objs:
-                s._metadata.setdefault("boltz_binding", []).append(
-                    {
-                        "penalty": penalty,
-                        "reason": "prediction_failed",
-                        "raw_output": None,
-                    }
-                )
-            penalties.append(penalty)
-            continue
-
-        m = dict(out.metrics or {})
+    penalties = []
+    for seq_obj_tuple, comp, structure in zip(complex_sequences, inputs, outputs):
 
         # Determine complex type
-        n_chains = len(inp["sequences"])
-        has_ligand = any(et.lower() == "ligand" for et in inp["entity_types"])
-        is_monomer = n_chains == 1
+        n_chains = comp.num_chains()
+        has_ligand = SequenceType.LIGAND.value in comp.get_entity_type_set()
 
         # Default weights by case
         if config.weights is not None:
             weights = dict(config.weights)
         else:
-            if is_monomer:
+            # Weights for monomer
+            if n_chains == 1:
                 weights = {"ptm": 0.35, "complex_plddt": 0.45, "complex_pde": 0.20}
+
+            # Weights for complex that contains a ligand
             elif has_ligand:
                 weights = {
                     "ligand_iptm": 0.50,
@@ -259,6 +185,7 @@ def boltz_binding_strength_constraint(complexes: Union[Sequence, List[Sequence],
                     "complex_ipde": 0.15,
                     "complex_plddt": 0.10,
                 }
+            # Weights for multi-chain complex (no ligand)
             else:
                 weights = {
                     "iptm": 0.45,
@@ -266,90 +193,93 @@ def boltz_binding_strength_constraint(complexes: Union[Sequence, List[Sequence],
                     "complex_ipde": 0.15,
                     "complex_plddt": 0.10,
                 }
+
+        # Add confidence score weight if requested
         if config.include_confidence_score:
             weights.setdefault("confidence_score", 0.10)
 
+        # Initialize penalties dictionary
         penalties_dict = {}
 
-        def _get(name):
-            v = m.get(name, None)
-            return float(v) if isinstance(v, (int, float)) else None
-
         # Case-specific penalties
-        if is_monomer:
-            penalties_dict["ptm_penalty"] = _penalty_hi(
-                _get("ptm"), desired_higher["ptm"], tol_higher["ptm"]
+        if n_chains == 1:
+            # Monomer penalties
+            penalties_dict["ptm_penalty"] = get_penalty_for_metric(
+                metric_name="ptm", metric_value=structure.ptm, config=config
             )
-            penalties_dict["complex_plddt_penalty"] = _penalty_hi(
-                _get("complex_plddt"),
-                desired_higher["complex_plddt"],
-                tol_higher["complex_plddt"],
+            penalties_dict["complex_plddt_penalty"] = get_penalty_for_metric(
+                metric_name="complex_plddt",
+                metric_value=structure.complex_plddt,
+                config=config,
             )
-            if _get("complex_pde") is not None:
-                penalties_dict["complex_pde_penalty"] = _penalty_lo(
-                    _get("complex_pde"),
-                    desired_lower["complex_pde"],
-                    tol_lower["complex_pde"],
+            if structure.complex_pde is not None:
+                penalties_dict["complex_pde_penalty"] = get_penalty_for_metric(
+                    metric_name="complex_pde",
+                    metric_value=structure.complex_pde,
+                    config=config,
                 )
 
         elif has_ligand:
-            penalties_dict["ligand_iptm_penalty"] = _penalty_hi(
-                _get("ligand_iptm"),
-                desired_higher["ligand_iptm"],
-                tol_higher["ligand_iptm"],
+            penalties_dict["ligand_iptm_penalty"] = get_penalty_for_metric(
+                metric_name="ligand_iptm",
+                metric_value=structure.ligand_iptm,
+                config=config,
             )
-            penalties_dict["complex_iplddt_penalty"] = _penalty_hi(
-                _get("complex_iplddt"),
-                desired_higher["complex_iplddt"],
-                tol_higher["complex_iplddt"],
+            penalties_dict["complex_iplddt_penalty"] = get_penalty_for_metric(
+                metric_name="complex_iplddt",
+                metric_value=structure.complex_iplddt,
+                config=config,
             )
-            if _get("complex_ipde") is not None:
-                penalties_dict["complex_ipde_penalty"] = _penalty_lo(
-                    _get("complex_ipde"),
-                    desired_lower["complex_ipde"],
-                    tol_lower["complex_ipde"],
+            if structure.complex_ipde is not None:
+                penalties_dict["complex_ipde_penalty"] = get_penalty_for_metric(
+                    metric_name="complex_ipde",
+                    metric_value=structure.complex_ipde,
+                    config=config,
                 )
-            penalties_dict["complex_plddt_penalty"] = _penalty_hi(
-                _get("complex_plddt"),
-                desired_higher["complex_plddt"],
-                tol_higher["complex_plddt"],
+            penalties_dict["complex_plddt_penalty"] = get_penalty_for_metric(
+                metric_name="complex_plddt",
+                metric_value=structure.complex_plddt,
+                config=config,
             )
 
-        else:  # protein–protein or mixed
-            prot_iptm = _get("protein_iptm")
-            iptm = _get("iptm")
+        else:
+            prot_iptm = structure.protein_iptm
+            iptm = structure.iptm
             chosen = "protein_iptm" if (prot_iptm and prot_iptm > 0) else "iptm"
-            val = prot_iptm if chosen == "protein_iptm" else iptm
             if chosen == "iptm":
-                penalties_dict["iptm_penalty"] = _penalty_hi(
-                    val, desired_higher["iptm"], tol_higher["iptm"]
+                penalties_dict["iptm_penalty"] = get_penalty_for_metric(
+                    metric_name="iptm",
+                    metric_value=iptm,
+                    config=config,
                 )
             else:
-                penalties_dict["protein_iptm_penalty"] = _penalty_hi(
-                    val, desired_higher["protein_iptm"], tol_higher["protein_iptm"]
+                penalties_dict["protein_iptm_penalty"] = get_penalty_for_metric(
+                    metric_name="protein_iptm",
+                    metric_value=prot_iptm,
+                    config=config,
                 )
-            penalties_dict["complex_iplddt_penalty"] = _penalty_hi(
-                _get("complex_iplddt"),
-                desired_higher["complex_iplddt"],
-                tol_higher["complex_iplddt"],
+            penalties_dict["complex_iplddt_penalty"] = get_penalty_for_metric(
+                metric_name="complex_iplddt",
+                metric_value=structure.complex_iplddt,
+                config=config,
             )
-            if _get("complex_ipde") is not None:
-                penalties_dict["complex_ipde_penalty"] = _penalty_lo(
-                    _get("complex_ipde"),
-                    desired_lower["complex_ipde"],
-                    tol_lower["complex_ipde"],
+            if structure.complex_ipde is not None:
+                penalties_dict["complex_ipde_penalty"] = get_penalty_for_metric(
+                    metric_name="complex_ipde",
+                    metric_value=structure.complex_ipde,
+                    config=config,
                 )
-            penalties_dict["complex_plddt_penalty"] = _penalty_hi(
-                _get("complex_plddt"),
-                desired_higher["complex_plddt"],
-                tol_higher["complex_plddt"],
+            penalties_dict["complex_plddt_penalty"] = get_penalty_for_metric(
+                metric_name="complex_plddt",
+                metric_value=structure.complex_plddt,
+                config=config,
             )
 
         if "confidence_score" in weights:
-            penalties_dict["confidence_score_penalty"] = _penalty_hi(
-                _get("confidence_score"),
-                desired_higher["confidence_score"],
-                tol_higher["confidence_score"],
+            penalties_dict["confidence_score_penalty"] = get_penalty_for_metric(
+                metric_name="confidence_score",
+                metric_value=structure.confidence_score,
+                config=config,
             )
 
         # If user requests a specific component
@@ -361,7 +291,7 @@ def boltz_binding_strength_constraint(complexes: Union[Sequence, List[Sequence],
                 raise ValueError(
                     f"Requested component '{config.return_component}' not available."
                 )
-            penalty = _clamp(float(penalties_dict[key]))
+            penalty = clip(float(penalties_dict[key]), 0.0, 1.0)
         else:
             # Weighted sum
             used_weights = {
@@ -370,21 +300,62 @@ def boltz_binding_strength_constraint(complexes: Union[Sequence, List[Sequence],
                 if k.replace("_penalty", "") in weights
             }
             wsum = sum(used_weights.values()) or 1.0
-            penalty = _clamp(
-                sum((w / wsum) * penalties_dict[k] for k, w in used_weights.items())
+            penalty = clip(
+                sum((w / wsum) * penalties_dict[k] for k, w in used_weights.items()),
+                0.0,
+                1.0,
             )
 
         # Store metadata for all Sequences in complex
-        for s in seq_objs:
-            s._metadata.setdefault("boltz_binding", []).append(
+        for seq_obj in seq_obj_tuple:
+            seq_obj._metadata.setdefault("boltz_binding", []).append(
                 {
                     "penalty": penalty,
-                    "metrics": m,
+                    "metrics": structure.metrics,
                     "penalties": penalties_dict,
-                    "raw_output": getattr(out, "__dict__", out),
                 }
             )
 
         penalties.append(penalty)
 
-    return penalties[0] if is_single else penalties
+    return penalties
+
+
+def get_penalty_for_metric(
+    metric_name: str, metric_value: float, config: BoltzBindingStrengthConfig
+) -> float:
+    """
+    Retrieves the penalty for the given metric's value based on the default target
+    and tolerance values.
+
+    Args:
+        metric_name: The name of the metric to retrieve the penalty for.
+        metric_value: The value of the metric to retrieve the penalty for.
+
+    Returns:
+        The penalty for the given metric's value.
+    """
+
+    higher_is_better = None
+    target = None
+    tolerance = None
+    if metric_name in config.desired_higher and metric_name in config.desired_lower:
+        raise ValueError(
+            f"Metric {metric_name} has both desired_higher and tol_higher values. Please provide only one."
+        )
+    elif metric_name in config.desired_higher:
+        higher_is_better = True
+        target = config.desired_higher[metric_name]
+        tolerance = config.tol_higher[metric_name]
+    elif metric_name in config.desired_lower:
+        higher_is_better = False
+        target = config.desired_lower[metric_name]
+        tolerance = config.tol_lower[metric_name]
+    else:
+        raise ValueError(
+            f"Metric {metric_name} not found in config.desired_higher or config.desired_lower"
+        )
+
+    deviation = (target - metric_value) if higher_is_better else (metric_value - target)
+    normalized = deviation / max(tolerance, 1e-9)
+    return max(0.0, min(1.0, normalized))

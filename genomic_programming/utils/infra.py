@@ -29,10 +29,10 @@ def number_of_available_gpus() -> int:
 def use_cloud_gpu() -> bool:
     """
     Smart GPU selection: try local GPU first, fall back to cloud.
-    
+
     Returns:
         bool: True if should use cloud, False if should use local GPU.
-        
+
     Environment Variables:
         USE_CLOUD: Set to "true" to force cloud, "false" to force local
                    If not set, automatically chooses based on GPU availability
@@ -41,7 +41,7 @@ def use_cloud_gpu() -> bool:
     use_cloud_env = os.getenv("USE_CLOUD")
     if use_cloud_env is not None:
         return use_cloud_env.lower() == "true"
-    
+
     # Auto-detect: try local GPU first, fall back to cloud
     if _is_local_gpu_available():
         return False
@@ -62,6 +62,7 @@ def _is_local_gpu_available() -> bool:
     """Check if local GPU is available."""
     try:
         import torch
+
         return torch.cuda.is_available()
     except ImportError:
         return False
@@ -71,8 +72,9 @@ def _is_cloud_available() -> bool:
     """Check if cloud is available and configured."""
     try:
         import cloud
+
         # Try creating a simple app to test authentication
-        cloud.App('test-auth')
+        cloud.App("test-auth")
         return True
     except (ImportError, Exception) as e:
         print(f"cloud not available: {e}")
@@ -92,8 +94,10 @@ def get_default_device() -> str:
         return "cpu"
 
 
-def get_device_string(device_str_or_int: Union[int, str, torch.device]):
-    """Returns the string representation of the GPU specified by an integer index."""
+def get_device_string(device_str_or_int: Union[int, str, torch.device]) -> str:
+    """
+    Returns the string representation of the GPU specified by an integer index.
+    """
     # If the device is a torch.device, get the string representation
     if isinstance(device_str_or_int, torch.device):
         device_str_or_int = str(device_str_or_int)
@@ -144,7 +148,7 @@ def parse_cuda_device_index(device_string: str):
     return device_int
 
 
-def determine_visible_devices(device: str) -> str:
+def determine_visible_devices(device: Union[int, str]) -> str:
     """
     Returns a string corresponding to the CUDA_VISIBLE_DEVICES environment variable
     for a given device.
@@ -162,7 +166,15 @@ def determine_visible_devices(device: str) -> str:
         return device.replace("cuda:", "")
 
     else:
-        raise ValueError(f"Invalid device: {device}")
+        try:
+            device_int = int(device)
+            if device_int >= number_of_available_gpus():
+                raise ValueError(
+                    f"Device index {device_int} is greater than the number of available GPUs ({number_of_available_gpus()})"
+                )
+            return device
+        except ValueError:
+            raise ValueError(f"Invalid device: {device}")
 
 
 # =============================================================================
@@ -189,7 +201,7 @@ def download_gcs_file(gcs_url: str, destination: Path) -> Path:
     """
     if not gcs_url.startswith(("gs://", "gcs://")):
         raise ValueError(f"Invalid GCS URL: {gcs_url!r} (expected gs://bucket/path)")
-    
+
     # Convert gcs:// to gs:// for google-cloud-storage compatibility
     if gcs_url.startswith("gcs://"):
         gcs_url = gcs_url.replace("gcs://", "gs://", 1)
@@ -231,46 +243,48 @@ def download_gcs_file(gcs_url: str, destination: Path) -> Path:
 def resolve_file(reference: str) -> Path:
     """
     Resolve a file reference to a local path in the storage volume.
-    
+
     Supports:
     - gcs://bucket/path/to/file - Google Cloud Storage
     - gs://bucket/path/to/file - Google Cloud Storage (alternative prefix)
     - /absolute/path - Local paths (for development only)
-    
+
     Returns:
         Path to the file in the storage volume
     """
     # Handle local paths (for development)
     if reference.startswith("/") and Path(reference).exists():
         return Path(reference)
-    
+
     # Get the path in the volume where this should be cached
     cache_path = get_cache_path(reference)
-    
+
     # If it already exists in the volume, use it
     if cache_path.exists():
         logger.info(f"Found in volume: {reference} at {cache_path}")
         return cache_path
-    
+
     # Handle GCS paths
     if reference.startswith(("gcs://", "gs://")):
         # Download from GCS using the Python client
         download_gcs_file(reference, cache_path)
         logger.info(f"Downloaded to volume: {cache_path}")
     else:
-        raise ValueError(f"Unsupported reference: {reference}. Only gcs:// or gs:// paths are supported")
-    
+        raise ValueError(
+            f"Unsupported reference: {reference}. Only gcs:// or gs:// paths are supported"
+        )
+
     return cache_path
 
 
 def resolve_paths(value: Any) -> Any:
     """
     Recursively resolve any cloud file paths in a value.
-    
+
     Examples:
         >>> resolve_paths("gcs://bucket/database.tar.gz")
         "/data/a1b2c3d4"
-        
+
         >>> resolve_paths({"database": "gcs://bucket/db.tar.gz", "threads": 4})
         {"database": "/data/e5f6g7h8", "threads": 4}
     """
@@ -285,4 +299,3 @@ def resolve_paths(value: Any) -> Any:
         return [resolve_paths(item) for item in value]
     else:
         return value
-

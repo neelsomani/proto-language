@@ -1,4 +1,6 @@
 """
+sequence.py
+
 Sequence class for the proto-language.
 
 Represents a single DNA, RNA, or protein sequence with validation and metadata.
@@ -10,16 +12,22 @@ import warnings
 
 from ...utils.helpers import propagate_metadata
 
+import string
 
 # Valid characters for different sequence types
 DNA_NUCLEOTIDES = "ACGT"
 RNA_NUCLEOTIDES = "ACGU"
 PROTEIN_AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
-LIGAND_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'- "
+LIGAND_CHARS = (
+    list(string.ascii_letters)
+    + list(string.digits)
+    + ["-", "=", "#", ":", "$", "/", "\\", "(", ")", "[", "]", ".", "%", "@", "+"]
+)
 
 
 class SequenceType(Enum):
     """Enumeration of supported biological sequence types."""
+
     DNA = "dna"
     RNA = "rna"
     PROTEIN = "protein"
@@ -81,7 +89,7 @@ class Sequence:
                 warnings.warn(
                     f"System-managed metadata for {conflicting_keys} cannot be manually set and will be silently overridden",
                     UserWarning,
-                    stacklevel=2
+                    stacklevel=2,
                 )
             self._metadata.update(metadata)
         self._metadata.update(protected_metadata)
@@ -98,21 +106,22 @@ class Sequence:
         """
         invalid_chars = _return_invalid_chars(sequence, self._valid_chars)
         if invalid_chars:
-            warnings.warn(f"Invalid characters found: {', '.join(invalid_chars)}. Valid characters are: {', '.join(sorted(self._valid_chars))}")
+            warnings.warn(
+                f"Invalid characters found: {', '.join(invalid_chars)}. Valid characters are: {', '.join(sorted(self._valid_chars))}"
+            )
 
-    @property 
+    @property
     def metadata(self) -> Dict[str, Any]:
         """
         Get metadata dictionary with consistent ordering.
-        
+
         Returns:
             Dict with system keys first, then constraint keys in chronological order.
         """
         system_keys = ["sequence", "sequence_length"]
 
-        return {
-            **{k: self._metadata[k] for k in system_keys if k in self._metadata},  # System keys first
-            **{k: v for k, v in self._metadata.items() if k not in set(system_keys)}    # Constraint keys
+        return {**{k: self._metadata[k] for k in system_keys if k in self._metadata},  # System keys first
+            **{k: v for k, v in self._metadata.items() if k not in set(system_keys)},  # Constraint keys
         }
 
     @property
@@ -173,23 +182,23 @@ class Sequence:
 
     @staticmethod
     def from_sequences(
-        subsequences: List['Sequence'],
-        merge_metadata: bool = False
-    ) -> 'Sequence':
+        subsequences: List["Sequence"],
+        merge_metadata: bool = False,
+    ) -> "Sequence":
         """
         Create a sequence by joining subsequences with optional metadata propagation.
-        
+
         This alternative constructor joins subsequences and optionally merges
         their metadata with sequence label prefixing to avoid key collisions.
-        
+
         Args:
             subsequences: List of Sequence objects to join
             merge_metadata: If True, merge non-system metadata; if False, start clean
-            
+
         Returns:
             Single joined Sequence object with only system metadata (if merge_metadata=False)
             or with merged non-system metadata (if merge_metadata=True)
-            
+
         Example:
             >>> sequences = [Seq("ATG"), Seq("CCC")]
             >>> clean_seq = Sequence.from_sequences(sequences, merge_metadata=False)
@@ -206,8 +215,8 @@ class Sequence:
         return Sequence(
             sequence=combined_sequence_string,
             sequence_type=subsequences[0].sequence_type, # assumed to be the same for all subsequences
-            valid_chars=subsequences[0]._valid_chars, # assumed to be the same for all subsequences
-            metadata=combined_metadata
+            valid_chars=subsequences[0]._valid_chars,  # assumed to be the same for all subsequences
+            metadata=combined_metadata,
         )
 
 
@@ -229,7 +238,10 @@ def _return_invalid_chars(sequence: str, valid_chars: Set[str]) -> Set[str]:
     return invalid_chars
 
 
-def return_invalid_dna_chars(sequence: str, additional_valid_chars: Optional[str] = None) -> Set[str]:
+def return_invalid_dna_chars(
+    sequence: str,
+    additional_valid_chars: Optional[str] = None,
+) -> Set[str]:
     """
     Helper function that returns the invalid characters in a DNA sequence.
 
@@ -244,10 +256,14 @@ def return_invalid_dna_chars(sequence: str, additional_valid_chars: Optional[str
         additional_valid_chars = ""
 
     valid_chars = DNA_NUCLEOTIDES + additional_valid_chars
-    
+
     return _return_invalid_chars(sequence, set(valid_chars))
 
-def return_invalid_rna_chars(sequence: str, additional_valid_chars: Optional[str] = None) -> Set[str]:
+
+def return_invalid_rna_chars(
+    sequence: str,
+    additional_valid_chars: Optional[str] = None,
+) -> Set[str]:
     """
     Helper function that returns the invalid characters in a RNA sequence.
 
@@ -265,7 +281,10 @@ def return_invalid_rna_chars(sequence: str, additional_valid_chars: Optional[str
     return _return_invalid_chars(sequence, set(valid_chars))
 
 
-def return_invalid_nucleotide_chars(sequence: str, additional_valid_chars: Optional[str] = None) -> Set[str]:
+def return_invalid_nucleotide_chars(
+    sequence: str,
+    additional_valid_chars: Optional[str] = None,
+) -> Set[str]:
     """
     Helper function that returns the invalid characters in a nucleotide sequence.
 
@@ -282,7 +301,11 @@ def return_invalid_nucleotide_chars(sequence: str, additional_valid_chars: Optio
     valid_chars = DNA_NUCLEOTIDES + RNA_NUCLEOTIDES + additional_valid_chars
     return _return_invalid_chars(sequence, set(valid_chars))
 
-def return_invalid_protein_chars(sequence: str, additional_valid_chars: Optional[str] = None) -> Set[str]:
+
+def return_invalid_protein_chars(
+    sequence: str,
+    additional_valid_chars: Optional[str] = None,
+) -> Set[str]:
     """
     Return the invalid characters in a protein sequence.
 
@@ -299,7 +322,11 @@ def return_invalid_protein_chars(sequence: str, additional_valid_chars: Optional
     valid_chars = PROTEIN_AMINO_ACIDS + additional_valid_chars
     return _return_invalid_chars(sequence, set(valid_chars))
 
-def return_invalid_ligand_chars(sequence: str, additional_valid_chars: Optional[str] = None) -> Set[str]:
+
+def return_invalid_ligand_chars(
+    sequence: str,
+    additional_valid_chars: Optional[str] = None,
+) -> Set[str]:
     """
     Helper function that returns the invalid characters in a ligand sequence.
 
@@ -315,7 +342,6 @@ def return_invalid_ligand_chars(sequence: str, additional_valid_chars: Optional[
 
     valid_chars = LIGAND_CHARS + additional_valid_chars
     return _return_invalid_chars(sequence, set(valid_chars))
-
 
 
 def detect_sequence_type(sequence: str) -> str:

@@ -47,9 +47,9 @@ gc_constraint = Constraint(
 
 # Optimizer config
 config = TopKOptimizerConfig(
-    min_candidates=BATCH_SIZE,
+    min_num_samples=BATCH_SIZE,
     k=2,                     
-    max_candidates=BATCH_SIZE * 2,       
+    max_num_samples=BATCH_SIZE * 2,       
     verbose=True,
     batch_size=BATCH_SIZE
 )

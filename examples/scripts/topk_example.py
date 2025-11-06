@@ -47,7 +47,7 @@ def custom_logger(round_idx, segments):
 
 # Configure TopK optimizer
 topk_config = TopKOptimizerConfig(
-    min_candidates=100, 
+    min_num_samples=100, 
     k=3,            
     batch_size=20,
     verbose=True, 

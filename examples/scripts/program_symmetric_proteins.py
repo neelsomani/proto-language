@@ -115,8 +115,8 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
 mcmc_optimizer_config = MCMCOptimizerConfig(
     mcmc_width=1,
     num_steps=N_STEPS,
-    temperature=1.,
-    temperature_min=0.0001,
+    max_temperature=1.,
+    min_temperature=0.0001,
     track_step_size=1,
     verbose=True,
 )

@@ -21,8 +21,8 @@ class Program:
         >>> from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
         >>> config = MCMCOptimizerConfig(
         ...     num_steps=100,
-        ...     temperature=1.0,
-        ...     temperature_min=0.001
+        ...     max_temperature=1.0,
+        ...     min_temperature=0.001
         ... )
         >>> program = Program(
         ...     optimizer_type=MCMCOptimizer,

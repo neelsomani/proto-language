@@ -50,7 +50,7 @@ evo2_config = Evo2GeneratorConfig(
     model_name="evo2_7b_phage",
     local_path="/scratch/hielab/gbrixi/evo2/vortex_interleaved/7b_phage/iter_12000.pt",
     num_tokens=5500,
-    temperature=0.9,
+    max_temperature=0.9,
 )
 evo2_generator = Evo2Generator(evo2_config)
 

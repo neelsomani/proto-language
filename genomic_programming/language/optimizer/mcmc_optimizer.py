@@ -2,7 +2,7 @@
 Metropolis-Hastings MCMC Optimizer that uses multiple sub-generators as proposal distributions and constraints to define the energy function.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, final
+from typing import Callable, Dict, List, Optional, Tuple, final
 import copy
 import random
 import sys
@@ -20,48 +20,52 @@ MAX_EXP_ARG = 700.0
 class MCMCOptimizerConfig(BaseConfig):
     """Configuration for MCMCOptimizer"""
     num_selected: int = Field(
-        default=1,
         ge=1,
-        description="Number of sequences to maintain in the selected_sequences pool across iterations (the 'top-k'). "
+        label="Num maintained candidates",
+        description="Number of candidate sequences to optimize across iterations (the top-k). "
                    "When num_selected=1 (default), behaves like standard single-chain MCMC. "
-                   "When num_selected>1, maintains top-k sequences and generates num_candidates proposals per sequence each step."
+                   "When num_selected>1, maintains top-k sequences and generates mcmc_width number of proposals per sequence each step."
     )
-    mcmc_width: Optional[int] = Field(
-        default=1,
+    mcmc_width: int = Field(
         ge=1,
-        description="Number of candidate proposals to generate per sequence each step, similar to beam_width in beam search."
+        label="Num proposals per candidate",
+        description="Number of generated proposals per candidate sequence each step, similar to `beam width` in beam search."
     )
     num_steps: int = Field(
-        default=1,
         ge=1,
-        description="Number of MCMC steps per run() call"
+        label="Num steps",
+        description="Number of MCMC steps to run."
     )
-    temperature: float = Field(
+    max_temperature: float = Field(
         default=1.0,
         gt=0.0,
+        label="Max temperature",
         description="Maximum temperature for annealing"
     )
-    temperature_min: float = Field(
-        default=0.0001,
+    min_temperature: float = Field(
+        default=0.001,
         gt=0.0,
+        label="Min temperature",
         description="Minimum temperature for annealing"
     )
     track_step_size: int = Field(
         default=1,
         ge=1,
+        label="Track interval",
         description="Interval for progress tracking"
     )
     verbose: bool = Field(
         default=False,
-        description="Whether to print progress information"
+        label="Verbose",
+        description="Whether to print progress information."
     )
 
     @model_validator(mode='after')
     def validate_cross_field_constraints(self):
         """Validate cross-field constraints."""
-        # Validate temperature_min < temperature for annealing
-        if self.temperature_min >= self.temperature:
-            raise ValueError(f"temperature_min ({self.temperature_min}) must be less than temperature ({self.temperature}) for annealing to work properly")
+        # Validate min_temperature < max_temperature for annealing
+        if self.min_temperature >= self.max_temperature:
+            raise ValueError(f"min_temperature ({self.min_temperature}) must be less than max_temperature ({self.max_temperature}) for annealing to work properly")
 
         return self
 
@@ -90,8 +94,8 @@ class MCMCOptimizer(Optimizer):
         >>> constructs = [Construct([segment1, segment2])]
         >>> config = MCMCOptimizerConfig(
         ...     num_steps=100,
-        ...     temperature=0.5,
-        ...     temperature_min=0.001
+        ...     max_temperature=0.5,
+        ...     min_temperature=0.001
         ... )
         >>> mcmc = MCMCOptimizer(
         ...     constructs=constructs,
@@ -160,8 +164,8 @@ class MCMCOptimizer(Optimizer):
         # Note: self.num_candidates from parent = total_candidates (num_selected * mcmc_width)
         self.mcmc_width: int = config.mcmc_width
         self.num_steps: int = config.num_steps
-        self.temperature: float = config.temperature
-        self.temperature_min: float = config.temperature_min
+        self.max_temperature: float = config.max_temperature
+        self.min_temperature: float = config.min_temperature
         self.track_step_size: int = config.track_step_size
         self.verbose: bool = config.verbose
         self.custom_logging: Optional[Callable] = custom_logging
@@ -311,9 +315,9 @@ class MCMCOptimizer(Optimizer):
         - (step-1) ensures proper boundary conditions since steps are 1-indexed (range: 1 to num_steps)
         """
         if self.num_steps == 1:
-            return self.temperature
+            return self.max_temperature
         else:
-            return self.temperature * (self.temperature_min / self.temperature) ** ((step - 1) / (self.num_steps - 1))
+            return self.max_temperature * (self.min_temperature / self.max_temperature) ** ((step - 1) / (self.num_steps - 1))
 
 
     def _compute_mcmc_acceptance_prob(self, current_energy: float, proposed_energy: float, step: int) -> float:

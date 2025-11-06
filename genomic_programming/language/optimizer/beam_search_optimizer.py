@@ -18,27 +18,33 @@ from .optimizer_registry import OptimizerRegistry
 class BeamSearchOptimizerConfig(BaseConfig):
     """Configuration for BeamSearchOptimizer"""
     prompt: str = Field(
-        description="The DNA sequence prompt to start the beam search (e.g., 'ATCG')"
-    )
-    prepend_prompt: bool = Field(
-        default=True,
-        description="Whether to prepend the prompt to the generated sequence in the output"
+        label="Prompt",
+        description="The prompt to start the beam search (e.g. ATCG)"
     )
     beam_width: int = Field(
         ge=1,
-        description="Number of top sequences to maintain (K)"
+        label="Beam width",
+        description="Number of top sequences to maintain (K)."
     )
     candidates_per_beam: int = Field(
         ge=1,
-        description="Number of candidates to generate per beam sequence (N)"
+        label="Candidates per beam",
+        description="Number of candidates to generate per beam sequence (N)."
+    )
+    prepend_prompt: bool = Field(
+        default=True,
+        label="Prepend prompt",
+        description="Whether to prepend the prompt to the generated sequence in the output."
     )
     use_kv_caching: bool = Field(
         default=True,
+        label="KV cache",
         description="Whether to use KV caching for generation. Enables faster sequential generation."
     )
     verbose: bool = Field(
         default=False,
-        description="Whether to print progress information"
+        label="Verbose",
+        description="Whether to print progress information."
     )
 
 

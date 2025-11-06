@@ -42,7 +42,7 @@ def create_segment(sequence: str, seq_type: SequenceType = SequenceType.DNA) -> 
 def _setup_mcmc_components(
     seq_length: int = 10,
     num_selected: int = 1,
-    num_candidates: int = None,
+    mcmc_width: int = None,
     gc_target_range: Tuple[float, float] = (40.0, 60.0),
     num_mcmc_steps: int = 10,
 ):
@@ -68,11 +68,10 @@ def _setup_mcmc_components(
     # 3. Create the MCMC Optimizer config
     config = MCMCOptimizerConfig(
         num_selected=num_selected,
+        mcmc_width=mcmc_width if mcmc_width is not None else 1,
         num_steps=num_mcmc_steps,
         verbose=False,
     )
-    if num_candidates is not None:
-        config.mcmc_width = num_candidates
 
     optimizer = MCMCOptimizer(
         constructs=[construct],
@@ -117,7 +116,7 @@ class TestMCMCOptimizer:
                 constructs=[Construct([test_segment])],
                 generators=[unassigned_gen],
                 constraints=[dummy_constraint],
-                config=MCMCOptimizerConfig(),
+                config=MCMCOptimizerConfig(num_selected=1, mcmc_width=1, num_steps=1),
             )
 
         # Mismatched weights and constraints
@@ -127,7 +126,7 @@ class TestMCMCOptimizer:
                 generators=optimizer.generators,
                 constraints=optimizer.constraints,
                 constraint_weights=[1.0, 2.0],
-                config=MCMCOptimizerConfig(),
+                config=MCMCOptimizerConfig(num_selected=1, mcmc_width=1, num_steps=1),
             )
 
     def test_config_validation(self):
@@ -135,17 +134,17 @@ class TestMCMCOptimizer:
         from pydantic import ValidationError
 
         # Valid configs
-        config = MCMCOptimizerConfig(num_selected=5, mcmc_width=10)
+        config = MCMCOptimizerConfig(num_selected=5, mcmc_width=10, num_steps=1)
         assert config.num_selected == 5
         assert config.mcmc_width == 10
 
-        # temperature_min >= temperature should fail
+        # min_temperature >= max_temperature should fail
         with pytest.raises(ValidationError):
-            MCMCOptimizerConfig(temperature=1.0, temperature_min=1.0)
+            MCMCOptimizerConfig(num_selected=1, mcmc_width=1, num_steps=1, max_temperature=1.0, min_temperature=1.0)
 
         # Negative values should fail
         with pytest.raises(ValidationError):
-            MCMCOptimizerConfig(num_selected=-1)
+            MCMCOptimizerConfig(num_selected=-1, mcmc_width=1, num_steps=1)
 
     def test_score_energy(self):
         """Tests the score_energy method."""
@@ -227,7 +226,7 @@ class TestMCMCOptimizer:
             generators=[proposal_gen],
             constraints=[gc_con, len_con],
             constraint_weights=[1.0, 2.0],  # Weight length more
-            config=MCMCOptimizerConfig(num_steps=1, verbose=False),
+            config=MCMCOptimizerConfig(num_selected=1, mcmc_width=1, num_steps=1, verbose=False),
         )
 
         segment.candidate_sequences[0].sequence = "A" * 20  # Violates length and GC
@@ -270,7 +269,7 @@ class TestMCMCOptimizer:
             constructs=[construct],
             generators=[mut_gen, inv_gen],
             constraints=[constraint],
-            config=MCMCOptimizerConfig(num_steps=20, verbose=False),
+            config=MCMCOptimizerConfig(num_selected=1, mcmc_width=1, num_steps=20, verbose=False),
         )
 
         initial_seq1 = segment1[0].sequence
@@ -287,7 +286,7 @@ class TestMCMCOptimizer:
     def test_topk_initialization(self):
         """Tests initialization of top-k MCMC with num_selected > 1."""
         optimizer, _, _, _ = _setup_mcmc_components(
-            num_selected=3, num_candidates=10
+            num_selected=3, mcmc_width=10
         )
 
         assert optimizer.num_selected == 3
@@ -323,8 +322,8 @@ class TestMCMCOptimizer:
                 num_selected=num_selected,
                 mcmc_width=num_candidates,
                 num_steps=20,
-                temperature=1.0,
-                temperature_min=0.01,
+                max_temperature=1.0,
+                min_temperature=0.01,
                 verbose=False,
             ),
         )
@@ -389,12 +388,12 @@ class TestMCMCOptimizer:
     def test_temperature_scheduling(self):
         """Tests that simulated annealing temperature schedule is correct."""
         num_steps = 100
-        temperature = 10.0
-        temperature_min = 0.01
+        max_temperature = 10.0
+        min_temperature = 0.01
 
         optimizer, _, _, _ = _setup_mcmc_components(num_mcmc_steps=num_steps)
-        optimizer.temperature = temperature
-        optimizer.temperature_min = temperature_min
+        optimizer.max_temperature = max_temperature
+        optimizer.min_temperature = min_temperature
         optimizer.num_steps = num_steps
 
         # Test temperature at key steps
@@ -403,13 +402,13 @@ class TestMCMCOptimizer:
         step_100_temp = optimizer._compute_temperature(100)
 
         # Step 1 should be exactly T_max
-        assert abs(step_1_temp - temperature) < 1e-10
+        assert abs(step_1_temp - max_temperature) < 1e-10
 
         # Final step should be exactly T_min
-        assert abs(step_100_temp - temperature_min) < 1e-10
+        assert abs(step_100_temp - min_temperature) < 1e-10
 
         # Middle step should be between T_max and T_min
-        assert temperature_min < step_50_temp < temperature
+        assert min_temperature < step_50_temp < max_temperature
 
         # Temperatures should decrease monotonically
         temperatures = [
@@ -420,25 +419,25 @@ class TestMCMCOptimizer:
 
     def test_temperature_scheduling_edge_cases(self):
         """Tests temperature scheduling edge cases."""
-        temperature = 5.0
-        temperature_min = 0.001
+        max_temperature = 5.0
+        min_temperature = 0.001
 
         # Test num_steps=1 (should return T_max)
         optimizer, _, _, _ = _setup_mcmc_components(num_mcmc_steps=1)
-        optimizer.temperature = temperature
-        optimizer.temperature_min = temperature_min
+        optimizer.max_temperature = max_temperature
+        optimizer.min_temperature = min_temperature
         optimizer.num_steps = 1
 
         step_1_temp = optimizer._compute_temperature(1)
-        assert abs(step_1_temp - temperature) < 1e-10
+        assert abs(step_1_temp - max_temperature) < 1e-10
 
         # Test num_steps=2 (should go from T_max to T_min)
         optimizer.num_steps = 2
         step_1_temp = optimizer._compute_temperature(1)
         step_2_temp = optimizer._compute_temperature(2)
 
-        assert abs(step_1_temp - temperature) < 1e-10
-        assert abs(step_2_temp - temperature_min) < 1e-10
+        assert abs(step_1_temp - max_temperature) < 1e-10
+        assert abs(step_2_temp - min_temperature) < 1e-10
 
     def test_mcmc_acceptance_probability(self):
         """Tests Metropolis-Hastings acceptance probability computation."""
@@ -497,8 +496,8 @@ class TestMCMCOptimizer:
                 mcmc_width=num_candidates,
                 num_steps=num_steps,
                 track_step_size=1,
-                temperature=0.5,
-                temperature_min=0.01,
+                max_temperature=0.5,
+                min_temperature=0.01,
                 verbose=False,
             ),
         )
@@ -552,8 +551,8 @@ class TestMCMCOptimizer:
                 num_selected=num_selected,
                 mcmc_width=num_candidates,
                 num_steps=200,
-                temperature=2.0,
-                temperature_min=0.01,
+                max_temperature=2.0,
+                min_temperature=0.01,
                 verbose=False,
             ),
         )
@@ -600,6 +599,8 @@ class TestMCMCOptimizer:
             generators=[proposal_gen],
             constraints=[constraint],
             config=MCMCOptimizerConfig(
+                num_selected=1,
+                mcmc_width=1,
                 num_steps=num_steps,
                 track_step_size=track_step_size,
                 verbose=True,
@@ -638,7 +639,7 @@ class TestMCMCOptimizer:
             generators=[proposal_gen1],
             constraints=[constraint1],
             config=MCMCOptimizerConfig(
-                num_selected=1, num_steps=3, track_step_size=1, verbose=True
+                num_selected=1, mcmc_width=1, num_steps=3, track_step_size=1, verbose=True
             ),
         )
 
@@ -671,7 +672,7 @@ class TestMCMCOptimizer:
             generators=[proposal_gen2],
             constraints=[constraint2],
             config=MCMCOptimizerConfig(
-                num_selected=3, num_steps=3, track_step_size=1, verbose=True
+                num_selected=3, mcmc_width=1, num_steps=3, track_step_size=1, verbose=True
             ),
         )
 

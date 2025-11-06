@@ -4,10 +4,12 @@
   "version": "1.0",
   "optimization": {
     "method": "mcmc",
+    "num_selected": 1,
+    "mcmc_width": 1,
     "num_steps": 20,
     "track_step_size": 2,
-    "temperature": 2.0,
-    "temperature_min": 0.1
+    "max_temperature": 2.0,
+    "min_temperature": 0.1
   },
   "constructs": [
     {

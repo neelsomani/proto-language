@@ -34,7 +34,7 @@ class TestTopKOptimizer:
             scoring_function_config={"target_length": 4},
         )
 
-        config = TopKOptimizerConfig(min_candidates=10, k=5, batch_size=1, verbose=False)
+        config = TopKOptimizerConfig(min_num_samples=10, k=5, batch_size=1, verbose=False)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -42,7 +42,7 @@ class TestTopKOptimizer:
             config=config,
         )
 
-        assert optimizer.min_candidates == 10
+        assert optimizer.min_num_samples == 10
         assert optimizer.batch_size == 1
         assert optimizer.rounds == 10
         assert optimizer.k == 5
@@ -69,7 +69,7 @@ class TestTopKOptimizer:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        config = TopKOptimizerConfig(min_candidates=20, k=3, batch_size=1, verbose=False)
+        config = TopKOptimizerConfig(min_num_samples=20, k=3, batch_size=1, verbose=False)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -107,7 +107,7 @@ class TestTopKOptimizer:
             scoring_function_config={"min_gc": 80.0, "max_gc": 100.0},
         )
 
-        config = TopKOptimizerConfig(min_candidates=50, k=5, batch_size=1, verbose=False)
+        config = TopKOptimizerConfig(min_num_samples=50, k=5, batch_size=1, verbose=False)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -126,8 +126,8 @@ class TestTopKOptimizer:
     def test_topk_k_capped_at_rounds(self):
         """Test that k cannot exceed number of candidates."""
         # Validation now happens at config creation time
-        with pytest.raises(ValueError, match="k \\(100\\) cannot exceed min_candidates \\(10\\)"):
-            config = TopKOptimizerConfig(min_candidates=10, k=100, batch_size=1, verbose=False)
+        with pytest.raises(ValueError, match="k \\(100\\) cannot exceed min_num_samples \\(10\\)"):
+            config = TopKOptimizerConfig(min_num_samples=10, k=100, batch_size=1, verbose=False)
 
     def test_topk_with_multiple_generators(self):
         """Test TopK with multiple generators applied sequentially."""
@@ -156,7 +156,7 @@ class TestTopKOptimizer:
             scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        config = TopKOptimizerConfig(min_candidates=10, k=3, batch_size=1, verbose=False)
+        config = TopKOptimizerConfig(min_num_samples=10, k=3, batch_size=1, verbose=False)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen1, gen2],
@@ -191,7 +191,7 @@ class TestTopKOptimizer:
             scoring_function_config={"target_length": 8},
         )
 
-        config = TopKOptimizerConfig(min_candidates=5, k=5, batch_size=1, verbose=False)
+        config = TopKOptimizerConfig(min_num_samples=5, k=5, batch_size=1, verbose=False)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -229,7 +229,7 @@ class TestTopKOptimizer:
 
         # Generate 20 total candidates in batches of 5
         # Should result in 4 rounds × 5 candidates per round = 20 total
-        config = TopKOptimizerConfig(min_candidates=20, k=3, batch_size=5, verbose=False)
+        config = TopKOptimizerConfig(min_num_samples=20, k=3, batch_size=5, verbose=False)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -238,7 +238,7 @@ class TestTopKOptimizer:
         )
 
         # Verify derived parameters
-        assert optimizer.min_candidates == 20
+        assert optimizer.min_num_samples == 20
         assert optimizer.batch_size == 5
         assert optimizer.rounds == 4  # 20 / 5 = 4 rounds
         assert optimizer.k == 3
@@ -254,9 +254,9 @@ class TestTopKOptimizer:
             assert optimizer.energy_scores[i] <= optimizer.energy_scores[i + 1]
 
     def test_topk_batch_size_validation(self):
-        """Test that min_candidates must be divisible by batch_size."""
-        with pytest.raises(ValueError, match="min_candidates \\(10\\) must be divisible by batch_size \\(3\\)"):
-            config = TopKOptimizerConfig(min_candidates=10, k=5, batch_size=3, verbose=False)
+        """Test that min_num_samples must be divisible by batch_size."""
+        with pytest.raises(ValueError, match="min_num_samples \\(10\\) must be divisible by batch_size \\(3\\)"):
+            config = TopKOptimizerConfig(min_num_samples=10, k=5, batch_size=3, verbose=False)
 
     def test_topk_with_energy_threshold(self):
         """Test TopK with energy_threshold for adaptive stopping."""
@@ -280,11 +280,11 @@ class TestTopKOptimizer:
 
         # Start with minimum 10 candidates, but continue until worst < 1.0 or hit 100 max
         config = TopKOptimizerConfig(
-            min_candidates=10,
+            min_num_samples=10,
             k=3,
             batch_size=2,
             energy_threshold=1.0,
-            max_candidates=100,
+            max_num_samples=100,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -296,7 +296,7 @@ class TestTopKOptimizer:
 
         # Verify config and derived parameters
         assert optimizer.energy_threshold == 1.0
-        assert optimizer.max_candidates == 100
+        assert optimizer.max_num_samples == 100
 
         optimizer.run()
 
@@ -306,28 +306,28 @@ class TestTopKOptimizer:
 
         # Worst in top-k should be below threshold (or max candidates reached)
         worst_energy = optimizer.energy_scores[-1]
-        assert worst_energy < 1.0 or optimizer.min_candidates >= 100
+        assert worst_energy < 1.0 or optimizer.min_num_samples >= 100
 
     def test_topk_threshold_validation(self):
         """Test validation of threshold-related parameters."""
-        # max_candidates must be divisible by batch_size
-        with pytest.raises(ValueError, match="max_candidates \\(15\\) must be divisible by batch_size \\(4\\)"):
+        # max_num_samples must be divisible by batch_size
+        with pytest.raises(ValueError, match="max_num_samples \\(15\\) must be divisible by batch_size \\(4\\)"):
             config = TopKOptimizerConfig(
-                min_candidates=8,
+                min_num_samples=8,
                 k=3,
                 batch_size=4,
                 energy_threshold=0.5,
-                max_candidates=15,
+                max_num_samples=15,
                 verbose=False
             )
 
-        # max_candidates must be >= min_candidates
-        with pytest.raises(ValueError, match="max_candidates \\(50\\) must be >= min_candidates \\(100\\)"):
+        # max_num_samples must be >= min_num_samples
+        with pytest.raises(ValueError, match="max_num_samples \\(50\\) must be >= min_num_samples \\(100\\)"):
             config = TopKOptimizerConfig(
-                min_candidates=100,
+                min_num_samples=100,
                 k=10,
                 batch_size=10,
                 energy_threshold=0.5,
-                max_candidates=50,
+                max_num_samples=50,
                 verbose=False
             )

@@ -41,8 +41,8 @@ class ProgramIntronDesignArgs(Tap):
     intron_length: int = INTRON_LENGTH
     n_steps: int = N_STEPS
     step_size: int = 1
-    temperature: float = 1.
-    temperature_min: float = 0.001
+    max_temperature: float = 1.
+    min_temperature: float = 0.001
     plasmid_context_path: str = 'examples/data/intron_plasmid_context.txt'
     gene_sequence_path: str = 'examples/data/mscarlet.txt'
     gene_insertion_pos: int = 159*3  # Canonical mScarlet split complementation site.
@@ -277,8 +277,8 @@ if __name__ == '__main__':
         num_selected=1,
         mcmc_width=1,
         num_steps=args.n_steps,
-        temperature=args.temperature,
-        temperature_min=args.temperature_min,
+        max_temperature=args.max_temperature,
+        min_temperature=args.min_temperature,
         track_step_size=1,
         verbose=True,
     )

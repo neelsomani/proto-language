@@ -35,8 +35,8 @@ class SeqMotifConfig(BaseConfig):
     label="Sequence Motif Match",
     config=SeqMotifConfig,
     description="Score DNA sequences against motifs using MEME",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def seq_motif_constraint(sequences: List[Sequence], config: SeqMotifConfig) -> List[float]:
     """

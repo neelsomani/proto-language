@@ -98,14 +98,14 @@ class TestMCMCOptimizer:
             UniformMutationGeneratorConfig(sequence_length=10, num_mutations=1)
         )
         test_segment = create_segment("A" * 10)
-        
+
         # Create a dummy scoring function with required attributes
         def dummy_scoring_func(seq, config=None):
             return 0.0
-        dummy_scoring_func._constraint_vectorized = False
+        dummy_scoring_func._constraint_batched = False
         dummy_scoring_func._constraint_concatenate = True
         dummy_scoring_func._constraint_config_class = EmptyConfig
-        
+
         dummy_constraint = Constraint(
             inputs=[test_segment],
             scoring_function=dummy_scoring_func,
@@ -187,7 +187,7 @@ class TestMCMCOptimizer:
         initial_seq = "A" * 50
         for seq in segment.selected_sequences:
             seq.sequence = initial_seq
-        
+
         # Score initial state
         for i in range(optimizer.num_selected):
             optimizer.segments[0].candidate_sequences[i] = copy.deepcopy(
@@ -531,9 +531,9 @@ class TestMCMCOptimizer:
         def perfect_g_energy(seq, config=None):
             g_count = seq.sequence.count("G")
             return seq_length - g_count
-        
+
         # Add required attributes for the scoring function
-        perfect_g_energy._constraint_vectorized = False
+        perfect_g_energy._constraint_batched = False
         perfect_g_energy._constraint_concatenate = True
         perfect_g_energy._constraint_config_class = EmptyConfig
 
@@ -707,7 +707,7 @@ class TestMCMCOptimizer:
         # Create a dummy scoring function with required attributes
         def dummy_scoring_func(seq, config=None):
             return 0.0
-        dummy_scoring_func._constraint_vectorized = False
+        dummy_scoring_func._constraint_batched = False
         dummy_scoring_func._constraint_concatenate = True
         dummy_scoring_func._constraint_config_class = EmptyConfig
 
@@ -778,7 +778,7 @@ class TestMCMCOptimizer:
         )
 
         optimizer.run()
-        
+
         # energy_scores is kept at constant length num_candidates (total pool size)
         assert len(optimizer.energy_scores) == optimizer.num_candidates
         assert len(segment1.selected_sequences) == num_selected

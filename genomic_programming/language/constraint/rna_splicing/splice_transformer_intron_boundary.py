@@ -43,9 +43,9 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     label="SpliceTransformer intron boundary score",
     config=SpliceTransformerIntronBoundaryConfig,
     description="Evaluate intron boundary prediction with SpliceTransformer",
-    vectorized=False,
+    batched=False,
     concatenate=True,
-    gpu_required=True
+    gpu_required=True,
 )
 def splice_transformer_intron_boundary(
     input_sequence: Sequence,

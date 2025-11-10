@@ -5,7 +5,7 @@ Constraints score how well sequences satisfy biological or design requirements,
 returning values between 0.0 (perfect) and 1.0 (worst).
 
 Key Features:
-    - Batch evaluation (sequential or vectorized processing)
+    - Batch evaluation (sequential or batched processing)
     - Segment coordination (contiguous concatenation or disjoint evaluation)
     - Automatic metadata propagation back to original sequences
 """
@@ -62,14 +62,14 @@ class Constraint:
     ):
         """
         Initialize a constraint.
-        
+
         Args:
             inputs: List of Segment objects to evaluate
             scoring_function: The constraint scoring function that returns scores between 0.0-1.0.
                 For sequential mode: (Sequence, config=ConfigModel) -> float or (Tuple[Sequence, ...], config=ConfigModel) -> float
-                For vectorized mode: (List[Sequence], config=ConfigModel) -> List[float] or (List[Tuple[Sequence, ...]], config=ConfigModel) -> List[float]
+                For batched mode: (List[Sequence], config=ConfigModel) -> List[float] or (List[Tuple[Sequence, ...]], config=ConfigModel) -> List[float]
                 The function must be registered with @ConstraintRegistry.register() which sets the
-                vectorized and concatenate properties.
+                batched and concatenate properties.
             scoring_function_config: Configuration parameters. Can be either:
                 Pydantic BaseModel instance (recommended)
                 Dict that will be converted to the appropriate config model
@@ -78,8 +78,8 @@ class Constraint:
         self.inputs = inputs
         self.scoring_function = scoring_function
         self.label = label or scoring_function.__name__
-        # Read vectorized and concatenate from function attributes (set by registry)
-        self.vectorized = scoring_function._constraint_vectorized
+        # Read batched and concatenate from function attributes (set by registry)
+        self.batched = scoring_function._constraint_batched
         self.concatenate = scoring_function._constraint_concatenate
 
         # Convert dict configs to Pydantic models for validation
@@ -98,7 +98,7 @@ class Constraint:
 
         This method orchestrates the evaluation by:
         1. Extracting candidate sequences from input segments
-        2. Calling the scoring function (vectorized or sequential)
+        2. Calling the scoring function (batched or sequential)
         3. Propagating scores back to original candidate sequence metadata
 
         Returns:
@@ -107,8 +107,8 @@ class Constraint:
         """
         num_candidates = self.inputs[0].num_candidates
 
-        if self.vectorized:
-            # Vectorized mode: process all candidates at once
+        if self.batched:
+            # batched mode: process all candidates at once in an iterable that is passed to the scoring function
             sequences_vector = [self._preprocess_candidate_at_index(candidate_idx) for candidate_idx in range(num_candidates)]
             scores = self.scoring_function(sequences_vector, config=self.scoring_function_config)
 

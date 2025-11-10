@@ -47,9 +47,9 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     label="SpliceTransformer tissue specificity score",
     config=SpliceTransformerSpecificityConfig,
     description="Evaluate tissue specific splicing with SpliceTransformer",
-    vectorized=False,
+    batched=False,
     concatenate=True,
-    gpu_required=True
+    gpu_required=True,
 )
 def splice_transformer_specificity(
     input_sequence: Sequence,

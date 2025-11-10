@@ -31,8 +31,8 @@ class GCContentConfig(BaseConfig):
     label="GC Content",
     config=GCContentConfig,
     description="Enforce GC content within specified range",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def gc_content_constraint(sequences: List[Sequence], config: GCContentConfig) -> List[float]:
     """

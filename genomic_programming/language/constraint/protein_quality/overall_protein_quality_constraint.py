@@ -54,13 +54,14 @@ class OverallProteinQualityConfig(BaseConfig):
             raise ValueError("At least one protein quality sub-constraint must be specified")
         return self
 
+
 @ConstraintRegistry.register(
     key="overall-protein-quality",
     label="Overall Protein Quality",
     config=OverallProteinQualityConfig,
     description="Evaluate overall protein quality using multiple sub-constraints",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def overall_protein_quality_constraint(sequences: List[Sequence], config: OverallProteinQualityConfig) -> List[float]:
     """
@@ -186,7 +187,7 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
             ]
 
             quality_scores = {}
-            
+
             if protein_quality_config.length:
                 quality_scores["length"] = sequence_length_constraint(
                     predicted_protein_seqs, config=protein_quality_config.length
@@ -212,14 +213,14 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
                     predicted_protein_seqs, config=protein_quality_config.balanced_aas
                 )
 
-            # Vectorized averaging
+            # batched averaging
             if quality_scores:
                 constraint_score_matrix = np.array(list(quality_scores.values()))
                 avg_scores = constraint_score_matrix.mean(axis=0)
             else:
                 avg_scores = np.zeros(len(predicted_protein_seqs))
 
-            # Vectorized quality determination
+            # batched quality determination
             is_high_quality = avg_scores <= threshold
 
             # Build details
@@ -230,7 +231,7 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
                     name: scores[prot_idx] 
                     for name, scores in quality_scores.items()
                 }
-                
+
                 protein_quality_details.append({
                     "protein_id": row["id"],
                     "length": row["protein_length"],
@@ -255,7 +256,7 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
                 score = 0.0
             else:
                 score = min(1.0, max(0.0, overall_avg_protein_score))
-            
+
             dna_scores.append(score)
 
     if protein_sequences:
@@ -292,32 +293,32 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
         else:
             avg_scores = np.zeros(len(protein_sequences))
 
-        # Vectorized quality determination
+        # batched quality determination
         is_high_quality = avg_scores <= threshold
-        
-        # Vectorized score calculation
+
+        # batched score calculation
         protein_scores = np.where(
             is_high_quality,
             0.0,
             np.clip(avg_scores, 0.0, 1.0)
         ).tolist()
-        
+
         # Store metadata
         for seq_idx, input_sequence in enumerate(protein_sequences):
             individual_scores = {
                 name: scores[seq_idx] 
                 for name, scores in quality_scores.items()
             }
-            
+
             input_sequence._metadata["protein_quality_scores"] = individual_scores
             input_sequence._metadata["avg_constraint_score"] = float(avg_scores[seq_idx])
             input_sequence._metadata["is_high_quality"] = bool(is_high_quality[seq_idx])
             input_sequence._metadata["protein_quality_threshold"] = threshold
-    
+
     final_scores = []
     dna_idx = 0
     protein_idx = 0
-    
+
     for seq in sequences:
         if seq.sequence_type == SequenceType.DNA:
             final_scores.append(dna_scores[dna_idx])
@@ -325,5 +326,5 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
         else:
             final_scores.append(protein_scores[protein_idx])
             protein_idx += 1
-    
+
     return final_scores

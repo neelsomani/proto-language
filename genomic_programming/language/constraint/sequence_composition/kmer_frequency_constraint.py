@@ -106,8 +106,8 @@ class KmerFrequencyConfig(BaseConfig):
     label="K-mer Frequency",
     config=KmerFrequencyConfig,
     description="Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring mode",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def kmer_frequency_constraint(sequences: List[Sequence], config: KmerFrequencyConfig) -> List[float]:
     """

@@ -30,13 +30,14 @@ class ProteinComplexityConfig(BaseConfig):
         description="Path to NCBI segmasker executable for detecting low-complexity regions. Must be installed separately."
     )
 
+
 @ConstraintRegistry.register(
     key="protein-complexity",
     label="Protein Complexity",
     config=ProteinComplexityConfig,
     description="Evaluate protein sequence complexity using segmasker to detect low-complexity regions",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def protein_complexity_constraint(sequences: List[Sequence], config: ProteinComplexityConfig) -> List[float]:
     """

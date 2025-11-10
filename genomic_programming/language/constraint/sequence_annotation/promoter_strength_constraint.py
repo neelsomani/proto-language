@@ -30,8 +30,8 @@ class PromoterStrengthConfig(BaseConfig):
     label="Promoter Strength",
     config=PromoterStrengthConfig,
     description="Evaluate promoter strength using Barrick Lab Promoter Calculator",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def promoter_strength_constraint(sequences: List[Sequence], config: PromoterStrengthConfig) -> List[float]:
     """

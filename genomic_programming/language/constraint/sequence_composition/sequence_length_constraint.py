@@ -61,8 +61,8 @@ class SequenceLengthConfig(BaseConfig):
     label="Sequence Length",
     config=SequenceLengthConfig,
     description="Evaluate sequence length against target value or acceptable range",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def sequence_length_constraint(sequences: List[Sequence], config: SequenceLengthConfig) -> List[float]:
     """

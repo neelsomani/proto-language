@@ -23,13 +23,14 @@ class ProteinDiversityConfig(BaseConfig):
         description="Minimum acceptable amino acid diversity (0.0-1.0). Calculated as (unique amino acids) / 20. Higher values require more diverse amino acid usage. Typical values: 0.4-0.7."
     )
 
+
 @ConstraintRegistry.register(
     key="protein-diversity",
     label="Protein Diversity",
     config=ProteinDiversityConfig,
     description="Evaluate amino acid diversity in a protein sequence",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def protein_diversity_constraint(sequences: List[Sequence], config: ProteinDiversityConfig) -> List[float]:
     """

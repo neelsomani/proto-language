@@ -19,14 +19,14 @@ from ..utils import create_segment
 
 class TestMMseqsHomologyConstraint:
     """Tests for MMseqs2 homology constraint."""
-    
+
     @pytest.fixture
     def dummy_db_path(self, tmp_path):
         """Create a dummy database path."""
         db_path = tmp_path / "test_db"
         db_path.mkdir()
         return str(db_path)
-    
+
     def test_config_validation(self, dummy_db_path):
         """Test configuration validation."""
         config = MMseqsHomologyConfig(
@@ -34,22 +34,22 @@ class TestMMseqsHomologyConstraint:
             max_homology=100.0,
             mmseqs_db=dummy_db_path,
         )
-        
+
         assert config.min_homology == 80.0
         assert config.max_homology == 100.0
         assert config.mmseqs_db == dummy_db_path
-    
+
     def test_with_mocked_mmseqs(self, dummy_db_path):
         """Test constraint with mocked MMseqs2 results."""
         segment = create_segment("MVLSPADKTNVKAAW", SequenceType.PROTEIN)
-        
+
         config = MMseqsHomologyConfig(
             min_homology=80.0,
             max_homology=100.0,
             mmseqs_db=dummy_db_path,
             mmseqs_config=MmseqsSearchProteinsConfig(results_dir="", threads=1)
         )
-        
+
         # Mock MMseqs2 search
         with patch('proto_language.language.constraint.sequence_annotation.mmseqs_homology_constraint.mmseqs_search_proteins') as mock_mmseqs:
             import pandas as pd
@@ -66,34 +66,34 @@ class TestMMseqsHomologyConstraint:
             ])
             mock_output.results = []
             mock_mmseqs.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=mmseqs_homology_constraint,
                 scoring_function_config=config,
             )
-            
+
             scores = constraint.evaluate()
             assert len(scores) == 1
             assert isinstance(scores[0], float)
             assert scores[0] >= 0.0
-            
+
             # Check metadata - verify results were stored
             metadata = segment.candidate_sequences[0]._metadata
             assert "segment_0.mmseqs_homology_constraint.mmseqs_results" in metadata
             assert len(metadata["segment_0.mmseqs_homology_constraint.mmseqs_results"]) > 0
             assert "segment_0.mmseqs_homology_constraint.unique_orfs_with_hits" in metadata
-    
+
     def test_no_hits_scenario(self, dummy_db_path):
         """Test when no MMseqs2 hits are found."""
         segment = create_segment("MVLSP", SequenceType.PROTEIN)
-        
+
         config = MMseqsHomologyConfig(
             min_homology=80.0,
             max_homology=100.0,
             mmseqs_db=dummy_db_path,
         )
-        
+
         # Mock MMseqs2 with no results
         with patch('proto_language.language.constraint.sequence_annotation.mmseqs_homology_constraint.mmseqs_search_proteins') as mock_mmseqs:
             import pandas as pd
@@ -102,36 +102,36 @@ class TestMMseqsHomologyConstraint:
             mock_output.results_df = pd.DataFrame()  # Empty DataFrame
             mock_output.results = []
             mock_mmseqs.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=mmseqs_homology_constraint,
                 scoring_function_config=config,
             )
-            
+
             scores = constraint.evaluate()
             assert len(scores) == 1
             # Score depends on implementation - could be 0 or MAX_ENERGY
             assert isinstance(scores[0], float)
-    
+
     def test_registry_integration(self):
         """Test that constraint is properly registered."""
         spec = ConstraintRegistry.get("mmseqs-gene-homology")
         assert spec.key == "mmseqs-gene-homology"
         assert spec.label == "Gene/Protein Homology"  # Actual label in registry
-        assert spec.vectorized == True
+        assert spec.batched == True
         assert spec.concatenate == True
-    
+
     def test_dna_sequence_with_orf_prediction(self, dummy_db_path):
         """Test that DNA sequences work via ORF prediction."""
         segment = create_segment("ATGGTGCTGAGCCCGGCGGACAAG", SequenceType.DNA)
-        
+
         config = MMseqsHomologyConfig(
             min_homology=80.0,
             max_homology=100.0,
             mmseqs_db=dummy_db_path,
         )
-        
+
         # Mock MMseqs2 with results
         with patch('proto_language.language.constraint.sequence_annotation.mmseqs_homology_constraint.mmseqs_search_proteins') as mock_mmseqs:
             import pandas as pd
@@ -148,16 +148,15 @@ class TestMMseqsHomologyConstraint:
             ])
             mock_output.results = []
             mock_mmseqs.return_value = mock_output
-            
+
             constraint = Constraint(
                 inputs=[segment],
                 scoring_function=mmseqs_homology_constraint,
                 scoring_function_config=config,
             )
-            
+
             scores = constraint.evaluate()
             assert len(scores) == 1
             assert isinstance(scores[0], float)
             # DNA sequences are supported via ORF prediction
             assert scores[0] >= 0.0
-

@@ -37,8 +37,8 @@ class Sigma70PromoterConfig(BaseConfig):
     label="Sigma70 Promoter Strength",
     config=Sigma70PromoterConfig,
     description="Evaluate σ70 promoter strength for DNA sequences",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def sigma70_promoter_constraint(sequences: List[Sequence], config: Sigma70PromoterConfig) -> List[float]:
     """

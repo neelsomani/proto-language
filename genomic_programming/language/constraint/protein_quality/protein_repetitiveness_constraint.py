@@ -35,8 +35,8 @@ class ProteinRepetitivenessConfig(BaseConfig):
     label="Protein Repetitiveness",
     config=ProteinRepetitivenessConfig,
     description="Evaluate protein sequence repetitiveness based on k-mer analysis",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def protein_repetitiveness_constraint(sequences: List[Sequence], config: ProteinRepetitivenessConfig) -> List[float]:
     """

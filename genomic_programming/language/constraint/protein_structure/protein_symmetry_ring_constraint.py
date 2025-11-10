@@ -64,9 +64,9 @@ class ProteinSymmetryRingConfig(BaseConfig):
     label="Protein Symmetry Ring Structure",
     config=ProteinSymmetryRingConfig,
     description="Constrain protein to form symmetric ring-like multimeric structure",
-    vectorized=True,
+    batched=True,
     concatenate=True,
-    gpu_required=True
+    gpu_required=True,
 )
 def protein_symmetry_ring_constraint(sequences: List[Sequence], config: ProteinSymmetryRingConfig) -> List[float]:
     """

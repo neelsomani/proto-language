@@ -33,8 +33,8 @@ class MaxHomopolymerConfig(BaseConfig):
     label="Homopolymer Length",
     config=MaxHomopolymerConfig,
     description="Penalize sequences containing homopolymers longer than specified maximum",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def max_homopolymer_constraint(sequences: List[Sequence], config: MaxHomopolymerConfig) -> List[float]:
     """

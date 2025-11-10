@@ -54,6 +54,9 @@ API will be available at http://localhost:8000
 Tests can be run with various filtering options based on hardware utilization and execution time.  
 See [tests/README.md](tests/README.md) for more details. A few commonly used commands are listed below.
 
+- By default, slow tests *are skipped*. You must specify `--all` to run them.
+- By default, we don't filter tests by hardware utilization. Specify `--cpu` to run only CPU-based tests and `--gpu` to run only GPU-based tests.
+
 ```bash
 # Run all tests that are not marked as slow (both CPU and GPU based)
 pytest

@@ -66,15 +66,15 @@ def create_batched_segment(
 
 def mock_single_input_scoring_function(sequence: Sequence, config=None) -> float:
     """
-    Mock scoring function for testing single-sequence (non-vectorized) constraints.
-    
+    Mock scoring function for testing single-sequence (non-batched) constraints.
+
     Returns a score based on the fraction of 'T' characters in the sequence.
     Also adds metadata to the sequence to demonstrate metadata propagation.
-    
+
     Args:
         sequence: A Sequence object to score
         config: Optional configuration (unused in mock)
-    
+
     Returns:
         Score as fraction of T characters (0.0 to 1.0)
     """
@@ -86,22 +86,22 @@ def mock_single_input_scoring_function(sequence: Sequence, config=None) -> float
     return score
 
 # Set attributes that would normally be set by registry decorator
-mock_single_input_scoring_function._constraint_vectorized = False
+mock_single_input_scoring_function._constraint_batched = False
 mock_single_input_scoring_function._constraint_concatenate = True
 mock_single_input_scoring_function._constraint_config_class = None
 
 
 def mock_multi_input_scoring_function(sequences: List[Sequence], config=None) -> List[float]:
     """
-    Mock scoring function for testing batched/vectorized constraints.
-    
+    Mock scoring function for testing batched/batched constraints.
+
     Returns scores based on the fraction of 'T' characters in each sequence.
     Also adds metadata to each sequence to demonstrate metadata propagation.
-    
+
     Args:
         sequences: List of Sequence objects to score
         config: Optional configuration (unused in mock)
-    
+
     Returns:
         List of scores as fractions of T characters (0.0 to 1.0)
     """
@@ -116,7 +116,7 @@ def mock_multi_input_scoring_function(sequences: List[Sequence], config=None) ->
     return scores
 
 # Set attributes that would normally be set by registry decorator
-mock_multi_input_scoring_function._constraint_vectorized = True
+mock_multi_input_scoring_function._constraint_batched = True
 mock_multi_input_scoring_function._constraint_concatenate = True
 mock_multi_input_scoring_function._constraint_config_class = None
 
@@ -142,16 +142,16 @@ def mock_single_input_scoring_function_disjoint(
     """
     t_percent = sequence_tuple[0].sequence.count("T") / len(sequence_tuple[0])
     c_percent = sequence_tuple[1].sequence.count("C") / len(sequence_tuple[1])
-    
+
     # Add metadata
     sequence_tuple[0]._metadata["t_percent"] = t_percent
     sequence_tuple[1]._metadata["c_percent"] = c_percent
-    
+
     score = (t_percent + c_percent) / 2
     return score
 
 # Set attributes that would normally be set by registry decorator
-mock_single_input_scoring_function_disjoint._constraint_vectorized = False
+mock_single_input_scoring_function_disjoint._constraint_batched = False
 mock_single_input_scoring_function_disjoint._constraint_concatenate = False
 mock_single_input_scoring_function_disjoint._constraint_config_class = None
 
@@ -180,15 +180,15 @@ def mock_multi_input_scoring_function_disjoint(
         t_percent = sequence_tuple[0].sequence.count("T") / len(sequence_tuple[0])
         c_percent = sequence_tuple[1].sequence.count("C") / len(sequence_tuple[1])
         scores.append((t_percent + c_percent) / 2)
-        
+
         # Add metadata
         sequence_tuple[0]._metadata["t_percent"] = t_percent
         sequence_tuple[1]._metadata["c_percent"] = c_percent
-    
+
     return scores
 
 # Set attributes that would normally be set by registry decorator
-mock_multi_input_scoring_function_disjoint._constraint_vectorized = True
+mock_multi_input_scoring_function_disjoint._constraint_batched = True
 mock_multi_input_scoring_function_disjoint._constraint_concatenate = False
 mock_multi_input_scoring_function_disjoint._constraint_config_class = None
 

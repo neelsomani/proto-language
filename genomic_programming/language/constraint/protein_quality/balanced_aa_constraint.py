@@ -37,8 +37,8 @@ class BalancedAaConfig(BaseConfig):
     label="Balanced Amino Acid Representation",
     config=BalancedAaConfig,
     description="Evaluate the presence of underrepresented amino acids in a protein sequence",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def balanced_aa_constraint(sequences: List[Sequence], config: BalancedAaConfig) -> List[float]:
     """

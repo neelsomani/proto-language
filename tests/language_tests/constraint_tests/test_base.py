@@ -708,39 +708,39 @@ def test_three_or_more_segments_disjoint():
         a_count = sequence_tuple[0].sequence.count("A") / len(sequence_tuple[0])
         t_count = sequence_tuple[1].sequence.count("T") / len(sequence_tuple[1])
         g_count = sequence_tuple[2].sequence.count("G") / len(sequence_tuple[2])
-        
+
         sequence_tuple[0]._metadata["a_percent"] = a_count
         sequence_tuple[1]._metadata["t_percent"] = t_count
         sequence_tuple[2]._metadata["g_percent"] = g_count
-        
+
         return (a_count + t_count + g_count) / 3
-    
+
     # Set attributes that would normally be set by registry decorator
-    mock_triple_input_scoring_function._constraint_vectorized = False
+    mock_triple_input_scoring_function._constraint_batched = False
     mock_triple_input_scoring_function._constraint_concatenate = False
     mock_triple_input_scoring_function._constraint_config_class = None
-    
+
     seg1 = create_segment("AAAA", SequenceType.DNA)
     seg2 = create_segment("TTTT", SequenceType.DNA)
     seg3 = create_segment("GGGG", SequenceType.DNA)
     config = MockConstraintConfig()
-    
+
     constraint = Constraint(
         inputs=[seg1, seg2, seg3],
         scoring_function=mock_triple_input_scoring_function,
         scoring_function_config=config,
     )
-    
+
     scores = constraint.evaluate()
     assert len(scores) == 1
     # Each segment is 100% of its respective nucleotide, so score = (1+1+1)/3 ≈ 1.0
     assert abs(scores[0] - 1.0) < 1e-9
-    
+
     # Check that each segment has its own prefixed metadata
     assert "segment_0.mock_triple_input_scoring_function.a_percent" in seg1.candidate_sequences[0]._metadata
     assert "segment_1.mock_triple_input_scoring_function.t_percent" in seg2.candidate_sequences[0]._metadata
     assert "segment_2.mock_triple_input_scoring_function.g_percent" in seg3.candidate_sequences[0]._metadata
-    
+
     # Verify the metadata values are correct
     assert seg1.candidate_sequences[0]._metadata["segment_0.mock_triple_input_scoring_function.a_percent"] == 1.0
     assert seg2.candidate_sequences[0]._metadata["segment_1.mock_triple_input_scoring_function.t_percent"] == 1.0

@@ -65,8 +65,8 @@ class MMseqsHomologyConfig(BaseConfig):
     label="Gene/Protein Homology",
     config=MMseqsHomologyConfig,
     description="Evaluate homology (percent identity) using MMseqs. For DNA: predicts ORFs first. For proteins: searches directly.",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomologyConfig) -> List[float]:
     """
@@ -84,19 +84,19 @@ def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomology
     """
     if not sequences:
         return []
-    
+
     sequence_type = sequences[0].sequence_type
-    
+
     # Validate all same type
     if not all(seq.sequence_type == sequence_type for seq in sequences):
         raise ValueError("All sequences must be same type (all DNA or all PROTEIN)")
-    
+
     scores = []
     all_proteins_data = [] 
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        
+
         # Get proteins (ORF prediction for DNA, direct for protein)
         if sequence_type == SequenceType.DNA:
             if config.orf_predictor == "prodigal":
@@ -105,53 +105,47 @@ def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomology
                     "".join(c for c in seq.sequence.upper() if c in DNA_NUCLEOTIDES)
                     for seq in sequences
                 ]
-                
+
                 prodigal_input = ProdigalInput(input_sequences=sequences_clean)
                 result = run_prodigal_prediction(inputs=prodigal_input, config=prodigal_config)
-                
+
                 for seq_idx, orfs_df in enumerate(result.results_per_sequence):
                     sequences[seq_idx]._metadata["prodigal_orfs"] = (
                         orfs_df.to_dict("records") if not orfs_df.empty else []
                     )
-                    
+
                     if not orfs_df.empty:
                         for _, row in orfs_df.iterrows():
                             all_proteins_data.append((
                                 seq_idx, row['id'], row['protein_sequence']
                             ))
-            
+
             else:  # orfipy
+                orfipy_input = OrfipyInput(sequences=sequences)
                 orfipy_config = config.orfipy_config or OrfipyConfig(output_dir="")
-                input_fasta = temp_path / "all_dna.fasta"
-                
-                with open(input_fasta, "w") as f:
-                    for seq_idx, seq in enumerate(sequences):
-                        clean = "".join(c for c in seq.sequence.upper() if c in DNA_NUCLEOTIDES)
-                        f.write(f">seq_{seq_idx}\n{clean}\n")
-                
-                orfipy_input = OrfipyInput(input_fasta=str(input_fasta))
+
                 orfipy_run_config = orfipy_config.model_copy(
                     update={"output_dir": str(temp_path / "orfipy_out")}
                 )
                 result = run_orfipy_prediction(inputs=orfipy_input, config=orfipy_run_config)
                 full_orfs = result.results_df if result.results_df is not None else pd.DataFrame()
-                
+
                 for seq_idx in range(len(sequences)):
                     if not full_orfs.empty:
                         seq_orfs = full_orfs[full_orfs['parent_id'] == f'seq_{seq_idx}'].copy()
                     else:
                         seq_orfs = pd.DataFrame()
-                    
+
                     sequences[seq_idx]._metadata["orfipy_orfs"] = (
                         seq_orfs.to_dict("records") if not seq_orfs.empty else []
                     )
-                    
+
                     if not seq_orfs.empty:
                         for _, row in seq_orfs.iterrows():
                             all_proteins_data.append((
                                 seq_idx, row['orf_id'], row['amino_acid_sequence']
                             ))
-        
+
         else:  # PROTEIN sequences - use directly
             for seq_idx, seq in enumerate(sequences):
                 protein_id = f"protein_{seq_idx}"
@@ -161,7 +155,7 @@ def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomology
                     "sequence": seq.sequence,
                     "length": len(seq.sequence)
                 }
-        
+
         # Write all proteins to combined FASTA
         if not all_proteins_data:
             # No proteins found
@@ -174,28 +168,27 @@ def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomology
                     "homology_compliance_rate": 0.0,
                 })
             return [MAX_ENERGY] * len(sequences)
-        
+
         combined_fasta = temp_path / "all_proteins.faa"
         protein_to_seq = {}
-        
+
         with open(combined_fasta, "w") as f:
             for seq_idx, prot_id, prot_seq in all_proteins_data:
                 f.write(f">{prot_id}\n{prot_seq}\n")
                 protein_to_seq[prot_id] = seq_idx
-        
+
         # MMseqs call
         resolved_db = resolve_paths(config.mmseqs_db)
         mmseqs_config = config.mmseqs_config or MmseqsSearchProteinsConfig(results_dir="")
-        
+
         mmseqs_input = MmseqsSearchProteinsInput(
-            query_fasta=str(combined_fasta),
-            mmseqs_db=resolved_db
+            query_sequences=str(combined_fasta), mmseqs_db=resolved_db
         )
         mmseqs_run_config = mmseqs_config.model_copy(
             update={"results_dir": str(temp_path / "mmseqs_out")}
         )
         mmseqs_result = mmseqs_search_proteins(mmseqs_input, mmseqs_run_config)
-        
+
         if not mmseqs_result.success:
             for seq in sequences:
                 seq._metadata.update({
@@ -208,25 +201,25 @@ def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomology
                     "homology_compliance_rate": 0.0,
                 })
             return [MAX_ENERGY] * len(sequences)
-        
+
         all_results = mmseqs_result.results_df if mmseqs_result.results_df is not None else pd.DataFrame()
-    
+
     # Split results back to sequences and score
     for seq_idx, seq in enumerate(sequences):
         seq_prot_ids = [pid for pid, sid in protein_to_seq.items() if sid == seq_idx]
-        
+
         if not all_results.empty and seq_prot_ids:
             seq_results = all_results[all_results['query'].isin(seq_prot_ids)].copy()
         else:
             seq_results = pd.DataFrame()
-        
+
         num_hits = len(seq_results) if not seq_results.empty else 0
-        
+
         seq._metadata.update({
             "mmseqs_results": seq_results.to_dict("records") if not seq_results.empty else [],
             "unique_orfs_with_hits": num_hits,
         })
-        
+
         if seq_results.empty or "pident" not in seq_results.columns:
             seq._metadata.update({
                 "orfs_with_acceptable_homology": 0,
@@ -235,11 +228,11 @@ def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomology
             })
             scores.append(MAX_ENERGY)
             continue
-        
+
         # Score each hit
         acceptable = 0
         violations = []
-        
+
         for _, row in seq_results.iterrows():
             pident = row["pident"]
             if config.min_homology <= pident <= config.max_homology:
@@ -248,13 +241,13 @@ def mmseqs_homology_constraint(sequences: List[Sequence], config: MMseqsHomology
                 violations.append(calculate_percentage_range_deviation(
                     pident, config.min_homology, config.max_homology
                 ))
-        
+
         seq._metadata.update({
             "orfs_with_acceptable_homology": acceptable,
             "total_orfs_with_hits": num_hits,
             "homology_compliance_rate": acceptable / num_hits,
         })
-        
+
         scores.append(MIN_ENERGY if not violations else min(MAX_ENERGY, np.mean(violations)))
-    
+
     return scores

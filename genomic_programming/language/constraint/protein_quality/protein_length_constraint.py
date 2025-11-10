@@ -25,8 +25,8 @@ class ProteinLengthConfig(BaseConfig):
     label="Protein Length",
     config=ProteinLengthConfig,
     description="Evaluate whether protein length falls within acceptable range",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def protein_length_constraint(sequences: List[Sequence], config: ProteinLengthConfig) -> List[float]:
     """

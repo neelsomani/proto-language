@@ -57,9 +57,9 @@ class ProteinGlobularityConfig(BaseConfig):
     label="Protein Globularity",
     config=ProteinGlobularityConfig,
     description="Encourage compact, globular protein structures",
-    vectorized=True,
+    batched=True,
     concatenate=True,
-    gpu_required=True
+    gpu_required=True,
 )
 def protein_globularity_constraint(sequences: List[Sequence], config: ProteinGlobularityConfig) -> List[float]:
     """

@@ -17,7 +17,7 @@ from pydantic.json_schema import SkipJsonSchema
 class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
 
-    vectorized: bool = Field(description="Whether constraint is vectorized")
+    batched: bool = Field(description="True if the constraint processes an iterable of sequences rather than a single sequence")
     concatenate: bool = Field(description="Whether to concatenate segments")
     gpu_required: bool = Field(description="Whether constraint requires GPU")
 
@@ -28,57 +28,57 @@ class ConstraintSpec(BaseSpec):
 class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     """
     Registry for constraint discovery and API/client integration.
-    
+
     Inherits common registry functionality from BaseRegistry and adds
-    constraint-specific features like vectorized/concatenate flags.
-    
+    constraint-specific features like batched/concatenate flags.
+
     Public Methods:
     - register(): Decorator to register constraint functions
-    - list_all(): List constraints with metadata (vectorized, concatenate, gpu_required)
+    - list_all(): List constraints with metadata (batched, concatenate, gpu_required)
     - create(): Factory to create Constraint instances from config dicts
     - get(): Get constraint spec by key (inherited)
     - get_schema(): Get JSON schema for constraint configuration (inherited)
     - count(): Get number of registered constraints (inherited)
-    
+
     Examples:
         Registration (in constraint files):
         >>> @ConstraintRegistry.register(
         ...     key="gc-content",
         ...     config=GCContentConfig,
         ...     description="Enforce GC content within range",
-        ...     vectorized=False,
+        ...     batched=False,
         ...     concatenate=True
         ... )
         ... def gc_content_constraint(sequence: Sequence, config: GCContentConfig) -> float:
         ...     return calculate_penalty(sequence, config)
-        
+
         API/Client Usage:
         >>> # List all available constraints
         >>> constraints = ConstraintRegistry.list_all()
-        >>> 
+        >>>
         >>> # Get form schema
         >>> schema = ConstraintRegistry.get_schema("gc-content")
-        >>> 
+        >>>
         >>> # Create from user input
         >>> constraint = ConstraintRegistry.create(
         ...     key="gc-content",
         ...     segments=[segment],
         ...     config_dict={"min_gc": 40, "max_gc": 60}
         ... )
-        
+
         Direct Library Usage (no registry needed):
         >>> # Users can bypass registry entirely
-        >>> # vectorized and concatenate are automatically read from function attributes
+        >>> # batched and concatenate are automatically read from function attributes
         >>> constraint = Constraint(
         ...     inputs=[segment],
         ...     scoring_function=gc_content_constraint,
         ...     scoring_function_config=GCContentConfig(min_gc=40, max_gc=60)
         ... )
     """
-    
+
     # Each registry subclass must have its own _registry dict
     _registry: Dict[str, ConstraintSpec] = {}
-    
+
     @classmethod
     def register(
         cls,
@@ -86,7 +86,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         label: str,
         config: Type[BaseModel],
         description: str,
-        vectorized: bool = False,
+        batched: bool = False,
         concatenate: bool = True,
         gpu_required: bool = False,
     ):
@@ -94,14 +94,14 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         Decorator to register a constraint function.
 
         This is the constraint-specific implementation of the abstract register()
-        method from BaseRegistry. It adds vectorized and concatenate flags.
+        method from BaseRegistry. It adds batched and concatenate flags.
 
         Args:
             key: Unique identifier (e.g., "gc-content", "protein-length")
             label: Readable external name (e.g., "GC Content Range", "Protein Length")
             config: Pydantic model class for configuration validation
             description: Readable description
-            vectorized: If True, function processes List[Sequence] → List[float].
+            batched: If True, function processes List[Sequence] → List[float].
                        If False, function processes Sequence → float.
             concatenate: If True, concatenate multiple segments before evaluation.
                         If False, pass segments as tuple (for disjoint evaluation).
@@ -116,7 +116,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             ...     label="GC Content Range",
             ...     config=GCContentConfig,
             ...     description="GC content within range",
-            ...     vectorized=False
+            ...     batched=False
             ... )
             ... def gc_content_constraint(sequence: Sequence, config: GCContentConfig) -> float:
             ...     return calculate_penalty(sequence, config.min_gc, config.max_gc)
@@ -125,8 +125,8 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, func.__name__)
 
-            # Store vectorized and concatenate as function attributes
-            func._constraint_vectorized = vectorized
+            # Store batched and concatenate as function attributes
+            func._constraint_batched = batched
             func._constraint_concatenate = concatenate
             func._constraint_gpu_required = gpu_required
             func._constraint_config_class = config
@@ -137,13 +137,13 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 config_model=config,
                 description=description,
                 function=func,
-                vectorized=vectorized,
+                batched=batched,
                 concatenate=concatenate,
                 gpu_required=gpu_required,
             )
             return func
         return decorator
-    
+
     @classmethod
     def create(
         cls,
@@ -195,7 +195,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             scoring_function_config=validated_config,
             label=label,
         )
-    
+
     @classmethod
     def list_all(cls) -> List[ConstraintSpec]:
         """
@@ -203,7 +203,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
 
         Returns list of ConstraintSpec models that FastAPI automatically serializes to JSON.
         Each spec includes key, label, description, config_model (serialized as JSON Schema),
-        vectorized, concatenate, and gpu_required flags.
+        batched, concatenate, and gpu_required flags.
 
         Returns:
             List of ConstraintSpec Pydantic models
@@ -212,7 +212,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             >>> constraints = ConstraintRegistry.list_all()
             >>> for spec in constraints:
             ...     print(f"{spec.label} ({spec.key})")
-            ...     print(f"  Vectorized: {spec.vectorized}")
+            ...     print(f"  Processes many: {spec.batched}")
             ...     schema = spec.config_model.model_json_schema()
             ...     print(f"  Parameters: {list(schema['properties'].keys())}")
         """

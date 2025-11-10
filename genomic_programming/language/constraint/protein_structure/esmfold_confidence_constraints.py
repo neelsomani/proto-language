@@ -50,7 +50,7 @@ class ESMFoldConfidenceConfig(BaseConfig):
     label="ESMFold pLDDT Score",
     config=ESMFoldConfidenceConfig,
     description="Evaluate protein structure quality using ESMFold predicted LDDT score",
-    vectorized=True,
+    batched=True,
     concatenate=True,
     gpu_required=True,
 )
@@ -68,7 +68,7 @@ def esmfold_plddt_constraint(
     label="ESMFold pTM Score",
     config=ESMFoldConfidenceConfig,
     description="Evaluate protein structure quality using ESMFold predicted TM score",
-    vectorized=True,
+    batched=True,
     concatenate=True,
     gpu_required=True,
 )

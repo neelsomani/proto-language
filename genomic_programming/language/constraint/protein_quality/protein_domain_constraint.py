@@ -52,8 +52,8 @@ class ProteinDomainConfig(BaseConfig):
     label="Protein Domain Match",
     config=ProteinDomainConfig,
     description="Evaluate whether a sequence contains protein domains matching specified keywords",
-    vectorized=True,
-    concatenate=True
+    batched=True,
+    concatenate=True,
 )
 def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainConfig) -> List[float]:
     """

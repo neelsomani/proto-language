@@ -13,7 +13,7 @@ from pydantic import Field
 from proto_language.language.core import Sequence, SequenceType
 from proto_language.base_config import BaseConfig
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
-from proto_language.tools.models.structure_prediction import (
+from proto_language.tools.structure_prediction import (
     run_esmfold,
     StructurePredictionComplex,
     ESMFoldInput,
@@ -25,7 +25,7 @@ from proto_language.utils import (
     pdb_file_to_atomarray,
     MAX_ENERGY
 )
-from proto_language.tools.models.structure_prediction.esmfold import (
+from proto_language.tools.structure_prediction.esmfold import (
     run_esmfold,
     ESMFoldInput,
     ESMFoldConfig,

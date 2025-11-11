@@ -17,7 +17,7 @@ from proto_language.base_config import BaseConfig
 from proto_language.language.constraint.constraint_registry import (
     ConstraintRegistry,
 )
-from proto_language.tools.models.structure_prediction import (
+from proto_language.tools.structure_prediction import (
     run_esmfold,
     ESMFoldInput,
     ESMFoldConfig,

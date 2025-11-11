@@ -8,7 +8,7 @@ from typing import List, Optional
 from ...core import Sequence
 from proto_language.base_config import BaseConfig
 from ..constraint_registry import ConstraintRegistry
-from ....tools.models.rna_splicing.splice_transformer import (
+from ....tools.rna_splicing.splice_transformer import (
     run_splice_transformer,
     SpliceTransformerConfig,
     SpliceTransformerInput,

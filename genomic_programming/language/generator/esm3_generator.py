@@ -8,7 +8,7 @@ from pydantic import Field, field_validator
 
 from ..core import Generator, GeneratorType, Segment
 from proto_language.base_config import BaseConfig
-from proto_language.tools.models.language_models.esm3.esm3 import run_esm3_sample, ESM3SampleConfig, LanguageModelInput
+from proto_language.tools.language_models.esm3.esm3 import run_esm3_sample, ESM3SampleConfig, LanguageModelInput
 from .generator_registry import GeneratorRegistry
 
 

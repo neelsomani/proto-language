@@ -23,7 +23,7 @@ from proto_language.language.constraint import (
 from proto_language.language.constraint.protein_structure.esmfold_confidence_constraints import (
     ESMFoldConfidenceConfig,
 )
-from proto_language.tools.models.structure_prediction import (
+from proto_language.tools.structure_prediction import (
     ESMFoldConfig,
     ESMFoldStructure,
     StructurePredictionOutput,

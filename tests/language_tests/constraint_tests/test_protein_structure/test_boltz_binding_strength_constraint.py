@@ -13,7 +13,7 @@ from proto_language.language.constraint.protein_structure.boltz_binding_strength
     BoltzBindingStrengthConfig,
     DEFAULT_DESIRED_HIGHER,
 )
-from proto_language.tools.models.structure_prediction import (
+from proto_language.tools.structure_prediction import (
     BoltzStructure,
     StructurePredictionOutput,
 )
@@ -117,7 +117,7 @@ class TestBoltzBindingStrengthConstraint:
         Test config merge overrides default values for dicts and ensures
         nested configs are set correctly.
         """
-        from proto_language.tools.models.structure_prediction.boltz import (
+        from proto_language.tools.structure_prediction.boltz import (
             BoltzConfig,
         )
 

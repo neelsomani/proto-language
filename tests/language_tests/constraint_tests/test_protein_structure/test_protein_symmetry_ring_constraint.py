@@ -17,10 +17,10 @@ from proto_language.language.constraint import (
 from proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint import (
     ProteinSymmetryRingConfig,
 )
-from proto_language.tools.models.structure_prediction.schemas import (
+from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionOutput,
 )
-from proto_language.tools.models.structure_prediction.esmfold import (
+from proto_language.tools.structure_prediction.esmfold import (
     ESMFoldStructure,
 )
 from proto_language.tools.orf_prediction.prodigal import (

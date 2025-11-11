@@ -1,6 +1,6 @@
 import sys
 import os
-from proto_language.tools.models.structure_prediction import run_esmfold, ESMFoldConfig
+from proto_language.tools.structure_prediction import run_esmfold, ESMFoldConfig
 
 
 if __name__ == "__main__":

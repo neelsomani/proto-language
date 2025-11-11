@@ -9,8 +9,8 @@ from pydantic import Field, model_validator
 
 from ..core import Generator, GeneratorType, Segment
 from proto_language.base_config import BaseConfig
-from proto_language.tools.models.language_models.evo2 import run_evo2_sample, Evo2SampleInput, Evo2SampleConfig
-from proto_language.tools.models.language_models.evo2.inference import EVO2_MODEL_CHECKPOINTS
+from proto_language.tools.language_models.evo2 import run_evo2_sample, Evo2SampleInput, Evo2SampleConfig
+from proto_language.tools.language_models.evo2.inference import EVO2_MODEL_CHECKPOINTS
 from .generator_registry import GeneratorRegistry
 
 

@@ -14,7 +14,7 @@ from proto_language.language.constraint import protein_globularity_constraint
 from proto_language.language.constraint.protein_structure.protein_globularity_constraint import (
     ProteinGlobularityConfig,
 )
-from proto_language.tools.models.structure_prediction import (
+from proto_language.tools.structure_prediction import (
     ESMFoldStructure,
     StructurePredictionOutput,
 )

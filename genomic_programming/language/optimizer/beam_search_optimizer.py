@@ -127,13 +127,13 @@ class BeamSearchOptimizer(Optimizer):
 
         construct = constructs[0]
         generator = generators[0]
-        prompt = config.prompt  # Extract prompt from config
+        self.prompt = config.prompt  # Extract prompt from config
 
         # Beam Search only works with autoregressive generators with non-empty prompts
         if generator.type != GeneratorType.AUTOREGRESSIVE:
             raise ValueError(f"BeamSearchOptimizer requires autoregressive generators. The provided generator '{generator.__class__.__name__}' is not autoregressive.")
 
-        if not prompt:
+        if not self.prompt:
             raise ValueError("BeamSearchOptimizer requires a non-empty prompt to start beam search.")
 
         # Required for validation in base class. Each segment is assigned to the single generator for beam search.
@@ -163,13 +163,13 @@ class BeamSearchOptimizer(Optimizer):
         self.use_kv_caching: bool = config.use_kv_caching
         self.verbose: bool = config.verbose
         self.custom_logging: Optional[Callable] = custom_logging
-        
+
         # Beam search state parameters (running prompts and corresponding KV caches)
-        self.running_prompts: List[str] = [prompt] * self.beam_width
+        self.running_prompts: List[str] = [self.prompt] * self.beam_width
         self.top_beam_kv_caches: List[Optional[Dict]] = [None] * self.beam_width
         
         # IMPORTANT: set max_seqlen to the total construct length!!
-        self.generator.max_seqlen = len(prompt) + len(self.segments) * self.generator.num_tokens
+        self.generator.max_seqlen = len(self.prompt) + len(self.segments) * self.generator.num_tokens
         # Need to store kv caching as well if kv caching is enabled
         self.generator.store_kv_cache = self.use_kv_caching
         # Always use cached generation internally

@@ -2,10 +2,13 @@ from typing import Callable, List, Optional, Type
 
 from pydantic import BaseModel
 
+from proto_language.utils import use_cloud_gpu
+
 from .construct import Construct
 from .constraint import Constraint
 from .generator import Generator
 from .optimizer import Optimizer
+from proto_language.language.optimizer.cloud_optimizer_proxy import CloudOptimizerProxy
 
 
 class Program:
@@ -88,8 +91,18 @@ class Program:
         
         if custom_logging is not None:
             optimizer_kwargs["custom_logging"] = custom_logging
-            
-        self.optimizer = optimizer_type(**optimizer_kwargs)
+
+        # Create the optimizer instance
+        actual_optimizer = optimizer_type(**optimizer_kwargs)
+
+        # Wrap in cloud proxy if GPU execution should use cloud
+        if use_cloud_gpu() and optimizer_type.__name__ in CloudOptimizerProxy._SERVICE_REGISTRY:
+            self.optimizer = CloudOptimizerProxy(
+                wrapped_optimizer=actual_optimizer,
+                optimizer_type=optimizer_type,
+            )
+        else:
+            self.optimizer = actual_optimizer
 
     @property
     def energy_scores(self) -> List[float]:

@@ -81,3 +81,17 @@ class Construct:
         
         if not all(segment._valid_chars == self.segments[0]._valid_chars for segment in self.segments):
             raise ValueError("All segments in a construct must have the same valid_chars.")
+
+    def to_dict(self) -> dict:
+        """Serialize Construct to dictionary for cloud/API communication."""
+        return {
+            "segments": [segment.to_dict() for segment in self.segments],
+            "sequence_type": self.sequence_type.value,
+            "valid_chars": list(self._valid_chars) if self._valid_chars else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data) -> "Construct":
+        """Deserialize Construct from dictionary."""
+        segments = [Segment.from_dict(seg_data) for seg_data in data["segments"]]
+        return cls(segments=segments)

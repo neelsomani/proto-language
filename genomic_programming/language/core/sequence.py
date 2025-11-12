@@ -180,6 +180,26 @@ class Sequence:
         """
         return self._sequence[key]
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize Sequence to dictionary for cloud/API communication."""
+        return {
+            "sequence": self._sequence,
+            "sequence_type": self.sequence_type.value,
+            "valid_chars": list(self._valid_chars) if self._valid_chars else None,
+            "metadata": {k: v for k, v in self._metadata.items() if k not in ["sequence", "sequence_length"]},
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Sequence":
+        """Deserialize Sequence from dictionary."""
+        valid_chars = set(data["valid_chars"]) if data.get("valid_chars") else None
+        return cls(
+            sequence=data["sequence"],
+            sequence_type=data["sequence_type"],
+            valid_chars=valid_chars,
+            metadata=data.get("metadata", {}),
+        )
+
     @staticmethod
     def from_sequences(
         subsequences: List["Sequence"],

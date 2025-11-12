@@ -85,3 +85,41 @@ class Segment:
     def create_candidates(self, num_candidates: int) -> None:
         """Create a new candidate pool of the given size."""
         self.candidate_sequences = [copy.deepcopy(self.original_sequence) for _ in range(num_candidates)]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize Segment to dictionary for cloud/API communication."""
+        return {
+            "original_sequence": self.original_sequence.to_dict(),
+            "candidate_sequences": [seq.to_dict() for seq in self.candidate_sequences],
+            "selected_sequences": [seq.to_dict() for seq in self.selected_sequences],
+            "sequence_type": self.sequence_type.value,
+            "valid_chars": list(self._valid_chars) if self._valid_chars else None,
+            "label": self.label,
+            "constant": self.constant,
+            "_is_assigned": self._is_assigned,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Segment":
+        """Deserialize Segment from dictionary."""
+        # Reconstruct original sequence
+        original_seq = Sequence.from_dict(data["original_sequence"])
+
+        # Create segment with original sequence data
+        valid_chars = set(data["valid_chars"]) if data.get("valid_chars") else None
+        segment = cls(
+            sequence=str(original_seq),
+            sequence_type=data["sequence_type"],
+            valid_chars=valid_chars,
+            label=data.get("label"),
+            metadata=original_seq._metadata,
+            constant=data.get("constant", False),
+        )
+
+        # Restore sequence pools
+        segment.original_sequence = original_seq
+        segment.candidate_sequences = [Sequence.from_dict(seq_data) for seq_data in data["candidate_sequences"]]
+        segment.selected_sequences = [Sequence.from_dict(seq_data) for seq_data in data["selected_sequences"]]
+        segment._is_assigned = data.get("_is_assigned", False)
+
+        return segment

@@ -117,7 +117,7 @@ class TestSegmentSerialization:
     def test_constant_segment_roundtrip(self):
         """Test constant segment serialization."""
         seg = Segment(
-            sequence="TATABOX",
+            sequence="ATATCG",
             sequence_type=SequenceType.DNA,
             label="promoter",
             constant=True
@@ -128,13 +128,13 @@ class TestSegmentSerialization:
 
         assert seg_restored.constant == True
         assert seg_restored._is_assigned == True
-        assert str(seg_restored.original_sequence) == "TATABOX"
+        assert str(seg_restored.original_sequence) == "ATATCG"
 
     def test_segment_with_metadata_roundtrip(self):
         """Test segment with sequence metadata."""
         metadata = {"annotation": "strong_promoter"}
         seg = Segment(
-            sequence="TATABOX",
+            sequence="ATATCG",
             sequence_type=SequenceType.DNA,
             label="promoter",
             metadata=metadata
@@ -205,8 +205,8 @@ class TestConstructSerialization:
 
     def test_construct_with_constant_segment_roundtrip(self):
         """Test construct with constant segment."""
-        seg1 = Segment(sequence="FIXED", sequence_type=SequenceType.DNA, label="promoter", constant=True)
-        seg2 = Segment(sequence="VARIABLE", sequence_type=SequenceType.DNA, label="cds", constant=False)
+        seg1 = Segment(sequence="ATATCG", sequence_type=SequenceType.DNA, label="promoter", constant=True)
+        seg2 = Segment(sequence="ATATCG", sequence_type=SequenceType.DNA, label="cds", constant=False)
 
         construct = Construct([seg1, seg2])
 

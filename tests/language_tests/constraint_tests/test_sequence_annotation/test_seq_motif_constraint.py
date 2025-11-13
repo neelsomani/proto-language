@@ -13,11 +13,8 @@ Note: Actual MEME/FIMO execution is mocked to avoid dependencies.
 """
 
 import pytest
-import sys
 from unittest.mock import patch, mock_open, Mock
 import os
-
-sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import seq_motif_constraint

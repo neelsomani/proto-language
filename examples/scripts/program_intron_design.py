@@ -1,8 +1,5 @@
 from tap import Tap
-import sys
 from typing import Tuple
-import os
-import random
 
 from proto_language.language.core import (
     Constraint,

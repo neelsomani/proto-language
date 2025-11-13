@@ -3,9 +3,6 @@ Comprehensive tests for overall_protein_quality_constraint.
 """
 
 import pytest
-import sys
-
-sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import overall_protein_quality_constraint

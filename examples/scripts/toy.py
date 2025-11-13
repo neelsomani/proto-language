@@ -1,8 +1,5 @@
 from typing import Tuple
 
-import sys
-import os
-
 from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 from proto_language.language.core import (

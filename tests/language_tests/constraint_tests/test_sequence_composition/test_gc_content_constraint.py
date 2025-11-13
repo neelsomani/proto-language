@@ -1,7 +1,4 @@
 import pytest
-import sys
-
-sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import gc_content_constraint

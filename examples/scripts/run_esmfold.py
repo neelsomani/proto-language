@@ -1,5 +1,3 @@
-import sys
-import os
 from proto_language.tools.structure_prediction import run_esmfold, ESMFoldConfig
 
 

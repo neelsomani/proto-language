@@ -4,9 +4,6 @@ import numpy as np
 import copy
 from typing import Tuple
 
-import sys
-
-sys.path.append(".")
 from proto_language.language.core import (
     Segment,
     SequenceType,

@@ -9,10 +9,9 @@ Represents a single DNA, RNA, or protein sequence with validation and metadata.
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Union
 import warnings
-
-from ...utils.helpers import propagate_metadata
-
 import string
+
+from proto_language.utils.helpers import propagate_metadata
 
 # Valid characters for different sequence types
 DNA_NUCLEOTIDES = "ACGT"

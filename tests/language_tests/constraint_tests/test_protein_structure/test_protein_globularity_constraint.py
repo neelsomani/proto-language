@@ -3,10 +3,7 @@ Tests for Protein Globularity constraint.
 """
 
 import pytest
-import sys
 from unittest.mock import Mock, patch
-
-sys.path.append(".")
 
 import pandas as pd
 from proto_language.language.core import Constraint, SequenceType

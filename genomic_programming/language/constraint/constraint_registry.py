@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Type
 from pydantic import BaseModel, Field
 
 from proto_language.base_registry import BaseRegistry, BaseSpec
-from ..core import Constraint, Segment
+from proto_language.language.core import Constraint, Segment
 
 from pydantic.json_schema import SkipJsonSchema
 

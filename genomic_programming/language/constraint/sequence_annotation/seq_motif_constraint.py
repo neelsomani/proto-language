@@ -12,9 +12,9 @@ from typing import List, Literal, Optional, Union
 import numpy as np
 from pydantic import Field
 
-from ...core import Sequence
+from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig
-from ..constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 
 
 class SeqMotifConfig(BaseConfig):

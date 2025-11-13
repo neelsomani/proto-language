@@ -1,8 +1,5 @@
 import numpy as np
 import pytest
-import sys
-
-sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import max_homopolymer_constraint

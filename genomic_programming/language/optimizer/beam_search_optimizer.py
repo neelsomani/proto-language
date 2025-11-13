@@ -10,9 +10,9 @@ import numpy as np
 
 from pydantic import Field
 
-from ..core import Optimizer, Construct, Constraint, Generator, GeneratorType, Segment
+from proto_language.language.core import Optimizer, Construct, Constraint, Generator, GeneratorType, Segment
 from proto_language.base_config import BaseConfig
-from .optimizer_registry import OptimizerRegistry
+from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 
 class BeamSearchOptimizerConfig(BaseConfig):

@@ -2,9 +2,6 @@ import pytest
 import copy
 from typing import Tuple
 
-import sys
-
-sys.path.append(".")
 from pydantic import BaseModel
 from proto_language.language.core import (
     Construct,

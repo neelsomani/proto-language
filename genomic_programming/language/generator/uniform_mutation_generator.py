@@ -8,9 +8,9 @@ import time
 
 from pydantic import Field, model_validator
 
-from ..core import Generator, GeneratorType, Segment
+from proto_language.language.core import Generator, GeneratorType, Segment
 from proto_language.base_config import BaseConfig
-from .generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import GeneratorRegistry
 
 
 class UniformMutationGeneratorConfig(BaseConfig):

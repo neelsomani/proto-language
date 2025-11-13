@@ -14,10 +14,7 @@ Note: Actual promoter_calculator execution is mocked to avoid dependencies.
 """
 
 import pytest
-import sys
 from unittest.mock import patch, Mock
-
-sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import promoter_strength_constraint

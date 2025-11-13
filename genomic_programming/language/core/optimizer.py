@@ -13,7 +13,7 @@ import math
 from .constraint import Constraint
 from .construct import Construct
 from .generator import Generator
-from ...tools.tool_cache import ToolCache, _program_tool_cache
+from proto_language.tools.tool_cache import ToolCache, _program_tool_cache
 
 
 class Optimizer(ABC):

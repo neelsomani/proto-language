@@ -2,7 +2,6 @@
 
 from typing import Tuple
 
-import sys
 import os
 
 from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig

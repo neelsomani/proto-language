@@ -10,9 +10,9 @@ import sys
 import numpy as np
 from pydantic import Field, model_validator
 
-from ..core import Optimizer, Construct, Generator, GeneratorType, Constraint, Sequence
+from proto_language.language.core import Optimizer, Construct, Generator, GeneratorType, Constraint, Sequence
 from proto_language.base_config import BaseConfig
-from .optimizer_registry import OptimizerRegistry
+from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 # Maximum safe exponent for np.exp() to prevent overflow
 MAX_EXP_ARG = 700.0

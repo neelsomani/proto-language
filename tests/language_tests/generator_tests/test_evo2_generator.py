@@ -1,8 +1,6 @@
 import pytest
-import sys
 import time
 
-sys.path.append(".")
 from proto_language.language.core import Segment, SequenceType
 from proto_language.language.generator import (
     Evo2Generator,

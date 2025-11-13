@@ -4,9 +4,6 @@ import random
 from typing import Tuple, List, Dict, Optional
 from unittest.mock import Mock
 
-import sys
-
-sys.path.append(".")
 from proto_language.language.core import (
     Construct,
     Segment,

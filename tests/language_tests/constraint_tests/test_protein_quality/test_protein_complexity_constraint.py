@@ -10,10 +10,7 @@ Tests cover:
 """
 
 import pytest
-import sys
 from unittest.mock import patch
-
-sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import protein_complexity_constraint

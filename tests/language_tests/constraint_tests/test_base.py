@@ -1,8 +1,5 @@
 import pytest
-import sys
 from typing import Tuple
-
-sys.path.append(".")
 
 from pydantic import BaseModel
 

@@ -1,7 +1,5 @@
 import pytest
-import sys
 
-sys.path.append(".")
 from proto_language.language.core import Segment, SequenceType
 from proto_language.language.generator import ESM2Generator, ESM2GeneratorConfig
 

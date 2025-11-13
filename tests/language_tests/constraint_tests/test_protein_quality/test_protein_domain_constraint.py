@@ -13,11 +13,8 @@ Tests cover:
 
 import pandas as pd
 import pytest
-import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
-
-sys.path.append(".")
 
 from Bio import SeqIO
 from proto_language.language.core import Constraint, SequenceType

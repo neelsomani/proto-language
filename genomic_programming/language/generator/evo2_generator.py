@@ -7,11 +7,11 @@ import warnings
 
 from pydantic import Field, model_validator
 
-from ..core import Generator, GeneratorType, Segment
+from proto_language.language.core import Generator, GeneratorType, Segment
 from proto_language.base_config import BaseConfig
 from proto_language.tools.language_models.evo2 import run_evo2_sample, Evo2SampleInput, Evo2SampleConfig
 from proto_language.tools.language_models.evo2.inference import EVO2_MODEL_CHECKPOINTS
-from .generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import GeneratorRegistry
 
 
 class Evo2GeneratorConfig(BaseConfig):

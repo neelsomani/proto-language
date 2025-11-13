@@ -9,9 +9,9 @@ import heapq
 import numpy as np
 from pydantic import Field, model_validator
 
-from ..core import Optimizer, Construct, Generator, Constraint
+from proto_language.language.core import Optimizer, Construct, Generator, Constraint
 from proto_language.base_config import BaseConfig
-from .optimizer_registry import OptimizerRegistry
+from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 
 class TopKOptimizerConfig(BaseConfig):

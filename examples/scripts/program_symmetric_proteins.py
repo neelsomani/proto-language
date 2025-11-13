@@ -1,7 +1,5 @@
 from typing import Tuple
 
-import sys
-import os
 from proto_language.language.core import (
     Constraint,
     Construct,

@@ -5,10 +5,10 @@ from enum import Enum
 from pydantic import Field
 from typing import List, Optional
 
-from ...core import Sequence
+from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig
-from ..constraint_registry import ConstraintRegistry
-from ....tools.rna_splicing.splice_transformer import (
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.tools.rna_splicing.splice_transformer import (
     SpliceTransformerConfig,
     SpliceTransformerInput,
     SpliceTransformerTissue,

@@ -3,9 +3,6 @@ Tests for Boltz Binding Strength constraint.
 """
 
 import pytest
-import sys
-
-sys.path.append(".")
 
 from proto_language.language.core import SequenceType
 from proto_language.language.constraint import ConstraintRegistry

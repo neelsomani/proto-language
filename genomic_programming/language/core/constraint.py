@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from .sequence import Sequence
 from .segment import Segment
-from ...utils.helpers import propagate_metadata
+from proto_language.utils.helpers import propagate_metadata
 
 
 class Constraint:

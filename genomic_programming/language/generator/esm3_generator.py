@@ -6,10 +6,10 @@ from typing import final, Literal
 
 from pydantic import Field, field_validator
 
-from ..core import Generator, GeneratorType, Segment
+from proto_language.language.core import Generator, GeneratorType, Segment
 from proto_language.base_config import BaseConfig
 from proto_language.tools.language_models.esm3.esm3 import run_esm3_sample, ESM3SampleConfig, LanguageModelInput
-from .generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import GeneratorRegistry
 from proto_language.tools.language_models.esm3.inference import ESM3_MODEL_CHECKPOINTS
 
 

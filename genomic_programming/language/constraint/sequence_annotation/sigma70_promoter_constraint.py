@@ -10,9 +10,9 @@ from typing import List
 import numpy as np
 from pydantic import Field
 
-from ...core import Sequence
+from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig
-from ..constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 
 
 class Sigma70PromoterConfig(BaseConfig):

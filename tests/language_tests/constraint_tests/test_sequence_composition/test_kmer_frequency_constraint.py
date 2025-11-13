@@ -6,9 +6,6 @@ dinucleotide_frequency and tetranucleotide_usage constraints.
 """
 
 import pytest
-import sys
-
-sys.path.append(".")
 
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import kmer_frequency_constraint, ConstraintRegistry

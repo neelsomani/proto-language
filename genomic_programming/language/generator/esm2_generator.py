@@ -5,11 +5,11 @@ ESM2 Generator for protein sequence generation
 from typing import final, Literal
 from pydantic import Field, field_validator
 
-from ..core import Generator, GeneratorType, Segment
+from proto_language.language.core import Generator, GeneratorType, Segment
 from proto_language.base_config import BaseConfig
 from proto_language.tools.language_models.esm2.esm2 import run_esm2_sample, ESM2SampleConfig, LanguageModelInput
 from proto_language.tools.language_models.esm2.inference import ESM2_MODEL_CHECKPOINTS
-from .generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import GeneratorRegistry
 
 
 class ESM2GeneratorConfig(BaseConfig):

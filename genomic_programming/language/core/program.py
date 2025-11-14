@@ -76,34 +76,13 @@ class Program:
         self.constraints = constraints
         self.constraint_weights = constraint_weights
         self.custom_logging = custom_logging
+        self.clear_tool_cache = clear_tool_cache
 
         # Validate before instantiation to catch errors early
         self._validate_program()
 
-        # Create the Optimizer with optional custom_logging
-        optimizer_kwargs = {
-            "constructs": constructs,
-            "generators": generators,
-            "constraints": constraints,
-            "config": optimizer_config,
-            "constraint_weights": constraint_weights,
-            "clear_tool_cache": clear_tool_cache,
-        }
-        
-        if custom_logging is not None:
-            optimizer_kwargs["custom_logging"] = custom_logging
-
-        # Create the optimizer instance
-        actual_optimizer = optimizer_type(**optimizer_kwargs)
-
-        # Wrap in cloud proxy if GPU execution should use cloud
-        if use_cloud_gpu() and optimizer_type.__name__ in CloudOptimizerProxy._SERVICE_REGISTRY:
-            self.optimizer = CloudOptimizerProxy(
-                wrapped_optimizer=actual_optimizer,
-                optimizer_type=optimizer_type,
-            )
-        else:
-            self.optimizer = actual_optimizer
+        # Lazy initialization - optimizer will be created on first run()
+        self.optimizer: Optional[Optimizer] = None
 
     @property
     def energy_scores(self) -> List[float]:
@@ -112,7 +91,12 @@ class Program:
 
         Returns:
             List of energy scores where lower values indicate better solutions.
+        
+        Raises:
+            RuntimeError: If optimizer hasn't been initialized yet (run() not called).
         """
+        if self.optimizer is None:
+            raise RuntimeError("Optimizer not initialized. Call run() first.")
         return self.optimizer.energy_scores
 
     def _validate_program(self) -> None:
@@ -136,6 +120,33 @@ class Program:
                 f"Available options include MCMCOptimizer and BeamSearchOptimizer."
             )
 
+    def _initialize_optimizer(self) -> None:
+        """Initialize the optimizer (lazy initialization)."""
+        # Create the Optimizer with optional custom_logging
+        optimizer_kwargs = {
+            "constructs": self.constructs,
+            "generators": self.generators,
+            "constraints": self.constraints,
+            "config": self.optimizer_config,
+            "constraint_weights": self.constraint_weights,
+            "clear_tool_cache": self.clear_tool_cache,
+        }
+        
+        if self.custom_logging is not None:
+            optimizer_kwargs["custom_logging"] = self.custom_logging
+
+        # Create the optimizer instance
+        actual_optimizer = self.optimizer_type(**optimizer_kwargs)
+
+        # Wrap in cloud proxy if GPU execution should use cloud
+        if use_cloud_gpu() and self.optimizer_type.__name__ in CloudOptimizerProxy._SERVICE_REGISTRY:
+            self.optimizer = CloudOptimizerProxy(
+                wrapped_optimizer=actual_optimizer,
+                optimizer_type=self.optimizer_type,
+            )
+        else:
+            self.optimizer = actual_optimizer
+
     def run(self) -> None:
         """
         Execute the sequence optimization process.
@@ -143,6 +154,8 @@ class Program:
         Prints initial and final sequence states and energies for monitoring progress.
         The actual optimization is performed by the underlying Optimizer.
         """
+        # Initialize optimizer on first run (lazy initialization)
+        self._initialize_optimizer()
 
         # Calculate initial energy scores
         self.optimizer.score_energy()

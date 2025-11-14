@@ -1,1 +1,0 @@
-# This makes examples.scripts a proper Python package

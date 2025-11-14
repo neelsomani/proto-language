@@ -4,7 +4,7 @@ Optimizer base class for the biological programming language.
 Base class for iterative optimization algorithms that coordinate multiple
 generators and constraints to search for optimal biological sequences.
 """
-
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 import copy

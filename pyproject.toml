@@ -111,10 +111,18 @@ dev = [
     "seaborn>=0.13.0",    
 ]
 
+docs = [
+    "sphinx<=7.2.6",
+    "sphinx-autodoc-typehints",
+    "autodoc_pydantic",
+    "sphinx-rtd-theme",
+    "sphinx-autobuild",
+]
+
 
 # All dependenciesis
 all = [
-    "proto-language[tools,gpu,api,dev]",
+    "proto-language[tools,gpu,api,dev,docs]",
 ]
 
 [project.urls]

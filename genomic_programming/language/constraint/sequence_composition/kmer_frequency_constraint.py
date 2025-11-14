@@ -5,66 +5,108 @@ K-mer frequency constraint for evaluating sequence k-mer properties with arbitra
 from __future__ import annotations
 
 import itertools
-from typing import List, Literal
+from typing import List, Literal, Optional
 import numpy as np
 
-from pydantic import Field, model_validator, field_validator
+from pydantic import model_validator, field_validator
 
 from proto_language.language.core import Sequence, SequenceType, DNA_NUCLEOTIDES, RNA_NUCLEOTIDES, PROTEIN_AMINO_ACIDS
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
 
 
 class KmerFrequencyConfig(BaseConfig):
-    """Configuration for k-mer frequency constraint."""
+    """Configuration for k-mer frequency constraint.
     
-    k: int = Field(
+    This class defines configuration parameters for evaluating k-mer composition
+    in DNA, RNA, or protein sequences. K-mers are subsequences of length k, and
+    their frequencies can indicate codon bias, tandem repeats, sequence composition
+    biases, CpG islands, etc. The constraint supports two scoring modes:
+    frequency-based (direct k-mer counts) and usage deviation (observed vs expected
+    based on nucleotide/amino acid composition).
+    
+    Attributes:
+        k (int): Length of k-mers to analyze. Must be between 1 and 8. Common values:
+            - 1: Mononucleotides/amino acids (base composition)
+            - 2: Dinucleotides (e.g., CpG content in DNA)
+            - 3: Trinucleotides/codons (codon usage in coding sequences)
+            - 4+: Longer motifs (tetranucleotide frequencies etc.)
+            
+        scoring_mode (Literal["frequency", "usage_deviation"]): Scoring metric to
+            evaluate. Options:
+            - "frequency": Evaluates if raw k-mer frequencies (observed_count / total_kmers)
+              fall within a given [min_value, max_value] range. Use for direct frequency
+              constraints like "AT dinucleotides should be 5-10% of all dinucleotides".
+            - "usage_deviation": Evaluates observed/expected ratios where expected
+              is calculated using a zero-order Markov model (independent nucleotide
+              frequencies). A ratio of 1.0 means observed matches expected, >1.0
+              indicates overrepresentation, <1.0 indicates underrepresentation.
+              Use for detecting codon bias or sequence composition anomalies.
+            Default: "frequency".
+
+        min_value (float): Minimum acceptable value (interpretation depends on
+            scoring_mode). Must be non-negative. For frequency mode: minimum k-mer
+            frequency (0.0-1.0). For usage_deviation mode: minimum acceptable
+            observed/expected ratio (e.g., 0.8 = at least 80% of expected).
+
+        max_value (float): Maximum acceptable value (interpretation depends on
+            scoring_mode). Must be non-negative and ≥ min_value. For frequency
+            mode: maximum k-mer frequency (0.0-1.0), capped at 1.0. For usage_deviation
+            mode: maximum acceptable observed/expected ratio (e.g., 1.5 = at most
+            150% of expected).
+
+        specific_kmer (Optional[str]): If specified, only this specific k-mer is
+            evaluated instead of all possible k-mers. Must be uppercase and have
+            length equal to k. For example, "ATG" for start codons, or "GGGG" 
+            for G-quadruplex motifs. If None, all possible k-mers are evaluated.
+            Default: None.
+    
+    Note:
+        **Frequency mode** evaluates raw k-mer proportions. For DNA dinucleotides
+        with k=2, there are 16 possible k-mers (AA, AC, ..., TT). If a sequence
+        has 100 dinucleotides and 10 are CG, the CG frequency is 0.1 (10%).
+        
+        **Usage deviation mode** compares observed to expected frequencies under
+        a zero-order Markov model. Expected frequency = product of individual
+        nucleotide frequencies. For example, if a sequence is 40% G and 60% C,
+        the expected CG dinucleotide frequency is 0.4 × 0.6 = 0.24. If observed
+        is 0.12, usage_deviation = 0.12/0.24 = 0.5 (underrepresented).
+        
+        The constraint returns the maximum deviation across all k-mers as the penalty
+        score (unless a specific k-mer is specified).
+    """
+    # Required parameters
+    k: int = ConfigField(
+        title="K-mer Length",
         ge=1,
         le=8,
-        description="Length of k-mer to analyze (e.g., 2 for dinucleotide, 3 for trinucleotide, 4 for tetranucleotide). Must be between 1 and 8."
+        description="Length of k-mer to analyze (e.g., 2 for dinucleotide, 3 for trinucleotide).",
     )
-    
-    scoring_mode: Literal["frequency", "usage_deviation"] = Field(
+    scoring_mode: Literal["frequency", "usage_deviation"] = ConfigField(
+        title="Scoring Mode",
         default="frequency",
-        description=(
-            "Scoring mode for k-mer evaluation"
-            "  - 'frequency': Direct frequency range constraint. "
-            "Evaluates if observed k-mer frequencies fall within [min_value, max_value] range."
-            "  - 'usage_deviation': Usage deviation constraint "
-            "Evaluates if k-mer usage deviation (usage_deviation) falls within [min_value, max_value] range. "
-            "usage_deviation = observed_freq / expected_freq, where expected_freq is calculated using a zero-order Markov model."
-        )
+        description="Scoring mode for k-mer evaluation. Specifies which metric is compared to range",
+        examples=["frequency", "usage_deviation"],
     )
-    
-    min_value: float = Field(
+    min_value: float = ConfigField(
+        title="Minimum acceptable value",
         ge=0.0,
-        description=(
-            "Minimum acceptable value based on scoring_mode:"
-            "  - For 'frequency' mode: Minimum acceptable frequency (0.0-1.0) for each k-mer."
-            "  - For 'usage_deviation' mode: Minimum acceptable usage deviation (usage_deviation). "
-            "usage_deviation=1.0 means observed frequency matches expected frequency. Values <1 indicate underrepresentation."
-        )
+        description="Minimum acceptable frequncy/deviation based on scoring_mode",
     )
-    
-    max_value: float = Field(
+    max_value: float = ConfigField(
+        title="Maximum acceptable value",
         ge=0.0,
-        description=(
-            "Maximum acceptable value based on scoring_mode:\n"
-            "  - For 'frequency' mode: Maximum acceptable frequency (0.0-1.0) for each k-mer. "
-            "Helps prevent overly repetitive sequences.\n"
-            "  - For 'usage_deviation' mode: Maximum acceptable usage deviation (usage_deviation). "
-            "Values >1 indicate overrepresentation."
-        )
+        description="Maximum acceptable frequency/deviation based on scoring_mode",
     )
-    
-    specific_kmer: str | None = Field(
+
+    # Advanced parameters
+    # TODO: This should be a different constraint
+    specific_kmer: Optional[str] = ConfigField(
+        title="Specific K-mer",
         default=None,
-        description=(
-            "Optional: Specific k-mer sequence to evaluate (e.g., 'ATCG'). "
-            "If specified, only this k-mer is evaluated. If None, all possible k-mers of length k are evaluated. "
-            "Length must match the 'k' parameter."
-        )
+        description="If specified, only this k-mer is evaluated. If None, all possible k-mers of length k are evaluated.",
+        advanced=True,
     )
 
     @field_validator('specific_kmer', mode='before')
@@ -74,7 +116,7 @@ class KmerFrequencyConfig(BaseConfig):
         if v is not None:
             return v.upper()
         return v
-    
+
     @model_validator(mode='after')
     def validate_config(self):
         """Validate configuration parameters."""
@@ -83,21 +125,21 @@ class KmerFrequencyConfig(BaseConfig):
             raise ValueError(
                 f"min_value ({self.min_value}) must be <= max_value ({self.max_value})"
             )
-        
+
         # Validate frequency mode range
         if self.scoring_mode == "frequency":
             if self.max_value > 1.0:
                 raise ValueError(
                     f"For frequency mode, max_value must be <= 1.0, got {self.max_value}"
                 )
-        
+
         # Validate specific_kmer length if provided
         if self.specific_kmer is not None:
             if len(self.specific_kmer) != self.k:
                 raise ValueError(
                     f"specific_kmer length ({len(self.specific_kmer)}) must match k parameter ({self.k})"
                 )
-            
+
         return self
 
 
@@ -110,21 +152,81 @@ class KmerFrequencyConfig(BaseConfig):
     concatenate=True,
 )
 def kmer_frequency_constraint(sequences: List[Sequence], config: KmerFrequencyConfig) -> List[float]:
-    """
-    Evaluate k-mer frequencies or usage deviations for DNA/RNA sequences.
+    """Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring modes
     
-    This generalized constraint supports two scoring modes:
-    1. Frequency mode: Evaluates if k-mer frequencies fall within [min_value, max_value]
-    2. Usage deviation mode: Evaluates if k-mer usage deviation (observed/expected) falls within range
+    This constraint function analyzes k-mer (subsequences of length k) composition
+    in DNA, RNA, or protein sequences using two possible scoring modes:
     
+    1. **Frequency mode**: Evaluates raw k-mer frequencies (observed_count / total_kmers).
+    
+    2. **Usage deviation mode**: Evaluates observed/expected ratios using a zero-order
+       Markov model where expected = product of individual nucleotide/amino acid
+       frequencies. A ratio of 1.0 indicates observed matches expected composition,
+       >1.0 indicates overrepresentation, <1.0 indicates underrepresentation.
+    
+    The constraint can evaluate all possible k-mers of length k, or focus on a
+    specific k-mer if provided. It returns the maximum deviation across all
+    evaluated k-mers as the penalty score.
+
     Args:
-        sequences: List of DNA or RNA sequences to evaluate.
-        config: Configuration containing k, scoring_mode, min_value, max_value, and optional specific_kmer.
-    
+        sequences (List[Sequence]): List of DNA, RNA, or protein sequences to
+            evaluate. Sequences must be at least k nucleotides/amino acids long.
+            Sequences shorter than k receive maximum penalty.
+
+        config (KmerFrequencyConfig): Configuration object containing ``k`` (k-mer
+            length), ``scoring_mode`` (default: "frequency"), ``min_value``,
+            ``max_value``, and optional ``specific_kmer``.
+
     Returns:
-        List of constraint scores where 0.0 indicates all k-mer metrics are within acceptable range
-        and higher values indicate the maximum deviation across all k-mers.
-    """
+        List[float]: Constraint scores for each sequence. A score of 0.0 indicates
+            all k-mer metrics are within the acceptable range [min_value, max_value].
+            Higher scores indicate the maximum deviation across all k-mers. The
+            penalty scales linearly with deviation distance from the acceptable
+            range, capped at 1.0.
+
+    Raises:
+        ValueError: If the input sequence list is empty, or if a sequence is not
+            DNA, RNA, or PROTEIN type.
+    
+    Note:
+        This function modifies the input sequences by adding metadata to each
+        ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by
+        scoring_mode and specific_kmer:
+        
+        **For frequency mode (all k-mers):**
+        - ``{k}mer_frequencies``: Dictionary mapping each k-mer to its frequency
+          (0.0-1.0). For example, ``2mer_frequencies`` for dinucleotides.
+        
+        **For frequency mode (specific k-mer):**
+        - ``{k}mer_frequencies``: Dictionary with only the specified k-mer
+        
+        **For usage_deviation mode (all k-mers):**
+        - ``{k}mer_usage_deviations``: Dictionary mapping each k-mer to its
+          observed/expected ratio
+        
+        **For usage_deviation mode (specific k-mer):**
+        - ``{kmer}_usage_deviation``: Float observed/expected ratio for the k-mer
+        - ``{kmer}_count``: Integer observed count
+        - ``{kmer}_expected``: Float expected count
+        
+        **For sequences too short (<k length):**
+        - ``{k}mer_data``: Empty dictionary
+    
+    Examples:
+        Analyzing codon usage (all trinucleotides):
+        
+        >>> coding_seq = Sequence("ATGAAACGTATTGCGTCG", SequenceType.DNA)
+        >>> config = KmerFrequencyConfig(
+        ...     k=3,
+        ...     scoring_mode="usage_deviation",
+        ...     min_value=0.5,  # Allow some underrepresentation
+        ...     max_value=2.0   # Allow some overrepresentation
+        ... )
+        >>> scores = kmer_frequency_constraint([coding_seq], config)
+        >>> deviations = coding_seq._metadata["3mer_usage_deviations"]
+        >>> for codon, ratio in sorted(deviations.items(), key=lambda x: x[1], reverse=True):
+        ...     print(f"{codon}: {ratio:.2f}x expected")
+       """ 
 
     if not sequences:
         raise ValueError("Input sequence list must not be empty")

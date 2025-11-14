@@ -7,9 +7,6 @@ import pytest
 from proto_language.language.core import Constraint, SequenceType
 from proto_language.language.constraint import overall_protein_quality_constraint
 from proto_language.language.constraint.protein_quality.overall_protein_quality_constraint import OverallProteinQualityConfig, ProteinQualitySubConfig
-from proto_language.language.constraint.sequence_composition.sequence_length_constraint import SequenceLengthConfig
-from proto_language.language.constraint.protein_quality.protein_diversity_constraint import ProteinDiversityConfig
-from proto_language.language.constraint.protein_quality.protein_repetitiveness_constraint import ProteinRepetitivenessConfig
 from ..utils import create_segment
 
 
@@ -22,8 +19,9 @@ class TestOverallProteinQualityConstraint:
         
         # Only check length - protein is 48 amino acids
         sub_config = ProteinQualitySubConfig(
-            length=SequenceLengthConfig(target_length=50),  # Close to actual length of 48
-            quality_threshold=0.5
+            enable_length=True,
+            length_target_length=50,  # Close to actual length of 48
+            quality_threshold=0.5,
         )
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config
@@ -44,8 +42,9 @@ class TestOverallProteinQualityConstraint:
         segment = create_segment("MVLSP", SequenceType.PROTEIN)
         
         sub_config = ProteinQualitySubConfig(
-            length=SequenceLengthConfig(target_length=20),  # Much longer than actual length of 5
-            quality_threshold=0.1
+            enable_length=True,
+            length_target_length=20,  # Much longer than actual length of 5
+            quality_threshold=0.1,
         )
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config
@@ -66,9 +65,11 @@ class TestOverallProteinQualityConstraint:
         segment = create_segment("MVLSPADKTNVKAAWGKVGAHAGEYGAEAL", SequenceType.PROTEIN)
         
         sub_config = ProteinQualitySubConfig(
-            length=SequenceLengthConfig(target_length=30),
-            diversity=ProteinDiversityConfig(min_diversity=0.3),
-            quality_threshold=0.5
+            enable_length=True,
+            length_target_length=30,
+            enable_diversity=True,
+            diversity_min_diversity=0.3,
+            quality_threshold=0.5,
         )
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config
@@ -95,9 +96,11 @@ class TestOverallProteinQualityConstraint:
         segment = create_segment("AAAAAAAAAAAAAAAA", SequenceType.PROTEIN)
         
         sub_config = ProteinQualitySubConfig(
-            repetitiveness=ProteinRepetitivenessConfig(max_repetitiveness=0.3),
-            diversity=ProteinDiversityConfig(min_diversity=0.2),
-            quality_threshold=0.1
+            enable_repetitiveness=True,
+            repetitiveness_max_repetitiveness=0.3,
+            enable_diversity=True,
+            diversity_min_diversity=0.2,
+            quality_threshold=0.1,
         )
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config

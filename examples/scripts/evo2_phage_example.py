@@ -1,5 +1,5 @@
 ## NOTE: THIS SCRIPT ONLY WORKS ON CHIMERA DUE TO PHROGS DATABASE PATH
-
+from __future__ import annotations
 from typing import Tuple
 
 import os

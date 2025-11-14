@@ -1,53 +1,92 @@
 """
 Beam Search Optimizer that uses the beam search algorithm to optimize a single Construct.
 """
-
+from __future__ import annotations
 from typing import List, Optional, Dict, Callable
 import warnings
 import copy
 import sys
 import numpy as np
 
-from pydantic import Field
 
 from proto_language.language.core import Optimizer, Construct, Constraint, Generator, GeneratorType, Segment
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 
 class BeamSearchOptimizerConfig(BaseConfig):
-    """Configuration for BeamSearchOptimizer"""
+    """Configuration object for BeamSearchOptimizer.
+
+    This class defines configuration parameters for the beam search optimizer, which
+    explores sequence space by maintaining multiple candidate sequences (beams) and
+    generating extensions for each beam at every step.
+
+    Attributes:
+        prompt (str): Initial prompt sequence to start beam search generation. All
+            beams begin from this prompt and extend it autoregressively. For DNA,
+            this might be ``"ATCG"``; for proteins, a short amino acid sequence.
+            Must be non-empty.
+
+        beam_width (int): Number of top sequences to maintain at each step (K in
+            beam search terminology). At each segment, the top K sequences by energy
+            score are selected to continue. Higher values explore more paths but
+            increase computation. Must be at least 1.
+
+        candidates_per_beam (int): Number of candidate sequences to generate per
+            beam at each step (N in beam search terminology). Total candidates
+            generated per segment is K x N. Higher values increase diversity but
+            also increase computation. Must be at least 1.
+
+        prepend_prompt (bool): Whether to prepend the initial prompt to the generated
+            sequences in the final output. If ``True``, full sequences include the
+            prompt; if ``False``, only generated tokens are returned. Default: ``True``.
+
+        use_kv_caching (bool): Whether to use key-value (KV) caching for faster
+            sequential generation. KV caching stores intermediate model states to
+            avoid recomputing prefix-context at each step. Significantly speeds
+            up generation but requires more GPU memory. Only works with compatible
+            generators (e.g., Evo2). Default: ``True``.
+
+        verbose (bool): Whether to print detailed progress information including
+            beam energies, selected sequences, and generation statistics at each
+            segment. Default: ``False``.
+
+    Note:
+        Beam search explores K x N sequences per segment but only retains the top K
+        by energy score. The total number of sequences evaluated grows linearly with
+        the number of segments, not exponentially, due to pruning at each step.
+    """
     # Required parameters
-    prompt: str = Field(
-        title="Prompt",
-        description="The prompt to start the beam search (e.g. ATCG)"
+    prompt: str = ConfigField(
+        title="Prompt", description="The prompt to start the beam search (e.g. ATCG)"
     )
-    beam_width: int = Field(
-        ge=1,
-        title="Beam width",
-        description="Number of top sequences to maintain (K)."
+    beam_width: int = ConfigField(
+        ge=1, title="Beam Width", description="Number of top sequences to maintain (K)."
     )
-    candidates_per_beam: int = Field(
+    candidates_per_beam: int = ConfigField(
         ge=1,
-        title="Candidates per beam",
-        description="Number of candidates to generate per beam sequence (N)."
+        title="Candidates Per Beam",
+        description="Number of candidates to generate per beam sequence (N).",
     )
 
-    # Optional parameters (have defaults)
-    prepend_prompt: bool = Field(
+    # Advanced parameters
+    prepend_prompt: bool = ConfigField(
         default=True,
-        title="Prepend prompt",
-        description="Whether to prepend the prompt to the generated sequence in the output."
+        title="Prepend Prompt",
+        description="Whether to prepend the prompt to the generated sequence in the output.",
+        advanced=True,
     )
-    use_kv_caching: bool = Field(
+    use_kv_caching: bool = ConfigField(
         default=True,
-        title="KV cache",
-        description="Whether to use KV caching for generation. Enables faster sequential generation."
+        title="KV Caching",
+        description="Whether to use KV caching for generation. Enables faster sequential generation.",
+        advanced=True,
     )
-    verbose: bool = Field(
+    verbose: bool = ConfigField(
         default=False,
         title="Verbose",
-        description="Whether to print progress information."
+        description="Whether to print progress information.",
+        hidden=True,
     )
 
 
@@ -58,39 +97,51 @@ class BeamSearchOptimizerConfig(BaseConfig):
     description="Beam search optimizer that processes segments sequentially with context accumulation",
 )
 class BeamSearchOptimizer(Optimizer):
-    """
-    Beam search optimizer with dual-pool design.
+    """Beam search optimizer with context accumulation across segments.
 
-    This optimizer implements a beam search where:
-    1. Segments are processed one at a time, in order
-    2. For each segment, the top beam_width accumulated sequences (from all previous segments) 
-       are used as prompts for generation
-    3. The generator generates candidates_per_beam proposals per prompt (beam_width x candidates_per_beam total)
-    4. Constraints evaluate all candidates (lower energy scores are better)
-    5. Top beam_width candidates by energy are selected for the next segment
+    This optimizer implements beam search for sequence optimization where segments
+    are processed sequentially with accumulated context. At each segment, the top
+    K sequences from previous segments are extended with N new candidates each,
+    and the best K sequences overall are selected to continue.
 
-    Examples:
-        Basic beam search with Evo2:
+    The optimizer maintains K beams (running sequences) and generates K x N total
+    candidates at each segment by producing N variations per beam. After constraint
+    evaluation, only the top K sequences by energy are retained for the next segment.
+
+    Attributes:
+        construct (Construct): Single construct being optimized.
+        generator (Generator): Single autoregressive generator for sequence generation.
+        prompt (str): Initial prompt sequence starting all beams.
+        beam_width (int): Number of beams to maintain (K).
+        candidates_per_beam (int): Candidates generated per beam (N).
+        use_kv_caching (bool): Whether KV caching is enabled.
+        running_prompts (List[str]): Current accumulated sequences for each beam.
+        top_beam_kv_caches (List[Optional[Dict]]): KV cache states for each beam.
+
+    Example:
         >>> from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
-        >>>
         >>> gen_config = Evo2GeneratorConfig(num_tokens=100)
         >>> generator = Evo2Generator(config=gen_config)
-        >>>
         >>> construct = Construct([segment1, segment2, segment3])
         >>> config = BeamSearchOptimizerConfig(
         ...     prompt="ATCG",
         ...     beam_width=5,
-        ...     candidates_per_beam=10,
+        ...     candidates_per_beam=10
         ... )
         >>> beam_search = BeamSearchOptimizer(
         ...     constructs=[construct],
         ...     generators=[generator],
-        ...     constraints=[gc_constraint, homopolymer_constraint],
-        ...     config=config,
-        ...     constraint_weights=[1.0, 2.0]
+        ...     constraints=[gc_constraint],
+        ...     config=config
         ... )
         >>> beam_search.run()
-        >>> top_sequences = beam_search.construct.joined_sequences  # Top beam_width full sequences
+        >>> top_sequences = beam_search.construct.joined_sequences
+
+    Note:
+        - Only supports single construct and single autoregressive generator
+        - Generator must have ``type=GeneratorType.AUTOREGRESSIVE``
+        - KV caching requires generator support (e.g., Evo2Generator)
+        - Lower energy scores are better (minimization objective)
     """
     # Class attribute required by OptimizerRegistry
     config_class = BeamSearchOptimizerConfig
@@ -167,7 +218,7 @@ class BeamSearchOptimizer(Optimizer):
         # Beam search state parameters (running prompts and corresponding KV caches)
         self.running_prompts: List[str] = [self.prompt] * self.beam_width
         self.top_beam_kv_caches: List[Optional[Dict]] = [None] * self.beam_width
-        
+
         # IMPORTANT: set max_seqlen to the total construct length!!
         self.generator.max_seqlen = len(self.prompt) + len(self.segments) * self.generator.num_tokens
         # Need to store kv caching as well if kv caching is enabled
@@ -229,7 +280,6 @@ class BeamSearchOptimizer(Optimizer):
         # Save progress snapshot once at the end
         self._save_progress_snapshot(time_step=0)
 
-
     def _generate_candidates(self, segment: Segment, prepend_prompt: bool = False) -> List[Dict]:
         """
         Generate candidates in-place for each beam sequentially and accumulate all candidates.
@@ -247,7 +297,7 @@ class BeamSearchOptimizer(Optimizer):
         """
         all_candidates = []
         all_kv_caches = []
-        
+
         for beam_idx, prompt in enumerate(self.running_prompts):
             # Replicate the current beam's prompt to sample candidates
             replicated_prompts = [prompt] * self.candidates_per_beam
@@ -281,7 +331,7 @@ class BeamSearchOptimizer(Optimizer):
 
             # Store generated candidates
             all_candidates.extend([copy.deepcopy(seq) for seq in segment.candidate_sequences[:self.candidates_per_beam]])
-            
+
             if self.verbose:
                 sample_seq = segment.candidate_sequences[0].sequence
                 print(f"  Generated sample: '{sample_seq[:50]}...' (len={len(sample_seq)})")
@@ -293,7 +343,6 @@ class BeamSearchOptimizer(Optimizer):
         # In-place sampling requires manually setting the segment's candidate_sequences
         segment.candidate_sequences = all_candidates
         return all_kv_caches
-
 
     def _score_energy_active_constraints(self) -> None:
         """
@@ -309,12 +358,12 @@ class BeamSearchOptimizer(Optimizer):
             for constraint, weight in zip(self.constraints, self.constraint_weights)
             if all(seg.num_candidates > 0 for seg in constraint.inputs)
         ]
-        
+
         # If no active constraints, set all energy scores to 0 and return
         if not active_constraints:
             self.energy_scores = [0.0] * self.num_candidates
             return
-        
+
         # Temporarily use filtered constraints for scoring
         orig_constraints, orig_weights = self.constraints, self.constraint_weights
         self.constraints, self.constraint_weights = zip(*active_constraints)
@@ -322,7 +371,6 @@ class BeamSearchOptimizer(Optimizer):
 
         # Restore original constraints and weights
         self.constraints, self.constraint_weights = orig_constraints, orig_weights
-
 
     def _select_topk(self, segment: Segment, all_kv_caches: List[Dict], prepend_prompt: bool = False) -> List[int]:
         """
@@ -345,7 +393,7 @@ class BeamSearchOptimizer(Optimizer):
         """
         # 1. Get top beam_width candidates by energy
         top_idx = np.argsort(self.energy_scores)[:self.beam_width].tolist()
-        
+
         # 2. Set selected sequences
         segment.selected_sequences = [segment.candidate_sequences[i] for i in top_idx]
 
@@ -356,7 +404,7 @@ class BeamSearchOptimizer(Optimizer):
             seq for selected_seq in segment.selected_sequences
             for seq in [selected_seq] * self.candidates_per_beam
         ]
-        
+
         # 4. Update running prompts from top candidates (stored in segment.selected_sequences)
         # Candidates are generated sequentially per beam, so: beam_idx = candidate_idx // candidates_per_beam
         if prepend_prompt:
@@ -382,7 +430,6 @@ class BeamSearchOptimizer(Optimizer):
 
         return top_idx
 
-
     def _log_beamsearch_progress(self, segment_idx: int, segment: Segment, top_idx: List[int]) -> None:
         """
         Log progress information for a segment during beam search.
@@ -395,16 +442,16 @@ class BeamSearchOptimizer(Optimizer):
         num_prompts = self.beam_width * self.candidates_per_beam
         print(f"\n--- Segment {segment_idx + 1}/{len(self.construct.segments)} ---")
         print(f"Generated {segment.num_candidates} candidates using {num_prompts} prompts ({self.beam_width} beams x {self.candidates_per_beam} candidates per beam)")
-        
+
         for i, sequence in enumerate(segment.candidate_sequences):
             seq_preview = sequence.sequence[:50] + ('...' if len(sequence.sequence) > 50 else '')
             print(f"  [{i}]: {seq_preview}")
-        
+
         print(f"Evaluated {len(self.energy_scores)} candidates")
         best_energy = self.energy_scores[top_idx[0]]
         worst_energy = self.energy_scores[top_idx[-1]]
         print(f"Selected top {self.beam_width} sequences (energy range: {best_energy:.4f} - {worst_energy:.4f})")
-        
+
         for rank, idx in enumerate(top_idx):
             seq = segment.candidate_sequences[idx]
             energy = self.energy_scores[idx]

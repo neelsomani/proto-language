@@ -4,7 +4,7 @@ Constraint registry for managing constraint functions.
 Provides a decorator-based API for registering constraint functions and
 a factory method for creating Constraint instances.
 """
-
+from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from pydantic import BaseModel, Field

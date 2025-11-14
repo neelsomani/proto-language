@@ -4,7 +4,7 @@ Generator registry for managing generator discovery and schema generation.
 Provides a decorator-based API for registering generator classes with metadata and
 automatic schema generation for API/client integration.
 """
-
+from __future__ import annotations
 from typing import Any, Dict, List, Type
 
 from pydantic import BaseModel, Field
@@ -195,4 +195,3 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             ...     print(f"  GPU Required: {spec.requires_gpu}")
         """
         return list(cls._registry.values())
-

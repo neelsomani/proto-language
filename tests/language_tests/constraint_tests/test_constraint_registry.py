@@ -299,11 +299,11 @@ class TestFactoryMethod:
         dummy_db.mkdir()
 
         constraint = ConstraintRegistry.create(
-            key="mmseqs-gene-homology",
+            key="mmseqs-gene-similarity",
             segments=[dna_segment],
             config_dict={
-                "min_homology": 80.0,
-                "max_homology": 100.0,
+                "min_similarity": 80.0,
+                "max_similarity": 100.0,
                 "mmseqs_db": str(dummy_db),
                 "mmseqs_config": {"results_dir": ""}
             }
@@ -467,7 +467,7 @@ class TestBuiltinConstraints:
     def test_all_sequence_annotation_constraints_registered(self):
         """Test that all sequence annotation constraints are registered."""
         expected = [
-            "mmseqs-gene-homology",  # Removed orfipy-mmseqs constraints
+            "mmseqs-gene-similarity",  # Removed orfipy-mmseqs constraints
             "sigma70-promoter",
             "seq-motif",
             "promoter-strength"

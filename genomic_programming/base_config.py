@@ -1,8 +1,43 @@
 """
 Base configuration class for all pydantic configs.
 """
+from __future__ import annotations
+from typing import Any, Union, Tuple, Optional
+from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
-from pydantic import BaseModel, ConfigDict
+
+def ConfigField(
+    default: Any = ...,
+    *,
+    title: str = None,
+    description: str = None,
+    advanced: bool = False,
+    hidden: bool = False,
+    **kwargs,
+) -> Any:
+    """
+    Custom Field wrapper that automatically adds metadata flags to json_schema_extra.
+
+    Args:
+        advanced: If True, field appears in "Advanced" section of UI
+        hidden: If True, field is hidden from UI completely
+
+        **kwargs: All other standard Pydantic Field arguments
+
+    Usage:
+        param: int = Field(default=42, title="Param", description="...", advanced=True)
+    """
+    # Pull the existing json_schema_extra
+    json_schema_extra = kwargs.get("json_schema_extra", {})
+
+    # Add the advanced and hidden flags to the json_schema_extra
+    json_schema_extra["advanced"] = advanced
+    json_schema_extra["hidden"] = hidden
+
+    # Update the kwargs with the new json_schema_extra
+    kwargs["json_schema_extra"] = json_schema_extra
+
+    return PydanticField(default, title=title, description=description, **kwargs)
 
 
 class BaseConfig(BaseModel):

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pytest
 import random
 import numpy as np

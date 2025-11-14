@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Tuple
 
 from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig

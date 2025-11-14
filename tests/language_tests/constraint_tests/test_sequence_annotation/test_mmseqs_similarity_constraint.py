@@ -1,21 +1,21 @@
 """
-Comprehensive tests for mmseqs_homology_constraint.
+Comprehensive tests for mmseqs_similarity_constraint.
 
-Tests the MMseqs2 homology constraint for protein sequences.
+Tests the MMseqs2 similarity constraint for protein sequences.
 """
 
 import pytest
 from unittest.mock import patch, MagicMock
 
 from proto_language.language.core import Constraint, SequenceType
-from proto_language.language.constraint import mmseqs_homology_constraint, ConstraintRegistry
-from proto_language.language.constraint.sequence_annotation.mmseqs_homology_constraint import MMseqsHomologyConfig
+from proto_language.language.constraint import mmseqs_similarity_constraint, ConstraintRegistry
+from proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint import MMseqsSimilarityConfig
 from proto_language.tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig, MmseqsOutput
 from ..utils import create_segment
 
 
-class TestMMseqsHomologyConstraint:
-    """Tests for MMseqs2 homology constraint."""
+class TestMMseqsSimilarityConstraint:
+    """Tests for MMseqs2 similarity constraint."""
 
     @pytest.fixture
     def dummy_db_path(self, tmp_path):
@@ -26,29 +26,29 @@ class TestMMseqsHomologyConstraint:
 
     def test_config_validation(self, dummy_db_path):
         """Test configuration validation."""
-        config = MMseqsHomologyConfig(
-            min_homology=80.0,
-            max_homology=100.0,
+        config = MMseqsSimilarityConfig(
+            min_similarity=80.0,
+            max_similarity=100.0,
             mmseqs_db=dummy_db_path,
         )
 
-        assert config.min_homology == 80.0
-        assert config.max_homology == 100.0
+        assert config.min_similarity == 80.0
+        assert config.max_similarity == 100.0
         assert config.mmseqs_db == dummy_db_path
 
     def test_with_mocked_mmseqs(self, dummy_db_path):
         """Test constraint with mocked MMseqs2 results."""
         segment = create_segment("MVLSPADKTNVKAAW", SequenceType.PROTEIN)
 
-        config = MMseqsHomologyConfig(
-            min_homology=80.0,
-            max_homology=100.0,
+        config = MMseqsSimilarityConfig(
+            min_similarity=80.0,
+            max_similarity=100.0,
             mmseqs_db=dummy_db_path,
             mmseqs_config=MmseqsSearchProteinsConfig(results_dir="", threads=1)
         )
 
         # Mock MMseqs2 search
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_homology_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
             import pandas as pd
             mock_output = MagicMock(spec=MmseqsOutput)
             mock_output.success = True
@@ -66,7 +66,7 @@ class TestMMseqsHomologyConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=mmseqs_homology_constraint,
+                scoring_function=mmseqs_similarity_constraint,
                 scoring_function_config=config,
             )
 
@@ -77,22 +77,22 @@ class TestMMseqsHomologyConstraint:
 
             # Check metadata - verify results were stored
             metadata = segment.candidate_sequences[0]._metadata
-            assert "segment_0.mmseqs_homology_constraint.mmseqs_results" in metadata
-            assert len(metadata["segment_0.mmseqs_homology_constraint.mmseqs_results"]) > 0
-            assert "segment_0.mmseqs_homology_constraint.unique_orfs_with_hits" in metadata
+            assert "segment_0.mmseqs_similarity_constraint.mmseqs_results" in metadata
+            assert len(metadata["segment_0.mmseqs_similarity_constraint.mmseqs_results"]) > 0
+            assert "segment_0.mmseqs_similarity_constraint.unique_orfs_with_hits" in metadata
 
     def test_no_hits_scenario(self, dummy_db_path):
         """Test when no MMseqs2 hits are found."""
         segment = create_segment("MVLSP", SequenceType.PROTEIN)
 
-        config = MMseqsHomologyConfig(
-            min_homology=80.0,
-            max_homology=100.0,
+        config = MMseqsSimilarityConfig(
+            min_similarity=80.0,
+            max_similarity=100.0,
             mmseqs_db=dummy_db_path,
         )
 
         # Mock MMseqs2 with no results
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_homology_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
             import pandas as pd
             mock_output = MagicMock(spec=MmseqsOutput)
             mock_output.success = True
@@ -102,7 +102,7 @@ class TestMMseqsHomologyConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=mmseqs_homology_constraint,
+                scoring_function=mmseqs_similarity_constraint,
                 scoring_function_config=config,
             )
 
@@ -113,9 +113,9 @@ class TestMMseqsHomologyConstraint:
 
     def test_registry_integration(self):
         """Test that constraint is properly registered."""
-        spec = ConstraintRegistry.get("mmseqs-gene-homology")
-        assert spec.key == "mmseqs-gene-homology"
-        assert spec.label == "Gene/Protein Homology"  # Actual label in registry
+        spec = ConstraintRegistry.get("mmseqs-gene-similarity")
+        assert spec.key == "mmseqs-gene-similarity"
+        assert spec.label == "Gene/Protein Similarity"  # Actual label in registry
         assert spec.batched == True
         assert spec.concatenate == True
 
@@ -123,14 +123,14 @@ class TestMMseqsHomologyConstraint:
         """Test that DNA sequences work via ORF prediction."""
         segment = create_segment("ATGGTGCTGAGCCCGGCGGACAAG", SequenceType.DNA)
 
-        config = MMseqsHomologyConfig(
-            min_homology=80.0,
-            max_homology=100.0,
+        config = MMseqsSimilarityConfig(
+            min_similarity=80.0,
+            max_similarity=100.0,
             mmseqs_db=dummy_db_path,
         )
 
         # Mock MMseqs2 with results
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_homology_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
             import pandas as pd
             mock_output = MagicMock(spec=MmseqsOutput)
             mock_output.success = True
@@ -148,7 +148,7 @@ class TestMMseqsHomologyConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=mmseqs_homology_constraint,
+                scoring_function=mmseqs_similarity_constraint,
                 scoring_function_config=config,
             )
 

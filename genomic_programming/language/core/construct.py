@@ -3,7 +3,7 @@ Construct class for the biological programming language.
 
 Represents a full biological construct composed of multiple segments.
 """
-
+from __future__ import annotations
 from typing import List, Iterable
 
 from . import Sequence, Segment

@@ -4,7 +4,7 @@ Shared helper utilities for proto-language.
 This module provides utilities for metadata management and structural/geometric
 calculations used across the proto-language framework.
 """
-
+from __future__ import annotations
 import io
 import random
 import subprocess

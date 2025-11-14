@@ -1,3 +1,4 @@
+from __future__ import annotations
 from tap import Tap
 from typing import Tuple
 

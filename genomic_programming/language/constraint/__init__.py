@@ -37,7 +37,7 @@ from .rna_splicing import (
 
 # Sequence annotation constraints
 from .sequence_annotation import (
-    mmseqs_homology_constraint,
+    mmseqs_similarity_constraint,
     sigma70_promoter_constraint,
     seq_motif_constraint,
     promoter_strength_constraint,
@@ -67,7 +67,7 @@ __all__ = [
     "overall_protein_quality_constraint",
     "protein_domain_constraint",
     # Sequence annotation
-    "mmseqs_homology_constraint",
+    "mmseqs_similarity_constraint",
     "sigma70_promoter_constraint",
     "seq_motif_constraint",
     "promoter_strength_constraint",

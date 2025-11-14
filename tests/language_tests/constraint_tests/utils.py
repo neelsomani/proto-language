@@ -4,7 +4,7 @@ Test utilities for constraint tests.
 This module provides helper functions, mock scoring functions, and fixtures
 used across multiple constraint test files. It does NOT contain actual unit tests.
 """
-
+from __future__ import annotations
 import pytest
 import shutil
 import tempfile

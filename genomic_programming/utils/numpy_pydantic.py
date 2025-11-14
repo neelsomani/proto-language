@@ -1,3 +1,4 @@
+from __future__ import annotations
 import numpy as np
 from pydantic import BaseModel, ValidationError
 from pydantic_core import core_schema

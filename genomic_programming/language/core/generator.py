@@ -3,7 +3,7 @@ Generator base class for the biological programming language.
 
 Provides the abstract interface for sequence generation algorithms.
 """
-
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
 from enum import Enum

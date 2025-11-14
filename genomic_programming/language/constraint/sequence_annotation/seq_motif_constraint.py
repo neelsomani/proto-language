@@ -10,24 +10,140 @@ import tempfile
 from typing import List, Literal, Optional, Union
 
 import numpy as np
-from pydantic import Field
+
 
 from proto_language.language.core import Sequence
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 
 
 class SeqMotifConfig(BaseConfig):
-    """Configuration for sequence motif constraint."""
-    motifs_path: str = Field(description="Path to MEME format motif file (.meme) containing PWMs")
-    meme_bin_path: str = Field(description="Path to directory containing MEME Suite binaries (must include fimo)")
-    wanted: Optional[Union[str, List[str]]] = Field(default=None, description="Motifs that should be present: 'all' (all motifs), 'none' (no requirement), or list of motif names")
-    not_wanted: Optional[Union[str, List[str]]] = Field(default=None, description="Motifs that should NOT be present: 'all' (reject all), 'none' (allow all), or list of motif names")
-    scale: float = Field(default=1.0, description="Scaling factor to adjust penalty magnitude (>1 = stricter, <1 = more lenient)")
-    exclusive: bool = Field(default=False, description="If True, automatically sets unwanted motifs as complement of wanted motifs")
-    aggregation: Literal["smart", "average", "max", "percentile"] = Field(default="smart", description="How to aggregate penalties: 'smart' (adaptive), 'average', 'max' (strictest), 'percentile'")
-    percentile_value: float = Field(default=95.0, ge=0.0, le=100.0, description="Which percentile to use when aggregation='percentile' (0-100)")
-    unwanted_focus: bool = Field(default=True, description="When both wanted and unwanted motifs exist, weight unwanted motifs more heavily in final score")
+    """Configuration for sequence motif constraint using MEME.
+    
+    This class defines configuration parameters for evaluating DNA sequences against
+    known transcription factor binding motifs using MEME Suite's Find Individual
+    Motif Occurrences tool. The constraint searches for position weight matrix
+    motifs in sequences and can either encourage specific motifs (wanted) or discourage
+    them (not_wanted), enabling design of sequences with controlled sites.
+    
+    Attributes:
+        motifs_path (str): Path to MEME format motif file (.meme) containing position
+            weight matrices. Must be a valid file path. MEME format files can
+            be obtained from databases like JASPAR, TRANSFAC, or created with MEME
+            Suite tools. Example: "/data/motifs/jaspar_vertebrates.meme" or
+            "~/databases/tf_motifs.meme".
+
+        meme_bin_path (str): Path to directory containing MEME Suite binaries. Must
+            include the ``fimo`` executable. The directory should contain the full
+            MEME Suite installation. Example: "/usr/local/meme/bin" or
+            "/opt/meme-5.5.0/bin". Install MEME Suite from https://meme-suite.org/
+
+        wanted (Optional[Union[str, List[str]]]): Motifs that should be present in
+            sequences. Options:
+            - "all": All motifs in the file must be present
+            - "none" or None: No requirement for specific motifs
+            - List of motif names: Specific motifs that should be present,
+              e.g., ["SP1", "NF-kB", "lacO"]
+            Strong matches to wanted motifs result in low penalties (rewards).
+            Default: None.
+
+        not_wanted (Optional[Union[str, List[str]]]): Motifs that should NOT be
+            present in sequences. Options:
+            - "all": No motifs should be present (avoid all binding sites)
+            - "none" or None: Allow any motifs (default)
+            - List of motif names: Specific motifs to avoid.
+            Strong matches to unwanted motifs result in high penalties. Default: None.
+
+        scale (float): Scaling factor to adjust penalty magnitude. Values >1 make
+            the constraint stricter (larger penalties), values <1 make it more
+            lenient (smaller penalties). For example, 2.0 doubles all penalties,
+            0.5 halves them. Must be positive. Default: 1.0.
+
+        exclusive (bool): If True, automatically sets unwanted motifs as the complement
+            of wanted motifs (and vice versa). For example, if wanted=["SP1", "NF-kB"]
+            and exclusive=True, all other motifs in the file become unwanted. Useful
+            for enforcing strict motif specificity. Default: True.
+
+        aggregation (Literal["smart", "average", "max", "percentile"]): Method for
+            aggregating penalties across multiple motifs:
+            - "smart": Adaptive strategy that uses max/percentile for unwanted motifs
+              and average for wanted motifs (recommended for most cases)
+            - "average": Simple average of all penalties (treats all motifs equally)
+            - "max": Takes maximum penalty (strictest, most conservative)
+            - "percentile": Uses specified percentile of penalties (see percentile_value)
+            Default: "smart".
+
+        percentile_value (float): Percentile to use when aggregation="percentile".
+            For example, 95.0 combines the 95th percentile (top 5% worst penalties).
+            Must be between 0.0 and 100.0. Higher values are more lenient (focus
+            on worst offenders), lower values are stricter. Default: 95.0.
+
+        unwanted_focus (bool): When both wanted and unwanted motifs are specified,
+            whether to weight unwanted motifs more heavily in the final score. If True,
+            unwanted motif penalties are given higher weight, making it harder to
+            pass the constraint if unwanted motifs are present. Useful when avoiding
+            specific binding sites is critical. Default: False.
+    
+    Note:
+        Motif names must match exactly with the names in the MEME file (case-sensitive).
+        Use the MOTIF lines in the .meme file to identify available motif names.
+    """
+    # TODO: Make parameters compatible with client. Ideally no union.
+    # Required parameters
+    motifs_path: str = ConfigField(
+        title="Path to MEME format motif file",
+        description="Path to MEME format motif file (.meme) containing PWMs.",
+    )
+    meme_bin_path: str = ConfigField(
+        title="Path to MEME Suite binaries",
+        description="Path to directory containing MEME Suite binaries (must include fimo).",
+    )
+    wanted: Optional[Union[str, List[str]]] = ConfigField(
+        title="Wanted Motifs",
+        default=None,
+        description="Motifs that should be present: 'all' (all motifs), 'none' (no requirement), or list of motif names.",
+        examples=[["motif1", "motif2"], "all", "none"],
+    )
+    not_wanted: Optional[Union[str, List[str]]] = ConfigField(
+        title="Unwanted Motifs",
+        default=None,
+        description="Motifs that should NOT be present: 'all' (reject all), 'none' (allow all), or list of motif names.",
+        examples=[["motif1", "motif2"], "all", "none"],
+    )
+
+    # Advanced parameters
+    scale: float = ConfigField(
+        title="Scale",
+        default=1.0,
+        description="Scaling factor to adjust penalty magnitude (>1 = stricter, <1 = more lenient). Example: 1.0",
+        advanced=True,
+    )
+    exclusive: bool = ConfigField(
+        title="Exclusive",
+        default=True,
+        description="If True, automatically sets unwanted motifs as complement of wanted motifs",
+        advanced=True,
+    )
+    aggregation: Literal["smart", "average", "max", "percentile"] = ConfigField(
+        title="Aggregation Method",
+        default="smart",
+        description="How to aggregate penalties: 'smart' (adaptive), 'average', 'max' (strictest), 'percentile'",
+        advanced=True,
+    )
+    percentile_value: float = ConfigField(
+        title="Percentile Value",
+        default=95.0,
+        ge=0.0,
+        le=100.0,
+        description="Which percentile to use when aggregation='percentile' (0-100)",
+        advanced=True,
+    )
+    unwanted_focus: bool = ConfigField(
+        title="Unwanted Focus",
+        default=True,
+        description="When both wanted and unwanted motifs exist, weight unwanted motifs more heavily in final score",
+        advanced=True,
+    )
 
 
 @ConstraintRegistry.register(
@@ -39,26 +155,76 @@ class SeqMotifConfig(BaseConfig):
     concatenate=True,
 )
 def seq_motif_constraint(sequences: List[Sequence], config: SeqMotifConfig) -> List[float]:
-    """
-    Score DNA sequences against motifs using MEME FIMO.
-
-    Scoring strategy:
-    - Unwanted motifs: Strong matches (low e-value) → high penalties
-    - Wanted motifs: Strong matches (low e-value) → low penalties (rewards)
-    - Missing wanted motifs → high penalties
-
-    Aggregation strategies for handling multiple motifs:
-    - "smart": Adaptive (uses max/percentile for unwanted, average for wanted)
-    - "average": Simple average of all penalties
-    - "max": Takes maximum penalty (strictest)
-    - "percentile": Uses specified percentile of penalties
+    """Score DNA sequences against sequence motifs using MEME.
+    
+    This constraint function uses MEME Suite's Find Individual Motif
+    Occurrences tool to search for sequence  motifs represented as position weight matrices
+    in DNA sequences. It evaluates whether sequences contain desired motifs (wanted)
+    or unwanted motifs (not_wanted).
+    
+    The scoring strategy penalizes sequences based on motif presence:
+    - **Unwanted motifs**: Strong matches (low E-values) result in high penalties,
+      encouraging sequences without these binding sites
+    - **Wanted motifs**: Strong matches result in low penalties (rewards), while
+      missing wanted motifs result in high penalties
+    - **No motif specification**: Any motif matches are penalized (novelty constraint)
 
     Args:
-        sequences: List of DNA Sequences to evaluate.
-        config: Configuration containing motif paths, wanted/unwanted lists, and scoring parameters.
+        sequences (List[Sequence]): List of DNA sequences to evaluate. Each sequence
+            is independently scanned for motif occurrences using FIMO. Sequences can
+            be any length, though motif detection accuracy improves with longer
+            sequences (50+ bp recommended).
+
+        config (SeqMotifConfig): Configuration object containing ``motifs_path``
+            (MEME motif file), ``meme_bin_path`` (MEME Suite binary directory),
+            ``wanted`` (default: None), ``not_wanted`` (default: None), ``aggregation``
+            (default: "smart"), and other scoring parameters.
 
     Returns:
-        List of penalty scores (0.0 = best, 1.0 = worst).
+        List[float]: Penalty scores for each sequence, ranging from 0.0 (best,
+            all motif criteria satisfied) to 1.0 (worst, severe violations). The
+            scoring depends on wanted/unwanted configuration:
+            - **Only unwanted specified**: 0.0 if no unwanted motifs found, higher
+              scores for stronger unwanted matches
+            - **Only wanted specified**: 0.0 if all wanted motifs found with strong
+              E-values, 1.0 if wanted motifs missing
+            - **Both specified**: Weighted combination based on aggregation method
+    
+    Note:
+        This function modifies the input sequences by adding metadata to each
+        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
+        
+        - ``motif_constraint``: Dictionary containing:
+          - ``penalty``: Float overall penalty score (0.0-1.0)
+          - ``wanted``: Set of wanted motif names
+          - ``not_wanted``: Set of unwanted motif names
+          - ``found``: Dictionary mapping motif names to their best (lowest) E-values
+          - ``details``: Dictionary with per-motif scoring details including:
+            - ``penalty``: Individual motif penalty
+            - ``status``: "wanted_found", "wanted_missing", "unwanted", or "unwanted_absent"
+            - ``e_value``: E-value if motif was found
+          - ``aggregation_info``: Dictionary with aggregation statistics:
+            - ``method``: Aggregation method used
+            - ``unwanted_count``: Number of unwanted motif evaluations
+            - ``wanted_count``: Number of wanted motif evaluations
+            - ``unwanted_matches``: Number of unwanted motifs found
+            - ``wanted_matches``: Number of wanted motifs found
+    
+    Examples:
+        Requiring specific transcription factor binding sites:
+        
+        >>> from proto_language.language.core import Sequence, SequenceType
+        >>> promoter_seq = Sequence("ATCGGCGGGATCGTAATATAGCATGC", SequenceType.DNA)
+        >>> config = SeqMotifConfig(
+        ...     motifs_path="/data/jaspar_vertebrates.meme",
+        ...     meme_bin_path="/usr/local/meme/bin",
+        ...     wanted=["SP1", "lacI"],  # Must have these motifs
+        ...     aggregation="average"
+        ... )
+        >>> scores = seq_motif_constraint([promoter_seq], config)
+        >>> print(scores[0])  # e.g., 0.15 (both motifs found with good E-values)
+        >>> metadata = promoter_seq._metadata["motif_constraint"]
+        >>> print(metadata["found"])  # e.g., {"SP1": 1e-8, "lacI": 3e-6}
     """
 
     # Parse motif names

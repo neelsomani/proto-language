@@ -5,7 +5,7 @@ Sequence class for the proto-language.
 
 Represents a single DNA, RNA, or protein sequence with validation and metadata.
 """
-
+from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Union
 import warnings

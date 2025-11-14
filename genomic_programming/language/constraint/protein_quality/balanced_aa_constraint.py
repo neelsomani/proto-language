@@ -7,28 +7,54 @@ from __future__ import annotations
 from collections import Counter
 from typing import List
 import numpy as np
-from Bio.Data import IUPACData
-
-from pydantic import Field
 
 from proto_language.language.core import Sequence, SequenceType,PROTEIN_AMINO_ACIDS
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 
 
 class BalancedAaConfig(BaseConfig):
-    """Configuration for balanced amino acid constraint."""
-    min_aa_frequency: float = Field(
+    """Configuration for balanced amino acid constraint.
+    
+    This class defines configuration parameters for evaluating whether a protein
+    sequence has balanced representation of all amino acid types. The constraint
+    penalizes sequences that have too many underrepresented amino acids (those
+    appearing below a minimum frequency threshold). The penalty score increases
+    both with the number of underrepresented amino acids beyond the threshold and
+    with the severity of under-representation (how far below min_aa_frequency each
+    amino acid falls).
+    
+    Attributes:
+        min_aa_frequency (float): Minimum acceptable relative frequency for any
+            amino acid type in the sequence. For example, 0.02 means each amino
+            acid should appear at least 2% of the time in the sequence. Valid
+            range is 0.0 to 1.0. Typical values range from 0.01 (1%, lenient)
+            to 0.05 (5%, strict). Default: 0.02.
+
+        max_underrepresented_count (int): Maximum acceptable number of amino acid
+            types that can be underrepresented (below ``min_aa_frequency``) before
+            the sequence is penalized. Valid range is 0 to 20 (total number of
+            standard amino acids). For example, if set to 3, sequences with 4 or
+            more underrepresented amino acids will receive a penalty score. Lower
+            values enforce stricter amino acid diversity requirements. Default: 3.
+
+    """
+    # Required parameters
+    min_aa_frequency: float = ConfigField(
+        title="Min Acceptable AA Frequency",
         default=0.02,
         ge=0.0,
         le=1.0,
-        description="Minimum acceptable relative frequency for any amino acid type (0.0-1.0). Amino acids below this threshold are considered underrepresented. Typical value: 0.02 (2%)."
+        description="Minimum acceptable relative frequency for any amino acid type.",
+        examples=[0.01, 0.03],
     )
-    max_underrepresented_count: int = Field(
+    max_underrepresented_count: int = ConfigField(
+        title="Max Underrepresented Count",
         default=3,
         ge=0,
         le=20,
-        description="Maximum acceptable number of underrepresented amino acid types (0-20). Sequences with more underrepresented amino acids are penalized."
+        description="Maximum acceptable number of underrepresented amino acid types. Sequences with more are penalized.",
+        examples=[2, 5],
     )
 
 
@@ -41,16 +67,62 @@ class BalancedAaConfig(BaseConfig):
     concatenate=True,
 )
 def balanced_aa_constraint(sequences: List[Sequence], config: BalancedAaConfig) -> List[float]:
-    """
-    Evaluate the presence of underrepresented amino acids in a protein sequence.
-
+    """Evaluate the presence of underrepresented amino acids in protein sequences.
+    
+    This constraint function assesses whether protein sequences have balanced
+    representation of all amino acid types by identifying amino acids that appear
+    below a minimum frequency threshold and penalizing sequences that have too many
+    such underrepresented amino acids. The penalty is scaled based on both the
+    number of excess underrepresented amino acids and the severity of their
+    under-representation.
+    
+    For each input sequence, it calculates amino acid frequencies, identifies
+    underrepresented amino acids, and computes a penalty score if the number
+    of underrepresented amino acids exceeds the configured threshold.
+    
     Args:
-        input_sequence: The protein sequence to evaluate.
-        config: Configuration containing min_aa_frequency and max_underrepresented_count parameters.
-
+        sequences (List[Sequence]): List of protein sequences to evaluate. All
+            sequences must have ``sequence_type == SequenceType.PROTEIN``.
+            
+        config (BalancedAaConfig): Configuration object containing ``min_aa_frequency``
+            (minimum acceptable relative frequency, default: 0.02) and
+            ``max_underrepresented_count`` (maximum acceptable number of
+            underrepresented amino acid types, default: 3).
+    
     Returns:
-        Constraint score from 0.0 (best, acceptable number of underrepresented amino acids) to 1.0 (worst).
-        Score is scaled based on how many excess underrepresented amino acids there are and their severity.
+        List[float]: Constraint scores for each sequence, ranging from 0.0 (best,
+            acceptable number of underrepresented amino acids) to 1.0 (worst,
+            many severely underrepresented amino acids). The score is scaled based
+            on how many excess underrepresented amino acids there are beyond the
+            threshold and how far below the minimum frequency they fall.
+    
+    Raises:
+        AssertionError: If any sequence in the input list is not a protein sequence.
+    
+    Note:
+        This function modifies the input sequences by adding metadata to each
+        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
+
+        - ``underrepresented_aa_score``: Float score indicating overall
+          underrepresentation severity
+        - ``amino_acid_counts``: Dictionary mapping amino acids to their counts
+        - ``underrepresented_amino_acids``: List of amino acids that
+          are underrepresented
+        - ``underrepresented_aa_count``: Integer count of underrepresented amino
+          acid types
+        - ``min_aa_frequency_threshold``: The minimum frequency threshold used
+    
+    Examples:
+        Evaluating amino acid balance in protein:
+        
+        >>> from proto_language.language.core import Sequence, SequenceType
+        >>> config = BalancedAaConfig(min_aa_frequency=0.05, max_underrepresented_count=2)
+        >>> seq = Sequence("AAAAAACCCCCCDDDDDD", sequence_type=SequenceType.PROTEIN)
+        >>> scores = balanced_aa_constraint([seq], config)
+        >>> # This sequence has only 3 amino acid types, so 17 are underrepresented
+        >>> # This exceeds max_underrepresented_count=2, resulting in a penalty
+        >>> print(scores[0])  # Will be > 0.0
+        >>> print(seq._metadata["underrepresented_aa_count"])  # 17
     """
     for seq in sequences:
         assert seq.sequence_type == SequenceType.PROTEIN, "Input must be protein"

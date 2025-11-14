@@ -8,10 +8,9 @@ import itertools
 from typing import List
 
 import numpy as np
-from pydantic import Field
 
 from proto_language.language.core import Sequence, SequenceType
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.utils import (
     MIN_ENERGY,
@@ -21,10 +20,29 @@ from proto_language.utils import (
 
 
 class MaxHomopolymerConfig(BaseConfig):
-    """Configuration for maximum homopolymer constraint."""
-    max_length: int = Field(
+    """Configuration for maximum homopolymer constraint.
+    
+    This class defines configuration parameters for limiting homopolymer length
+    in DNA, RNA, or protein sequences. Homopolymers are consecutive runs of the
+    same nucleotide or amino acid (e.g., "AAAAA", "GGGGGG", "SSSSSS"). This constraint
+    uses logarithmic scaling for penalties to avoid extreme values while still penalizing
+    very long homopolymers, providing moderate penalties for slightly exceeding the limit 
+    and strong penalties for greatly exceeding the limit.
+
+    Attributes:
+        max_length (int): Maximum allowed homopolymer length in consecutive identical
+            nucleotides or amino acids. Must be a positive integer. Sequences with
+            homopolymers longer than this value are penalized. Typical values depend
+            on application, with some examples provided below:
+            - DNA synthesis: 8-10 (avoid synthesis errors)
+            - PCR primers: 5-8 (prevent polymerase slippage)
+            - Protein sequences: 5+ (avoid excessive amino acid repeats)
+    """
+    # Required parameters
+    max_length: int = ConfigField(
+        title="Max Homopolymer Length",
         gt=0,
-        description="Maximum allowed homopolymer length in consecutive identical nucleotides or amino acids. Must be a positive integer. Sequences with longer homopolymers are penalized."
+        description="Max homopolymer length in consecutive identical nucleotides or amino acids (Longer penalized)",  #  Sequences with longer homopolymers are penalized.
     )
 
 
@@ -37,28 +55,49 @@ class MaxHomopolymerConfig(BaseConfig):
     concatenate=True,
 )
 def max_homopolymer_constraint(sequences: List[Sequence], config: MaxHomopolymerConfig) -> List[float]:
-    """
-    Penalize sequences containing homopolymers longer than a specified maximum.
+    """Penalize sequences containing homopolymers longer than specified maximum
+    
+    This constraint function identifies the longest homopolymer (consecutive run
+    of identical nucleotides or amino acids) in each sequence and penalizes
+    sequences where this exceeds a specified maximum length.
+    
+    The penalty uses logarithmic scaling to provide graduated penalties: sequences
+    slightly over the limit receive moderate penalties, while sequences far
+    exceeding the limit receive strong penalties (capped at 1.0). This avoids
+    extreme penalty values while still strongly discouraging very long homopolymers.
 
     Args:
-        sequences: Sequences to evaluate.
-        config: Configuration containing the max_length parameter.
+        sequences (List[Sequence]): List of DNA, RNA, or protein sequences to
+            evaluate. 
+
+        config (MaxHomopolymerConfig): Configuration object containing ``max_length``
+            (maximum allowed homopolymer length).
 
     Returns:
-        Constraint score where 0.0 indicates no homopolymers exceed the maximum length
-        and higher values indicate longer homopolymers with logarithmic scaling.
+        List[float]: Constraint scores for each sequence. A score of 0.0 indicates
+            no homopolymers exceed the maximum length (pass). Higher scores indicate
+            longer homopolymers with logarithmic scaling.
 
-    Examples:
-        Evaluating homopolymer constraint:
-
-        >>> seq = Sequence("ATCGATCG", SequenceType.DNA)
-        >>> cfg = MaxHomopolymerConfig(max_length=3)
-        >>> score = max_homopolymer_constraint(seq, config=cfg)
-        >>> print(score)  # 0.0 (no long homopolymers)
-
+    Raises:
+        ValueError: If the input sequence list is empty.
+    
     Note:
-        The constraint uses logarithmic scaling to penalize excessive homopolymer lengths
-        while avoiding extreme penalty values.
+        This function modifies the input sequences by adding metadata to each
+        ``Sequence`` object's ``_metadata`` dictionary with the following key:
+        
+        - ``max_homopolymer_length``: Integer length of the longest homopolymer
+          found in the sequence. For example, "ATCGAAAAAGTC" would have value 5
+          (for the "AAAAA" run).
+    
+    Examples:
+        Avoiding long A/T runs for DNA synthesis:
+        
+        >>> from proto_language.language.core import Sequence, SequenceType
+        >>> seq = Sequence("ATCGATCGTAGC", SequenceType.DNA)
+        >>> config = MaxHomopolymerConfig(max_length=4)
+        >>> scores = max_homopolymer_constraint([seq], config)
+        >>> print(scores[0])  # 0.0 (no runs >4)
+        >>> print(seq._metadata["max_homopolymer_length"]) 
     """
     if not sequences:
         raise ValueError("Input sequence list must not be empty")

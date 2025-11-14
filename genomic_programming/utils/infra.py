@@ -4,7 +4,7 @@ Infrastructure utilities for proto-language.
 This module provides utilities for managing compute resources and file storage,
 including GPU selection (local/cloud), cloud storage access (GCS), and caching.
 """
-
+from __future__ import annotations
 import os
 import hashlib
 import logging

@@ -8,25 +8,55 @@ from collections import Counter
 
 import numpy as np
 from typing import List
-from pydantic import Field
 
 from proto_language.language.core import Sequence, SequenceType
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.utils import MIN_ENERGY, MAX_ENERGY
 
 
 class ProteinRepetitivenessConfig(BaseConfig):
-    """Configuration for protein repetitiveness constraint."""
-    max_repetitiveness: float = Field(
+    """Configuration for protein repetitiveness constraint.
+    
+    This class defines configuration parameters for evaluating repetitive content
+    in protein sequences using k-mer frequency analysis. The constraint detects
+    and penalizes sequences with excessive tandem repeats or repetitive motifs,
+    which may indicate low-complexity regions or non-functional proteins. The
+    repetitiveness score is calculated as the maximum fraction of the sequence
+    covered by any repeated k-mer. For example, if "AAA" appears 10 times in a
+    100-amino-acid sequence, the repetitiveness for 3-mers is (10 * 3) / 100 = 0.3
+    (30% of sequence).
+    
+    Attributes:
+        max_repetitiveness (float): Maximum acceptable repetitiveness fraction
+            (0.0-1.0). Measures the maximum fraction of the sequence covered by
+            repeated k-mers. For example, 0.3 means at most 30% of the sequence
+            can consist of repeated motifs. Typical values range from 0.05 (strict,
+            allows up to 5% repetitive content) to 0.3 (lenient, allows up to 30%).
+            Lower values enforce less repetitive sequences. Default: 0.1.
+
+        min_repeat_length (int): Minimum k-mer length to consider as repeats.
+            Must be a positive integer. Smaller values detect most typical sequence
+            repeats like "ATATATATA" or "MLKVMLKV", while longer values (5-7) detect larger
+            structural repeats or large motif duplications. The algorithm checks k-mers
+            from this length up to ``min_repeat_length + 7`` to find the most
+            repetitive pattern. Default: 1.
+    """
+    # Required parameters
+    max_repetitiveness: float = ConfigField(
+        title="Max Repetitiveness Fraction",
+        default=0.1,
         ge=0.0,
         le=1.0,
-        description="Maximum acceptable repetitiveness fraction (0.0-1.0). Measures the maximum fraction of sequence covered by repeated k-mers. Typical values: 0.3-0.5."
+        description="Maximum acceptable repetitiveness fraction (fraction of sequence covered by repeated k-mers)",
+        examples=[0.05, 0.3],
     )
-    min_repeat_length: int = Field(
-        default=3,
+    min_repeat_length: int = ConfigField(
+        title="Minimum Repeat Length",
+        default=1,
         ge=1,
-        description="Minimum k-mer length to consider as repeats. Shorter values (3-4) detect short tandem repeats, longer values (5-7) detect larger structural repeats."
+        description="Minimum k-mer length to consider as repeats.",
+        examples=[1, 3],
     )
 
 
@@ -39,16 +69,57 @@ class ProteinRepetitivenessConfig(BaseConfig):
     concatenate=True,
 )
 def protein_repetitiveness_constraint(sequences: List[Sequence], config: ProteinRepetitivenessConfig) -> List[float]:
-    """
-    Evaluate protein sequence repetitiveness based on k-mer analysis.
-
+    """Evaluate protein sequence repetitiveness based on k-mer frequency analysis.
+    
+    This constraint function analyzes protein sequences for repetitive content by
+    examining k-mer frequencies. It identifies sequences with excessive repetitive motifs,
+    which may indicate low-complexity regions or non-functional proteins. The analysis
+    scans multiple k-mer lengths to detect both short tandem repeats and larger sequence
+    duplications. The repetitiveness score represents the maximum fraction of the sequence
+    covered by any repeated k-mer. For example, if "SSS" appears 8 times in a
+    60-amino-acid sequence, the repetitiveness for 3-mers is (8 * 3) / 60 = 0.4
+    (40% of sequence).
+    
     Args:
-        input_sequence: The protein sequence to evaluate.
-        config: Configuration containing max_repetitiveness and min_repeat_length parameters.
+        sequences (List[Sequence]): List of protein sequences to evaluate. All
+            sequences must have ``sequence_type == SequenceType.PROTEIN``.
+            
+        config (ProteinRepetitivenessConfig): Configuration object containing
+            ``max_repetitiveness`` (maximum acceptable repetitiveness fraction,
+            default: 0.4) and ``min_repeat_length`` (minimum k-mer length to
+            consider, default: 3).
 
     Returns:
-        Constraint score where 0.0 indicates acceptable repetitiveness
-        and higher values indicate excessive repetitive content.
+        List[float]: Constraint scores for each sequence, where 0.0 indicates
+            acceptable repetitiveness (at or below threshold) and higher values
+            indicate excessive repetitive content. Penalties scale linearly with
+            excess repetitiveness: if max is 0.4 and actual is 0.6, the excess
+            (0.2) is normalized by the remaining range (1.0 - 0.4 = 0.6), giving
+            a score of 0.33.
+
+    Raises:
+        AssertionError: If any sequence in the input list is not a protein sequence.
+        ValueError: If any sequence has length shorter than ``min_repeat_length``
+            (raised by the helper function ``_calculate_repetitiveness_score``).
+    
+    Note:
+        This function modifies the input sequences by adding metadata to each
+        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
+        
+        - ``repetitiveness_score``: Float repetitiveness score (0.0-1.0)
+          representing the maximum fraction of sequence covered by repeated k-mers
+        - ``max_repetitive_fraction``: Float identical to ``repetitiveness_score``
+          (kept for backward compatibility)
+    
+    Examples:
+        Evaluating repetitiveness with default settings:
+        
+        >>> from proto_language.language.core import Sequence, SequenceType
+        >>> config = ProteinRepetitivenessConfig(max_repetitiveness=0.4, min_repeat_length=3)
+        >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", SequenceType.PROTEIN)
+        >>> scores = protein_repetitiveness_constraint([seq], config)
+        >>> print(scores[0])  # 0.0 if repetitiveness < 40%
+        >>> print(seq._metadata["repetitiveness_score"])  # e.g., 0.15
     """
     for seq in sequences:
         assert seq.sequence_type == SequenceType.PROTEIN, "Input must be protein"

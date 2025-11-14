@@ -1,109 +1,191 @@
 """
 Evo2 Generator for DNA sequence generation
 """
-
+from __future__ import annotations
 from typing import List, Optional, Dict, final, Union
 import warnings
 
-from pydantic import Field, model_validator
+from pydantic import model_validator
 
 from proto_language.language.core import Generator, GeneratorType, Segment
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.tools.language_models.evo2 import run_evo2_sample, Evo2SampleInput, Evo2SampleConfig
 from proto_language.tools.language_models.evo2.inference import EVO2_MODEL_CHECKPOINTS
 from proto_language.language.generator.generator_registry import GeneratorRegistry
 
 
 class Evo2GeneratorConfig(BaseConfig):
-    """Configuration for Evo2Generator."""
+    """Configuration object for Evo2Generator.
+
+    This class defines configuration parameters for the Evo2 generator, which uses
+    a 7B parameter genomic language model to generate DNA sequences autoregressively
+    from prompt sequences.
+
+    Attributes:
+        prompts (Union[str, List[str]]): Prompt sequence(s) to start DNA generation.
+            Can be a single prompt string or list of prompts for batch generation.
+            All prompts must have the same length. Uses Evo2's special formatting
+            (refer to Evo2 documentation for prompt format details).
+
+        num_tokens (int): Number of tokens to generate after each prompt. Each token
+            represents a DNA subsequence (model-dependent tokenization). Must be at
+            least 1.
+
+        model_checkpoint (str): Evo2 model checkpoint to use. Options:
+
+            - ``"evo2_7b"``: 7 billion parameter Evo2 model (default)
+
+            Default: ``"evo2_7b"``.
+
+        local_path (Optional[str]): Path to local model weights directory for custom
+            or fine-tuned models. If ``None``, downloads from Hugging Face.
+            Default: ``None``.
+
+        top_k (int): Limits sampling to the top-k most probable tokens at each
+            generation step. Lower values produce more focused sequences, higher
+            values increase diversity. Must be at least 1. Default: 4.
+
+        top_p (float): Nucleus sampling parameter. Chooses tokens whose cumulative
+            probability mass is at least ``top_p``. Range: (0.0, 1.0]. Default: 1.0.
+
+        temperature (float): Scales randomness of sampling by adjusting probability
+            distribution sharpness. Lower values are more deterministic, higher
+            values more diverse. Must be greater than 0. Default: 1.0.
+
+        force_prompt_threshold (Optional[int]): Optional number of tokens to prefill
+            in parallel before switching to autoregressive generation. Can speed up
+            generation for long prompts. Default: ``None``.
+
+        max_seqlen (Optional[int]): Optional maximum sequence length to generate.
+            Determines KV cache size. If ``None``, automatically calculated.
+            Default: ``None``.
+
+        stop_at_eos (bool): Whether to stop generation when end-of-sequence token
+            is encountered. If ``False``, always generates exactly ``num_tokens``.
+            Default: ``True``.
+
+        batched (bool): Whether to use batched generation when multiple prompts
+            are provided. Batched generation is faster but requires all prompts
+            to have the same length. Default: ``True``.
+
+        cached_generation (bool): Whether to use KV caching for faster generation.
+            Caching stores intermediate states to avoid recomputation.
+            Default: ``True``.
+
+        store_kv_cache (bool): Whether to store and expose KV caches after generation.
+            Useful for beam search optimizers or continued generation. Caches are
+            stored in ``self.kv_caches`` and overwritten on each ``sample()`` call.
+            Default: ``False``.
+
+        prepend_prompt (bool): Whether to prepend the prompt to the generated
+            sequence in the output. If ``False``, only newly generated tokens are
+            returned. Default: ``False``.
+
+        verbose (bool): Whether to print detailed generation progress and timing.
+            Default: ``False``.
+
+    Note:
+        All prompts must have identical lengths for batched generation. For detailed
+        information on Evo2 parameters, see: https://github.com/arcinstitute/evo2
+    """
     # Required parameters
-    prompts: Union[str, List[str]] = Field(
+    prompts: Union[str, List[str]] = ConfigField(
         title="Prompts",
-        description="Prompt sequences for DNA sequence generation (single prompt or multiple)"
+        description="Prompt sequences for DNA sequence generation (single prompt or multiple)",
     )
-    num_tokens: int = Field(
+    num_tokens: int = ConfigField(
         ge=1,
-        title="Num tokens",
-        description="Number of tokens to generate after prompt"
+        title="Num Tokens",
+        description="Number of tokens to generate after prompt",
+    )
+    model_checkpoint: EVO2_MODEL_CHECKPOINTS = ConfigField(
+        default="evo2_7b",
+        title="Model Checkpoint",
+        description="Evo2 model checkpoint to use",
     )
 
-    # Optional parameters (have defaults)
-    model_checkpoint: EVO2_MODEL_CHECKPOINTS = Field(
-        default="evo2_7b",
-        title="Model name",
-        description="Evo2 model checkpoint to use"
-    )
-    local_path: Optional[str] = Field(
+    # Advanced parameters
+    local_path: Optional[str] = ConfigField(
         default=None,
-        title="Local checkpoint path",
-        description="Path to local checkpoint weights for custom or finetuned models"
+        title="Local Checkpoint Path",
+        description="Path to local checkpoint weights for custom or finetuned models",
+        hidden=True,
     )
-    top_k: int = Field(
+    top_k: int = ConfigField(
         default=4,
         ge=1,
         title="Top-k",
-        description="Limits sampling to the top-k most probable tokens at each generation step. Lower values make output more deterministic, higher values increase diversity."
+        description="Limits sampling to the top-k most probable tokens at each generation step.",
     )
-    top_p: float = Field(
+    top_p: float = ConfigField(
+        title="Top-p",
         default=1,
         gt=0.0,
         le=1.0,
-        title="Top-p",
-        description="Nucleus sampling threshold. Chooses the smallest set of tokens whose cumulative probability mass ≥ top-p. Lower values yield more conservative, focused output; higher values allow more randomness."
+        description="Chooses the smallest set of tokens whose cumulative probability mass ≥ top-p.",
     )
-    temperature: float = Field(
+    temperature: float = ConfigField(
         default=1.0,
         gt=0.0,
         title="Temperature",
-        description="Scales the randomness of sampling by adjusting probability distribution sharpness. Lower values (<1) make outputs more deterministic; higher values (>1) produce more varied and creative generations."
+        description="Scales the randomness of sampling by adjusting probability distribution sharpness.",
     )
-    force_prompt_threshold: Optional[int] = Field(
+    force_prompt_threshold: Optional[int] = ConfigField(
         default=None,
-        title="Force prompt threshold",
-        description="Optional number of tokens to prefill in parallel before switching to prompt forcing. Used to reduce peak memory usage and support longer prompts"
+        title="Force Prompt Threshold",
+        description="Optional number of tokens to prefill in parallel before switching to prompt forcing.",
+        advanced=True,
     )
-    max_seqlen: Optional[int] = Field(
+    max_seqlen: Optional[int] = ConfigField(
         default=None,
-        title="Max sequence length",
-        description="Optional maximum sequence length to generate. Determines the max size of the cache if larger. Otherwise automatically determined using prompt length + max_tokens"
+        title="Max Sequence Length",
+        description="Optional maximum sequence length to generate. Determines the max size of the cache if larger.",
+        advanced=True,
     )
-    stop_at_eos: bool = Field(
+    stop_at_eos: bool = ConfigField(
         default=True,
         title="Stop at EOS",
-        description="Whether to stop at end-of-sequence token"
+        description="Whether to stop at end-of-sequence token",
+        advanced=True,
     )
-    batched: bool = Field(
+    # Determine how we want to handle this for the client.
+    batched: bool = ConfigField(
         default=True,
         title="Batched",
-        description="Whether to use batched generation, set to true if # of prompts > 1."
+        description="Whether to use batched generation, set to true if # of prompts > 1.",
+        hidden=True,
     )
-    cached_generation: bool = Field(
+    cached_generation: bool = ConfigField(
         default=True,
-        title="Cached generation",
-        description="Whether to use cached generation"
+        title="Cached Generation",
+        description="Whether to use cached generation",
+        advanced=True,
     )
-    store_kv_cache: bool = Field(
+    store_kv_cache: bool = ConfigField(
         default=False,
-        title="KV caching",
-        description="Whether to store and reuse kv cache"
+        title="Store KV Cache",
+        description="Whether to store and reuse Key-Value cache",
+        advanced=True,
     )
-    prepend_prompt: bool = Field(
+    prepend_prompt: bool = ConfigField(
         default=False,
-        title="Prepend prompt",
-        description="Whether to prepend prompt to generation"
+        title="Prepend Prompt",
+        description="Whether to prepend prompt to generation",
+        hidden=True,
     )
-    verbose: bool = Field(
+    verbose: bool = ConfigField(
         default=False,
         title="Verbose",
-        description="Whether to print verbose output"
+        description="Whether to print verbose output",
+        hidden=True,
     )
-    
+
     @model_validator(mode='after')
     def validate_prompts_length(self):
         """Validate that all prompts have the same length."""
         if len(set(len(seq) for seq in self.prompts)) != 1:
             raise ValueError(f"All prompts must have same length, got: {[len(seq) for seq in self.prompts]}")
-        
+
         return self
 
 
@@ -117,21 +199,35 @@ class Evo2GeneratorConfig(BaseConfig):
 )
 @final
 class Evo2Generator(Generator):
-    """
-    A sequence generator that uses the Evo2 genome language model for DNA sequence generation.
+    """Sequence generator using Evo2 genomic language model for DNA generation.
 
-    Examples:
+    This generator uses the Evo2 7B parameter model to autoregressively generate
+    DNA sequences from prompt sequences. Supports advanced sampling strategies,
+    KV caching for efficiency, and batch generation.
+
+    The generator type is ``GeneratorType.AUTOREGRESSIVE``, indicating sequences
+    are generated token-by-token from left to right.
+
+    Attributes:
+        prompts (Union[str, List[str]]): Prompt sequences for generation.
+        model_checkpoint (str): Evo2 model checkpoint name.
+        temperature (float): Sampling temperature for diversity control.
+        num_tokens (int): Number of tokens to generate per sequence.
+        kv_caches (List[Dict]): Stored KV caches when ``store_kv_cache=True``.
+        type (GeneratorType): Set to ``GeneratorType.AUTOREGRESSIVE``.
+
+    Example:
         >>> from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
+        >>> from proto_language.language.core import Segment, SequenceType
         >>> config = Evo2GeneratorConfig(
         ...     prompts="ATG",
         ...     num_tokens=1000,
-        ...     model_checkpoint="evo2_7b",
         ...     temperature=0.8
         ... )
         >>> gen = Evo2Generator(config)
         >>> segment = Segment(sequence="", sequence_type=SequenceType.DNA)
         >>> gen.assign(segment)
-        >>> gen.sample()  # Generates sequences from prompts
+        >>> gen.sample()  # Generates DNA sequences
     """
 
     def __init__(self, config: Evo2GeneratorConfig) -> None:
@@ -197,7 +293,6 @@ class Evo2Generator(Generator):
         # Create config for the tool
         inputs = Evo2SampleInput(prompts=sampling_prompts)
         sample_config = Evo2SampleConfig(
-            prompts=sampling_prompts,
             prepend_prompt=prepend_prompt if prepend_prompt is not None else self.prepend_prompt,
             model_checkpoint=self.model_checkpoint,
             local_path=self.local_path,
@@ -211,8 +306,8 @@ class Evo2Generator(Generator):
             verbose=self.verbose,
             stop_at_eos=self.stop_at_eos,
             old_kv_cache=old_kv_cache,
-            keep_on_gpu=True, # Keep for repeated calls
-            batched=True
+            keep_on_gpu=True,  # Keep for repeated calls
+            batched=True,
         )
 
         # Run the sampling tool

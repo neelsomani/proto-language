@@ -9,7 +9,7 @@ Key Features:
     - Segment coordination (contiguous concatenation or disjoint evaluation)
     - Automatic metadata propagation back to original sequences
 """
-
+from __future__ import annotations
 from typing import Callable, List, Optional, Tuple, Union, Dict, Any
 
 from pydantic import BaseModel

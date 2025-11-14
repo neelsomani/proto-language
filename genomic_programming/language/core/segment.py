@@ -3,7 +3,7 @@ Segment class for the proto-language.
 
 Represents building blocks for biological constructs.
 """
-
+from __future__ import annotations
 from typing import Any, Dict, Iterator, List, Optional, Set, Union
 import copy
 from .sequence import Sequence, SequenceType

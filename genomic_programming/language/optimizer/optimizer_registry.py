@@ -4,7 +4,7 @@ Optimizer registry for managing optimizer discovery and schema generation.
 Provides a decorator-based API for registering optimizer classes with metadata and
 automatic schema generation for API/client integration.
 """
-
+from __future__ import annotations
 from typing import Dict, List, Type
 
 from pydantic import BaseModel, Field

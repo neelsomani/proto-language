@@ -7,10 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field
-
 from proto_language.language.core import Sequence, SequenceType
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.tools.orf_prediction.prodigal import (
     run_prodigal_prediction,
@@ -22,28 +20,89 @@ from proto_language.utils import MIN_ENERGY, MAX_ENERGY
 
 
 class ProteinDomainConfig(BaseConfig):
-    """Configuration for protein domain constraint."""
-    hmm_db: str = Field(
-        description="Path to HMM database file for hmmscan (e.g., Pfam-A.hmm). Must be pressed with hmmpress."
+    """Configuration for protein domain constraint.
+    
+    This class defines configuration parameters for evaluating whether protein
+    sequences contain specific functional domains identified by keyword searches
+    against HMM (Hidden Markov Model) profile databases. The constraint uses
+    HMMER's hmmscan tool to identify protein domains and matches them against
+    user-specified keywords, enabling targeted selection for proteins with
+    desired functional characteristics.
+    
+    Attributes:
+        hmm_db (str): Path to HMM database file for hmmscan (e.g., Pfam-A.hmm,
+            TIGRFAM.hmm). The database must be preprocessed with hmmpress before
+            use. Download Pfam from: https://www.ebi.ac.uk/interpro/download/pfam/
+
+        keywords (List[str]): Keywords to search for in domain descriptions
+            (case-insensitive). For example, ["kinase", "ATP-binding"] will match
+            any domain description containing either term. Matches if ANY keyword
+            is found in hit description, unless ``match_all_keywords=True``.
+
+        evalue_threshold (float): Maximum E-value threshold for significant hits.
+            Lower values are more stringent. E-values indicate the number of hits
+            expected by chance. Typical values range from 0.0001 (strict) to
+            0.01 (permissive). Default: 0.005.
+
+        query_coverage (Optional[float]): Minimum query coverage percentage (0-100)
+            for significant hits. If specified, filters hits by alignment coverage
+            of the query sequence. For example, 50.0 requires at least 50% of the
+            query to align to the domain. None means no coverage filter applied.
+            Default: None.
+
+        match_all_keywords (bool): If True, require ALL keywords to be found in
+            domain descriptions. If False, require ANY keyword (default). Use True
+            for strict multi-domain requirements (e.g., ["kinase", "ATP-binding"]
+            both must be present). Default: False.
+
+        hmmscan_config (Optional[PyHmmerConfig]): Optional advanced configuration
+            for PyHMMER hmmscan (threading, bit score thresholds, etc.). If None,
+            uses default configuration. The ``sequences`` and ``hmm_db`` fields
+            are set programmatically and should not be specified here. Default: None.
+            Example usage:
+            ``PyHmmerConfig(cpus=4, Z=1000, domZ=1000)`` to use 4 CPU cores and
+            set database size parameters for E-value calculation. Default: None.
+    
+    Note:
+        For DNA sequences, Prodigal is used to predict ORFs first, then each
+        predicted protein is searched for domains. For protein sequences, the
+        search is performed directly.
+    """
+    # Required parameters
+    hmm_db: str = ConfigField(
+        title="HMM Database",
+        description="Path to HMM database file for hmmscan (e.g., Pfam-A.hmm). Must be pressed with hmmpress.",
     )
-    keywords: List[str] = Field(
-        description="Keywords to search for in domain descriptions (case-insensitive). Matches if any keyword found in hit description, unless match_all_keywords=True."
+    keywords: List[str] = ConfigField(
+        title="Keywords to Search",
+        description="Keywords to search for in domain descriptions (case-insensitive).",
     )
-    evalue_threshold: float = Field(
+
+    # Advanced parameters
+    evalue_threshold: float = ConfigField(
+        title="Max E-value Threshold",
         default=0.005,
-        description="Maximum E-value threshold for significant hits. Lower values are more stringent. Typical: 0.001-0.01."
+        description="Max E-value threshold for significant hits. Lower values are more stringent. Typical: 0.0001-0.01",
+        advanced=True,
+        examples=[0.0001, 0.01],
     )
-    query_coverage: Optional[float] = Field(
+    query_coverage: Optional[float] = ConfigField(
+        title="Min Query Coverage",
         default=None,
-        description="Minimum query coverage percentage (0-100). If specified, filters hits by alignment coverage. None = no filter."
+        description="Min query coverage percentage for significant hits (0-100).",
+        advanced=True,
     )
-    match_all_keywords: bool = Field(
+    match_all_keywords: bool = ConfigField(
+        title="Match All Keywords",
         default=False,
-        description="If True, require ALL keywords to be found. If False, require ANY keyword (default)."
+        description="If True, require ALL keywords to be found. If False, require ANY keyword (default).",
+        advanced=True,
     )
-    hmmscan_config: Optional[PyHmmerConfig] = Field(
+    hmmscan_config: Optional[PyHmmerConfig] = ConfigField(
+        title="PyHMMER Config",
         default=None,
-        description="Optional configuration for PyHMMER hmmscan. If None, uses default configuration. Sequences field will be set programmatically from the input sequence. Hmm_db field will be set to the provided hmm_db.",
+        description="Optional configuration for PyHMMER hmmscan. If None, uses default configuration.",
+        advanced=True,
     )
 
 
@@ -51,50 +110,93 @@ class ProteinDomainConfig(BaseConfig):
     key="protein-domain",
     label="Protein Domain Match",
     config=ProteinDomainConfig,
-    description="Evaluate whether a sequence contains protein domains matching specified keywords",
+    description="Evaluate whether sequences contains protein domains matching specified keywords",
     batched=True,
     concatenate=True,
 )
 def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainConfig) -> List[float]:
-    """
-    Evaluate whether a sequence contains protein domains matching specified keywords.
-
-    For DNA sequences, runs Prodigal first to predict proteins, then checks all predicted
-    proteins. For protein sequences, checks the sequence directly.
+    """Evaluate whether sequences contain protein domains matching specified keywords.
+    
+    This constraint function searches for functional protein domains using HMMER's
+    hmmscan tool against HMM profile databases. It identifies domains in protein 
+    sequences and matches them against user-specified keywords, enabling selection
+    of proteins with desired functional domains.
+    
+    For DNA sequences, the function first runs Prodigal to predict protein-coding
+    regions (ORFs), then searches each predicted protein for matching domains. For
+    protein sequences, the domain search is performed directly. The constraint is
+    satisfied when the specified keyword criteria are met (any or all keywords,
+    depending on configuration).
 
     Args:
-        input_sequence: The DNA or protein sequence to evaluate.
-        config: Configuration containing hmm_db, keywords, evalue_threshold, query_coverage, match_all_keywords, and hmmer_kwargs.
+        sequences (List[Sequence]): List of DNA or protein sequences to evaluate.
+            DNA sequences are first processed through ORF prediction. All sequences
+            in the list must be the same type (all DNA or all PROTEIN).
+            
+        config (ProteinDomainConfig): Configuration object containing ``hmm_db``
+            (path to HMM database), ``keywords`` (list of domain keywords to search),
+            ``evalue_threshold`` (default: 0.005), ``query_coverage`` (default: None),
+            ``match_all_keywords`` (default: False), and ``hmmscan_config``
+            (default: None).
 
     Returns:
-        Constraint score where 0.0 indicates domain criteria are satisfied
-        and 1.0 indicates no matching domains found.
+        List[float]: Constraint scores for each sequence, where 0.0 indicates domain
+            criteria are satisfied (matching domains found) and 1.0 indicates no
+            matching domains found or failure to meet keyword requirements.
 
     Raises:
-        ValueError: If hmm_db doesn't exist or keywords list is empty.
-        RuntimeError: If HMMER or Prodigal execution fails.
-
+        ValueError: If ``hmm_db`` path doesn't exist, ``keywords`` list is empty,
+            input sequence list is empty, or sequences are of mixed types (DNA and
+            protein mixed).
+        RuntimeError: If HMMER hmmscan execution fails or Prodigal ORF prediction
+            fails for DNA sequences.
+    
+    Note:
+        This function modifies the input sequences by adding metadata to each
+        ``Sequence`` object's ``_metadata`` dictionary. Metadata keys vary by
+        sequence type:
+        
+        **For DNA sequences:**
+        - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal
+        - ``prodigal_protein_count``: Integer count of predicted ORFs
+        - ``domain_search_results``: List of domain search results for each
+          predicted protein
+        - ``domain_keywords_found``: List of unique keywords found across all
+          predicted proteins
+        - ``domain_matching_proteins``: List of protein IDs that matched keywords
+        
+        **For protein sequences:**
+        - ``domain_search_results``: List containing domain search results
+        - ``domain_keywords_found``: List of keywords found in domain descriptions
+        - ``domain_matching_hits``: DataFrame of domain hits matching keywords
+        - ``hmmscan_all_hits``: DataFrame of all significant hmmscan hits
+    
     Examples:
-        Evaluating domain presence in protein:
-
-        >>> seq = Sequence("MVLSPADKTNVK", SequenceType.PROTEIN)
+        Evaluating domain presence in protein with single keyword:
+        
+        >>> from proto_language.language.core import Sequence, SequenceType
+        >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", SequenceType.PROTEIN)
         >>> cfg = ProteinDomainConfig(
-        ...     hmm_db="pfam.hmm",
-        ...     keywords=["kinase", "ATP-binding"],
+        ...     hmm_db="Pfam-A.hmm",
+        ...     keywords=["kinase"],
         ...     evalue_threshold=0.001
         ... )
-        >>> score = protein_domain_constraint([seq], config=cfg)
-
-        Evaluating domain presence in DNA (via Prodigal):
-
-        >>> seq = Sequence("ATGGTACTGAGCCCAGCG...", SequenceType.DNA)
+        >>> scores = protein_domain_constraint([seq], config=cfg)
+        >>> print(scores[0])  # 0.0 if kinase domain found, 1.0 if not
+        >>> print(seq._metadata["domain_keywords_found"])  # ['kinase'] if found
+        
+        Evaluating DNA sequence (with automatic ORF prediction):
+        
+        >>> dna_seq = Sequence("ATGGTACTGAGCCCAGCG...", SequenceType.DNA)
         >>> cfg = ProteinDomainConfig(
-        ...     hmm_db="pfam.hmm",
-        ...     keywords=["helicase"],
-        ...     match_all_keywords=False
+        ...     hmm_db="Pfam-A.hmm",
+        ...     keywords=["helicase"]
         ... )
-        >>> score = protein_domain_constraint([seq], config=cfg)
+        >>> scores = protein_domain_constraint([dna_seq], config=cfg)
+        >>> print(dna_seq._metadata["prodigal_protein_count"])  # Number of predicted ORFs
+        >>> print(dna_seq._metadata["domain_matching_proteins"])  # IDs of proteins with helicase domain
     """
+
     hmm_db = Path(config.hmm_db)
     if not hmm_db.exists():
         raise ValueError(f"HMM database not found: {hmm_db}")

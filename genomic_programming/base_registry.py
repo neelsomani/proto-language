@@ -3,7 +3,7 @@ Base registry pattern for decorator-based component registration.
 
 Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry.
 """
-
+from __future__ import annotations
 from typing import Any, Dict, Generic, List, Type, TypeVar
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field, field_serializer

@@ -1,66 +1,109 @@
 """
 Metropolis-Hastings MCMC Optimizer that uses multiple sub-generators as proposal distributions and constraints to define the energy function.
 """
-
+from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Tuple, final
 import copy
 import random
 import sys
 
 import numpy as np
-from pydantic import Field, model_validator
+from pydantic import model_validator
+
 
 from proto_language.language.core import Optimizer, Construct, Generator, GeneratorType, Constraint, Sequence
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 # Maximum safe exponent for np.exp() to prevent overflow
 MAX_EXP_ARG = 700.0
 
 class MCMCOptimizerConfig(BaseConfig):
-    """Configuration for MCMCOptimizer"""
+    """Configuration object for MCMCOptimizer.
+
+    This class defines configuration parameters for the Metropolis-Hastings MCMC
+    optimizer, which explores sequence space through iterative mutation with
+    probabilistic acceptance based on energy improvements.
+
+    Attributes:
+        num_selected (int): Number of candidate sequences to maintain and optimize
+            across iterations (the top-K sequences by energy). When ``num_selected=1``
+            (standard single-chain MCMC), only one sequence is optimized. When
+            ``num_selected > 1``, maintains multiple sequences and generates proposals
+            for each. Must be at least 1.
+
+        mcmc_width (int): Number of proposals to generate per selected sequence at
+            each step. Similar to beam width in beam search. Total proposals per step
+            equals ``num_selected x mcmc_width``. Higher values increase exploration
+            but also computation. Must be at least 1.
+
+        num_steps (int): Number of MCMC steps to run. Each step generates proposals,
+            evaluates them, and accepts/rejects based on Metropolis-Hastings criterion.
+            More steps allow better exploration but increase runtime. Must be at least 1.
+
+        max_temperature (float): Maximum temperature for simulated annealing at the
+            start of optimization. Higher temperatures allow more exploration by
+            accepting worse proposals with higher probability. Must be greater than 0.
+            Default: 1.0.
+
+        min_temperature (float): Minimum temperature for simulated annealing at the
+            end of optimization. Lower temperatures make the algorithm more greedy,
+            accepting only improvements. Must be greater than 0 and less than
+            ``max_temperature``. Default: 0.001.
+
+        track_step_size (int): Interval for saving progress snapshots to history.
+            For example, ``track_step_size=10`` saves state every 10 steps. Must be
+            at least 1. Default: 1.
+
+        verbose (bool): Whether to print detailed progress information at each
+            tracked step, including energy statistics and temperature. Default: ``False``.
+
+    Note:
+        Temperature annealing follows exponential decay:
+            T(step) = T_max x (T_min / T_max)^(step / num_steps)
+    """
     # Required parameters
-    num_selected: int = Field(
+    num_selected: int = ConfigField(
         ge=1,
-        title="Num maintained candidates",
-        description="Number of candidate sequences to optimize across iterations (the top-k). "
-                   "When num_selected=1 (default), behaves like standard single-chain MCMC. "
-                   "When num_selected>1, maintains top-k sequences and generates mcmc_width number of proposals per sequence each step."
+        title="Num Candidates Maintained",
+        description="Number of candidate sequences to optimize across iterations (the top-k).",  # "When num_selected=1 (default), behaves like standard single-chain MCMC. " "When num_selected>1, maintains top-k sequences and generates mcmc_width number of proposals per sequence each step.",
     )
-    mcmc_width: int = Field(
+    mcmc_width: int = ConfigField(
         ge=1,
-        title="Num proposals per candidate",
-        description="Number of generated proposals per candidate sequence each step, similar to `beam width` in beam search."
+        title="Num Proposals",
+        description="Number of generated proposals per candidate sequence each step.",  # (Similar to `beam width`)
     )
-    num_steps: int = Field(
-        ge=1,
-        title="Num steps",
-        description="Number of MCMC steps to run."
+    num_steps: int = ConfigField(
+        ge=1, title="Num Steps", description="Number of MCMC steps to run."
     )
 
-    # Optional parameters (have defaults)
-    max_temperature: float = Field(
+    # Advanced parameters
+    max_temperature: float = ConfigField(
         default=1.0,
         gt=0.0,
-        title="Max temperature",
-        description="Maximum temperature for annealing"
+        title="Max Temperature",
+        description="Maximum temperature for annealing",
+        advanced=True,
     )
-    min_temperature: float = Field(
+    min_temperature: float = ConfigField(
         default=0.001,
         gt=0.0,
-        title="Min temperature",
-        description="Minimum temperature for annealing"
+        title="Min Temperature",
+        description="Minimum temperature for annealing",
+        advanced=True,
     )
-    track_step_size: int = Field(
+    track_step_size: int = ConfigField(
         default=1,
         ge=1,
-        title="Track interval",
-        description="Interval for progress tracking"
+        title="Track Interval",
+        description="Interval for progress tracking",
+        advanced=True,
     )
-    verbose: bool = Field(
+    verbose: bool = ConfigField(
         default=False,
         title="Verbose",
-        description="Whether to print progress information."
+        description="Whether to print progress information.",
+        advanced=True,
     )
 
     @model_validator(mode='after')
@@ -81,48 +124,51 @@ class MCMCOptimizerConfig(BaseConfig):
 )
 @final
 class MCMCOptimizer(Optimizer):
-    """
-    Metropolis-Hastings MCMC optimizer for constraint-driven sequence optimization.
+    """Metropolis-Hastings MCMC optimizer for constraint-driven sequence optimization.
 
-    This optimizer implements a Metropolis-Hastings sampling algorithm that uses
-    multiple sub-generators as proposal distributions and constraints to define
-    the energy function. It's designed for iterative sequence optimization where
-    proposals are accepted or rejected based on energy improvements.
+    This optimizer implements Metropolis-Hastings sampling with simulated annealing
+    to optimize sequences against constraint-based energy functions. It uses mutation
+    generators as proposal distributions and accepts/rejects proposals based on energy
+    changes and temperature.
 
-    The optimizer supports simulated annealing, multiple constraints with weights,
-    and flexible sequence optimization for complex multi-part designs.
+    At each step, the optimizer generates ``num_selected x mcmc_width`` proposals by
+    mutating each of the top-K sequences ``mcmc_width`` times. Proposals are accepted
+    with probability min(1, exp(-ΔE/T)) where ΔE is the energy change and T is the
+    annealed temperature. The top-K sequences by lowest energy are retained for
+    the next step.
 
-    Examples:
-        Basic MCMC optimization (single chain):
+    Attributes:
+        mcmc_width (int): Number of proposals per selected sequence.
+        num_steps (int): Total number of MCMC steps to run.
+        max_temperature (float): Starting temperature for annealing.
+        min_temperature (float): Ending temperature for annealing.
+        track_step_size (int): Interval for progress tracking.
+
+    Example:
         >>> constructs = [Construct([segment1, segment2])]
         >>> config = MCMCOptimizerConfig(
+        ...     num_selected=1,
+        ...     mcmc_width=20,
         ...     num_steps=100,
         ...     max_temperature=0.5,
         ...     min_temperature=0.001
         ... )
         >>> mcmc = MCMCOptimizer(
         ...     constructs=constructs,
-        ...     generators=[evo2_gen, mutation_gen],
-        ...     constraints=[gc_constraint, homopolymer_constraint],
-        ...     config=config,
-        ...     constraint_weights=[1.0, 2.0]
-        ... )
-        >>> mcmc.run()  # Uses default: num_selected=1, num_candidates=1
-        >>> final_constructs = mcmc.constructs
-
-        >>> config = MCMCOptimizerConfig(
-        ...     num_selected=3,
-        ...     num_candidates=20,  # Deep local search: 20 proposals per selected sequence
-        ...     num_steps=50,
-        ... )
-        >>> mcmc_deep = MCMCOptimizer(
-        ...     constructs=constructs,
         ...     generators=[mutation_gen],
-        ...     constraints=[energy_constraint],
+        ...     constraints=[gc_constraint],
         ...     config=config
         ... )
-        >>> # Each step generates 20 proposals per sequence (3 x 20 = 60 total proposals)
-        >>> mcmc_deep.run()
+        >>> mcmc.run()
+        >>> final_sequences = mcmc.constructs[0].joined_sequences
+
+    Note:
+        - Only supports mutation generators (``GeneratorType.MUTATION``)
+        - Uses Metropolis-Hastings acceptance: always accepts improvements,
+            accepts worse proposals with probability exp(-ΔE/T)
+        - Simulated annealing: temperature decreases exponentially from
+            ``max_temperature`` to ``min_temperature``
+        - Lower energy scores are better (minimization objective)
     """
     # Class attribute required by OptimizerRegistry
     config_class = MCMCOptimizerConfig
@@ -162,7 +208,7 @@ class MCMCOptimizer(Optimizer):
             num_selected=config.num_selected,
             clear_tool_cache=clear_tool_cache,
         )
-        
+
         # Store MCMC-specific interpretation (proposals per selected sequence)
         # Note: self.num_candidates from parent = total_candidates (num_selected * mcmc_width)
         self.mcmc_width: int = config.mcmc_width
@@ -206,7 +252,7 @@ class MCMCOptimizer(Optimizer):
 
         # MCMC loop
         for step in range(1, self.num_steps + 1):
-            #1. Save state of selected_sequences to revert if rejected by Metropolis-Hastings acceptance criterion
+            # 1. Save state of selected_sequences to revert if rejected by Metropolis-Hastings acceptance criterion
             old_selected_sequences = self._save_sequence_state()
 
             # 2. Populate candidate_sequences by replicating each selected_sequence mcmc_width times
@@ -232,7 +278,6 @@ class MCMCOptimizer(Optimizer):
         if self.num_steps % self.track_step_size != 0:
             self._save_progress_snapshot(time_step=self.num_steps)
 
-
     def _save_sequence_state(self) -> List[Tuple[Dict[int, Sequence], float]]:
         """Save state of selected sequences.
 
@@ -250,7 +295,6 @@ class MCMCOptimizer(Optimizer):
             sequence_state.append((segments_dict, self.energy_scores[selected_idx]))
         return sequence_state
 
-
     def _populate_candidate_sequences(self) -> None:
         """Populate candidate_sequences by replicating each selected_sequence mcmc_width times.
         
@@ -262,7 +306,6 @@ class MCMCOptimizer(Optimizer):
                 start_idx = selected_idx * self.mcmc_width
                 for offset in range(self.mcmc_width):
                     segment.candidate_sequences[start_idx + offset] = copy.deepcopy(segment.selected_sequences[selected_idx])
-
 
     def _select_topk_with_mcmc_acceptance(
         self,
@@ -308,7 +351,6 @@ class MCMCOptimizer(Optimizer):
         for segment in self.segments:
             segment.selected_sequences = [segment.candidate_sequences[idx] for idx in range(self.num_selected)]
 
-
     def _compute_temperature(self, step: int) -> float:
         """Calculate annealed temperature: T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1))
         
@@ -322,7 +364,6 @@ class MCMCOptimizer(Optimizer):
         else:
             return self.max_temperature * (self.min_temperature / self.max_temperature) ** ((step - 1) / (self.num_steps - 1))
 
-
     def _compute_mcmc_acceptance_prob(self, current_energy: float, proposed_energy: float, step: int) -> float:
         """Compute Metropolis-Hastings acceptance probability: alpha = min(1, exp(-(E_new - E_old) / T))
 
@@ -335,7 +376,6 @@ class MCMCOptimizer(Optimizer):
         # Cap to prevent overflow in exp()
         log_acceptance_ratio = min(log_acceptance_ratio, MAX_EXP_ARG)
         return min(1.0, np.exp(log_acceptance_ratio))
-
 
     def _log_mcmc_progress(self, step: int) -> None:
         """Log optimization progress"""

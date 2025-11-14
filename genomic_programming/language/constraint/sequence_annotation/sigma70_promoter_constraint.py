@@ -1,5 +1,5 @@
 """
-σ70 promoter strength constraint for evaluating promoter strength.
+sigma-70 promoter similarity constraint for evaluating promoter similarity.
 """
 
 from __future__ import annotations
@@ -8,49 +8,273 @@ import math
 from typing import List
 
 import numpy as np
-from pydantic import Field
 
 from proto_language.language.core import Sequence
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 
 
 class Sigma70PromoterConfig(BaseConfig):
-    """Configuration for σ70 promoter strength constraint."""
-    consensus_35: str = Field(default="TTGACA", description="-35 box consensus sequence (6 bp, typically TTGACA for E. coli σ70)")
-    consensus_10: str = Field(default="TATAAT", description="-10 box consensus sequence (6 bp Pribnow box, typically TATAAT for E. coli σ70)")
-    probs_35: List[float] = Field(default=[0.69, 0.79, 0.61, 0.56, 0.54, 0.54], description="Position-specific conservation probabilities for -35 box (6 values). From RegulonDB.")
-    probs_10: List[float] = Field(default=[0.77, 0.76, 0.60, 0.61, 0.56, 0.82], description="Position-specific conservation probabilities for -10 box (6 values). From RegulonDB.")
-    optimal_spacer: int = Field(default=17, description="Optimal spacer length between -35 and -10 boxes in base pairs (typically 17±1 bp)")
-    spacer_sigma: float = Field(default=1.5, description="Standard deviation for spacer length penalty. Lower values = stricter spacing requirement.")
-    spacer_weight: float = Field(default=0.3, description="Weight (0-1) for spacer penalty in total score. Higher = spacing more important.")
-    gamma: float = Field(default=0.1, description="PWM score exponent for non-linearity. Lower values = more sensitive to mismatches.")
-    k_opt: int = Field(default=8, description="Optimal number of matches to consensus (out of 12 total positions)")
-    match_sigma: float = Field(default=2.0, description="Standard deviation for match count penalty")
-    match_weight: float = Field(default=0.3, description="Weight (0-1) for match count penalty in total score")
-    min_spacer: int = Field(default=14, description="Minimum acceptable spacer length in bp")
-    max_spacer: int = Field(default=20, description="Maximum acceptable spacer length in bp")
+    """Configuration for sigma-70 promoter similarity constraint.
+    
+    This class defines configuration parameters for evaluating bacterial promoter
+    similarity using a position weight matrix (PWM) model of E. coli sigma-70 promoters.
+    The model scores promoter elements based on similarity to consensus sequences
+    for the -35 and -10 boxes, the spacer distance between them, and
+    the total number of matches to consensus. This approach is based on RegulonDB
+    experimental data for E. coli sigma-70-dependent promoters.
+    
+    The scoring combines three components:
+    1. PWM score: Similarity to consensus sequences weighted by conservation
+    2. Match count: Number of exact matches to consensus (out of 12 positions)
+    3. Spacer length: Distance between -35 and -10 boxes
+    
+    Attributes:
+        consensus_35 (str): Consensus sequence for the -35 box.
+            This is the upstream promoter element recognized by the sigma-70 subunit
+            of RNA polymerase, typically located ~35 bp upstream of the transcription
+            start site. The canonical E. coli sigma-70 consensus is "TTGACA". Must be
+            exactly 6 nucleotides. Default: "TTGACA".
+
+        consensus_10 (str): Consensus sequence for the -10 box.
+            This is the downstream promoter element, typically located ~10 bp
+            upstream of the transcription start site. The canonical E. coli sigma-70
+            consensus is "TATAAT". Must be exactly 6 nucleotides. Default: "TATAAT".
+
+        probs_35 (List[float]): Position-specific conservation probabilities for
+            the -35 box (6 values, one per position). These values represent the
+            frequency of the consensus base at each position in experimentally
+            validated E. coli promoters from RegulonDB. Must be exactly 6 values
+            between 0.0 and 1.0. Default: [0.69, 0.79, 0.61, 0.56, 0.54, 0.54].
+
+        probs_10 (List[float]): Position-specific conservation probabilities for
+            the -10 box (6 values, one per position). These represent conservation
+            at each -10 box position. Must be exactly 6 values between 0.0
+            and 1.0. Default: [0.77, 0.76, 0.60, 0.61, 0.56, 0.82].
+
+        optimal_spacer (int): Optimal spacer length between -35 and -10 boxes in
+            base pairs. For E. coli sigma-70 promoters, this is typically 17±1 bp.
+            Must be a positive integer. Default: 17.
+
+        spacer_sigma (float): Standard deviation for spacer length penalty calculation.
+            Controls how strictly the spacer length is enforced. Lower values
+            (e.g., 1.0) make the constraint very sensitive to spacer deviations,
+            while higher values (e.g., 3.0) are more permissive. The penalty uses
+            a Gaussian function: penalty = 1 - exp(-((spacer - optimal)/sigma)²).
+            Must be positive. Default: 1.5.
+
+        spacer_weight (float): Weight (0.0-1.0) for spacer penalty in the total
+            score. Controls the relative importance of correct spacer length vs.
+            box sequence quality. For example, 0.3 means spacer contributes 30%
+            to the final score, while box sequences contribute 70%. Higher values
+            make spacer length more critical. Default: 0.3.
+
+        gamma (float): PWM score exponent for non-linear sensitivity. Applied as
+            score = (PWM_probability)^gamma. Lower values (e.g., 0.05-0.1) make
+            the score very sensitive to mismatches (exponential drop-off), while
+            higher values (e.g., 0.5-1.0) are more permissive. Typical range:
+            0.05-0.2. Default: 0.1.
+
+        k_opt (int): Optimal number of matches to consensus sequences (out of 12
+            total positions: 6 in -35 box + 6 in -10 box). Strong promoters
+            typically have 8-10 matches. This parameter centers the match penalty
+            around the expected number of matches. Must be between 0 and 12.
+            Default: 8.
+
+        match_sigma (float): Standard deviation for match count penalty. Controls
+            sensitivity to deviations from k_opt. Lower values penalize deviations
+            more strongly. The penalty uses a Gaussian: penalty = 1 - exp(-((matches - k_opt)/sigma)²).
+            Default: 2.0.
+
+        match_weight (float): Weight (0.0-1.0) for match count penalty within the
+            box scoring component (before combining with spacer). This balances
+            PWM-based scoring (weighted position-specific probabilities) against
+            simple match counting. For example, 0.3 means matches contribute 30%
+            and PWM contributes 70% to box score. Default: 0.3.
+
+        min_spacer (int): Minimum acceptable spacer length in base pairs. Promoters
+            with spacers shorter than this are not evaluated (assigned penalty 1.0).
+            Typical range: 14-16 bp for sigma-70 promoters. Default: 14.
+
+        max_spacer (int): Maximum acceptable spacer length in base pairs. Promoters
+            with spacers longer than this are not evaluated. Typical range: 19-21 bp
+            for sigma-70 promoters. Default: 20.
+    
+    Note:
+        The constraint scans sequences to find the best-scoring promoter within
+        the allowed spacer range. For sequences ≤32 bp, it treats the entire
+        sequence as a single promoter (first 6 bp = -35, last 6 bp = -10). For
+        longer sequences, it scans all possible positions.
+        
+        The final penalty combines three components:
+        1. **Box penalty** = (1 - match_weight) * PWM_penalty + match_weight * match_penalty
+        2. **Total penalty** = (1 - spacer_weight) * box_penalty + spacer_weight * spacer_penalty
+    """
+    consensus_35: str = ConfigField(
+        title="Consensus -35 Box",
+        default="TTGACA",
+        description="-35 box consensus sequence (6 bp, typically TTGACA for E. coli sigma-70)",
+        advanced=True,
+    )
+    consensus_10: str = ConfigField(
+        title="Consensus -10 Box",
+        default="TATAAT",
+        description="-10 box consensus sequence (6 bp Pribnow box, typically TATAAT for E. coli sigma-70)",
+        advanced=True,
+    )
+    probs_35: List[float] = ConfigField(
+        title="Conservation Probs -35 Box",
+        default=[0.69, 0.79, 0.61, 0.56, 0.54, 0.54],
+        description="Position-specific conservation probabilities for -35 box (6 values). From RegulonDB.",
+        advanced=True,
+    )
+    probs_10: List[float] = ConfigField(
+        title="Conservation Probs -10 Box",
+        default=[0.77, 0.76, 0.60, 0.61, 0.56, 0.82],
+        description="Position-specific conservation probabilities for -10 box (6 values). From RegulonDB.",
+        advanced=True,
+    )
+    optimal_spacer: int = ConfigField(
+        title="Optimal Spacer",
+        default=17,
+        description="Optimal spacer length between -35 and -10 boxes in base pairs (typically 17±1 bp)",
+    )
+    spacer_sigma: float = ConfigField(
+        title="Spacer Standard Deviation",
+        default=1.5,
+        description="Standard deviation for spacer length penalty. Lower values = stricter spacing requirement.",
+        advanced=True,
+    )
+    spacer_weight: float = ConfigField(
+        title="Spacer Weight",
+        default=0.3,
+        description="Weight (0-1) for spacer penalty in total score. Higher = spacing more important.",
+        advanced=True,
+    )
+    gamma: float = ConfigField(
+        title="PWM Score Exponent",
+        default=0.1,
+        description="PWM score exponent for non-linearity. Lower values = more sensitive to mismatches.",
+        advanced=True,
+    )
+    k_opt: int = ConfigField(
+        title="Optimal Number of Matches",
+        default=8,
+        description="Optimal number of matches to consensus (out of 12 total positions)",
+        advanced=True,
+    )
+    match_sigma: float = ConfigField(
+        title="Match Count Standard Deviation",
+        default=2.0,
+        description="Standard deviation for match count penalty",
+        advanced=True,
+    )
+    match_weight: float = ConfigField(
+        title="Match Count Weight",
+        default=0.3,
+        description="Weight (0-1) for match count penalty in total score",
+        advanced=True,
+    )
+    min_spacer: int = ConfigField(
+        title="Min Acceptable Spacer Length",
+        default=14,
+        description="Minimum acceptable spacer length in bp",
+        advanced=True,
+    )
+    max_spacer: int = ConfigField(
+        title="Max Acceptable Spacer Length",
+        default=20,
+        description="Maximum acceptable spacer length in bp",
+        advanced=True,
+    )
 
 
 @ConstraintRegistry.register(
     key="sigma70-promoter",
     label="Sigma70 Promoter Strength",
     config=Sigma70PromoterConfig,
-    description="Evaluate σ70 promoter strength for DNA sequences",
+    description="Evaluate sigma-70 promoter similarity for DNA sequences",
     batched=True,
     concatenate=True,
 )
 def sigma70_promoter_constraint(sequences: List[Sequence], config: Sigma70PromoterConfig) -> List[float]:
-    """
-    Evaluate σ70 promoter strength for DNA sequences.
-    Results are cached in each Sequence's metadata under key 'sigma70'.
+    """Evaluate E. coli sigma-70 promoter similarity using PWM-based scoring.
+    
+    This constraint function evaluates bacterial promoter similarity by scanning
+    DNA sequences for sigma-70-dependent promoter elements. It identifies putative
+    -35 and -10 boxes, scores them based on similarity to consensus
+    sequences weighted by position-specific conservation probabilities, evaluates
+    the spacer distance between them, and combines these scores into an overall
+    promoter similarity prediction.
+    
+    The scoring model is based on RegulonDB experimental data for E. coli sigma-70
+    promoters and uses three components:
+    1. **PWM score**: Position weight matrix score based on conservation probabilities
+    2. **Match count**: Simple count of consensus matches (out of 12 positions)
+    3. **Spacer length**: Deviation from optimal 17 bp spacer
+    
+    The function scans sequences to find the best-scoring promoter configuration
+    within the allowed spacer range [min_spacer, max_spacer]. For short sequences
+    (≤32 bp), it treats the entire sequence as a fixed promoter. For longer
+    sequences, it exhaustively scans all positions.
 
     Args:
-        sequences: List of DNA Sequences to evaluate.
-        config: Configuration containing all promoter scoring parameters.
+        sequences (List[Sequence]): List of DNA sequences to evaluate. Sequences
+            should contain potential promoter regions. For best results, use
+            sequences 50-100+ bp that may contain -35 and -10 boxes with appropriate
+            spacing. Shorter sequences (12-32 bp) are treated as fixed promoters.
+            
+        config (Sigma70PromoterConfig): Configuration object containing consensus
+            sequences, conservation probabilities, spacer parameters, and scoring
+            weights. Uses E. coli sigma-70 defaults if not specified.
 
     Returns:
-        List of constraint scores (0.0 = best promoter, 1.0 = worst).
+        List[float]: Constraint scores for each sequence, ranging from 0.0 (perfect
+            promoter, exact consensus with optimal spacer) to 1.0 (poor/no promoter).
+            The score represents a penalty, so lower values indicate stronger
+            predicted promoters. Scores combine PWM similarity, match count, and
+            spacer length penalties.
+    
+    Note:
+        This function modifies the input sequences by adding metadata to each
+        ``Sequence`` object's ``_metadata`` dictionary under the key ``sigma70``
+        with the following fields:
+        
+        **For valid promoters found:**
+        - ``sigma70_score``: Float overall penalty score (0.0-1.0)
+        - ``pos``: Integer start position of the -35 box in the sequence
+        - ``box35``: String sequence of the -35 box (6 bp)
+        - ``box10``: String sequence of the -10 box (6 bp)
+        - ``spacer_len``: Integer spacer length between boxes (bp)
+        - ``total_matches``: Integer total matches to consensus (out of 12)
+        - ``pwm_penalty``: Float PWM-based penalty component (0.0-1.0)
+        - ``match_penalty``: Float match count penalty component (0.0-1.0)
+        - ``spacer_penalty``: Float spacer length penalty component (0.0-1.0)
+        
+        **For sequences too short (<12 bp):**
+        - ``sigma70_score``: Float 1.0 (maximum penalty)
+        - ``reason``: String "too_short"
+        
+        **For sequences with invalid spacer (12-32 bp range):**
+        - ``sigma70_score``: Float 1.0 (maximum penalty)
+        - ``reason``: String "invalid_spacer"
+    
+    Examples:
+        Evaluating a canonical sigma-70 promoter:
+        
+        >>> from proto_language.language.core import Sequence, SequenceType
+        >>> # Strong promoter with consensus -35 (TTGACA) and -10 (TATAAT) boxes
+        >>> promoter_seq = Sequence(
+        ...     "TTGACAATGATACTTAGATTCACTTATAATACTAGTAG",  # 17 bp spacer
+        ...     SequenceType.DNA
+        ... )
+        >>> config = Sigma70PromoterConfig()  # Use defaults
+        >>> scores = sigma70_promoter_constraint([promoter_seq], config)
+        >>> print(scores[0])  # e.g., 0.08 (strong promoter)
+        >>> metadata = promoter_seq._metadata["sigma70"]
+        >>> print(f"-35: {metadata['box35']}, -10: {metadata['box10']}")  # TTGACA, TATAAT
+        >>> print(f"Matches: {metadata['total_matches']}/12")  # e.g., 11/12
+        >>> print(f"Spacer: {metadata['spacer_len']} bp")  # 17
     """
 
     CONS_35 = config.consensus_35.upper()

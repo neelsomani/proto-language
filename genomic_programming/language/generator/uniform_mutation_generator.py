@@ -1,43 +1,83 @@
 """
 UniformMutationGenerator for random point mutations.
 """
-
+from __future__ import annotations
 from typing import final, Optional, Tuple
 import random
 import time
 
-from pydantic import Field, model_validator
+from pydantic import model_validator
 
 from proto_language.language.core import Generator, GeneratorType, Segment
-from proto_language.base_config import BaseConfig
+from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.generator.generator_registry import GeneratorRegistry
 
 
 class UniformMutationGeneratorConfig(BaseConfig):
-    """Configuration for UniformMutationGenerator."""
+    """Configuration object for UniformMutationGenerator.
+
+    This class defines configuration parameters for the uniform mutation generator,
+    which introduces random point mutations into sequences for diversity exploration.
+
+    Attributes:
+        sequence_length (int): Target length for generated sequences in nucleotides
+            or amino acids. All input sequences must match this length, or if no
+            input sequence is provided, a random sequence of this length is generated.
+            Must be at least 1.
+
+        num_mutations (int): Number of positions to randomly mutate per sample.
+            Each mutation replaces a character with a different random character
+            from the valid alphabet. If this exceeds the sequence length or mutation
+            window size, it is automatically capped at the available positions.
+            Must be at least 0. Default: 1.
+
+        mutation_window (Optional[Tuple[int, int]]): Optional window specifying which
+            region of the sequence to mutate. Format: ``(start, end)`` using Python
+            indexing (0-based, end-exclusive). For example:
+
+            - ``(0, 100)``: Mutate only first 100 positions
+            - ``(50, 150)``: Mutate only positions 50-149
+            - ``None``: Mutate entire sequence (default)
+
+            Both values must be within ``[0, sequence_length]``. Default: ``None``.
+
+        debug_with_sleep_calls (bool): Enable debug mode with 1-second sleep calls
+            during sampling. Only use for testing parallel execution or profiling.
+            Default: ``False``.
+
+    Note:
+        For non-autoregressive generators, the ``sequence_length`` parameter should
+        ideally be determined from input sequences rather than configured manually
+        (planned for future versions). TODO
+    """
     # Required parameters
-    sequence_length: int = Field(
+    # TODO: For all generators that are not autoregressive, this should probably not be configurable/ should be based on input sequences
+    sequence_length: int = ConfigField(
         ge=1,
-        title="Sequence length",
-        description="Target length for generated sequences"
+        title="Sequence Length",
+        description="Target length for generated sequences",
     )
 
-    # Optional parameters (have defaults)
-    num_mutations: int = Field(
+    # Advanced parameters (have default values)
+    num_mutations: int = ConfigField(
         default=1,
         ge=0,
-        title="Num mutations",
-        description="Number of positions to mutate per sample"
+        title="Num Mutations",
+        description="Number of positions to mutate per sample",
+        advanced=True,
     )
-    mutation_window: Optional[Tuple[int, int]] = Field(
+    # TODO: We should decided on a standard for this for all non-autoregressive generators
+    mutation_window: Optional[Tuple[int, int]] = ConfigField(
         default=None,
-        title="Mutation window",
-        description="Only mutate the sequence within this range. Uses Python conventions for defining the range (start:end)."
+        title="Mutation Window",
+        description="Only mutate the sequence within this range. (start, end) using Python index conventions.",
+        advanced=True,
     )
-    debug_with_sleep_calls: bool = Field(
+    debug_with_sleep_calls: bool = ConfigField(
         default=False,
-        title="Debug with sleep calls",
-        description="Enable debug mode with sleep calls (for testing purposes only)"
+        title="Debug with Sleep Calls",
+        description="Enable debug mode with sleep calls (for testing purposes only)",
+        advanced=True,
     )
 
     @model_validator(mode='after')
@@ -67,15 +107,26 @@ class UniformMutationGeneratorConfig(BaseConfig):
 )
 @final
 class UniformMutationGenerator(Generator):
-    """
-    A sequence generator that proposes random point mutations.
+    """Sequence generator that introduces random point mutations.
 
-    This generator initializes with a random sequence and samples single-nucleotide
-    or amino acid mutations on each call to sample().
+    This generator creates sequence diversity by randomly mutating specified positions
+    in DNA, RNA, or protein sequences. Can start from a provided sequence or generate
+    a random initial sequence. Useful for exploring local sequence space around a
+    starting point.
 
-    Examples:
-        Creating a DNA mutation generator with config:
+    The generator type is ``GeneratorType.MUTATION``, indicating it modifies existing
+    sequences rather than generating from scratch.
+
+    Attributes:
+        sequence_length (int): Length of sequences to generate/mutate.
+        num_mutations (int): Number of positions to mutate per sample.
+        mutation_window (Optional[Tuple[int, int]]): Optional region to restrict mutations.
+        debug_with_sleep_calls (bool): Whether to add sleep delays for testing.
+        type (GeneratorType): Set to ``GeneratorType.MUTATION``.
+
+    Example:
         >>> from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
+        >>> from proto_language.language.core import Segment, SequenceType
         >>> config = UniformMutationGeneratorConfig(
         ...     sequence_length=100,
         ...     num_mutations=2

@@ -30,8 +30,8 @@ class TestKmerFrequencyConstraint:
 
         constraint = Constraint(
             inputs=[seq],
-            scoring_function=kmer_frequency_constraint,
-            scoring_function_config=config,
+            function=kmer_frequency_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -58,8 +58,8 @@ class TestKmerFrequencyConstraint:
 
         constraint = Constraint(
             inputs=[seq],
-            scoring_function=kmer_frequency_constraint,
-            scoring_function_config=config,
+            function=kmer_frequency_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -83,8 +83,8 @@ class TestKmerFrequencyConstraint:
 
         constraint = Constraint(
             inputs=[seq],
-            scoring_function=kmer_frequency_constraint,
-            scoring_function_config=config,
+            function=kmer_frequency_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -106,8 +106,8 @@ class TestKmerFrequencyConstraint:
 
         constraint = Constraint(
             inputs=[seq],
-            scoring_function=kmer_frequency_constraint,
-            scoring_function_config=config,
+            function=kmer_frequency_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -126,8 +126,8 @@ class TestKmerFrequencyConstraint:
 
         constraint = Constraint(
             inputs=[seq],
-            scoring_function=kmer_frequency_constraint,
-            scoring_function_config=config,
+            function=kmer_frequency_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]

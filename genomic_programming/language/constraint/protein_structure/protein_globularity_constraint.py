@@ -97,6 +97,7 @@ class ProteinGlobularityConfig(BaseConfig):
     label="Protein Globularity",
     config=ProteinGlobularityConfig,
     description="Encourage compact, globular protein structures",
+    mode="score",
     batched=True,
     concatenate=True,
     gpu_required=True,

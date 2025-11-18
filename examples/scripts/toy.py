@@ -31,8 +31,8 @@ uniform_gen.assign(seq1)
 # Contraint
 gc_constraint = Constraint(
     inputs=[seq1],
-    scoring_function=gc_content_constraint,
-    scoring_function_config={"min_gc": 80, "max_gc": 90},
+    function=gc_content_constraint,
+    function_config={"min_gc": 80, "max_gc": 90},
 )
 
 def custom_logging(step: int, outputs: Tuple[Segment]) -> None:

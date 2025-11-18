@@ -126,8 +126,8 @@ def _setup_beam_search_components(
     # 3. Create constraints (only on the first segment for simplicity)
     constraint = Constraint(
         inputs=[segments[0]],
-        scoring_function=gc_content_constraint,
-        scoring_function_config=GCContentConfig(
+        function=gc_content_constraint,
+        function_config=GCContentConfig(
             min_gc=gc_target_range[0],
             max_gc=gc_target_range[1],
         ),
@@ -271,8 +271,8 @@ class TestBeamSearchOptimizer:
 
         constraint = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         config = BeamSearchOptimizerConfig(
@@ -301,8 +301,8 @@ class TestBeamSearchOptimizer:
 
         constraint = Constraint(
             inputs=[segments1[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         config = BeamSearchOptimizerConfig(
@@ -331,8 +331,8 @@ class TestBeamSearchOptimizer:
 
         constraint = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         config = BeamSearchOptimizerConfig(
@@ -359,8 +359,8 @@ class TestBeamSearchOptimizer:
 
         constraint = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         config = BeamSearchOptimizerConfig(
@@ -408,8 +408,8 @@ class TestBeamSearchOptimizer:
         # Add a second constraint
         constraint2 = Constraint(
             inputs=[segments[0]],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=SequenceLengthConfig(target_length=20),
+            function=sequence_length_constraint,
+            function_config=SequenceLengthConfig(target_length=20),
 
         )
 
@@ -459,8 +459,8 @@ class TestBeamSearchOptimizer:
         
         constraint = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
 
         )
         
@@ -523,8 +523,8 @@ class TestBeamSearchOptimizer:
         
         constraint = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
 
         )
         
@@ -599,16 +599,16 @@ class TestBeamSearchOptimizer:
         # Create constraint that depends on segments 0 and 1
         constraint_01 = Constraint(
             inputs=[segments[0], segments[1]],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=SequenceLengthConfig(target_length=40),
+            function=sequence_length_constraint,
+            function_config=SequenceLengthConfig(target_length=40),
 
         )
 
         # Create constraint that only depends on segment 0
         constraint_0 = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         config = BeamSearchOptimizerConfig(
@@ -658,8 +658,8 @@ class TestBeamSearchOptimizer:
         # Create constraint that depends on both segments
         constraint = Constraint(
             inputs=[segments[0], segments[1]],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=SequenceLengthConfig(target_length=40),
+            function=sequence_length_constraint,
+            function_config=SequenceLengthConfig(target_length=40),
         )
 
         config = BeamSearchOptimizerConfig(
@@ -916,8 +916,8 @@ class TestBeamSearchOptimizer:
 
             constraint = Constraint(
                 inputs=[segments[0]],
-                scoring_function=gc_content_constraint,
-                scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+                function=gc_content_constraint,
+                function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
             )
 
             config = BeamSearchOptimizerConfig(
@@ -1004,22 +1004,22 @@ class TestBeamSearchOptimizer:
         # Constraint on segment 0 only
         constraint_0 = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         # Constraint on segments 0 and 1 together
         constraint_01 = Constraint(
             inputs=[segments[0], segments[1]],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=SequenceLengthConfig(target_length=60),
+            function=sequence_length_constraint,
+            function_config=SequenceLengthConfig(target_length=60),
         )
 
         # Constraint on all three segments
         constraint_012 = Constraint(
             inputs=[segments[0], segments[1], segments[2]],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=SequenceLengthConfig(target_length=90),
+            function=sequence_length_constraint,
+            function_config=SequenceLengthConfig(target_length=90),
         )
 
         config = BeamSearchOptimizerConfig(
@@ -1185,8 +1185,8 @@ class TestBeamSearchOptimizer:
 
         constraint = Constraint(
             inputs=[segments[0]],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         config = BeamSearchOptimizerConfig(

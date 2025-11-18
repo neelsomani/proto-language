@@ -111,6 +111,7 @@ class ProteinDomainConfig(BaseConfig):
     label="Protein Domain Match",
     config=ProteinDomainConfig,
     description="Evaluate whether sequences contains protein domains matching specified keywords",
+    mode="score",
     batched=True,
     concatenate=True,
 )

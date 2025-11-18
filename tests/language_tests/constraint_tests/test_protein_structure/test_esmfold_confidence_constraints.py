@@ -67,8 +67,8 @@ class TestESMFoldPLDDTConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_plddt_constraint,
-                scoring_function_config=config,
+                function=esmfold_plddt_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -101,8 +101,8 @@ class TestESMFoldPLDDTConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_plddt_constraint,
-                scoring_function_config=config,
+                function=esmfold_plddt_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()
@@ -156,8 +156,8 @@ class TestESMFoldPLDDTConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_plddt_constraint,
-                scoring_function_config=config,
+                function=esmfold_plddt_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()
@@ -198,8 +198,8 @@ class TestESMFoldPLDDTConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_plddt_constraint,
-                scoring_function_config=config,
+                function=esmfold_plddt_constraint,
+                function_config=config,
             )
 
             # First evaluation
@@ -243,8 +243,8 @@ class TestESMFoldPLDDTConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_plddt_constraint,
-                scoring_function_config=config,
+                function=esmfold_plddt_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()
@@ -298,8 +298,8 @@ class TestESMFoldPTMConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_ptm_constraint,
-                scoring_function_config=config,
+                function=esmfold_ptm_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -332,8 +332,8 @@ class TestESMFoldPTMConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_ptm_constraint,
-                scoring_function_config=config,
+                function=esmfold_ptm_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()
@@ -377,8 +377,8 @@ class TestESMFoldPTMConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_ptm_constraint,
-                scoring_function_config=config,
+                function=esmfold_ptm_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()
@@ -419,8 +419,8 @@ class TestESMFoldPTMConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=esmfold_ptm_constraint,
-                scoring_function_config=config,
+                function=esmfold_ptm_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()

@@ -58,6 +58,7 @@ class GCContentConfig(BaseConfig):
     label="GC Content",
     config=GCContentConfig,
     description="Enforce GC content within specified range",
+    mode="score",
     batched=True,
     concatenate=True,
 )

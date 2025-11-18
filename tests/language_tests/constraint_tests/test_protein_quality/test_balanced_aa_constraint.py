@@ -18,8 +18,8 @@ class TestBalancedAAConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=balanced_aa_constraint,
-            scoring_function_config=config,
+            function=balanced_aa_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -40,8 +40,8 @@ class TestBalancedAAConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=balanced_aa_constraint,
-            scoring_function_config=config,
+            function=balanced_aa_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -69,8 +69,8 @@ class TestBalancedAAConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=balanced_aa_constraint,
-            scoring_function_config=config,
+            function=balanced_aa_constraint,
+            function_config=config,
         )
 
         scores = constraint.evaluate()

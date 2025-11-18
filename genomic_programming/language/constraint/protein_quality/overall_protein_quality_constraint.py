@@ -384,6 +384,7 @@ class OverallProteinQualityConfig(BaseConfig):
     label="Overall Protein Quality",
     config=OverallProteinQualityConfig,
     description="Evaluate overall protein quality using multiple sub-constraints",
+    mode="score",
     batched=True,
     concatenate=True,
 )

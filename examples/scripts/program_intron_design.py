@@ -212,8 +212,8 @@ if __name__ == '__main__':
 
     intron_boundary = Constraint(
         inputs=[left_flank, intron, right_flank],
-        scoring_function=splice_transformer_intron_boundary,
-        scoring_function_config={
+        function=splice_transformer_intron_boundary,
+        function_config={
             "left_context": left_context,
             "right_context": right_context,
             "donor_pos": donor_pos_all,
@@ -222,8 +222,8 @@ if __name__ == '__main__':
     )
     intron_brain_specificity = Constraint(
         inputs=[left_flank, intron, right_flank],
-        scoring_function=splice_transformer_specificity,
-        scoring_function_config={
+        function=splice_transformer_specificity,
+        function_config={
             "left_context": left_context,
             "right_context": right_context,
             "splice_pos": donor_pos_all + acceptor_pos_all,
@@ -233,8 +233,8 @@ if __name__ == '__main__':
     )
     intron_blood_specificity = Constraint(
         inputs=[left_flank, intron, right_flank],
-        scoring_function=splice_transformer_specificity,
-        scoring_function_config={
+        function=splice_transformer_specificity,
+        function_config={
             "left_context": left_context,
             "right_context": right_context,
             "splice_pos": donor_pos_all + acceptor_pos_all,

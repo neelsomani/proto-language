@@ -79,8 +79,8 @@ class TestProteinSymmetryRingConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_symmetry_ring_constraint,
-                scoring_function_config=config,
+                function=protein_symmetry_ring_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -130,8 +130,8 @@ class TestProteinSymmetryRingConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_symmetry_ring_constraint,
-                scoring_function_config=config,
+                function=protein_symmetry_ring_constraint,
+                function_config=config,
             )
 
             # DNA sequences are translated to protein before evaluation
@@ -169,8 +169,8 @@ ATOM      5  CA  ALA E   1      -5.000   0.000   0.000  1.00 90.00           C""
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_symmetry_ring_constraint,
-                scoring_function_config=config,
+                function=protein_symmetry_ring_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()

@@ -80,8 +80,8 @@ class TestSeqMotifConstraint:
                 
                 constraint = Constraint(
                     inputs=[segment],
-                    scoring_function=seq_motif_constraint,
-                    scoring_function_config=config,
+                    function=seq_motif_constraint,
+                    function_config=config,
                 )
                 
                 scores = constraint.evaluate()
@@ -119,8 +119,8 @@ class TestSeqMotifConstraint:
                 
                 constraint = Constraint(
                     inputs=[segment],
-                    scoring_function=seq_motif_constraint,
-                    scoring_function_config=config,
+                    function=seq_motif_constraint,
+                    function_config=config,
                 )
                 
                 scores = constraint.evaluate()

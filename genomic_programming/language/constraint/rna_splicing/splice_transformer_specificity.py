@@ -103,6 +103,7 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     label="SpliceTransformer tissue specificity score",
     config=SpliceTransformerSpecificityConfig,
     description="Evaluate tissue-specific splicing with SpliceTransformer",
+    mode="score",
     batched=False,
     concatenate=True,
     gpu_required=True,

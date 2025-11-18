@@ -72,8 +72,8 @@ class TestProteinGlobularityConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_globularity_constraint,
-                scoring_function_config=config,
+                function=protein_globularity_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -123,8 +123,8 @@ class TestProteinGlobularityConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_globularity_constraint,
-                scoring_function_config=config,
+                function=protein_globularity_constraint,
+                function_config=config,
             )
 
             # DNA sequences are translated to protein before evaluation
@@ -150,8 +150,8 @@ class TestProteinGlobularityConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_globularity_constraint,
-                scoring_function_config=config,
+                function=protein_globularity_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()

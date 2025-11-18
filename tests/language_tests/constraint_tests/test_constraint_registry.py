@@ -269,10 +269,10 @@ class TestFactoryMethod:
         )
 
         assert isinstance(constraint, Constraint)
-        assert constraint.scoring_function is not None
-        assert constraint.scoring_function_config is not None
-        assert constraint.scoring_function_config.min_gc == 40.0
-        assert constraint.scoring_function_config.max_gc == 60.0
+        assert constraint.function is not None
+        assert constraint.function_config is not None
+        assert constraint.function_config.min_gc == 40.0
+        assert constraint.function_config.max_gc == 60.0
 
     def test_create_raises_on_invalid_config(self, dna_segment):
         """Test that create raises ValidationError for invalid config."""
@@ -311,8 +311,8 @@ class TestFactoryMethod:
 
         assert isinstance(constraint, Constraint)
         # Nested configs should be Pydantic models, not dicts
-        assert hasattr(constraint.scoring_function_config, 'mmseqs_config')
-        assert hasattr(constraint.scoring_function_config, 'mmseqs_db')
+        assert hasattr(constraint.function_config, 'mmseqs_config')
+        assert hasattr(constraint.function_config, 'mmseqs_db')
 
     def test_create_preserves_batched_flag(self, dna_segment):
         """Test that create preserves the batched flag."""
@@ -544,8 +544,8 @@ class TestBuiltinConstraints:
             segments=[segment],
             config_dict={"min_gc": 40, "max_gc": 60}
         )
-        assert constraint.scoring_function_config.min_gc == 40
-        assert constraint.scoring_function_config.max_gc == 60
+        assert constraint.function_config.min_gc == 40
+        assert constraint.function_config.max_gc == 60
     
     def test_config_with_optional_parameters(self):
         """Test constraints with optional config parameters."""
@@ -558,7 +558,7 @@ class TestBuiltinConstraints:
             segments=[segment],
             config_dict={"max_low_complexity": 0.3}
         )
-        assert constraint.scoring_function_config.max_low_complexity == 0.3
+        assert constraint.function_config.max_low_complexity == 0.3
         
         # Should also work with custom path
         constraint_custom = ConstraintRegistry.create(
@@ -569,7 +569,7 @@ class TestBuiltinConstraints:
                 "segmasker_path": "/custom/path"
             }
         )
-        assert constraint_custom.scoring_function_config.segmasker_path == "/custom/path"
+        assert constraint_custom.function_config.segmasker_path == "/custom/path"
     
     def test_config_validation_with_constraints(self):
         """Test that Pydantic validators work through registry."""

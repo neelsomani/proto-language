@@ -36,8 +36,8 @@ class TestPromoterStrengthConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=promoter_strength_constraint,
-                scoring_function_config=config,
+                function=promoter_strength_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -59,8 +59,8 @@ class TestPromoterStrengthConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=promoter_strength_constraint,
-                scoring_function_config=config,
+                function=promoter_strength_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -82,8 +82,8 @@ class TestPromoterStrengthConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=promoter_strength_constraint,
-                scoring_function_config=config,
+                function=promoter_strength_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -105,8 +105,8 @@ class TestPromoterStrengthConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=promoter_strength_constraint,
-                scoring_function_config=config,
+                function=promoter_strength_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -129,8 +129,8 @@ class TestPromoterStrengthConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=promoter_strength_constraint,
-                scoring_function_config=config,
+                function=promoter_strength_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -158,8 +158,8 @@ class TestPromoterStrengthConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=promoter_strength_constraint,
-                scoring_function_config=config,
+                function=promoter_strength_constraint,
+                function_config=config,
             )
 
             constraint.evaluate()

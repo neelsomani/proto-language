@@ -29,8 +29,8 @@ class TestOverallProteinQualityConstraint:
         
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=overall_protein_quality_constraint,
-            scoring_function_config=config,
+            function=overall_protein_quality_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()
@@ -52,8 +52,8 @@ class TestOverallProteinQualityConstraint:
         
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=overall_protein_quality_constraint,
-            scoring_function_config=config,
+            function=overall_protein_quality_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()
@@ -77,8 +77,8 @@ class TestOverallProteinQualityConstraint:
         
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=overall_protein_quality_constraint,
-            scoring_function_config=config,
+            function=overall_protein_quality_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()
@@ -108,8 +108,8 @@ class TestOverallProteinQualityConstraint:
         
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=overall_protein_quality_constraint,
-            scoring_function_config=config,
+            function=overall_protein_quality_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()

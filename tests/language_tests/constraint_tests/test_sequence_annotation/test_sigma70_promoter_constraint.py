@@ -17,8 +17,8 @@ class TestSigma70PromoterConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sigma70_promoter_constraint,
-            scoring_function_config=config,
+            function=sigma70_promoter_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()
@@ -35,8 +35,8 @@ class TestSigma70PromoterConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sigma70_promoter_constraint,
-            scoring_function_config=config,
+            function=sigma70_promoter_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()
@@ -53,8 +53,8 @@ class TestSigma70PromoterConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sigma70_promoter_constraint,
-            scoring_function_config=config,
+            function=sigma70_promoter_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()
@@ -72,8 +72,8 @@ class TestSigma70PromoterConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sigma70_promoter_constraint,
-            scoring_function_config=config,
+            function=sigma70_promoter_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()
@@ -93,8 +93,8 @@ class TestSigma70PromoterConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sigma70_promoter_constraint,
-            scoring_function_config=config,
+            function=sigma70_promoter_constraint,
+            function_config=config,
         )
         
         scores = constraint.evaluate()

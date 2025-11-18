@@ -15,8 +15,8 @@ class TestProteinLengthConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_length_constraint,
-            scoring_function_config=config,
+            function=protein_length_constraint,
+            function_config=config,
         )
 
         assert constraint.evaluate()[0] == 0.0
@@ -32,8 +32,8 @@ class TestProteinLengthConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_length_constraint,
-            scoring_function_config=config,
+            function=protein_length_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -50,8 +50,8 @@ class TestProteinLengthConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_length_constraint,
-            scoring_function_config=config,
+            function=protein_length_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -68,8 +68,8 @@ class TestProteinLengthConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_length_constraint,
-            scoring_function_config=config,
+            function=protein_length_constraint,
+            function_config=config,
         )
 
         with pytest.raises(AssertionError):

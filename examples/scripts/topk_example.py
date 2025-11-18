@@ -31,8 +31,8 @@ mutation_generator.assign(dna_segment)
 # Define GC content constraint
 gc_constraint = Constraint(
 inputs=[dna_segment],
-    scoring_function=gc_content_constraint,
-    scoring_function_config={"min_gc": 80, "max_gc": 100},
+    function=gc_content_constraint,
+    function_config={"min_gc": 80, "max_gc": 100},
 )
 
 

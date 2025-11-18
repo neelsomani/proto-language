@@ -58,8 +58,8 @@ class TestProteinDomainConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_domain_constraint,
-            scoring_function_config=config,
+            function=protein_domain_constraint,
+            function_config=config,
         )
         scores = constraint.evaluate()
 
@@ -87,8 +87,8 @@ class TestProteinDomainConstraint:
         # Run the constraint
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_domain_constraint,
-            scoring_function_config=config,
+            function=protein_domain_constraint,
+            function_config=config,
         )
 
         # Evaluate the constraint
@@ -118,8 +118,8 @@ class TestProteinDomainConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_domain_constraint,
-            scoring_function_config=config,
+            function=protein_domain_constraint,
+            function_config=config,
         )
 
         scores = constraint.evaluate()
@@ -142,8 +142,8 @@ class TestProteinDomainConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_domain_constraint,
-                scoring_function_config=config,
+                function=protein_domain_constraint,
+                function_config=config,
             )
 
             with pytest.raises(ValueError, match="HMM database not found"):
@@ -178,8 +178,8 @@ class TestProteinDomainConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_domain_constraint,
-                scoring_function_config=config,
+                function=protein_domain_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -210,8 +210,8 @@ class TestProteinDomainConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=protein_domain_constraint,
-                scoring_function_config=config,
+                function=protein_domain_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()

@@ -61,20 +61,20 @@ uniform_gen.assign(protomer)
 
 esmfold_plddt = Constraint(
     inputs=[protomer],
-    scoring_function=esmfold_plddt_constraint,
-    scoring_function_config={"n_replications": N_SYMMETRIC_UNITS},
+    function=esmfold_plddt_constraint,
+    function_config={"n_replications": N_SYMMETRIC_UNITS},
 )
 
 esmfold_ptm = Constraint(
     inputs=[protomer],
-    scoring_function=esmfold_ptm_constraint,
-    scoring_function_config={"n_replications": N_SYMMETRIC_UNITS},
+    function=esmfold_ptm_constraint,
+    function_config={"n_replications": N_SYMMETRIC_UNITS},
 )
 
 symmetry = Constraint(
     inputs=[protomer],
-    scoring_function=protein_symmetry_ring_constraint,
-    scoring_function_config={
+    function=protein_symmetry_ring_constraint,
+    function_config={
         "n_replications": N_SYMMETRIC_UNITS,
         "all_to_all_protomer_symmetry": True,
     },
@@ -82,8 +82,8 @@ symmetry = Constraint(
 
 globularity = Constraint(
     inputs=[protomer],
-    scoring_function=protein_globularity_constraint,
-    scoring_function_config={"n_replications": N_SYMMETRIC_UNITS},
+    function=protein_globularity_constraint,
+    function_config={"n_replications": N_SYMMETRIC_UNITS},
 )
 
 #############

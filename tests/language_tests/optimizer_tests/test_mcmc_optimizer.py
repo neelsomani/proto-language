@@ -56,8 +56,8 @@ def _setup_mcmc_components(
     construct = Construct([segment])
     constraint = Constraint(
         inputs=[segment],
-        scoring_function=gc_content_constraint,
-        scoring_function_config=GCContentConfig(
+        function=gc_content_constraint,
+        function_config=GCContentConfig(
             min_gc=gc_target_range[0],
             max_gc=gc_target_range[1],
         ),
@@ -103,11 +103,12 @@ class TestMCMCOptimizer:
         dummy_scoring_func._constraint_batched = False
         dummy_scoring_func._constraint_concatenate = True
         dummy_scoring_func._constraint_config_class = EmptyConfig
+        dummy_scoring_func._constraint_mode = "score"
 
         dummy_constraint = Constraint(
             inputs=[test_segment],
-            scoring_function=dummy_scoring_func,
-            scoring_function_config=EmptyConfig(),
+            function=dummy_scoring_func,
+            function_config=EmptyConfig(),
         )
         with pytest.raises(RuntimeError, match="has no segment assigned"):
             MCMCOptimizer(
@@ -259,8 +260,8 @@ class TestMCMCOptimizer:
         construct = Construct([segment1, segment2])
         constraint = Constraint(
             inputs=[segment1, segment2],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=SequenceLengthConfig(target_length=seq_len * 2),
+            function=sequence_length_constraint,
+            function_config=SequenceLengthConfig(target_length=seq_len * 2),
         )
 
         optimizer = MCMCOptimizer(
@@ -308,8 +309,8 @@ class TestMCMCOptimizer:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         optimizer = MCMCOptimizer(
@@ -481,8 +482,8 @@ class TestMCMCOptimizer:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=50.0, max_gc=50.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=50.0, max_gc=50.0),
         )
 
         optimizer = MCMCOptimizer(
@@ -534,11 +535,12 @@ class TestMCMCOptimizer:
         perfect_g_energy._constraint_batched = False
         perfect_g_energy._constraint_concatenate = True
         perfect_g_energy._constraint_config_class = EmptyConfig
+        perfect_g_energy._constraint_mode = "score"
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=perfect_g_energy,
-            scoring_function_config=EmptyConfig(),
+            function=perfect_g_energy,
+            function_config=EmptyConfig(),
         )
 
         optimizer = MCMCOptimizer(
@@ -588,8 +590,8 @@ class TestMCMCOptimizer:
         construct = Construct([segment])
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         optimizer = MCMCOptimizer(
@@ -628,8 +630,8 @@ class TestMCMCOptimizer:
         construct1 = Construct([segment1])
         constraint1 = Constraint(
             inputs=[segment1],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         optimizer1 = MCMCOptimizer(
@@ -661,8 +663,8 @@ class TestMCMCOptimizer:
         construct2 = Construct([segment2])
         constraint2 = Constraint(
             inputs=[segment2],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         optimizer2 = MCMCOptimizer(
@@ -708,12 +710,13 @@ class TestMCMCOptimizer:
         dummy_scoring_func._constraint_batched = False
         dummy_scoring_func._constraint_concatenate = True
         dummy_scoring_func._constraint_config_class = EmptyConfig
+        dummy_scoring_func._constraint_mode = "score"
 
         construct = Construct([segment])
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=dummy_scoring_func,
-            scoring_function_config=EmptyConfig(),
+            function=dummy_scoring_func,
+            function_config=EmptyConfig(),
         )
 
         optimizer = MCMCOptimizer(
@@ -759,8 +762,8 @@ class TestMCMCOptimizer:
 
         gc_constraint = Constraint(
             inputs=[segment1, segment2],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=GCContentConfig(min_gc=45.0, max_gc=55.0),
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=45.0, max_gc=55.0),
         )
 
         optimizer = MCMCOptimizer(

@@ -26,8 +26,8 @@ class TestGCContentConstraint:
         config = GCContentConfig(min_gc=min_gc, max_gc=max_gc)
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=config,
+            function=gc_content_constraint,
+            function_config=config,
         )
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9
         # Check metadata (stored in candidate sequences which constraints evaluate)
@@ -52,8 +52,8 @@ class TestGCContentConstraint:
         config = GCContentConfig(min_gc=min_gc, max_gc=max_gc)
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=config,
+            function=gc_content_constraint,
+            function_config=config,
         )
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9
 
@@ -63,8 +63,8 @@ class TestGCContentConstraint:
         config = GCContentConfig(min_gc=40, max_gc=60)
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config=config,
+            function=gc_content_constraint,
+            function_config=config,
         )
         with pytest.raises(ValueError):
             constraint.evaluate()

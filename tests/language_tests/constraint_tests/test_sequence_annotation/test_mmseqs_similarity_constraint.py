@@ -66,8 +66,8 @@ class TestMMseqsSimilarityConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=mmseqs_similarity_constraint,
-                scoring_function_config=config,
+                function=mmseqs_similarity_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -102,8 +102,8 @@ class TestMMseqsSimilarityConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=mmseqs_similarity_constraint,
-                scoring_function_config=config,
+                function=mmseqs_similarity_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()
@@ -148,8 +148,8 @@ class TestMMseqsSimilarityConstraint:
 
             constraint = Constraint(
                 inputs=[segment],
-                scoring_function=mmseqs_similarity_constraint,
-                scoring_function_config=config,
+                function=mmseqs_similarity_constraint,
+                function_config=config,
             )
 
             scores = constraint.evaluate()

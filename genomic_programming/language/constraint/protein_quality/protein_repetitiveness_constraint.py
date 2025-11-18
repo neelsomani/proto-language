@@ -65,6 +65,7 @@ class ProteinRepetitivenessConfig(BaseConfig):
     label="Protein Repetitiveness",
     config=ProteinRepetitivenessConfig,
     description="Evaluate protein sequence repetitiveness based on k-mer analysis",
+    mode="score",
     batched=True,
     concatenate=True,
 )

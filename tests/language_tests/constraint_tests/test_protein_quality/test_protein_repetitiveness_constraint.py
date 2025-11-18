@@ -17,8 +17,8 @@ class TestProteinRepetitivenessConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_repetitiveness_constraint,
-            scoring_function_config=config,
+            function=protein_repetitiveness_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -39,8 +39,8 @@ class TestProteinRepetitivenessConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_repetitiveness_constraint,
-            scoring_function_config=config,
+            function=protein_repetitiveness_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]
@@ -57,8 +57,8 @@ class TestProteinRepetitivenessConstraint:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=protein_repetitiveness_constraint,
-            scoring_function_config=config,
+            function=protein_repetitiveness_constraint,
+            function_config=config,
         )
 
         score = constraint.evaluate()[0]

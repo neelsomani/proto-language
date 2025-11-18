@@ -30,8 +30,8 @@ class TestTopKOptimizer:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config={"target_length": 4},
+            function=sequence_length_constraint,
+            function_config={"target_length": 4},
         )
 
         config = TopKOptimizerConfig(min_num_samples=10, k=5, batch_size=1, verbose=False)
@@ -65,8 +65,8 @@ class TestTopKOptimizer:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
         config = TopKOptimizerConfig(min_num_samples=20, k=3, batch_size=1, verbose=False)
@@ -103,8 +103,8 @@ class TestTopKOptimizer:
         # Constraint that prefers higher GC content (80-100%)
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config={"min_gc": 80.0, "max_gc": 100.0},
+            function=gc_content_constraint,
+            function_config={"min_gc": 80.0, "max_gc": 100.0},
         )
 
         config = TopKOptimizerConfig(min_num_samples=50, k=5, batch_size=1, verbose=False)
@@ -152,8 +152,8 @@ class TestTopKOptimizer:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
         config = TopKOptimizerConfig(min_num_samples=10, k=3, batch_size=1, verbose=False)
@@ -187,8 +187,8 @@ class TestTopKOptimizer:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config={"target_length": 8},
+            function=sequence_length_constraint,
+            function_config={"target_length": 8},
         )
 
         config = TopKOptimizerConfig(min_num_samples=5, k=5, batch_size=1, verbose=False)
@@ -223,8 +223,8 @@ class TestTopKOptimizer:
 
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
         # Generate 20 total candidates in batches of 5
@@ -274,8 +274,8 @@ class TestTopKOptimizer:
         # Constraint that prefers GC content (penalizes sequences with all As)
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=gc_content_constraint,
-            scoring_function_config={"min_gc": 40.0, "max_gc": 60.0},
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
         # Start with minimum 10 candidates, but continue until worst < 1.0 or hit 100 max

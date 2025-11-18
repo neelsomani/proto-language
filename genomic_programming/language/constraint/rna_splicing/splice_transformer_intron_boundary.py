@@ -99,6 +99,7 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     label="SpliceTransformer intron boundary score",
     config=SpliceTransformerIntronBoundaryConfig,
     description="Evaluate intron boundary prediction with SpliceTransformer",
+    mode="score",
     batched=False,
     concatenate=True,
     gpu_required=True,

@@ -126,6 +126,7 @@ class PromoterStrengthConfig(BaseConfig):
     label="Promoter Strength",
     config=PromoterStrengthConfig,
     description="Evaluate promoter strength using Salis Lab Promoter Calculator",
+    mode="score",
     batched=True,
     concatenate=True,
 )

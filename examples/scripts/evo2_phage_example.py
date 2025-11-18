@@ -67,20 +67,20 @@ construct = Construct([segment])
 
 sequence_length = Constraint(
     inputs=[segment],
-    scoring_function=sequence_length_constraint,
-    scoring_function_config={"target_length": 5386}
+    function=sequence_length_constraint,
+    function_config={"target_length": 5386}
 )
 
 gc_content = Constraint(
     inputs=[segment],
-    scoring_function=gc_content_constraint,
-    scoring_function_config={"min_gc": MIN_GC, "max_gc": MAX_GC}
+    function=gc_content_constraint,
+    function_config={"min_gc": MIN_GC, "max_gc": MAX_GC}
 )
 
 max_homopolymer = Constraint(
     inputs=[segment],
-    scoring_function=max_homopolymer_constraint,
-    scoring_function_config={"max_length": MAX_HOMOPOLYMER}
+    function=max_homopolymer_constraint,
+    function_config={"max_length": MAX_HOMOPOLYMER}
 )
 
 #############

@@ -66,6 +66,7 @@ class ProteinComplexityConfig(BaseConfig):
     label="Protein Complexity",
     config=ProteinComplexityConfig,
     description="Evaluate protein sequence complexity using segmasker to detect low-complexity regions",
+    mode="score",
     batched=True,
     concatenate=True,
 )

@@ -17,18 +17,18 @@ class TestSequenceLengthConstraint:
         config = SequenceLengthConfig(target_length=target_len)
         constraint_match = Constraint(
             inputs=[seg_match],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=config,
+            function=sequence_length_constraint,
+            function_config=config,
         )
         constraint_short = Constraint(
             inputs=[seg_short],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=config,
+            function=sequence_length_constraint,
+            function_config=config,
         )
         constraint_long = Constraint(
             inputs=[seg_long],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=config,
+            function=sequence_length_constraint,
+            function_config=config,
         )
 
         assert constraint_match.evaluate()[0] == 0.0
@@ -56,8 +56,8 @@ class TestSequenceLengthConstraint:
         config = SequenceLengthConfig(target_length=target_len)
         constraint = Constraint(
             inputs=[seg1, seg2],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=config,
+            function=sequence_length_constraint,
+            function_config=config,
         )
 
         assert constraint.evaluate()[0] == 0.0
@@ -89,7 +89,7 @@ class TestSequenceLengthConstraint:
         config = SequenceLengthConfig(target_length=target_len)
         constraint = Constraint(
             inputs=[segment],
-            scoring_function=sequence_length_constraint,
-            scoring_function_config=config,
+            function=sequence_length_constraint,
+            function_config=config,
         )
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9

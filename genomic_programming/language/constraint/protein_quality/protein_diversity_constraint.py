@@ -49,6 +49,7 @@ class ProteinDiversityConfig(BaseConfig):
     label="Protein Diversity",
     config=ProteinDiversityConfig,
     description="Evaluate amino acid diversity in a protein sequence",
+    mode="score",
     batched=True,
     concatenate=True,
 )

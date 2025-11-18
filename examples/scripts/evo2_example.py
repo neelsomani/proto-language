@@ -42,8 +42,8 @@ evo2_gen.assign(seq1)
 # Contraint
 gc_constraint = Constraint(
     inputs=[seq1],
-    scoring_function=gc_content_constraint,
-    scoring_function_config={"min_gc": MIN_GC, "max_gc": MAX_GC},
+    function=gc_content_constraint,
+    function_config={"min_gc": MIN_GC, "max_gc": MAX_GC},
 )
 
 # Optimizer config

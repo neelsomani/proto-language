@@ -148,6 +148,7 @@ class KmerFrequencyConfig(BaseConfig):
     label="K-mer Frequency",
     config=KmerFrequencyConfig,
     description="Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring mode",
+    mode="score",
     batched=True,
     concatenate=True,
 )

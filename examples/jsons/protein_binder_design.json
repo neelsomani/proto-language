@@ -1,0 +1,67 @@
+{
+  "name": "protein_binder_design",
+  "description": "Design protein binder for target sequence with high affinity and good folding",
+  "version": "1.0",
+  "optimization": {
+    "method": "mcmc",
+    "num_selected": 1,
+    "mcmc_width": 1,
+    "num_steps": 100,
+    "track_step_size": 5,
+    "max_temperature": 1.0,
+    "min_temperature": 0.1
+  },
+  "constructs": [
+    {
+      "id": "binder_construct",
+      "type": "protein",
+      "segments": [
+        {
+          "id": "binder_protein",
+          "label": "designed_binder"
+        }
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "binding_affinity",
+      "key": "boltz-binding-strength",
+      "config": {
+        "binding_target_protein": "MKTAYIAKQRQISFVKSHFSRQLE"
+      },
+      "targets": ["binder_protein"]
+    },
+    {
+      "id": "structure_quality",
+      "key": "esmfold-plddt",
+      "config": {
+        "n_replications": 1
+      },
+      "targets": ["binder_protein"]
+    },
+    {
+      "id": "protein_len",
+      "key": "protein-length",
+      "config": {
+        "min_length": 50,
+        "max_length": 150
+      },
+      "targets": ["binder_protein"]
+    }
+  ],
+  "generators": [
+    {
+      "id": "esm2_generator",
+      "key": "esm2",
+      "config": {
+        "sequence_length": 100,
+        "esm2_type": "esm2_t33_650M_UR50D",
+        "temperature": 1.0,
+        "decoding_method": "sample"
+      },
+      "targets": ["binder_protein"]
+    }
+  ]
+}
+

@@ -24,7 +24,8 @@ MAX_GC: float = 90 # Maximum GC content
 
 
 # Construct Segment
-seq1 = Segment(sequence_type=SequenceType.DNA)
+expected_length = len(PROMPTS[0]) + NUM_TOKENS
+seq1 = Segment(sequence_length=expected_length, sequence_type=SequenceType.DNA)
 
 # Construct
 construct = Construct([seq1])
@@ -32,7 +33,7 @@ construct = Construct([seq1])
 # Generator
 evo2_gen_config = Evo2GeneratorConfig(
     prompts=PROMPTS,
-    num_tokens=NUM_TOKENS,
+    prepend_prompt=True,  # Include prompt in output
 )
 evo2_gen = Evo2Generator(evo2_gen_config)
 

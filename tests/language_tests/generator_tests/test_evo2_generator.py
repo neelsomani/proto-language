@@ -11,26 +11,20 @@ from proto_language.language.generator import (
 from proto_language.utils import is_gpu_available
 
 
-def create_segment(
-    sequence: str, seq_type: SequenceType = SequenceType.DNA
-) -> Segment:
-    """Helper to create a Segment with a single sequence."""
-    return Segment(sequence=sequence, sequence_type=seq_type)
-
-
 @pytest.mark.uses_gpu
 class TestEvo2Generator:
     def test_evo2_single_prompt_sampling(self):
         """Test Evo2 generator with a single prompt sequence."""
         prompts = ["ATCG"]
+        num_tokens = 100
+        expected_length = len(prompts[0]) + num_tokens
         config = Evo2GeneratorConfig(
-            prompts=prompts, 
-            num_tokens=100,
+            prompts=prompts,
         )
         evo2_generator = Evo2Generator(config)
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.DNA)
+        segment = Segment(sequence_length=expected_length, sequence_type=SequenceType.DNA)
         evo2_generator.assign(segment)
 
         assert evo2_generator._assigned_segment is segment
@@ -46,14 +40,15 @@ class TestEvo2Generator:
     def test_evo2_batch_sampling(self):
         """Test Evo2 generator with multiple prompt sequences."""
         prompts = ["ATCG", "AAAA"]
+        num_tokens = 100
+        expected_length = len(prompts[0]) + num_tokens
         config = Evo2GeneratorConfig(
-            prompts=prompts, 
-            num_tokens=100,
+            prompts=prompts,
         )
         evo2_generator = Evo2Generator(config)
 
         # Create segment and expand candidate pool
-        segment = create_segment("", seq_type=SequenceType.DNA)
+        segment = Segment(sequence_length=expected_length, sequence_type=SequenceType.DNA)
         segment.create_candidates(len(prompts))
         evo2_generator.assign(segment)
 
@@ -73,11 +68,13 @@ class TestEvo2Generator:
     def test_evo2_assign_errors(self):
         """Test error conditions for Evo2 generator assignment."""
         prompts = ["ATCG"]
-        config = Evo2GeneratorConfig(prompts=prompts, num_tokens=100)
+        num_tokens = 100
+        expected_length = len(prompts[0]) + num_tokens
+        config = Evo2GeneratorConfig(prompts=prompts)
         evo2_generator = Evo2Generator(config)
 
         # Should raise error if number of prompts doesn't match segment candidates
-        segment_two_candidates = create_segment("", seq_type=SequenceType.DNA)
+        segment_two_candidates = Segment(sequence_length=expected_length, sequence_type=SequenceType.DNA)
         segment_two_candidates.create_candidates(2)
         evo2_generator.assign(segment_two_candidates)
         
@@ -87,9 +84,10 @@ class TestEvo2Generator:
     def test_evo2_custom_parameters(self):
         """Test Evo2 generator with custom generation parameters."""
         prompts = ["ATCGATCG"]
+        num_tokens = 50
+        expected_length = len(prompts[0]) + num_tokens
         config = Evo2GeneratorConfig(
             prompts=prompts,
-            num_tokens=50,
             temperature=0.8,
             top_k=10,
             top_p=0.9,
@@ -97,7 +95,7 @@ class TestEvo2Generator:
         evo2_generator = Evo2Generator(config)
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.DNA)
+        segment = Segment(sequence_length=expected_length, sequence_type=SequenceType.DNA)
         evo2_generator.assign(segment)
 
         assert evo2_generator.temperature == 0.8
@@ -112,7 +110,7 @@ class TestEvo2Generator:
 
     def test_constant_segment_rejection(self):
         """Tests that generators reject constant segments during assign()."""
-        config = Evo2GeneratorConfig(prompts=["ATCG"], num_tokens=100)
+        config = Evo2GeneratorConfig(prompts=["ATCG"])
         gen = Evo2Generator(config)
         
         # Create a constant segment

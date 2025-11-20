@@ -41,9 +41,6 @@ class Generator(ABC):
         """
         if assigned_segment.constant:
             raise ValueError(f"Cannot assign constant segment '{assigned_segment.label}' to generator. Constant segments should not be mutated during optimization.")
-        
-        if assigned_segment.original_sequence and len(assigned_segment.original_sequence.sequence) != self.sequence_length:
-            raise ValueError(f"Provided sequence length ({len(assigned_segment.original_sequence.sequence)}) must match configured sequence_length ({self.sequence_length})")
 
     @abstractmethod
     def sample(self) -> None:
@@ -51,12 +48,3 @@ class Generator(ABC):
         Sample new sequences by modifying the assigned Segment's candidate_sequences in-place.
         """
         raise NotImplementedError(f"Subclass {self.__class__.__name__} must implement the sample() method.")
-
-    def _validate_generator(self) -> None:
-        """
-        Validate that the generator has been assigned.
-        Raises:
-            RuntimeError: If generator hasn't been assigned.
-        """
-        if self._assigned_segment is None:
-            raise RuntimeError(f"Generator {self.__class__.__name__} has not been assigned a Segment via assign().")

@@ -16,7 +16,8 @@
       "type": "dna",
       "segments": [
         {
-          "id": "construct1-segment1"
+          "id": "construct1-segment1",
+          "sequence_length": 20
         }
       ]
     }
@@ -37,8 +38,7 @@
       "id": "uniform_mutation_generator",
       "key": "uniform-mutation",
       "config": {
-        "num_mutations": 1,
-        "sequence_length": 20
+        "num_mutations": 1
       },
       "targets": ["construct1-segment1"]
     }

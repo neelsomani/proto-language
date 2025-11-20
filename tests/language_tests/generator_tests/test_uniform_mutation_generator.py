@@ -12,25 +12,19 @@ from proto_language.language.core import (
 from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
 
 
-# Helper function
-def create_segment(sequence: str, seq_type: SequenceType = SequenceType.DNA) -> Segment:
-    """Helper to create a Segment with a single sequence."""
-    return Segment(sequence=sequence, sequence_type=seq_type)
-
-
 class TestUniformMutationGenerator:
     def test_initialization(self):
         """Tests the __init__ method for correct initialization."""
-        config = UniformMutationGeneratorConfig(sequence_length=15)
+        config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
-        assert gen.sequence_length == 15
+        assert gen.num_mutations == 1
 
     def test_assign_and_initialization(self):
         """Tests the assign method initializes the output segment correctly."""
         seq_len = 20
         # Test assign with an empty segment (should initialize randomly)
-        segment = create_segment("", seq_type=SequenceType.RNA)
-        config = UniformMutationGeneratorConfig(sequence_length=seq_len)
+        segment = Segment(sequence_length=seq_len, sequence=None, sequence_type=SequenceType.RNA)
+        config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
         gen.assign(segment)
 
@@ -42,24 +36,24 @@ class TestUniformMutationGenerator:
 
         # Test assign with a pre-defined sequence
         predefined_seq = "A" * seq_len
-        segment_pre = create_segment(predefined_seq, seq_type=SequenceType.RNA)
+        segment_pre = Segment(sequence=predefined_seq, sequence_type=SequenceType.RNA)
         gen.assign(segment_pre)
         assert segment_pre.selected_sequences[0].sequence == predefined_seq
 
     def test_assign_errors(self):
-        """Tests runtime validation for the assign method."""
-        config = UniformMutationGeneratorConfig(sequence_length=10)
+        """Tests runtime validation during segment creation."""
+        config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
         # Should raise error if provided sequence length doesn't match configured length
         with pytest.raises(ValueError, match="Provided sequence length"):
-            gen.assign(create_segment("A" * 5))
+            segment = Segment(sequence_length=10, sequence="A" * 5, sequence_type=SequenceType.DNA)
 
     def test_sample_mutates_sequence(self):
         """Tests the sample method introduces a single valid mutation."""
         seq_len = 25
-        config = UniformMutationGeneratorConfig(sequence_length=seq_len)
+        config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
-        segment = create_segment("A" * seq_len, seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence="A" * seq_len, sequence_type=SequenceType.PROTEIN)
         gen.assign(segment)
 
         # Create candidates before sampling (sample() mutates candidate_sequences)
@@ -86,9 +80,9 @@ class TestUniformMutationGenerator:
 
     def test_sample_batch(self):
         """Tests that sample mutates all sequences in a batch of candidates independently."""
-        config = UniformMutationGeneratorConfig(sequence_length=30)
+        config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
-        segment = create_segment("A" * 30)
+        segment = Segment(sequence="A" * 30, sequence_type=SequenceType.DNA)
         gen.assign(segment)
 
         # Create multiple candidates
@@ -111,9 +105,9 @@ class TestUniformMutationGenerator:
 
         def run_with_seed(seed):
             random.seed(seed)
-            config = UniformMutationGeneratorConfig(sequence_length=50)
+            config = UniformMutationGeneratorConfig(num_mutations=1)
             gen = UniformMutationGenerator(config)
-            segment = create_segment("", seq_type=SequenceType.DNA)
+            segment = Segment(sequence_length=50, sequence=None, sequence_type=SequenceType.DNA)
             gen.assign(segment)
             initial_seq = segment.selected_sequences[0].sequence
             # Create one candidate and mutate it multiple times
@@ -137,9 +131,9 @@ class TestUniformMutationGenerator:
 
     def test_sample_len_one_sequence(self):
         """Tests that a sequence of length 1 is mutated correctly."""
-        config = UniformMutationGeneratorConfig(sequence_length=1)
+        config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
-        segment = create_segment("A", seq_type=SequenceType.DNA)
+        segment = Segment(sequence="A", sequence_type=SequenceType.DNA)
         gen.assign(segment)
 
         segment.create_candidates(1)
@@ -155,9 +149,9 @@ class TestUniformMutationGenerator:
         """Tests that specifying num_mutations produces exactly that many changes."""
         seq_len = 30
         num_mut = 5
-        config = UniformMutationGeneratorConfig(sequence_length=seq_len, num_mutations=num_mut)
+        config = UniformMutationGeneratorConfig(num_mutations=num_mut)
         gen = UniformMutationGenerator(config)
-        segment = create_segment("A" * seq_len, seq_type=SequenceType.DNA)
+        segment = Segment(sequence="A" * seq_len, sequence_type=SequenceType.DNA)
         gen.assign(segment)
 
         segment.create_candidates(1)
@@ -174,9 +168,9 @@ class TestUniformMutationGenerator:
         """Tests that num_mutations larger than length is capped to sequence length."""
         seq_len = 3
         num_mut = 10
-        config = UniformMutationGeneratorConfig(sequence_length=seq_len, num_mutations=num_mut)
+        config = UniformMutationGeneratorConfig(num_mutations=num_mut)
         gen = UniformMutationGenerator(config)
-        segment = create_segment("A" * seq_len, seq_type=SequenceType.DNA)
+        segment = Segment(sequence="A" * seq_len, sequence_type=SequenceType.DNA)
         gen.assign(segment)
 
         segment.create_candidates(1)
@@ -191,11 +185,12 @@ class TestUniformMutationGenerator:
 
     def test_constant_segment_rejection(self):
         """Tests that generators reject constant segments during assign()."""
-        config = UniformMutationGeneratorConfig(sequence_length=10)
+        config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
         
         # Create a constant segment
         constant_segment = Segment(
+            sequence_length=10,
             sequence="ATCGATCGAT",
             sequence_type=SequenceType.DNA,
             label="promoter",

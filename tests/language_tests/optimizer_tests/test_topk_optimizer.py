@@ -24,7 +24,7 @@ class TestTopKOptimizer:
         construct = Construct([segment])
 
         gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(sequence_length=4, num_mutations=1)
+            UniformMutationGeneratorConfig(num_mutations=1)
         )
         gen.assign(segment)
 
@@ -57,7 +57,6 @@ class TestTopKOptimizer:
 
         gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(
-                sequence_length=8,
                 num_mutations=1
             )
         )
@@ -94,7 +93,6 @@ class TestTopKOptimizer:
 
         gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(
-                sequence_length=8,
                 num_mutations=2
             )
         )
@@ -136,7 +134,6 @@ class TestTopKOptimizer:
 
         gen1 = UniformMutationGenerator(
             UniformMutationGeneratorConfig(
-                sequence_length=4,
                 num_mutations=1
             )
         )
@@ -144,7 +141,6 @@ class TestTopKOptimizer:
 
         gen2 = UniformMutationGenerator(
             UniformMutationGeneratorConfig(
-                sequence_length=4,
                 num_mutations=1
             )
         )
@@ -179,7 +175,6 @@ class TestTopKOptimizer:
         # Generator that mutates 1 position
         gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(
-                sequence_length=8,
                 num_mutations=1
             )
         )
@@ -215,7 +210,6 @@ class TestTopKOptimizer:
 
         gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(
-                sequence_length=8,
                 num_mutations=1
             )
         )
@@ -265,7 +259,6 @@ class TestTopKOptimizer:
 
         gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(
-                sequence_length=4,
                 num_mutations=1
             )
         )

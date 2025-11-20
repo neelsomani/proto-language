@@ -20,11 +20,6 @@ class UniformMutationGeneratorConfig(BaseConfig):
     which introduces random point mutations into sequences for diversity exploration.
 
     Attributes:
-        sequence_length (int): Target length for generated sequences in nucleotides
-            or amino acids. All input sequences must match this length, or if no
-            input sequence is provided, a random sequence of this length is generated.
-            Must be at least 1.
-
         num_mutations (int): Number of positions to randomly mutate per sample.
             Each mutation replaces a character with a different random character
             from the valid alphabet. If this exceeds the sequence length or mutation
@@ -44,20 +39,7 @@ class UniformMutationGeneratorConfig(BaseConfig):
         debug_with_sleep_calls (bool): Enable debug mode with 1-second sleep calls
             during sampling. Only use for testing parallel execution or profiling.
             Default: ``False``.
-
-    Note:
-        For non-autoregressive generators, the ``sequence_length`` parameter should
-        ideally be determined from input sequences rather than configured manually
-        (planned for future versions). TODO
     """
-    # Required parameters
-    # TODO: For all generators that are not autoregressive, this should probably not be configurable/ should be based on input sequences
-    sequence_length: int = ConfigField(
-        ge=1,
-        title="Sequence Length",
-        description="Target length for generated sequences",
-    )
-
     # Advanced parameters (have default values)
     num_mutations: int = ConfigField(
         default=1,
@@ -66,7 +48,6 @@ class UniformMutationGeneratorConfig(BaseConfig):
         description="Number of positions to mutate per sample",
         advanced=True,
     )
-    # TODO: We should decided on a standard for this for all non-autoregressive generators
     mutation_window: Optional[Tuple[int, int]] = ConfigField(
         default=None,
         title="Mutation Window",
@@ -79,22 +60,6 @@ class UniformMutationGeneratorConfig(BaseConfig):
         description="Enable debug mode with sleep calls (for testing purposes only)",
         advanced=True,
     )
-
-    @model_validator(mode='after')
-    def validate_mutation_window(self):
-        """Validate that the mutation window has reasonable values."""
-        if self.mutation_window is not None:
-            if len(self.mutation_window) != 2:
-                raise ValueError(
-                    f"Mutation window must have two entries, found: {self.mutation_window}"
-                )
-            if self.mutation_window[0] >= self.sequence_length or \
-               self.mutation_window[1] > self.sequence_length:
-                raise ValueError(
-                    f"Mutation window incompatible with a sequence length of {self.sequence_length}, "
-                    f"found: {self.mutation_window}"
-           )
-        return self
 
 
 @GeneratorRegistry.register(
@@ -118,7 +83,6 @@ class UniformMutationGenerator(Generator):
     sequences rather than generating from scratch.
 
     Attributes:
-        sequence_length (int): Length of sequences to generate/mutate.
         num_mutations (int): Number of positions to mutate per sample.
         mutation_window (Optional[Tuple[int, int]]): Optional region to restrict mutations.
         debug_with_sleep_calls (bool): Whether to add sleep delays for testing.
@@ -127,12 +91,9 @@ class UniformMutationGenerator(Generator):
     Example:
         >>> from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
         >>> from proto_language.language.core import Segment, SequenceType
-        >>> config = UniformMutationGeneratorConfig(
-        ...     sequence_length=100,
-        ...     num_mutations=2
-        ... )
+        >>> config = UniformMutationGeneratorConfig(num_mutations=2)
         >>> gen = UniformMutationGenerator(config)
-        >>> segment = Segment(sequence="", sequence_type=SequenceType.DNA)
+        >>> segment = Segment(sequence_length=100, sequence=None, sequence_type=SequenceType.DNA)
         >>> gen.assign(segment)
         >>> gen.sample()  # Introduces 2 random mutations
     """
@@ -145,7 +106,6 @@ class UniformMutationGenerator(Generator):
             config: Configuration object containing all generator parameters.
         """
         super().__init__()
-        self.sequence_length = config.sequence_length
         self.num_mutations = config.num_mutations
         self.debug_with_sleep_calls = config.debug_with_sleep_calls
         self.mutation_window = config.mutation_window
@@ -155,23 +115,24 @@ class UniformMutationGenerator(Generator):
         """
         Assign a Segment to this generator.
 
-        - If no starting sequence, initialize a uniformly random sequence of configured length.
-        - If starting sequence is provided, validates that the sequence length matches the configured length.
+        - If no starting sequence, initialize a uniformly random sequence matching segment's length.
+        - Validates mutation_window against segment's sequence_length if specified.
         """
         super().assign(assigned_segment)
+
+        # Validate mutation window against segment's sequence_length
+        if self.mutation_window is not None:
+            if len(self.mutation_window) != 2:
+                raise ValueError(f"Mutation window must have two entries (got {self.mutation_window})")
+            if self.mutation_window[0] >= assigned_segment.sequence_length or self.mutation_window[1] > assigned_segment.sequence_length:
+                raise ValueError(f"Mutation window {self.mutation_window} incompatible with segment length {assigned_segment.sequence_length}")
 
         valid_chars = assigned_segment._valid_chars - set(" ")
         valid_chars_list = list(valid_chars)
 
-        if not assigned_segment.original_sequence:
-            # Generate random sequence
-            assigned_segment.original_sequence.sequence = "".join(
-                random.choice(valid_chars_list) for _ in range(self.sequence_length)
-            )
-        else:
-            # Validate provided sequence
-            if len(assigned_segment.original_sequence.sequence) != self.sequence_length:
-                raise ValueError(f"Provided sequence length ({len(assigned_segment.original_sequence.sequence)}) must match generator's configured sequence_length ({self.sequence_length}).")
+        # Generate random sequence matching segment's length
+        if not assigned_segment.original_sequence.sequence:
+            assigned_segment.original_sequence.sequence = "".join(random.choice(valid_chars_list) for _ in range(assigned_segment.sequence_length))
 
         self._assigned_segment = assigned_segment
         self._assigned_segment._is_assigned = True

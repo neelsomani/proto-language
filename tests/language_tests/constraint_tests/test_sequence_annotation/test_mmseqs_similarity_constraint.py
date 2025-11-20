@@ -7,11 +7,10 @@ Tests the MMseqs2 similarity constraint for protein sequences.
 import pytest
 from unittest.mock import patch, MagicMock
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import mmseqs_similarity_constraint, ConstraintRegistry
 from proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint import MMseqsSimilarityConfig
 from proto_language.tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig, MmseqsOutput
-from ..utils import create_segment
 
 
 class TestMMseqsSimilarityConstraint:
@@ -38,7 +37,7 @@ class TestMMseqsSimilarityConstraint:
 
     def test_with_mocked_mmseqs(self, dummy_db_path):
         """Test constraint with mocked MMseqs2 results."""
-        segment = create_segment("MVLSPADKTNVKAAW", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVLSPADKTNVKAAW", sequence_type=SequenceType.PROTEIN)
 
         config = MMseqsSimilarityConfig(
             min_similarity=80.0,
@@ -83,7 +82,7 @@ class TestMMseqsSimilarityConstraint:
 
     def test_no_hits_scenario(self, dummy_db_path):
         """Test when no MMseqs2 hits are found."""
-        segment = create_segment("MVLSP", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVLSP", sequence_type=SequenceType.PROTEIN)
 
         config = MMseqsSimilarityConfig(
             min_similarity=80.0,
@@ -121,7 +120,7 @@ class TestMMseqsSimilarityConstraint:
 
     def test_dna_sequence_with_orf_prediction(self, dummy_db_path):
         """Test that DNA sequences work via ORF prediction."""
-        segment = create_segment("ATGGTGCTGAGCCCGGCGGACAAG", SequenceType.DNA)
+        segment = Segment(sequence="ATGGTGCTGAGCCCGGCGGACAAG", sequence_type=SequenceType.DNA)
 
         config = MMseqsSimilarityConfig(
             min_similarity=80.0,

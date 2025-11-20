@@ -7,13 +7,6 @@ from proto_language.language.generator import ESM2Generator, ESM2GeneratorConfig
 from proto_language.utils import is_gpu_available
 
 
-def create_segment(
-    sequence: str, seq_type: SequenceType = SequenceType.PROTEIN
-) -> Segment:
-    """Helper to create a Segment with a single sequence."""
-    return Segment(sequence=sequence, sequence_type=seq_type)
-
-
 @pytest.mark.uses_gpu
 class TestESM2Generator:
     def test_esm2_entropy_sampling(self):
@@ -21,7 +14,6 @@ class TestESM2Generator:
         esm2_generator = ESM2Generator(
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
-                sequence_length=20,
                 temperature=1.0,
                 decoding_method="entropy",
                 num_mutations=5,
@@ -29,7 +21,7 @@ class TestESM2Generator:
         )
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=20, sequence=None, sequence_type=SequenceType.PROTEIN)
         esm2_generator.assign(segment)
         
         assert esm2_generator._assigned_segment is segment
@@ -47,7 +39,6 @@ class TestESM2Generator:
         esm2_generator = ESM2Generator(
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
-                sequence_length=20,
                 temperature=1.0,
                 decoding_method="max_logit",
                 num_mutations=5,
@@ -55,7 +46,7 @@ class TestESM2Generator:
         )
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=20, sequence=None, sequence_type=SequenceType.PROTEIN)
         esm2_generator.assign(segment)
         
         assert esm2_generator._assigned_segment is segment
@@ -73,7 +64,6 @@ class TestESM2Generator:
         esm2_generator = ESM2Generator(
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
-                sequence_length=20,
                 temperature=1.0,
                 decoding_method="random",
                 num_mutations=5,
@@ -81,7 +71,7 @@ class TestESM2Generator:
         )
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=20, sequence=None, sequence_type=SequenceType.PROTEIN)
         esm2_generator.assign(segment)
         
         assert esm2_generator._assigned_segment is segment
@@ -100,7 +90,6 @@ class TestESM2Generator:
         esm2_generator = ESM2Generator(
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
-                sequence_length=15,
                 temperature=1.0,
                 decoding_method="entropy",
                 num_mutations=5,
@@ -108,7 +97,7 @@ class TestESM2Generator:
         )
 
         # Create segment and expand candidate pool
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=15, sequence=None, sequence_type=SequenceType.PROTEIN)
         segment.create_candidates(num_candidates)
         esm2_generator.assign(segment)
         
@@ -123,26 +112,26 @@ class TestESM2Generator:
             assert segment.candidate_sequences[i].sequence_type == SequenceType.PROTEIN
 
     def test_esm2_assign_errors(self):
-        """Test error conditions for ESM2 generator assignment."""
+        """Test error conditions during Segment creation."""
         esm2_generator = ESM2Generator(
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
-                sequence_length=10,
+                num_mutations=1,
             )
         )
         
-        # Should raise error if assigned segment with wrong sequence length
-        segment_wrong_length = Segment(sequence="A" * 20, sequence_type=SequenceType.PROTEIN)
+        # Should raise error if Segment has mismatched sequence and length
         with pytest.raises(ValueError, match="Provided sequence length"):
-            esm2_generator.assign(segment_wrong_length)
+            segment_wrong_length = Segment(sequence_length=10, sequence="A" * 20, sequence_type=SequenceType.PROTEIN)
 
     def test_constant_segment_rejection(self):
         """Tests that generators reject constant segments during assign()."""
-        config = ESM2GeneratorConfig(sequence_length=10)
+        config = ESM2GeneratorConfig(num_mutations=1)
         gen = ESM2Generator(config)
         
         # Create a constant segment
         constant_segment = Segment(
+            sequence_length=8,
             sequence="MMMMPPPP",
             sequence_type=SequenceType.PROTEIN,
             constant=True

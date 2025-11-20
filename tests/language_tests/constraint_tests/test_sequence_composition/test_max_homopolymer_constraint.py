@@ -1,10 +1,9 @@
 import numpy as np
 import pytest
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, Segment, SequenceType
 from proto_language.language.constraint import max_homopolymer_constraint
 from proto_language.language.constraint.sequence_composition.max_homopolymer_constraint import MaxHomopolymerConfig
-from ..utils import create_segment
 
 
 # Tests for max_homopolymer_constraint
@@ -29,7 +28,7 @@ class TestMaxHomopolymerConstraint:
         ],
     )
     def test_homopolymer_scoring(self, sequence, max_len, expected_score, seq_type):
-        segment = create_segment(sequence, seq_type)
+        segment = Segment(sequence=sequence, sequence_type=seq_type)
         config = MaxHomopolymerConfig(max_length=max_len)
         constraint = Constraint(
             inputs=[segment],

@@ -19,48 +19,6 @@ from proto_language.language.core import (
 
 
 # =============================================================================
-# HELPER FUNCTIONS FOR CREATING TEST SEGMENTS
-# =============================================================================
-
-def create_segment(sequence: str, seq_type: SequenceType = SequenceType.DNA) -> Segment:
-    """
-    Helper to create a Segment with candidate sequence populated for constraint evaluation.
-    
-    Args:
-        sequence: The DNA/RNA/protein sequence string
-        seq_type: The type of sequence (DNA, RNA, or PROTEIN)
-    
-    Returns:
-        A Segment with one candidate sequence populated
-    """
-    segment = Segment(sequence=sequence, sequence_type=seq_type)
-    # Constraints evaluate candidate_sequences, so populate with one candidate
-    segment.create_candidates(1)
-    segment.candidate_sequences[0].sequence = sequence
-    return segment
-
-
-def create_batched_segment(
-    sequences: List[str], seq_type: SequenceType = SequenceType.DNA
-) -> Segment:
-    """
-    Helper to create a Segment with multiple candidate sequences for batched constraint evaluation.
-    
-    Args:
-        sequences: List of sequence strings to use as candidates
-        seq_type: The type of sequences (DNA, RNA, or PROTEIN)
-    
-    Returns:
-        A Segment with multiple candidate sequences populated
-    """
-    segment = Segment(sequence=sequences[0], sequence_type=seq_type)
-    segment.create_candidates(len(sequences))
-    for i, seq_str in enumerate(sequences):
-        segment.candidate_sequences[i].sequence = seq_str
-    return segment
-
-
-# =============================================================================
 # MOCK SCORING FUNCTIONS FOR TESTING CONSTRAINT EVALUATION
 # =============================================================================
 

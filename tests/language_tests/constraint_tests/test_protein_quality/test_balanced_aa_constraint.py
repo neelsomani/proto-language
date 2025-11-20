@@ -1,9 +1,8 @@
 import pytest
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import balanced_aa_constraint
 from proto_language.language.constraint.protein_quality.balanced_aa_constraint import BalancedAaConfig
-from ..utils import create_segment
 
 
 # Tests for balanced_aa_constraint
@@ -11,8 +10,8 @@ class TestBalancedAAConstraint:
     def test_balanced_protein(self):
         """Test protein with balanced amino acid frequencies."""
         # Create a relatively balanced sequence
-        segment = create_segment(
-            "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF", SequenceType.PROTEIN
+        segment = Segment(
+            sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF", sequence_type=SequenceType.PROTEIN
         )
         config = BalancedAaConfig(min_aa_frequency=0.02, max_underrepresented_count=10)
 
@@ -35,7 +34,7 @@ class TestBalancedAAConstraint:
 
     def test_unbalanced_protein(self):
         """Test protein with unbalanced amino acid frequencies and metadata."""
-        segment = create_segment("AAAAAAGGGGLLLLMMMM", SequenceType.PROTEIN)
+        segment = Segment(sequence="AAAAAAGGGGLLLLMMMM", sequence_type=SequenceType.PROTEIN)
         config = BalancedAaConfig(min_aa_frequency=0.1, max_underrepresented_count=2)
 
         constraint = Constraint(
@@ -64,7 +63,7 @@ class TestBalancedAAConstraint:
 
     def test_empty_sequence(self):
         """Test empty sequence handling."""
-        segment = create_segment("", SequenceType.PROTEIN)
+        segment = Segment(sequence="", sequence_type=SequenceType.PROTEIN)
         config = BalancedAaConfig(min_aa_frequency=0.05, max_underrepresented_count=5)
 
         constraint = Constraint(

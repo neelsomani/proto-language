@@ -1,17 +1,16 @@
 import pytest
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import protein_repetitiveness_constraint
 from proto_language.language.constraint.protein_quality.protein_repetitiveness_constraint import ProteinRepetitivenessConfig
-from ..utils import create_segment
 
 
 # Tests for protein_repetitiveness_constraint
 class TestProteinRepetitivenessConstraint:
     def test_non_repetitive_protein(self):
         """Test protein with low repetitiveness."""
-        segment = create_segment(
-            "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMF", SequenceType.PROTEIN
+        segment = Segment(
+            sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMF", sequence_type=SequenceType.PROTEIN
         )
         config = ProteinRepetitivenessConfig(max_repetitiveness=0.5, min_repeat_length=3)
 
@@ -34,7 +33,7 @@ class TestProteinRepetitivenessConstraint:
 
     def test_highly_repetitive_protein(self):
         """Test protein with high repetitiveness."""
-        segment = create_segment("AAAAAAAAAAAAAA", SequenceType.PROTEIN)
+        segment = Segment(sequence="AAAAAAAAAAAAAA", sequence_type=SequenceType.PROTEIN)
         config = ProteinRepetitivenessConfig(max_repetitiveness=0.3)
 
         constraint = Constraint(
@@ -52,7 +51,7 @@ class TestProteinRepetitivenessConstraint:
 
     def test_repetitive_pattern(self):
         """Test protein with repetitive pattern."""
-        segment = create_segment("MVKMVKMVKMVKMVK", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVKMVKMVKMVKMVK", sequence_type=SequenceType.PROTEIN)
         config = ProteinRepetitivenessConfig(max_repetitiveness=0.3, min_repeat_length=3)
 
         constraint = Constraint(

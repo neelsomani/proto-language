@@ -22,9 +22,6 @@ class ESM3GeneratorConfig(BaseConfig):
     sequences through iterative mutation of high-uncertainty positions.
 
     Attributes:
-        sequence_length (int): Target length for generated protein sequences in
-            amino acids. All sequences must match this length. Must be at least 1.
-
         model_checkpoint (str): ESM3 model checkpoint to use. Currently available:
 
             - ``"esm3_sm_open_v1"``: Small open-source ESM3 model (default)
@@ -52,20 +49,11 @@ class ESM3GeneratorConfig(BaseConfig):
 
         num_mutations (int): Number of positions to mutate per sampling iteration.
             Higher values explore more of sequence space but may reduce biological
-            plausibility. Must be at least 1 and cannot exceed ``sequence_length``.
-            Default: 1.
+            plausibility. Must be at least 1. Default: 1.
 
     Note:
         ESM3 is the open-source version of EvolutionaryScale's protein language model.
-        For bidirectional models like ESM3, the ``sequence_length`` parameter should
-        ideally be determined from input sequences rather than configured manually
-        (planned for future versions). TODO
     """
-    # Required parameters
-    sequence_length: int = ConfigField(
-        ge=1, title="Sequence Length", description="Target length for generated sequences"
-    )
-
     # Advanced parameters
     model_checkpoint: ESM3_MODEL_CHECKPOINTS = ConfigField(
         default="esm3_sm_open_v1",
@@ -77,7 +65,7 @@ class ESM3GeneratorConfig(BaseConfig):
         default=1.0,
         gt=0.0,
         title="Temperature",
-        description="Scales the randomness of sampling by adjusting probability distribution sharpness.",  # Lower values (<1) make outputs more deterministic; higher values (>1) produce more varied and creative generations.
+        description="Scales the randomness of sampling by adjusting probability distribution sharpness.",
         advanced=True,
     )
     decoding_method: Literal["entropy", "max_logit", "random"] = ConfigField(
@@ -93,13 +81,6 @@ class ESM3GeneratorConfig(BaseConfig):
         description="Number of positions to mutate per sampling iteration",
         advanced=True,
     )
-
-    @field_validator('num_mutations')
-    @classmethod
-    def validate_num_mutations(cls, v, info):
-        if 'sequence_length' in info.data and v > info.data['sequence_length']:
-            raise ValueError(f"num_mutations ({v}) cannot exceed sequence_length ({info.data['sequence_length']})")
-        return v
 
 
 @GeneratorRegistry.register(
@@ -124,7 +105,6 @@ class ESM3Generator(Generator):
 
     Attributes:
         model_checkpoint (str): ESM3 model checkpoint name.
-        sequence_length (int): Length of sequences to generate/mutate.
         temperature (float): Sampling temperature for diversity control.
         decoding_method (str): Position selection strategy (entropy/max_logit/random).
         num_mutations (int): Number of positions to mutate per iteration.
@@ -134,13 +114,12 @@ class ESM3Generator(Generator):
         >>> from proto_language.language.generator import ESM3Generator, ESM3GeneratorConfig
         >>> from proto_language.language.core import Segment, SequenceType
         >>> config = ESM3GeneratorConfig(
-        ...     sequence_length=100,
         ...     temperature=1.0,
         ...     decoding_method="entropy",
         ...     num_mutations=5
         ... )
         >>> gen = ESM3Generator(config)
-        >>> segment = Segment(sequence="", sequence_type=SequenceType.PROTEIN)
+        >>> segment = Segment(sequence_length=100, sequence=None, sequence_type=SequenceType.PROTEIN)
         >>> gen.assign(segment)
         >>> gen.sample()  # Refines 5 highest-entropy positions
     """
@@ -154,7 +133,6 @@ class ESM3Generator(Generator):
         """
         super().__init__()
         self.model_checkpoint = config.model_checkpoint
-        self.sequence_length = config.sequence_length
         self.temperature = config.temperature
         self.decoding_method = config.decoding_method
         self.num_mutations = config.num_mutations
@@ -165,10 +143,9 @@ class ESM3Generator(Generator):
     ) -> None:
         """
         Assign a Segment to this generator.
-
-        - If starting sequence is provided, validates that the sequence length matches the configured length.
         """
         super().assign(assigned_segment)
+        
         self._assigned_segment = assigned_segment
         self._assigned_segment._is_assigned = True
 
@@ -182,16 +159,19 @@ class ESM3Generator(Generator):
 
         Raises:
             RuntimeError: If called before assign().
-        """
+        """        
+        # Cap num_mutations to sequence length
+        actual_mutations = min(self.num_mutations, self._assigned_segment.sequence_length)
+        
         # Create input and config objects
         sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
         esm3_input = LanguageModelInput(sequences=sequences)
         config = ESM3SampleConfig(
             model_checkpoint=self.model_checkpoint,
-            sequence_length=self.sequence_length,
+            sequence_length=self._assigned_segment.sequence_length,
             temperature=self.temperature,
             decoding_method=self.decoding_method,
-            num_mutations=self.num_mutations,
+            num_mutations=actual_mutations,
             keep_on_gpu=True,  # Keep for repeated calls
             verbose=False
         )

@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 import pandas as pd
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import protein_globularity_constraint
 from proto_language.language.constraint.protein_structure.protein_globularity_constraint import (
     ProteinGlobularityConfig,
@@ -18,7 +18,6 @@ from proto_language.tools.structure_prediction import (
 from proto_language.tools.orf_prediction.prodigal import (
     ProdigalOutput,
 )
-from ..utils import create_segment
 
 
 mock_pdb = """ATOM      1  N   MET A   1       0.000   0.000   0.000  1.00 90.00           N
@@ -54,7 +53,7 @@ class TestProteinGlobularityConstraint:
 
     def test_scoring_algorithm(self):
         """Test basic constraint evaluation with mocked structure."""
-        segment = create_segment("MKR", SequenceType.PROTEIN)
+        segment = Segment(sequence="MKR", sequence_type=SequenceType.PROTEIN)
         config = ProteinGlobularityConfig()
 
         # Mock a compact globular structure (low std of distances)
@@ -82,7 +81,7 @@ class TestProteinGlobularityConstraint:
 
     def test_dna_sequence_input(self):
         """Test that DNA/RNA sequences work via translation to protein."""
-        segment = create_segment("ATGAAAAAACGT", SequenceType.DNA)  # Codes for MKR
+        segment = Segment(sequence="ATGAAAAAACGT", sequence_type=SequenceType.DNA)  # Codes for MKR
         config = ProteinGlobularityConfig()
 
         # Mock the Prodigal output
@@ -134,7 +133,7 @@ class TestProteinGlobularityConstraint:
 
     def test_n_replications_parameter(self):
         """Test that n_replications correctly replicates the sequence."""
-        segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
+        segment = Segment(sequence="MKTAYIAK", sequence_type=SequenceType.PROTEIN)
         config = ProteinGlobularityConfig(n_replications=3)
         with patch('proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold') as mock_run:
             # Create mock structure

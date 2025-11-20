@@ -120,7 +120,7 @@ class BeamSearchOptimizer(Optimizer):
 
     Example:
         >>> from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
-        >>> gen_config = Evo2GeneratorConfig(num_tokens=100)
+        >>> gen_config = Evo2GeneratorConfig(prompts="ATCG", prepend_prompt=True)
         >>> generator = Evo2Generator(config=gen_config)
         >>> construct = Construct([segment1, segment2, segment3])
         >>> config = BeamSearchOptimizerConfig(
@@ -220,7 +220,8 @@ class BeamSearchOptimizer(Optimizer):
         self.top_beam_kv_caches: List[Optional[Dict]] = [None] * self.beam_width
 
         # IMPORTANT: set max_seqlen to the total construct length!!
-        self.generator.max_seqlen = len(self.prompt) + len(self.segments) * self.generator.num_tokens
+        total_segment_length = sum(segment.sequence_length for segment in self.segments)
+        self.generator.max_seqlen = len(self.prompt) + total_segment_length
         # Need to store kv caching as well if kv caching is enabled
         self.generator.store_kv_cache = self.use_kv_caching
         # Always use cached generation internally

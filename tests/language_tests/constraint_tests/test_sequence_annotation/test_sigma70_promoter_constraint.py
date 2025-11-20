@@ -1,9 +1,8 @@
 import pytest
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, Segment, SequenceType
 from proto_language.language.constraint import sigma70_promoter_constraint
 from proto_language.language.constraint.sequence_annotation.sigma70_promoter_constraint import Sigma70PromoterConfig
-from ..utils import create_segment
 
 
 # Tests for sigma70_promoter_constraint
@@ -12,7 +11,7 @@ class TestSigma70PromoterConstraint:
         """Test ideal sigma70 promoter sequence."""
         # Ideal promoter: -35 box + 17bp spacer + -10 box
         ideal = "TTGACA" + "A" * 17 + "TATAAT"
-        segment = create_segment(ideal, SequenceType.DNA)
+        segment = Segment(sequence=ideal, sequence_type=SequenceType.DNA)
         config = Sigma70PromoterConfig()
 
         constraint = Constraint(
@@ -30,7 +29,7 @@ class TestSigma70PromoterConstraint:
     def test_poor_promoter(self):
         """Test poor promoter sequence."""
         poor = "AAAAAA" + "G" * 17 + "CCCCCC"
-        segment = create_segment(poor, SequenceType.DNA)
+        segment = Segment(sequence=poor, sequence_type=SequenceType.DNA)
         config = Sigma70PromoterConfig()
 
         constraint = Constraint(
@@ -48,7 +47,7 @@ class TestSigma70PromoterConstraint:
         """Test scanning long sequence for best promoter."""
         # Embed promoter in longer sequence
         long_seq = "A" * 50 + "TTGACA" + "T" * 17 + "TATAAT" + "G" * 50
-        segment = create_segment(long_seq, SequenceType.DNA)
+        segment = Segment(sequence=long_seq, sequence_type=SequenceType.DNA)
         config = Sigma70PromoterConfig()
 
         constraint = Constraint(
@@ -67,7 +66,7 @@ class TestSigma70PromoterConstraint:
     def test_short_sequence(self):
         """Test sequence too short for promoter."""
         short = "ATCG"
-        segment = create_segment(short, SequenceType.DNA)
+        segment = Segment(sequence=short, sequence_type=SequenceType.DNA)
         config = Sigma70PromoterConfig()
 
         constraint = Constraint(
@@ -88,7 +87,7 @@ class TestSigma70PromoterConstraint:
         """Test with custom consensus sequences (constraint-specific config behavior)."""
         # Use custom consensus sequences
         custom_seq = "AAAAAA" + "T" * 17 + "CCCCCC"
-        segment = create_segment(custom_seq, SequenceType.DNA)
+        segment = Segment(sequence=custom_seq, sequence_type=SequenceType.DNA)
         config = Sigma70PromoterConfig(consensus_35="AAAAAA", consensus_10="CCCCCC")
 
         constraint = Constraint(

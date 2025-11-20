@@ -16,10 +16,9 @@ import pytest
 from unittest.mock import patch, mock_open, Mock
 import os
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import seq_motif_constraint
 from proto_language.language.constraint.sequence_annotation.seq_motif_constraint import SeqMotifConfig
-from ..utils import create_segment
 
 
 class TestSeqMotifConstraint:
@@ -53,7 +52,7 @@ class TestSeqMotifConstraint:
     
     def test_no_motifs_wanted_or_unwanted(self):
         """Test scoring when no wanted/unwanted motifs specified."""
-        segment = create_segment("ATCGATCGATCG", SequenceType.DNA)
+        segment = Segment(sequence="ATCGATCGATCG", sequence_type=SequenceType.DNA)
         config = SeqMotifConfig(
             motifs_path="/tmp/motifs.meme",
             meme_bin_path="/usr/bin"
@@ -90,7 +89,7 @@ class TestSeqMotifConstraint:
     
     def test_wanted_motif_found(self):
         """Test scoring when wanted motif is found."""
-        segment = create_segment("ATCGATCGATCG", SequenceType.DNA)
+        segment = Segment(sequence="ATCGATCGATCG", sequence_type=SequenceType.DNA)
         config = SeqMotifConfig(
             motifs_path="/tmp/motifs.meme",
             meme_bin_path="/usr/bin",

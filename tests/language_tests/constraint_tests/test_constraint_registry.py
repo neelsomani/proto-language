@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field, ValidationError
 
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.core import Segment, Sequence, SequenceType, Constraint
-from .utils import create_segment
 
 
 # ============================================================================
@@ -517,7 +516,7 @@ class TestBuiltinConstraints:
         Test that Pydantic config validation works through registry.
         This tests the pattern once rather than per-constraint.
         """
-        segment = create_segment("ATCGATCG", SequenceType.DNA)
+        segment = Segment(sequence="ATCGATCG", sequence_type=SequenceType.DNA)
         
         # Test 1: Invalid type for numeric parameter
         with pytest.raises(Exception):  # Pydantic ValidationError
@@ -549,7 +548,7 @@ class TestBuiltinConstraints:
     
     def test_config_with_optional_parameters(self):
         """Test constraints with optional config parameters."""
-        segment = create_segment("MVLSPADKTN", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVLSPADKTN", sequence_type=SequenceType.PROTEIN)
         
         # protein-complexity has optional segmasker_path
         # Should work with defaults
@@ -573,7 +572,7 @@ class TestBuiltinConstraints:
     
     def test_config_validation_with_constraints(self):
         """Test that Pydantic validators work through registry."""
-        segment = create_segment("ATCGATCG", SequenceType.DNA)
+        segment = Segment(sequence="ATCGATCG", sequence_type=SequenceType.DNA)
         
         # Many constraints have validators (e.g., min < max, values in range)
         # Test with gc-content which should validate min_gc < max_gc

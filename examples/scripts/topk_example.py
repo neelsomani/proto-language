@@ -13,14 +13,13 @@ from proto_language.language.core import (
 from proto_language.language.constraint import gc_content_constraint
 
 # Create a DNA segment
-dna_segment = Segment(sequence_type=SequenceType.DNA)
+dna_segment = Segment(sequence_length=100, sequence_type=SequenceType.DNA)
 
 # Create construct
 construct = Construct([dna_segment])
 
 # Configure generator
 mutation_config = UniformMutationGeneratorConfig(
-    sequence_length=100, 
     num_mutations=100,    
 )
 mutation_generator = UniformMutationGenerator(mutation_config)

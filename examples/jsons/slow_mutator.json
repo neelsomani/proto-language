@@ -18,7 +18,8 @@
       "segments": [
         {
           "id": "segment1",
-          "label": "test_sequence"
+          "label": "test_sequence",
+          "sequence_length": 15
         }
       ]
     }
@@ -40,7 +41,6 @@
       "id": "slow_mutation",
       "key": "uniform-mutation",
       "config": {
-        "sequence_length": 15,
         "debug_with_sleep_calls": true
       },
       "targets": ["segment1"]

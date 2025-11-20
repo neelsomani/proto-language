@@ -1,9 +1,8 @@
 import pytest
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, Segment, SequenceType
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
-from ..utils import create_segment
 
 
 # Tests for gc_content_constraint
@@ -22,7 +21,7 @@ class TestGCContentConstraint:
         ],
     )
     def test_dna_sequences(self, sequence, min_gc, max_gc, expected_score):
-        segment = create_segment(sequence, SequenceType.DNA)
+        segment = Segment(sequence=sequence, sequence_type=SequenceType.DNA)
         config = GCContentConfig(min_gc=min_gc, max_gc=max_gc)
         constraint = Constraint(
             inputs=[segment],
@@ -48,7 +47,7 @@ class TestGCContentConstraint:
         ],
     )
     def test_rna_sequences(self, sequence, min_gc, max_gc, expected_score):
-        segment = create_segment(sequence, SequenceType.RNA)
+        segment = Segment(sequence=sequence, sequence_type=SequenceType.RNA)
         config = GCContentConfig(min_gc=min_gc, max_gc=max_gc)
         constraint = Constraint(
             inputs=[segment],
@@ -59,7 +58,7 @@ class TestGCContentConstraint:
 
     def test_wrong_sequence_type(self):
         """Test that protein sequences raise ValueError (constraint-specific check)."""
-        segment = create_segment("MVLSPADKTNVK", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVLSPADKTNVK", sequence_type=SequenceType.PROTEIN)
         config = GCContentConfig(min_gc=40, max_gc=60)
         constraint = Constraint(
             inputs=[segment],

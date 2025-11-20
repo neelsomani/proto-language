@@ -4,10 +4,9 @@ Comprehensive tests for overall_protein_quality_constraint.
 
 import pytest
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import overall_protein_quality_constraint
 from proto_language.language.constraint.protein_quality.overall_protein_quality_constraint import OverallProteinQualityConfig, ProteinQualitySubConfig
-from ..utils import create_segment
 
 
 class TestOverallProteinQualityConstraint:
@@ -15,7 +14,7 @@ class TestOverallProteinQualityConstraint:
     
     def test_protein_input_high_quality(self):
         """Test with high quality protein sequence."""
-        segment = create_segment("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF", sequence_type=SequenceType.PROTEIN)
         
         # Only check length - protein is 48 amino acids
         sub_config = ProteinQualitySubConfig(
@@ -39,7 +38,7 @@ class TestOverallProteinQualityConstraint:
     
     def test_protein_input_low_quality_length(self):
         """Test with protein that violates length constraint."""
-        segment = create_segment("MVLSP", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVLSP", sequence_type=SequenceType.PROTEIN)
         
         sub_config = ProteinQualitySubConfig(
             enable_length=True,
@@ -62,7 +61,7 @@ class TestOverallProteinQualityConstraint:
     
     def test_protein_input_multiple_checks(self):
         """Test with multiple quality checks and constraint-specific metadata."""
-        segment = create_segment("MVLSPADKTNVKAAWGKVGAHAGEYGAEAL", SequenceType.PROTEIN)
+        segment = Segment(sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEAL", sequence_type=SequenceType.PROTEIN)
         
         sub_config = ProteinQualitySubConfig(
             enable_length=True,
@@ -93,7 +92,7 @@ class TestOverallProteinQualityConstraint:
     
     def test_protein_input_repetitive(self):
         """Test with repetitive protein."""
-        segment = create_segment("AAAAAAAAAAAAAAAA", SequenceType.PROTEIN)
+        segment = Segment(sequence="AAAAAAAAAAAAAAAA", sequence_type=SequenceType.PROTEIN)
         
         sub_config = ProteinQualitySubConfig(
             enable_repetitiveness=True,

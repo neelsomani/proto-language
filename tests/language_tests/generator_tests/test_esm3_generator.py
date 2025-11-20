@@ -7,20 +7,12 @@ from proto_language.language.generator import ESM3Generator, ESM3GeneratorConfig
 from proto_language.utils import is_gpu_available
 
 
-def create_segment(
-    sequence: str, seq_type: SequenceType = SequenceType.PROTEIN
-) -> Segment:
-    """Helper to create a Segment with a single sequence."""
-    return Segment(sequence=sequence, sequence_type=seq_type)
-
-
 @pytest.mark.uses_gpu
 class TestESM3Generator:
     def test_esm3_entropy_sampling(self):
         """Test ESM3 generator with entropy-based sampling."""
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
-                sequence_length=20,
                 temperature=1.0,
                 decoding_method="entropy",
                 num_mutations=5,
@@ -28,7 +20,7 @@ class TestESM3Generator:
         )
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=20, sequence_type=SequenceType.PROTEIN)
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
@@ -45,7 +37,6 @@ class TestESM3Generator:
         """Test ESM3 generator with max logit sampling."""
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
-                sequence_length=20,
                 temperature=1.0,
                 decoding_method="max_logit",
                 num_mutations=5,
@@ -53,7 +44,7 @@ class TestESM3Generator:
         )
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=20, sequence_type=SequenceType.PROTEIN)
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
@@ -70,7 +61,6 @@ class TestESM3Generator:
         """Test ESM3 generator with random sampling."""
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
-                sequence_length=20,
                 temperature=1.0,
                 decoding_method="random",
                 num_mutations=5,
@@ -78,7 +68,7 @@ class TestESM3Generator:
         )
 
         # Create segment and assign to generator
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=20, sequence_type=SequenceType.PROTEIN)
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
@@ -96,7 +86,6 @@ class TestESM3Generator:
         num_candidates = 3
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
-                sequence_length=15,
                 temperature=1.0,
                 decoding_method="entropy",
                 num_mutations=5,
@@ -104,7 +93,7 @@ class TestESM3Generator:
         )
 
         # Create segment and expand candidate pool
-        segment = create_segment("", seq_type=SequenceType.PROTEIN)
+        segment = Segment(sequence_length=15, sequence_type=SequenceType.PROTEIN)
         segment.create_candidates(num_candidates)
         esm3_generator.assign(segment)
         
@@ -118,22 +107,9 @@ class TestESM3Generator:
             assert len(segment.candidate_sequences[i].sequence) == 15
             assert segment.candidate_sequences[i].sequence_type == SequenceType.PROTEIN
 
-    def test_esm3_assign_errors(self):
-        """Test error conditions for ESM3 generator assignment."""
-        esm3_generator = ESM3Generator(
-            ESM3GeneratorConfig(
-                sequence_length=10,
-            )
-        )
-        
-        # Should raise error if assigned segment with wrong sequence length
-        segment_wrong_length = Segment(sequence="A" * 20, sequence_type=SequenceType.PROTEIN)
-        with pytest.raises(ValueError, match="Provided sequence length"):
-            esm3_generator.assign(segment_wrong_length)
-
     def test_constant_segment_rejection(self):
         """Tests that generators reject constant segments during assign()."""
-        config = ESM3GeneratorConfig(sequence_length=10)
+        config = ESM3GeneratorConfig()
         gen = ESM3Generator(config)
         
         # Create a constant segment

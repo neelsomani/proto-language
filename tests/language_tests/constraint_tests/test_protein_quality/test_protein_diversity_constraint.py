@@ -1,17 +1,16 @@
 import pytest
 
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import protein_diversity_constraint
 from proto_language.language.constraint.protein_quality.protein_diversity_constraint import ProteinDiversityConfig
-from ..utils import create_segment
 
 
 # Tests for protein_diversity_constraint
 class TestProteinDiversityConstraint:
     def test_high_diversity(self):
         """Test protein with high amino acid diversity and constraint-specific metadata."""
-        segment = create_segment(
-            "MVLSPADKTNVKAAWGKVGAHAGEYGAEALER", SequenceType.PROTEIN
+        segment = Segment(
+            sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEALER", sequence_type=SequenceType.PROTEIN
         )
         config = ProteinDiversityConfig(min_diversity=0.5)
 
@@ -41,7 +40,7 @@ class TestProteinDiversityConstraint:
 
     def test_low_diversity(self):
         """Test protein with low amino acid diversity."""
-        segment = create_segment("AAAAAAGGGGGGLLLLLL", SequenceType.PROTEIN)
+        segment = Segment(sequence="AAAAAAGGGGGGLLLLLL", sequence_type=SequenceType.PROTEIN)
         config = ProteinDiversityConfig(min_diversity=0.5)
 
         constraint = Constraint(
@@ -65,7 +64,7 @@ class TestProteinDiversityConstraint:
 
     def test_single_amino_acid(self):
         """Test protein with only one amino acid type."""
-        segment = create_segment("AAAAAAAAAA", SequenceType.PROTEIN)
+        segment = Segment(sequence="AAAAAAAAAA", sequence_type=SequenceType.PROTEIN)
         config = ProteinDiversityConfig(min_diversity=0.2)
 
         constraint = Constraint(
@@ -91,7 +90,7 @@ class TestProteinDiversityConstraint:
 
     def test_empty_sequence(self):
         """Test that empty sequence raises error (constraint-specific edge case)."""
-        segment = create_segment("", SequenceType.PROTEIN)
+        segment = Segment(sequence="", sequence_type=SequenceType.PROTEIN)
         config = ProteinDiversityConfig(min_diversity=0.3)
 
         constraint = Constraint(

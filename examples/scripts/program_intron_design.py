@@ -183,7 +183,6 @@ if __name__ == '__main__':
         sequence_type=SequenceType.DNA,
     )
     intron_gen_config = UniformMutationGeneratorConfig(
-        sequence_length=len(initial_intron) - 4,
         num_mutations=args.step_size,
     )
     intron_gen = UniformMutationGenerator(intron_gen_config)

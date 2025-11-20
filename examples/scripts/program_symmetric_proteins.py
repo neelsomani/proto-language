@@ -35,6 +35,7 @@ N_STEPS = 30_000
 #######################
 
 protomer = Segment(
+    sequence_length=MONOMER_LENGTH,
     sequence_type=SequenceType.PROTEIN,
 )
 
@@ -48,9 +49,7 @@ protomer_construct = Construct([protomer])
 ## Generators ##
 ################
 
-uniform_gen_config = UniformMutationGeneratorConfig(
-    sequence_length=MONOMER_LENGTH,
-)
+uniform_gen_config = UniformMutationGeneratorConfig()
 uniform_gen = UniformMutationGenerator(uniform_gen_config)
 
 uniform_gen.assign(protomer)

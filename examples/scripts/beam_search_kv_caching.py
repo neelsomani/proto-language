@@ -64,19 +64,19 @@ def run_beam_search(
     """
     # Create segments - one for each chunk
     num_segments = total_token_count // beam_length
-    segments = [Segment(sequence="", label=f"chunk_{i+1}") for i in range(num_segments)]
+    segments = [Segment(sequence_length=beam_length, label=f"chunk_{i+1}") for i in range(num_segments)]
     construct = Construct(segments=segments)
 
     # Create generator
     gen_config = Evo2GeneratorConfig(
         prompts=[prompt],
-        num_tokens=beam_length,  # Tokens per segment
+        prepend_prompt=False,
         stop_at_eos=False,
     )
     generator = Evo2Generator(config=gen_config)
 
     # Assign generator to first segment (required for validation)
-    generator._assigned_segment = segments[0]
+    generator.assign(segments[0])
 
     # Create constraint
     gc_config = GCContentConfig(

@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch
 
 import pandas as pd
-from proto_language.language.core import Constraint, SequenceType
+from proto_language.language.core import Constraint, SequenceType, Segment
 from proto_language.language.constraint import (
     protein_symmetry_ring_constraint,
     ConstraintRegistry,
@@ -24,7 +24,6 @@ from proto_language.tools.orf_prediction.prodigal import (
     ProdigalOutput,
 )
 from unittest.mock import Mock
-from ..utils import create_segment
 
 mock_pdb = """ATOM      1  N   MET A   1       0.000   0.000   0.000  1.00 90.00           N
 ATOM      2  CA  MET A   1       1.458   0.000   0.000  1.00 90.00           C
@@ -60,7 +59,7 @@ class TestProteinSymmetryRingConstraint:
 
     def test_scoring_algorithm(self):
         """Test basic constraint evaluation with mocked structure."""
-        segment = create_segment("MKR", SequenceType.PROTEIN)
+        segment = Segment(sequence="MKR", sequence_type=SequenceType.PROTEIN)
         config = ProteinSymmetryRingConfig(n_replications=3)
 
         with patch(
@@ -89,7 +88,7 @@ class TestProteinSymmetryRingConstraint:
 
     def test_dna_input(self):
         """Test that DNA/RNA sequences work via translation to protein."""
-        segment = create_segment("ATGAAAAAACGT", SequenceType.DNA)  # Codes for MKR
+        segment = Segment(sequence="ATGAAAAAACGT", sequence_type=SequenceType.DNA)  # Codes for MKR
         config = ProteinSymmetryRingConfig(n_replications=3)
 
         # Mock the Prodigal output
@@ -141,9 +140,9 @@ class TestProteinSymmetryRingConstraint:
 
     def test_n_replications_parameter(self):
         """Test that n_replications correctly replicates the sequence."""
-        segment = create_segment("MKTAYIAK", SequenceType.PROTEIN)
-        segment2 = create_segment("MARG", SequenceType.PROTEIN)
-        segment3 = create_segment("MLYS", SequenceType.PROTEIN)
+        segment = Segment(sequence="MKTAYIAK", sequence_type=SequenceType.PROTEIN)
+        segment2 = Segment(sequence="MARG", sequence_type=SequenceType.PROTEIN)
+        segment3 = Segment(sequence="MLYS", sequence_type=SequenceType.PROTEIN)
         config = ProteinSymmetryRingConfig(n_replications=5)
 
         # Create a mock PDB with 5 chains (A, B, C, D, E)

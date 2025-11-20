@@ -1,18 +1,17 @@
 import pytest
 
-from proto_language.language.core import Constraint
+from proto_language.language.core import Constraint, Segment
 from proto_language.language.constraint import sequence_length_constraint
 from proto_language.language.constraint.sequence_composition.sequence_length_constraint import SequenceLengthConfig
-from ..utils import create_segment
 
 
 # Tests for sequence_length_constraint
 class TestSequenceLengthConstraint:
     def test_single_segment(self):
         target_len = 20
-        seg_match = create_segment("A" * target_len)
-        seg_short = create_segment("A" * (target_len // 2))
-        seg_long = create_segment("A" * (target_len * 2))
+        seg_match = Segment(sequence="A" * target_len)
+        seg_short = Segment(sequence="A" * (target_len // 2))
+        seg_long = Segment(sequence="A" * (target_len * 2))
 
         config = SequenceLengthConfig(target_length=target_len)
         constraint_match = Constraint(
@@ -50,8 +49,8 @@ class TestSequenceLengthConstraint:
     def test_contiguous_concatenation(self):
         """Tests length constraint on concatenated segments."""
         target_len = 20
-        seg1 = create_segment("A" * 10)
-        seg2 = create_segment("T" * 10)
+        seg1 = Segment(sequence="A" * 10)
+        seg2 = Segment(sequence="T" * 10)
 
         config = SequenceLengthConfig(target_length=target_len)
         constraint = Constraint(
@@ -85,7 +84,7 @@ class TestSequenceLengthConstraint:
     )
     def test_edge_cases(self, seq_str, target_len, expected_score):
         """Test constraint-specific edge cases."""
-        segment = create_segment(seq_str)
+        segment = Segment(sequence=seq_str)
         config = SequenceLengthConfig(target_length=target_len)
         constraint = Constraint(
             inputs=[segment],

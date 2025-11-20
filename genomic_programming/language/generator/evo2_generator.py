@@ -27,10 +27,6 @@ class Evo2GeneratorConfig(BaseConfig):
             All prompts must have the same length. Uses Evo2's special formatting
             (refer to Evo2 documentation for prompt format details).
 
-        num_tokens (int): Number of tokens to generate after each prompt. Each token
-            represents a DNA subsequence (model-dependent tokenization). Must be at
-            least 1.
-
         model_checkpoint (str): Evo2 model checkpoint to use. Options:
 
             - ``"evo2_7b"``: 7 billion parameter Evo2 model (default)
@@ -92,11 +88,6 @@ class Evo2GeneratorConfig(BaseConfig):
     prompts: Union[str, List[str]] = ConfigField(
         title="Prompts",
         description="Prompt sequences for DNA sequence generation (single prompt or multiple)",
-    )
-    num_tokens: int = ConfigField(
-        ge=1,
-        title="Num Tokens",
-        description="Number of tokens to generate after prompt",
     )
     model_checkpoint: EVO2_MODEL_CHECKPOINTS = ConfigField(
         default="evo2_7b",
@@ -208,11 +199,14 @@ class Evo2Generator(Generator):
     The generator type is ``GeneratorType.AUTOREGRESSIVE``, indicating sequences
     are generated token-by-token from left to right.
 
+    The number of tokens to generate is automatically calculated based on the
+    assigned segment's sequence_length, prompt length, and prepend_prompt setting.
+
     Attributes:
         prompts (Union[str, List[str]]): Prompt sequences for generation.
         model_checkpoint (str): Evo2 model checkpoint name.
         temperature (float): Sampling temperature for diversity control.
-        num_tokens (int): Number of tokens to generate per sequence.
+        num_tokens (int): Number of tokens to generate (calculated dynamically on assign).
         kv_caches (List[Dict]): Stored KV caches when ``store_kv_cache=True``.
         type (GeneratorType): Set to ``GeneratorType.AUTOREGRESSIVE``.
 
@@ -221,12 +215,12 @@ class Evo2Generator(Generator):
         >>> from proto_language.language.core import Segment, SequenceType
         >>> config = Evo2GeneratorConfig(
         ...     prompts="ATG",
-        ...     num_tokens=1000,
         ...     temperature=0.8
         ... )
         >>> gen = Evo2Generator(config)
-        >>> segment = Segment(sequence="", sequence_type=SequenceType.DNA)
-        >>> gen.assign(segment)
+        >>> # Segment length determines how many tokens to generate
+        >>> segment = Segment(sequence_length=1003, sequence_type=SequenceType.DNA)
+        >>> gen.assign(segment)  # num_tokens = 1003 - 3 = 1000
         >>> gen.sample()  # Generates DNA sequences
     """
 
@@ -247,7 +241,6 @@ class Evo2Generator(Generator):
         self.top_k = config.top_k
         self.top_p = config.top_p
         self.temperature = config.temperature
-        self.num_tokens = config.num_tokens
         self.force_prompt_threshold = config.force_prompt_threshold
         self.max_seqlen = config.max_seqlen
         self.stop_at_eos = config.stop_at_eos
@@ -257,17 +250,25 @@ class Evo2Generator(Generator):
         self.store_kv_cache = config.store_kv_cache
         self.prepend_prompt = config.prepend_prompt
         self.type = GeneratorType.AUTOREGRESSIVE
-
-        # store old KV caches for cached generation
-        self.kv_caches: List[Dict] = []
+        self.num_tokens: Optional[int] = None # num_tokens will be calculated dynamically on assign()
+        self.kv_caches: List[Dict] = [] # store old KV caches for cached generation
 
     def assign(self, assigned_segment: Segment) -> None:
         """
         Assign a Segment to this generator.
 
-        If starting sequence is provided, warn user it will be overwritten by sample().
+        Dynamically calculates num_tokens based on segment.sequence_length and prepend_prompt setting.
         """
         super().assign(assigned_segment)
+
+        prompt_length = len(self.prompts[0]) if isinstance(self.prompts, list) else len(self.prompts)
+        
+        # Calculate num_tokens according to sequence_length and prepend_prompt
+        self.num_tokens = (assigned_segment.sequence_length - prompt_length) if self.prepend_prompt else assigned_segment.sequence_length
+        
+        if self.num_tokens < 1:
+            raise ValueError(f"Must increase segment length (currently {assigned_segment.sequence_length})")
+
         self._assigned_segment = assigned_segment
         self._assigned_segment._is_assigned = True
 

@@ -85,6 +85,7 @@ api = [
 
     # AI agents
     "openai",
+    "duckduckgo-search",
 
     # Structure visualization
     "py3Dmol>=2.0.0",

@@ -96,8 +96,9 @@ class TestESM2Generator:
             )
         )
 
-        # Create segment and expand candidate pool
-        segment = Segment(starting_sequence_or_desired_length=15, sequence_type=SequenceType.PROTEIN)
+        # Create segment with starting sequence for mutation-based sampling
+        starting_seq = "MKKLLVVGGGGAAAA"  # 15 amino acids
+        segment = Segment(starting_sequence_or_desired_length=starting_seq, sequence_type=SequenceType.PROTEIN)
         segment.create_candidates(num_candidates)
         esm2_generator.assign(segment)
         

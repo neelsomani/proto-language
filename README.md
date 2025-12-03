@@ -16,7 +16,6 @@ A framework for designing biological sequences (DNA, RNA, proteins) with constra
 conda create --name proto-language python=3.12 -y
 conda activate proto-language
 conda install -c conda-forge -c bioconda -c nvidia mmseqs2 blast cuda-nvcc cuda-cudart-dev transformer-engine-torch=2.3.0 -y
-git submodule update --init --recursive
 ```
 2. Install as an editable package:
 

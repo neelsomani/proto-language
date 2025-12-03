@@ -40,7 +40,14 @@ git submodule update --init --recursive
     uv pip install -e .[all]
     uv pip install flash-attn==2.8.0.post2 --no-build-isolation
     pip install evo2
-    ```    
+    ```
+
+
+> [!NOTE]
+> ProteinMPNN requires the following, but this is incompatible with Evo2 due to conflicts:
+> ```bash
+> uv pip install "jax[cuda12_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+> ```
 
 
 ## Running the API

@@ -2,23 +2,16 @@
 Tests for Protein Symmetry Ring constraint.
 """
 
-import pytest
 from unittest.mock import patch
-
+from tests.helpers.mock_structure import MockProteinStructure
 import pandas as pd
 from proto_language.language.core import Constraint, SequenceType, Segment
-from proto_language.language.constraint import (
-    protein_symmetry_ring_constraint,
-    ConstraintRegistry,
-)
+from proto_language.language.constraint import protein_symmetry_ring_constraint
 from proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint import (
     ProteinSymmetryRingConfig,
 )
 from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionOutput,
-)
-from proto_language.tools.structure_prediction.esmfold import (
-    ESMFoldStructure,
 )
 from proto_language.tools.orf_prediction.prodigal import (
     ProdigalOutput,
@@ -66,10 +59,9 @@ class TestProteinSymmetryRingConstraint:
             "proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
         ) as mock_run:
             # Create mock structure
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.9
-            mock_structure.structure_pdb_output = mock_pdb
+            mock_structure = MockProteinStructure(structure_content=mock_pdb)
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", 0.9)
 
             # Create mock output with structures list
             mock_output = Mock(spec=StructurePredictionOutput)
@@ -106,10 +98,9 @@ class TestProteinSymmetryRingConstraint:
         mock_prodigal_output.total_num_genes_per_sequence = [1]
 
         # Mock the ESMFold output
-        mock_structure = Mock(spec=ESMFoldStructure)
-        mock_structure.avg_plddt = 0.9
-        mock_structure.ptm = 0.9
-        mock_structure.structure_pdb_output = mock_pdb
+        mock_structure = MockProteinStructure(structure_content=mock_pdb)
+        mock_structure.add_metric("avg_plddt", 0.9)
+        mock_structure.add_metric("ptm", 0.9)
 
         # Create mock output with structures list
         mock_structure_prediction_output = Mock(spec=StructurePredictionOutput)
@@ -156,10 +147,9 @@ ATOM      5  CA  ALA E   1      -5.000   0.000   0.000  1.00 90.00           C""
             "proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
         ) as mock_run:
             # Create mock structure
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.9
-            mock_structure.structure_pdb_output = mock_pdb
+            mock_structure = MockProteinStructure(structure_content=mock_pdb)
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", 0.9)
 
             # Create mock output with structures list
             mock_output = Mock(spec=StructurePredictionOutput)

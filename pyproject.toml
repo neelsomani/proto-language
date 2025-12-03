@@ -28,6 +28,7 @@ dependencies = [
     # Bioinformatics
     "biopython>=1.81",
     "biotite>=0.38.0",
+    "gemmi",
 
     # Infrastructure
     "torch>=2.0.0",
@@ -64,6 +65,9 @@ gpu = [
     "esm @ git+https://github.com/bviggiano/esm.git@fix/178",  # See: https://github.com/evolutionaryscale/esm/issues/178
     "borzoi-pytorch",
     "enformer-pytorch",
+
+    # Inverse folding
+    #"colabdesign @ git+https://github.com/sokrypton/ColabDesign.git@v1.1.1", # REMOVED FOR NOW DUE TO CONFLICTS WITH EVO2
 ]
 
 # API dependencies

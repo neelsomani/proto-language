@@ -12,12 +12,13 @@ from proto_language.language.constraint.protein_structure.protein_globularity_co
     ProteinGlobularityConfig,
 )
 from proto_language.tools.structure_prediction import (
-    ESMFoldStructure,
     StructurePredictionOutput,
 )
+from proto_language.tools.structures import ProteinStructure, BFactorType
 from proto_language.tools.orf_prediction.prodigal import (
     ProdigalOutput,
 )
+from tests.helpers.mock_structure import MockProteinStructure
 
 
 mock_pdb = """ATOM      1  N   MET A   1       0.000   0.000   0.000  1.00 90.00           N
@@ -59,14 +60,26 @@ class TestProteinGlobularityConstraint:
         # Mock a compact globular structure (low std of distances)
         with patch('proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold') as mock_run:
             # Create mock structure with PDB output
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.9
-            mock_structure.structure_pdb_output = mock_pdb
+            mock_structure = MockProteinStructure(
+                structure_content=mock_pdb,
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+                metrics={
+                    "avg_plddt": 0.9,
+                    "ptm": 0.9,
+                },
+            )
 
             # Create mock output with structures list
-            mock_output = Mock(spec=StructurePredictionOutput)
-            mock_output.structures = [mock_structure]
+            mock_output = StructurePredictionOutput(
+                tool_id="esmfold-prediction",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
             mock_run.return_value = mock_output
 
             constraint = Constraint(
@@ -99,15 +112,21 @@ class TestProteinGlobularityConstraint:
         mock_prodigal_output.total_num_genes_per_sequence = [1]
 
         # Mock the ESMFold output
-        mock_structure = Mock(spec=ESMFoldStructure)
-        mock_structure.avg_plddt = 0.9
-        mock_structure.ptm = 0.9
-        mock_structure.structure_pdb_output = mock_pdb
-
-        # Create mock output with structures list
-        mock_structure_prediction_output = Mock(spec=StructurePredictionOutput)
-        mock_structure_prediction_output.structures = [mock_structure]
-
+        mock_structure = MockProteinStructure(
+            structure_content=mock_pdb,
+            structure_format="pdb",
+            b_factor_type=BFactorType.NORMALIZED_PLDDT,
+            source="esmfold-prediction",
+            metrics={"avg_plddt": 0.9, "ptm": 0.9},
+        )
+        mock_structure_prediction_output = StructurePredictionOutput(
+            tool_id="esmfold-prediction",
+            execution_time=0.0,
+            success=True,
+            structures=[mock_structure],
+            warnings=[],
+            metadata={},
+        )
         with (
             patch(
                 "proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_prodigal_prediction"
@@ -137,15 +156,22 @@ class TestProteinGlobularityConstraint:
         config = ProteinGlobularityConfig(n_replications=3)
         with patch('proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold') as mock_run:
             # Create mock structure
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.9
-            mock_structure.structure_pdb_output = mock_pdb
-
-            # Create mock output with structures list
-            mock_output = Mock(spec=StructurePredictionOutput)
-            mock_output.structures = [mock_structure]
-            mock_run.return_value = mock_output
+            mock_structure = MockProteinStructure(
+                structure_content=mock_pdb,
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+                metrics={"avg_plddt": 0.9, "ptm": 0.9},
+            )
+            mock_structure_prediction_output = StructurePredictionOutput(
+                tool_id="esmfold-prediction",
+                execution_time=0.0,
+                success=True,
+                structures=[mock_structure],
+                warnings=[],
+                metadata={},
+            )
+            mock_run.return_value = mock_structure_prediction_output
 
             constraint = Constraint(
                 inputs=[segment],

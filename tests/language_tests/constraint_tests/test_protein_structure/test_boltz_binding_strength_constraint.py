@@ -11,95 +11,96 @@ from proto_language.language.constraint.protein_structure.boltz_binding_strength
     DEFAULT_DESIRED_HIGHER,
 )
 from proto_language.tools.structure_prediction import (
-    BoltzStructure,
     StructurePredictionOutput,
 )
-from unittest.mock import patch
+from proto_language.tools.structures import ProteinStructure, BFactorType
+from unittest.mock import Mock, patch
 
+from tests.helpers.mock_structure import MockProteinStructure
 
+mock_protein_protein_ligand_structure = MockProteinStructure(
+    structure_format="cif",
+    b_factor_type=BFactorType.PLDDT,
+    source="boltz-prediction",
+    metrics={
+        "confidence_score": 0.7753927111625671,
+        "ptm": 0.8913218975067139,
+        "iptm": 0.8530166149139404,
+        "ligand_iptm": 0.867040753364563,
+        "protein_iptm": 0.8485115766525269,
+        "complex_plddt": 0.755986750125885,
+        "complex_iplddt": 0.7038567662239075,
+        "complex_pde": 0.34867003560066223,
+        "complex_ipde": 0.5199494361877441,
+        "chains_ptm": [0.9603453874588013, 0.9573644995689392, 0.8839606046676636],
+        "pair_chains_iptm": [
+            [0.9603453874588013, 0.8485115766525269, 0.4917132258415222],
+            [0.8294212222099304, 0.9573644995689392, 0.4966408908367157],
+            [0.857824444770813, 0.867040753364563, 0.8839606046676636],
+        ],
+    },
+)
 mock_protein_protein_ligand_output = StructurePredictionOutput(
     tool_id="boltz-prediction",
     execution_time=0.0,
     success=True,
-    structures=[
-        BoltzStructure(
-            structure_cif="mock_structure.cif",
-            num_residues=60,
-            num_chains=3,
-            confidence_score=0.7753927111625671,
-            ptm=0.8913218975067139,
-            iptm=0.8530166149139404,
-            ligand_iptm=0.867040753364563,
-            protein_iptm=0.8485115766525269,
-            complex_plddt=0.755986750125885,
-            complex_iplddt=0.7038567662239075,
-            complex_pde=0.34867003560066223,
-            complex_ipde=0.5199494361877441,
-            chains_ptm=[0.9603453874588013, 0.9573644995689392, 0.8839606046676636],
-            pair_chains_iptm=[
-                [0.9603453874588013, 0.8485115766525269, 0.4917132258415222],
-                [0.8294212222099304, 0.9573644995689392, 0.4966408908367157],
-                [0.857824444770813, 0.867040753364563, 0.8839606046676636],
-            ],
-        )
-    ],
+    structures=[mock_protein_protein_ligand_structure],
     warnings=[],
     metadata={},
 )
 
 
+mock_protein_protein_structure = MockProteinStructure(
+    structure_format="cif",
+    b_factor_type=BFactorType.PLDDT,
+    source="boltz-prediction",
+    metrics={
+        "confidence_score": 0.7753927111625671,
+        "ptm": 0.8913218975067139,
+        "iptm": 0.8530166149139404,
+        "protein_iptm": 0.8485115766525269,
+        "complex_plddt": 0.755986750125885,
+        "complex_iplddt": 0.7038567662239075,
+        "complex_pde": 0.34867003560066223,
+        "complex_ipde": 0.5199494361877441,
+        "chains_ptm": [0.9603453874588013, 0.9573644995689392],
+        "pair_chains_iptm": [
+            [0.9603453874588013, 0.8485115766525269],
+            [0.8294212222099304, 0.9573644995689392],
+        ],
+    },
+)
 mock_protein_protein_output = StructurePredictionOutput(
     tool_id="boltz-prediction",
     execution_time=0.0,
     success=True,
-    structures=[
-        BoltzStructure(
-            structure_cif="mock_structure.cif",
-            num_residues=40,
-            num_chains=2,
-            confidence_score=0.7753927111625671,
-            ptm=0.8913218975067139,
-            iptm=0.8530166149139404,
-            protein_iptm=0.8485115766525269,
-            complex_plddt=0.755986750125885,
-            complex_iplddt=0.7038567662239075,
-            complex_pde=0.34867003560066223,
-            complex_ipde=0.5199494361877441,
-            chains_ptm=[0.9603453874588013, 0.9573644995689392],
-            pair_chains_iptm=[
-                [0.9603453874588013, 0.8485115766525269],
-                [0.8294212222099304, 0.9573644995689392],
-            ],
-        )
-    ],
+    structures=[mock_protein_protein_structure],
     warnings=[],
     metadata={},
 )
 
-
+mock_monomer_structure = MockProteinStructure(
+    structure_format="cif",
+    b_factor_type=BFactorType.PLDDT,
+    source="boltz-prediction",
+    metrics={
+        "confidence_score": 0.7753927111625671,
+        "ptm": 0.8913218975067139,
+        "iptm": 0.8530166149139404,
+        "protein_iptm": 0.8485115766525269,
+        "complex_plddt": 0.755986750125885,
+        "complex_iplddt": 0.7038567662239075,
+        "complex_pde": 0.34867003560066223,
+        "complex_ipde": 0.5199494361877441,
+        "chains_ptm": [0.9603453874588013],
+        "pair_chains_iptm": [[0.9603453874588013]],
+    },
+)
 mock_monomer_output = StructurePredictionOutput(
     tool_id="boltz-prediction",
     execution_time=0.0,
     success=True,
-    structures=[
-        BoltzStructure(
-            structure_cif="mock_structure.cif",
-            num_residues=20,
-            num_chains=1,
-            confidence_score=0.7753927111625671,
-            ptm=0.8913218975067139,
-            iptm=0.8530166149139404,
-            protein_iptm=0.8485115766525269,
-            complex_plddt=0.755986750125885,
-            complex_iplddt=0.7038567662239075,
-            complex_pde=0.34867003560066223,
-            complex_ipde=0.5199494361877441,
-            chains_ptm=[0.9603453874588013],
-            pair_chains_iptm=[
-                [0.9603453874588013],
-            ],
-        )
-    ],
+    structures=[mock_monomer_structure],
     warnings=[],
     metadata={},
 )

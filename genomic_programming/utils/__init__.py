@@ -12,16 +12,6 @@ from .helpers import (
     calculate_normalized_deviation,
     # Metadata
     propagate_metadata,
-    # Structure
-    pdb_file_to_atomarray,
-    get_atomarray_in_residue_range,
-    pairwise_distances,
-    adjacent_distances,
-    get_centroid,
-    distances_to_centroid,
-    get_backbone_atoms,
-    convert_pdb_str_to_cif_str,
-    convert_cif_str_to_pdb_str,
     # Tool utilities
     mask_k,
     mask_p,
@@ -55,16 +45,6 @@ __all__ = [
     "calculate_normalized_deviation",
     # Metadata
     "propagate_metadata",
-    # Structure
-    "pdb_file_to_atomarray",
-    "get_atomarray_in_residue_range",
-    "pairwise_distances",
-    "adjacent_distances",
-    "get_centroid",
-    "distances_to_centroid",
-    "get_backbone_atoms",
-    "convert_pdb_str_to_cif_str",
-    "convert_cif_str_to_pdb_str",
     # Compute
     "use_cloud_gpu",
     "is_gpu_available",

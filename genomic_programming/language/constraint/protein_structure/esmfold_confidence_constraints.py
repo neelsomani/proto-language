@@ -330,7 +330,7 @@ def _predict_structures(
             {
                 "avg_plddt": structure.avg_plddt,
                 "ptm": structure.ptm,
-                "pdb_output": structure.structure_pdb_output,
+                "pdb_output": structure.structure_pdb,
                 "esmfolded_sequence": ":".join(comp.chains),
             }
         )

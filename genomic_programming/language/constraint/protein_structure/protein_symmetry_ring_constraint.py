@@ -26,14 +26,14 @@ from proto_language.tools.orf_prediction.prodigal import (
     ProdigalInput,
     ProdigalConfig,
 )
-from proto_language.utils import (
+from proto_language.tools.structures.utils import (
     adjacent_distances,
     get_backbone_atoms,
     get_centroid,
     pairwise_distances,
     pdb_file_to_atomarray,
-    MAX_ENERGY,
 )
+from proto_language.utils import MAX_ENERGY
 
 
 class ProteinSymmetryRingConfig(BaseConfig):
@@ -244,15 +244,17 @@ def _evaluate_protein_symmetry(
     # Update sequence metadata with ESMFold output and calculate scores for each sequence
     scores = []
     for seq, structure in zip(protein_sequences, output.structures):
-        seq._metadata.update({
-            "avg_plddt": structure.avg_plddt,
-            "ptm": structure.ptm,
-            "pdb_output": structure.structure_pdb_output,
-            "esmfolded_sequence": ":".join([seq.sequence] * config.n_replications),
-        })
+        seq._metadata.update(
+            {
+                "avg_plddt": structure.avg_plddt,
+                "ptm": structure.ptm,
+                "pdb_output": structure.structure_pdb,
+                "esmfolded_sequence": ":".join([seq.sequence] * config.n_replications),
+            }
+        )
 
         # Calculate ring symmetry
-        atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb_output))
+        atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
 
         centroids = []
         for chain_id in get_chains(atom_array):
@@ -318,7 +320,7 @@ def _evaluate_dna_symmetry(
         # Calculate symmetry for all proteins, use best (lowest std)
         symmetry_stds = []
         for structure in esmfold_output.structures:
-            atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb_output))
+            atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
             centroids = []
             for chain_id in get_chains(atom_array):
                 chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord

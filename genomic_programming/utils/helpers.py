@@ -5,18 +5,9 @@ This module provides utilities for metadata management and structural/geometric
 calculations used across the proto-language framework.
 """
 from __future__ import annotations
-import io
 import random
 import subprocess
-import warnings
-from io import StringIO
-from typing import Any, Dict, List, Optional, Union
-
-import numpy as np
-from Bio.PDB import MMCIFIO, MMCIFParser, PDBParser, PDBIO
-from Bio.PDB.PDBExceptions import PDBConstructionWarning
-from biotite.structure import AtomArray
-from biotite.structure.io.pdb import PDBFile
+from typing import Any, Dict, List, Optional
 
 
 # =============================================================================
@@ -133,137 +124,6 @@ def propagate_metadata(
         if key not in system_keys:
             final_key = f"{prefix}.{key}" if prefix else key
             target_metadata[final_key] = value
-
-
-# =============================================================================
-# STRUCTURE AND GEOMETRY UTILITIES
-# =============================================================================
-
-
-def pdb_file_to_atomarray(pdb_path: Union[str, StringIO]) -> AtomArray:
-    """Convert a PDB file to a Biotite AtomArray."""
-    return PDBFile.read(pdb_path).get_structure(model=1)
-
-
-def get_atomarray_in_residue_range(atoms: AtomArray, start: int, end: int) -> AtomArray:
-    """Extract atoms within a specific residue range."""
-    return atoms[np.logical_and(atoms.res_id >= start, atoms.res_id < end)]
-
-
-def _is_Nx3(array: np.ndarray) -> bool:
-    """Check if array is Nx3 shaped."""
-    return len(array.shape) == 2 and array.shape[1] == 3
-
-
-def pairwise_distances(coordinates: np.ndarray) -> np.ndarray:
-    """Calculate pairwise distances between all coordinates."""
-    assert _is_Nx3(coordinates), "Coordinates must be Nx3."
-    m = coordinates[:, np.newaxis, :] - coordinates[np.newaxis, :, :]
-    distance_matrix = np.linalg.norm(m, axis=-1)
-    return distance_matrix[np.triu_indices(distance_matrix.shape[0], k=1)]
-
-
-def adjacent_distances(coordinates: np.ndarray) -> np.ndarray:
-    """Calculate distances between adjacent coordinates."""
-    assert _is_Nx3(coordinates), "Coordinates must be Nx3."
-    m = coordinates - np.roll(coordinates, shift=1, axis=0)
-    return np.linalg.norm(m, axis=-1)
-
-
-def get_centroid(coordinates: np.ndarray) -> np.ndarray:
-    """Calculate the centroid of coordinates."""
-    assert _is_Nx3(coordinates), "Coordinates must be Nx3."
-    return coordinates.mean(axis=0).reshape(1, 3)
-
-
-def distances_to_centroid(coordinates: np.ndarray) -> np.ndarray:
-    """
-    Computes the distances from each of the coordinates to the
-    centroid of all coordinates.
-    """
-    assert _is_Nx3(coordinates), "Coordinates must be Nx3."
-    centroid = get_centroid(coordinates)
-    m = coordinates - centroid
-    return np.linalg.norm(m, axis=-1)
-
-
-def get_backbone_atoms(atoms: AtomArray) -> AtomArray:
-    """Extract backbone atoms (CA, N, C) from an AtomArray."""
-    return atoms[
-        (atoms.atom_name == "CA") | (atoms.atom_name == "N") | (atoms.atom_name == "C")
-    ]
-
-
-def convert_pdb_str_to_cif_str(pdb_content: str) -> str:
-    """
-    Converts a structure from PDB format to mmCIF format.
-
-    Args:
-        pdb_content: Structure content in PDB format
-
-    Returns:
-        Structure in mmCIF format (empty string if input is empty)
-    """
-    if not pdb_content.strip():
-        return ""
-
-    # Use a PDBParser to read the PDB-formatted string.
-    # We wrap the string in a StringIO object to make it behave like a file.
-    parser = PDBParser(QUIET=True)
-    pdb_handle = io.StringIO(pdb_content)
-
-    # Suppress common warnings about discontinuous chains, etc.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", PDBConstructionWarning)
-        structure = parser.get_structure("protein_structure", pdb_handle)
-
-    # Use MMCIFIO to write the parsed structure object to a CIF-formatted string
-    cif_io = MMCIFIO()
-    cif_io.set_structure(structure)
-
-    output_handle = io.StringIO()
-    cif_io.save(output_handle)
-
-    # Retrieve the string value from the output handle
-    cif_content = output_handle.getvalue()
-
-    return cif_content
-
-
-def convert_cif_str_to_pdb_str(cif_content: str) -> str:
-    """
-    Converts a structure from mmCIF format to PDB format.
-
-    Args:
-        cif_content: Structure content in mmCIF format
-
-    Returns:
-        Structure in PDB format (empty string if input is empty)
-    """
-    if not cif_content.strip():
-        return ""
-
-    # Use an MMCIFParser to read the CIF-formatted string.
-    # We wrap the string in a StringIO object to make it behave like a file.
-    parser = MMCIFParser(QUIET=True)
-    cif_handle = io.StringIO(cif_content)
-
-    # Suppress common warnings about discontinuous chains, etc.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", PDBConstructionWarning)
-        structure = parser.get_structure("protein_structure", cif_handle)
-
-    # Use PDBIO to write the parsed structure object to a PDB-formatted string
-    pdb_io = PDBIO()
-    pdb_io.set_structure(structure)
-
-    output_handle = io.StringIO()
-    pdb_io.save(output_handle)
-
-    # Retrieve the string value from the output handle
-    pdb_content = output_handle.getvalue()
-
-    return pdb_content
 
 
 # =============================================================================

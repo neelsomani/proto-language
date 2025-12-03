@@ -22,10 +22,10 @@ from proto_language.language.constraint.protein_structure.esmfold_confidence_con
 )
 from proto_language.tools.structure_prediction import (
     ESMFoldConfig,
-    ESMFoldStructure,
     StructurePredictionOutput,
 )
-
+from proto_language.tools.structures import ProteinStructure, BFactorType
+from tests.helpers.mock_structure import MockProteinStructure, MOCK_PDB
 
 class TestESMFoldPLDDTConstraint:
     """Tests for ESMFold pLDDT constraint."""
@@ -48,10 +48,13 @@ class TestESMFoldPLDDTConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = avg_plddt
-            mock_structure.ptm = 0.9
-            mock_structure.structure_pdb_output = "MOCK PDB"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", avg_plddt)
+            mock_structure.add_metric("ptm", 0.9)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -82,10 +85,13 @@ class TestESMFoldPLDDTConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.9
-            mock_structure.structure_pdb_output = "MOCK PDB"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", 0.9)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -137,10 +143,13 @@ class TestESMFoldPLDDTConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.9
-            mock_structure.structure_pdb_output = "MOCK PDB"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", 0.9)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -179,10 +188,13 @@ class TestESMFoldPLDDTConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.85
-            mock_structure.structure_pdb_output = "MOCK PDB"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", 0.85)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -224,10 +236,13 @@ class TestESMFoldPLDDTConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.92
-            mock_structure.ptm = 0.88
-            mock_structure.structure_pdb_output = "MOCK PDB OUTPUT"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.92)
+            mock_structure.add_metric("ptm", 0.88)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -254,7 +269,7 @@ class TestESMFoldPLDDTConstraint:
             assert f"{prefix}avg_plddt" in metadata
             assert metadata[f"{prefix}avg_plddt"] == 0.92
             assert metadata[f"{prefix}ptm"] == 0.88
-            assert metadata[f"{prefix}pdb_output"] == "MOCK PDB OUTPUT"
+            assert metadata[f"{prefix}pdb_output"] == MOCK_PDB
             assert metadata[f"{prefix}esmfolded_sequence"] == "MKTAYIAK"
 
 
@@ -279,10 +294,13 @@ class TestESMFoldPTMConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = ptm
-            mock_structure.structure_pdb_output = "MOCK PDB"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", ptm)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -313,10 +331,13 @@ class TestESMFoldPTMConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.85
-            mock_structure.structure_pdb_output = "MOCK PDB"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", 0.85)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -358,10 +379,13 @@ class TestESMFoldPTMConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.9
-            mock_structure.ptm = 0.85
-            mock_structure.structure_pdb_output = "MOCK PDB"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.9)
+            mock_structure.add_metric("ptm", 0.85)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -400,10 +424,13 @@ class TestESMFoldPTMConstraint:
             "proto_language.language.constraint.protein_structure.esmfold_confidence_constraints.run_esmfold"
         ) as mock_esmfold:
             # Create mock structure with avg_plddt and ptm
-            mock_structure = Mock(spec=ESMFoldStructure)
-            mock_structure.avg_plddt = 0.92
-            mock_structure.ptm = 0.88
-            mock_structure.structure_pdb_output = "MOCK PDB OUTPUT"
+            mock_structure = MockProteinStructure(
+                structure_format="pdb",
+                b_factor_type=BFactorType.NORMALIZED_PLDDT,
+                source="esmfold-prediction",
+            )
+            mock_structure.add_metric("avg_plddt", 0.92)
+            mock_structure.add_metric("ptm", 0.88)
 
             # Create mock output with structures list
             mock_output = StructurePredictionOutput(
@@ -430,5 +457,5 @@ class TestESMFoldPTMConstraint:
             assert f"{prefix}avg_plddt" in metadata
             assert metadata[f"{prefix}avg_plddt"] == 0.92
             assert metadata[f"{prefix}ptm"] == 0.88
-            assert metadata[f"{prefix}pdb_output"] == "MOCK PDB OUTPUT"
+            assert metadata[f"{prefix}pdb_output"] == MOCK_PDB
             assert metadata[f"{prefix}esmfolded_sequence"] == "MKTAYIAK"

@@ -18,12 +18,12 @@ from proto_language.tools.structure_prediction import (
     ESMFoldInput,
     ESMFoldConfig,
 )
-from proto_language.utils import (
+from proto_language.tools.structures.utils import (
     distances_to_centroid,
     get_backbone_atoms,
     pdb_file_to_atomarray,
-    MAX_ENERGY
 )
+from proto_language.utils import MAX_ENERGY
 from proto_language.tools.structure_prediction.esmfold import (
     run_esmfold,
     ESMFoldInput,
@@ -225,13 +225,13 @@ def _evaluate_protein_globularity(
             {
                 "avg_plddt": structure.avg_plddt,
                 "ptm": structure.ptm,
-                "pdb_output": structure.structure_pdb_output,
+                "pdb_output": structure.structure_pdb,
                 "esmfolded_sequence": comp.chains,
             }
         )
 
         # Calculate globularity from structure
-        atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb_output))
+        atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
         backbone = get_backbone_atoms(atom_array).coord
         globularity_score = float(np.std(distances_to_centroid(backbone)))
 
@@ -286,7 +286,7 @@ def _evaluate_dna_globularity(
         # Calculate globularity for all proteins, use best (lowest std)
         globularities = []
         for structure in esmfold_output.structures:
-            atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb_output))
+            atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
             backbone = get_backbone_atoms(atom_array).coord
             globularities.append(float(np.std(distances_to_centroid(backbone))))
 

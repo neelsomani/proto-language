@@ -87,7 +87,8 @@ api = [
 
     # AI agents
     "openai",
-    "openai-agents",
+    "openai-agents[litellm]",
+    "litellm",
     "duckduckgo-search",
     "rank-bm25",
     "httpx",

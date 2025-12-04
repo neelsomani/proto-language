@@ -97,6 +97,7 @@ api = [
     "rank-bm25",
     "httpx",
     "jsonpatch",
+    "jsonpointer",
 
     # Structure visualization
     "py3Dmol>=2.0.0",

@@ -188,7 +188,7 @@ class TopKOptimizer(Optimizer):
         config: TopKOptimizerConfig,
         constraint_weights: Optional[List[float]] = None,
         custom_logging: Optional[Callable] = None,
-        clear_tool_cache: bool | List[str] = True,
+        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
     ) -> None:
         """
         Initialize the TopK Optimizer.
@@ -200,7 +200,8 @@ class TopKOptimizer(Optimizer):
             config: Configuration object containing algorithm parameters.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
             custom_logging: Optional custom logging function called after each round.
-            clear_tool_cache: (bool) Whether to clear the tool cache on each iteration.
+            clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
+                              (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
 
         Raises:

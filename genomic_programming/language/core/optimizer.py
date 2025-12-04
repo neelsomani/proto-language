@@ -49,7 +49,7 @@ class Optimizer(ABC):
         num_candidates: int,
         num_selected: int,
         constraint_weights: Optional[List[float]] = None,
-        clear_tool_cache: bool | List[str] = True,
+        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
     ) -> None:
         """
         Initialize the Optimizer with dual-pool semantics.
@@ -61,7 +61,8 @@ class Optimizer(ABC):
             num_candidates: Number of candidate proposals to generate per iteration.
             num_selected: Number of sequences to select and maintain as results.
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
-            clear_tool_cache: (bool) Whether to clear the tool cache on each iteration.
+            clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
+                              (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
         """
         self.constructs = constructs
@@ -251,15 +252,35 @@ class Optimizer(ABC):
         return full_scores
 
     def _clear_tool_cache(self) -> None:
-        """Clear tool cache based on clear_tool_cache configuration."""
-        if self.clear_tool_cache:
-            if isinstance(self.clear_tool_cache, bool):
-                self.tool_cache.clear()
-            elif isinstance(self.clear_tool_cache, list):
-                for tool in self.clear_tool_cache:
-                    self.tool_cache.clear(tool)
-            else:
-                raise ValueError(f"Invalid type of clear_tool_cache: {type(self.clear_tool_cache)}")
+        """
+        Clear tool cache based on configuration.
+
+        Config Behavior:
+        - int: Clear cache if size (in bytes) exceeds this threshold.
+        - bool (True): Clear entire cache.
+        - List[str]: Clear specific tools in list.
+        """
+        if not self.clear_tool_cache:
+            return
+
+        # Case 1: Byte threshold (int).
+        if isinstance(self.clear_tool_cache, int) and not isinstance(self.clear_tool_cache, bool):
+            threshold_bytes = self.clear_tool_cache
+
+            if self.tool_cache.current_size > threshold_bytes:
+                self.tool_cache.prune(threshold_bytes)
+
+        # Case 2: Clear all (bool).
+        elif isinstance(self.clear_tool_cache, bool):
+            self.tool_cache.clear()
+
+        # Case 3: Clear all for specific tools (List[str]).
+        elif isinstance(self.clear_tool_cache, list):
+            for tool in self.clear_tool_cache:
+                self.tool_cache.clear(tool)
+
+        else:
+            raise ValueError(f"Invalid type of clear_tool_cache: {type(self.clear_tool_cache)}")
 
     def _validate_optimizer(self) -> None:
         """

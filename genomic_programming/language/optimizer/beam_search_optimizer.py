@@ -154,7 +154,7 @@ class BeamSearchOptimizer(Optimizer):
         config: BeamSearchOptimizerConfig,
         constraint_weights: Optional[List[float]] = None,
         custom_logging: Optional[Callable] = None,
-        clear_tool_cache: bool | List[str] = True,
+        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
     ) -> None:
         """
         Initialize the Beam Search Optimizer.
@@ -166,7 +166,8 @@ class BeamSearchOptimizer(Optimizer):
             config: Configuration object containing algorithm parameters (prompt, beam_width, candidates_per_beam, etc.).
             constraint_weights: Optional weights for constraints. If None, all weights are 1.0.
             custom_logging: Optional custom logging function called after each segment.
-            clear_tool_cache: (bool) Whether to clear the tool cache on each iteration.
+            clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
+                              (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
         """
         # Validate that we have exactly one construct and one generator

@@ -1,3 +1,4 @@
+import copy
 import pytest
 import time
 
@@ -49,7 +50,7 @@ class TestEvo2Generator:
 
         # Create segment and expand candidate pool
         segment = Segment(starting_sequence_or_desired_length=expected_length, sequence_type=SequenceType.DNA)
-        segment.create_candidates(len(prompts))
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
         evo2_generator.assign(segment)
 
         assert evo2_generator._assigned_segment is segment
@@ -75,7 +76,7 @@ class TestEvo2Generator:
 
         # Should raise error if number of prompts doesn't match segment candidates
         segment_two_candidates = Segment(starting_sequence_or_desired_length=expected_length, sequence_type=SequenceType.DNA)
-        segment_two_candidates.create_candidates(2)
+        segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
         evo2_generator.assign(segment_two_candidates)
         
         with pytest.warns(UserWarning, match="Number of prompts"):

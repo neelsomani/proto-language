@@ -1,3 +1,4 @@
+import copy
 import pytest
 
 from proto_language.language.core import Segment, SequenceType
@@ -99,8 +100,8 @@ class TestESM2Generator:
         # Create segment with starting sequence for mutation-based sampling
         starting_seq = "MKKLLVVGGGGAAAA"  # 15 amino acids
         segment = Segment(starting_sequence_or_desired_length=starting_seq, sequence_type=SequenceType.PROTEIN)
-        segment.create_candidates(num_candidates)
         esm2_generator.assign(segment)
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(num_candidates)]
 
         assert len(segment.candidate_sequences) == num_candidates
 
@@ -111,19 +112,6 @@ class TestESM2Generator:
             assert segment.candidate_sequences[i].sequence is not None
             assert len(segment.candidate_sequences[i].sequence) == 15
             assert segment.candidate_sequences[i].sequence_type == SequenceType.PROTEIN
-
-    def test_esm2_assign_errors(self):
-        """Test error conditions during Segment creation."""
-        esm2_generator = ESM2Generator(
-            ESM2GeneratorConfig(
-                model_checkpoint="esm2_t33_650M_UR50D",
-                num_mutations=1,
-            )
-        )
-
-        # This test is no longer relevant with the new API - the parameter type determines behavior
-        # No need to test mismatched sequence and length since they're now mutually exclusive
-        pass
 
     def test_constant_segment_rejection(self):
         """Tests that generators reject constant segments during assign()."""

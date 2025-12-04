@@ -1,5 +1,6 @@
 from __future__ import annotations
 import pytest
+import copy
 from typing import Tuple
 
 from pydantic import BaseModel
@@ -28,7 +29,7 @@ class MockConstraintConfig(BaseModel):
 def _make_segment_with_candidates(sequences: list[str], seq_type: SequenceType = SequenceType.DNA) -> Segment:
     """Helper to create a segment with multiple candidate sequences for testing."""
     segment = Segment(starting_sequence_or_desired_length=sequences[0], sequence_type=seq_type)
-    segment.create_candidates(len(sequences))
+    segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(sequences))]
     for i, seq_str in enumerate(sequences):
         segment.candidate_sequences[i].sequence = seq_str
     return segment
@@ -54,7 +55,7 @@ def test_segment_batching():
     """Tests candidate pool creation for Segment (dual-pool API)."""
     segment = Segment(starting_sequence_or_desired_length="ATCG", sequence_type=SequenceType.DNA)
     assert segment.num_candidates == 1
-    segment.create_candidates(5)
+    segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(5)]
     assert segment.num_candidates == 5
     assert all(s.sequence == "ATCG" for s in segment.candidate_sequences)
     segment.candidate_sequences[0].sequence = "GGGG"

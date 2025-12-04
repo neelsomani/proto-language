@@ -9,7 +9,7 @@ Tests cover:
 5. Validation and error handling
 6. Import-time registration verification
 """
-
+import copy
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
@@ -372,7 +372,7 @@ class TestIntegration:
         )
         
         # 5. Create candidates before evaluation (constraints evaluate candidate_sequences)
-        dna_segment.create_candidates(1)
+        dna_segment.candidate_sequences = [copy.deepcopy(dna_segment.original_sequence) for _ in range(1)]
         
         # 6. Evaluate
         scores = constraint.evaluate()

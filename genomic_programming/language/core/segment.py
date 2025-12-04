@@ -97,10 +97,6 @@ class Segment:
         """Index into selected sequences (user-facing results)."""
         return self.selected_sequences[index]
 
-    def create_candidates(self, num_candidates: int) -> None:
-        """Create a new candidate pool of the given size."""
-        self.candidate_sequences = [copy.deepcopy(self.original_sequence) for _ in range(num_candidates)]
-
     def to_dict(self) -> Dict[str, Any]:
         """Serialize Segment to dictionary for cloud/API communication."""
         return {

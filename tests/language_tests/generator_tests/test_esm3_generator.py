@@ -1,3 +1,4 @@
+import copy
 import pytest
 
 from proto_language.language.core import Segment, SequenceType
@@ -95,9 +96,9 @@ class TestESM3Generator:
         # Create segment with starting sequence for mutation-based sampling
         starting_seq = "MKKLLVVGGGGAAAA"  # 15 amino acids
         segment = Segment(starting_sequence_or_desired_length=starting_seq, sequence_type=SequenceType.PROTEIN)
-        segment.create_candidates(num_candidates)
         esm3_generator.assign(segment)
-        
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(num_candidates)]
+
         assert len(segment.candidate_sequences) == num_candidates
 
         # Sample and check results

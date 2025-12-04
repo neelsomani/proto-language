@@ -50,7 +50,7 @@ class TestUniformMutationGenerator:
         gen.assign(segment)
 
         # Create candidates before sampling (sample() mutates candidate_sequences)
-        segment.create_candidates(1)
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(1)]
         initial_sequence = segment.candidate_sequences[0].sequence
         gen.sample()
         mutated_sequence = segment.candidate_sequences[0].sequence
@@ -79,7 +79,7 @@ class TestUniformMutationGenerator:
         gen.assign(segment)
 
         # Create multiple candidates
-        segment.create_candidates(5)
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(5)]
         initial_sequences = [s.sequence for s in segment.candidate_sequences]
         gen.sample()
         mutated_sequences = [s.sequence for s in segment.candidate_sequences]
@@ -104,12 +104,12 @@ class TestUniformMutationGenerator:
             gen.assign(segment)
             initial_seq = segment.selected_sequences[0].sequence
             # Create one candidate and mutate it multiple times
-            segment.create_candidates(1)
+            segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(1)]
             for _ in range(10):
                 gen.sample()
                 # Copy mutated candidate back to selected for next iteration
                 segment.selected_sequences[0].sequence = segment.candidate_sequences[0].sequence
-                segment.create_candidates(1)
+                segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(1)]
             final_seq = segment.candidate_sequences[0].sequence
             return initial_seq, final_seq
 
@@ -129,7 +129,7 @@ class TestUniformMutationGenerator:
         segment = Segment(starting_sequence_or_desired_length="A", sequence_type=SequenceType.DNA)
         gen.assign(segment)
 
-        segment.create_candidates(1)
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(1)]
         initial_char = segment.candidate_sequences[0].sequence
         gen.sample()
         mutated_char = segment.candidate_sequences[0].sequence
@@ -147,7 +147,7 @@ class TestUniformMutationGenerator:
         segment = Segment(starting_sequence_or_desired_length="A" * seq_len, sequence_type=SequenceType.DNA)
         gen.assign(segment)
 
-        segment.create_candidates(1)
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(1)]
         initial_sequence = segment.candidate_sequences[0].sequence
         gen.sample()
         mutated_sequence = segment.candidate_sequences[0].sequence
@@ -166,7 +166,7 @@ class TestUniformMutationGenerator:
         segment = Segment(starting_sequence_or_desired_length="A" * seq_len, sequence_type=SequenceType.DNA)
         gen.assign(segment)
 
-        segment.create_candidates(1)
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(1)]
         initial_sequence = segment.candidate_sequences[0].sequence
         gen.sample()
         mutated_sequence = segment.candidate_sequences[0].sequence

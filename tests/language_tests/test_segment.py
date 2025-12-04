@@ -16,10 +16,13 @@ class TestSegment:
         assert segment.sequence_type == SequenceType.DNA
         assert segment.sequence_length == 4
 
-    def test_create_batch(self):
-        """Tests that create_candidates replicates the initial sequence."""
+    def test_candidate_sequences_manipulation(self):
+        """Tests that candidate_sequences can be directly manipulated."""
+        import copy
         segment = Segment(starting_sequence_or_desired_length="ATCG", sequence_type=SequenceType.DNA, metadata={"source": "original"})
-        segment.create_candidates(5)
+        
+        # Directly set candidate sequences (like optimizer does)
+        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(5)]
         assert segment.num_candidates == 5
         for i in range(5):
             assert segment.candidate_sequences[i].sequence == "ATCG"

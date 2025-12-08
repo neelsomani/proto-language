@@ -97,6 +97,7 @@ api = [
     "httpx",
     "jsonpatch",
     "jsonpointer",
+    "pick>=2.0.0",
 
     # Structure visualization
     "py3Dmol>=2.0.0",

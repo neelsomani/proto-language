@@ -18,7 +18,7 @@ def test_parse_single_optimizer():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "label": "segment1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "label": "segment1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -86,7 +86,7 @@ def test_parse_multiple_optimizers():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "label": "sequence1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "label": "sequence1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -188,7 +188,7 @@ def test_parse_missing_optimizations_field():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "length": 20}]
             }
         ]
     }
@@ -206,7 +206,7 @@ def test_parse_empty_optimizations_array():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "length": 20}]
             }
         ],
         "optimization_steps": []
@@ -225,7 +225,7 @@ def test_parse_missing_method_in_stage():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -252,7 +252,7 @@ def test_parse_missing_config_in_stage():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -279,7 +279,7 @@ def test_parse_missing_generators_in_stage():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -306,7 +306,7 @@ def test_parse_missing_constraints_in_stage():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -333,7 +333,7 @@ def test_parse_unknown_optimizer_method():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -362,8 +362,8 @@ def test_parse_generator_assignment_to_segments():
             {
                 "type": "DNA",
                 "segments": [
-                    {"id": "seg1", "label": "segment1", "starting_sequence_or_desired_length": 20},
-                    {"id": "seg2", "label": "segment2", "starting_sequence_or_desired_length": 30}
+                    {"id": "seg1", "label": "segment1", "length": 20},
+                    {"id": "seg2", "label": "segment2", "length": 30}
                 ]
             }
         ],
@@ -431,7 +431,7 @@ def test_parse_different_generators_per_stage():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "label": "sequence1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "label": "sequence1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -507,7 +507,7 @@ def test_parse_different_constraints_per_stage():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "label": "sequence1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "label": "sequence1", "length": 20}]
             }
         ],
         "optimization_steps": [
@@ -586,7 +586,7 @@ def test_parse_reusable_constraints():
         "constructs": [
             {
                 "type": "DNA",
-                "segments": [{"id": "seg1", "label": "sequence1", "starting_sequence_or_desired_length": 20}]
+                "segments": [{"id": "seg1", "label": "sequence1", "length": 20}]
             }
         ],
         "optimization_steps": [

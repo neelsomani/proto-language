@@ -118,7 +118,7 @@ class ESM3Generator(Generator):
         ...     num_mutations=5
         ... )
         >>> gen = ESM3Generator(config)
-        >>> segment = Segment(starting_sequence_or_desired_length=100, sequence_type=SequenceType.PROTEIN)
+        >>> segment = Segment(length=100, sequence_type=SequenceType.PROTEIN)
         >>> gen.assign(segment)
         >>> gen.sample()  # Refines 5 highest-entropy positions
     """

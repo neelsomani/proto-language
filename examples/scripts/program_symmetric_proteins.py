@@ -34,8 +34,7 @@ N_STEPS = 30_000
 ## Segments ##
 #######################
 
-protomer = Segment(
-    starting_sequence_or_desired_length=MONOMER_LENGTH,
+protomer = Segment(length=MONOMER_LENGTH,
     sequence_type=SequenceType.PROTEIN,
 )
 

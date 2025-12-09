@@ -10,7 +10,7 @@
         {
           "id": "segment1",
           "label": "test_sequence",
-          "starting_sequence_or_desired_length": 15
+          "length": 15
         }
       ]
     }

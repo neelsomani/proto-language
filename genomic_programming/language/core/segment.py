@@ -17,20 +17,21 @@ class Segment:
 
     Examples:
         Creating a Segment with a sequence:
-        >>> promoter = Segment(starting_sequence_or_desired_length="TATA", sequence_type=SequenceType.DNA, label="promoter")
+        >>> promoter = Segment(sequence="TATA", sequence_type=SequenceType.DNA, label="promoter")
         >>> promoter.label  # "promoter"
         >>> promoter.sequence_length  # 4 (inferred from sequence)
         >>> promoter.selected_sequences  # [Sequence("TATA")]
-        
+
         Creating a Segment with just a length:
-        >>> variable_region = Segment(starting_sequence_or_desired_length=100, sequence_type=SequenceType.DNA, label="variable")
+        >>> variable_region = Segment(length=100, sequence_type=SequenceType.DNA, label="variable")
         >>> variable_region.sequence_length  # 100
         >>> variable_region.selected_sequences  # [Sequence("")]
     """
 
     def __init__(
         self,
-        starting_sequence_or_desired_length: Union[str, int],
+        sequence: Optional[str] = None,
+        length: Optional[int] = None,
         sequence_type: Optional[Union[SequenceType, str]] = SequenceType.DNA,
         valid_chars: Optional[Set[str]] = None,
         label: Optional[str] = None,
@@ -41,24 +42,35 @@ class Segment:
         Initialize a Segment with dual sequence pools.
 
         Args:
-            starting_sequence_or_desired_length: Either a biological sequence string or an integer length.
-                If str: The sequence to use (length is inferred).
-                If int: The desired length for sequences (starts with empty sequence).
+            sequence: Optional biological sequence string. If provided, length is inferred.
+            length: Optional desired length for sequences. Required if sequence not provided.
             sequence_type: Type of biological sequence (DNA, RNA, or PROTEIN). Defaults to DNA.
             valid_chars: Optional custom set of valid characters for sequence validation.
             label: Optional label for this segment (e.g., "promoter", "coding_region").
             metadata: Additional data associated with this sequence.
             constant: If True, the sequence is constant and cannot be mutated.
+
+        Raises:
+            ValueError: If both sequence and length are provided, or if neither is provided.
         """
-        # If starting sequence provided, set state
-        if isinstance(starting_sequence_or_desired_length, str):
-            sequence = starting_sequence_or_desired_length
+        # Exactly one of sequence or length must be provided
+        if sequence is None and length is None:
+            raise ValueError("Must provide either 'sequence' or 'length'")
+        elif sequence is not None and length is not None:
+            raise ValueError("Cannot provide both 'sequence' and 'length' - choose one")
+
+        # If sequence is provided - set sequence_length and initial_sequence
+        elif sequence is not None:
+            initial_sequence = sequence
             self.sequence_length = len(sequence)
-        else: # desired sequence length
-            sequence = ""
-            self.sequence_length = starting_sequence_or_desired_length
+
+        # If length is provided - set sequence_length and initial_sequence to empty
+        else:
+            initial_sequence = ""
+            self.sequence_length = length
+
         seq = Sequence(
-            sequence=sequence,
+            sequence=initial_sequence,
             sequence_type=sequence_type,
             metadata=metadata,
             valid_chars=valid_chars,
@@ -117,14 +129,12 @@ class Segment:
         # Reconstruct original sequence
         original_seq = Sequence.from_dict(data["original_sequence"])
 
-        # Create segment with original sequence data
-        valid_chars = set(data["valid_chars"]) if data.get("valid_chars") else None
-        # Use sequence if available, otherwise use sequence_length
-        starting_value = original_seq.sequence if original_seq.sequence else data["sequence_length"]
+        # Use sequence if available, otherwise use length
         segment = cls(
-            starting_sequence_or_desired_length=starting_value,
+            sequence=original_seq.sequence if original_seq.sequence else None,
+            length=data["sequence_length"] if not original_seq.sequence else None,
             sequence_type=data["sequence_type"],
-            valid_chars=valid_chars,
+            valid_chars=set(data["valid_chars"]) if "valid_chars" in data else None,
             label=data.get("label"),
             metadata=original_seq._metadata,
             constant=data.get("constant", False),

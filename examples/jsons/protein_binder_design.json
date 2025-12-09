@@ -10,7 +10,7 @@
         {
           "id": "binder_protein",
           "label": "designed_binder",
-          "starting_sequence_or_desired_length": 100
+          "length": 100
         }
       ]
     }

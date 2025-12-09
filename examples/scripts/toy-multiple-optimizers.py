@@ -14,7 +14,7 @@ from proto_language.language.core import Program
 from proto_language.language.constraint import gc_content_constraint
 
 # Construct Segment
-seq1 = Segment(sequence_type=SequenceType.DNA)
+seq1 = Segment(length=20, sequence_type=SequenceType.DNA)
 
 # Construct
 construct = Construct([seq1])
@@ -24,7 +24,6 @@ construct = Construct([seq1])
 
 # Generator
 uniform_gen_config_1 = UniformMutationGeneratorConfig(
-    sequence_length=20,
     num_mutations=10
 )
 uniform_gen_1 = UniformMutationGenerator(uniform_gen_config_1)
@@ -68,7 +67,6 @@ optimizer_1 = TopKOptimizer(
 
 # Generator
 uniform_gen_config_2 = UniformMutationGeneratorConfig(
-    sequence_length=20,
     num_mutations=1
 )
 uniform_gen_2 = UniformMutationGenerator(uniform_gen_config_2)
@@ -143,7 +141,7 @@ print("MODE 2: Incremental stage-by-stage execution")
 print("=" * 70)
 
 # Create fresh segment and construct for independent run
-seq1_incremental = Segment(sequence_type=SequenceType.DNA)
+seq1_incremental = Segment(length=20, sequence_type=SequenceType.DNA)
 construct_incremental = Construct([seq1_incremental])
 
 # Stage 1: TopK

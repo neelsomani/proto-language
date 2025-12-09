@@ -25,7 +25,7 @@ class TestEvo2Generator:
         evo2_generator = Evo2Generator(config)
 
         # Create segment and assign to generator
-        segment = Segment(starting_sequence_or_desired_length=expected_length, sequence_type=SequenceType.DNA)
+        segment = Segment(length=expected_length, sequence_type=SequenceType.DNA)
         evo2_generator.assign(segment)
 
         assert evo2_generator._assigned_segment is segment
@@ -49,7 +49,7 @@ class TestEvo2Generator:
         evo2_generator = Evo2Generator(config)
 
         # Create segment and expand candidate pool
-        segment = Segment(starting_sequence_or_desired_length=expected_length, sequence_type=SequenceType.DNA)
+        segment = Segment(length=expected_length, sequence_type=SequenceType.DNA)
         segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
         evo2_generator.assign(segment)
 
@@ -75,7 +75,7 @@ class TestEvo2Generator:
         evo2_generator = Evo2Generator(config)
 
         # Should raise error if number of prompts doesn't match segment candidates
-        segment_two_candidates = Segment(starting_sequence_or_desired_length=expected_length, sequence_type=SequenceType.DNA)
+        segment_two_candidates = Segment(length=expected_length, sequence_type=SequenceType.DNA)
         segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
         evo2_generator.assign(segment_two_candidates)
         
@@ -96,7 +96,7 @@ class TestEvo2Generator:
         evo2_generator = Evo2Generator(config)
 
         # Create segment and assign to generator
-        segment = Segment(starting_sequence_or_desired_length=expected_length, sequence_type=SequenceType.DNA)
+        segment = Segment(length=expected_length, sequence_type=SequenceType.DNA)
         evo2_generator.assign(segment)
 
         assert evo2_generator.temperature == 0.8
@@ -115,8 +115,7 @@ class TestEvo2Generator:
         gen = Evo2Generator(config)
         
         # Create a constant segment
-        constant_segment = Segment(
-            starting_sequence_or_desired_length="ATCGATCGAT",
+        constant_segment = Segment(sequence="ATCGATCGAT",
             sequence_type=SequenceType.DNA,
             constant=True
         )

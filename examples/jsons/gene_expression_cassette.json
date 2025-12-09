@@ -10,17 +10,17 @@
         {
           "id": "promoter",
           "label": "sigma70_promoter",
-          "starting_sequence_or_desired_length": 50
+          "length": 50
         },
         {
           "id": "gene",
           "label": "coding_sequence",
-          "starting_sequence_or_desired_length": 300
+          "length": 300
         },
         {
           "id": "terminator",
           "label": "transcriptional_terminator",
-          "starting_sequence_or_desired_length": 50
+          "length": 50
         }
       ]
     }

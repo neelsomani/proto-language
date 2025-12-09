@@ -21,7 +21,7 @@ class TestESM3Generator:
         )
 
         # Create segment and assign to generator
-        segment = Segment(starting_sequence_or_desired_length=20, sequence_type=SequenceType.PROTEIN)
+        segment = Segment(length=20, sequence_type=SequenceType.PROTEIN)
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
@@ -45,7 +45,7 @@ class TestESM3Generator:
         )
 
         # Create segment and assign to generator
-        segment = Segment(starting_sequence_or_desired_length=20, sequence_type=SequenceType.PROTEIN)
+        segment = Segment(length=20, sequence_type=SequenceType.PROTEIN)
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
@@ -69,7 +69,7 @@ class TestESM3Generator:
         )
 
         # Create segment and assign to generator
-        segment = Segment(starting_sequence_or_desired_length=20, sequence_type=SequenceType.PROTEIN)
+        segment = Segment(length=20, sequence_type=SequenceType.PROTEIN)
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
@@ -95,7 +95,7 @@ class TestESM3Generator:
 
         # Create segment with starting sequence for mutation-based sampling
         starting_seq = "MKKLLVVGGGGAAAA"  # 15 amino acids
-        segment = Segment(starting_sequence_or_desired_length=starting_seq, sequence_type=SequenceType.PROTEIN)
+        segment = Segment(sequence=starting_seq, sequence_type=SequenceType.PROTEIN)
         esm3_generator.assign(segment)
         segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(num_candidates)]
 
@@ -115,8 +115,7 @@ class TestESM3Generator:
         gen = ESM3Generator(config)
         
         # Create a constant segment
-        constant_segment = Segment(
-            starting_sequence_or_desired_length="MMMMPPPP",
+        constant_segment = Segment(sequence="MMMMPPPP",
             sequence_type=SequenceType.PROTEIN,
             constant=True
         )

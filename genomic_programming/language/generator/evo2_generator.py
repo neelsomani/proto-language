@@ -220,7 +220,7 @@ class Evo2Generator(Generator):
         ... )
         >>> gen = Evo2Generator(config)
         >>> # Segment length determines how many tokens to generate
-        >>> segment = Segment(starting_sequence_or_desired_length=1003, sequence_type=SequenceType.DNA)
+        >>> segment = Segment(length=1003, sequence_type=SequenceType.DNA)
         >>> gen.assign(segment)  # num_tokens = 1003 - 3 = 1000
         >>> gen.sample()  # Generates DNA sequences
     """

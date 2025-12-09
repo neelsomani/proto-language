@@ -9,7 +9,7 @@
         {
           "id": "seq1",
           "label": "seq1",
-          "starting_sequence_or_desired_length": 20
+          "length": 20
         }
       ]
     }

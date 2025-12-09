@@ -9,7 +9,7 @@
       "segments": [
         {
           "id": "construct1-segment1",
-          "starting_sequence_or_desired_length": 100
+          "length": 100
         }
       ]
     }

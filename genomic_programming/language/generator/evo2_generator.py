@@ -263,10 +263,10 @@ class Evo2Generator(Generator):
         super().assign(assigned_segment)
 
         prompt_length = len(self.prompts[0]) if isinstance(self.prompts, list) else len(self.prompts)
-        
+
         # Calculate num_tokens according to sequence_length and prepend_prompt
         self.num_tokens = (assigned_segment.sequence_length - prompt_length) if self.prepend_prompt else assigned_segment.sequence_length
-        
+
         if self.num_tokens < 1:
             raise ValueError(f"Must increase segment length (currently {assigned_segment.sequence_length})")
 

@@ -54,6 +54,8 @@ from .language.generator import (
     ESM2GeneratorConfig,
     ESM3Generator,
     ESM3GeneratorConfig,
+    ProGen2Generator,
+    ProGen2GeneratorConfig,
 )
 from .language.optimizer import (
     # Registry
@@ -184,6 +186,8 @@ __all__ = [
     "ESM2GeneratorConfig",
     "ESM3Generator",
     "ESM3GeneratorConfig",
+    "ProGen2Generator",
+    "ProGen2GeneratorConfig",
     # Optimizer registry
     "OptimizerRegistry",
     "OptimizerSpec",

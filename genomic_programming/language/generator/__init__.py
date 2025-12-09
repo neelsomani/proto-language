@@ -20,6 +20,10 @@ from .esm3_generator import (
     ESM3Generator,
     ESM3GeneratorConfig,
 )
+from .progen2_generator import (
+    ProGen2Generator,
+    ProGen2GeneratorConfig,
+)
 
 __all__ = [
     # Registry
@@ -35,4 +39,6 @@ __all__ = [
     "ESM2GeneratorConfig",
     "ESM3Generator",
     "ESM3GeneratorConfig",
+    "ProGen2Generator",
+    "ProGen2GeneratorConfig",
 ]

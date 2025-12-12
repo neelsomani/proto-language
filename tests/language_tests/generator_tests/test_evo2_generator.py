@@ -68,19 +68,30 @@ class TestEvo2Generator:
 
     def test_evo2_assign_errors(self):
         """Test error conditions for Evo2 generator assignment."""
-        prompts = ["ATCG"]
-        num_tokens = 100
-        expected_length = len(prompts[0]) + num_tokens
-        config = Evo2GeneratorConfig(prompts=prompts)
-        evo2_generator = Evo2Generator(config)
-
-        # Should raise error if number of prompts doesn't match segment candidates
+        # Test 1: Single prompt with multiple candidates (should work - replicates)
+        prompts_single = ["ATCG"]
+        expected_length = len(prompts_single[0]) + 100
+        config_single = Evo2GeneratorConfig(prompts=prompts_single)
+        evo2_generator_single = Evo2Generator(config_single)
+        
         segment_two_candidates = Segment(length=expected_length, sequence_type=SequenceType.DNA)
         segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
-        evo2_generator.assign(segment_two_candidates)
+        evo2_generator_single.assign(segment_two_candidates)
+        # Single prompt should be replicated for 2 candidates - no error
+        evo2_generator_single.sample()
         
-        with pytest.warns(UserWarning, match="Number of prompts"):
-            evo2_generator.sample()  # Will warn because 1 prompt but 2 candidates
+        # Test 2: Mismatched multiple prompts (should raise error)
+        prompts_multi = ["ATCG", "GGCC", "TTAA"]  # 3 prompts (same length)
+        config_multi = Evo2GeneratorConfig(prompts=prompts_multi)
+        evo2_generator_multi = Evo2Generator(config_multi)
+        
+        segment_two_candidates2 = Segment(length=expected_length, sequence_type=SequenceType.DNA)
+        segment_two_candidates2.candidate_sequences = [copy.deepcopy(segment_two_candidates2.original_sequence) for _ in range(2)]
+        evo2_generator_multi.assign(segment_two_candidates2)
+        
+        # 3 prompts but 2 candidates - should raise ValueError
+        with pytest.raises(ValueError, match="must either be 1"):
+            evo2_generator_multi.sample()
 
     def test_evo2_custom_parameters(self):
         """Test Evo2 generator with custom generation parameters."""

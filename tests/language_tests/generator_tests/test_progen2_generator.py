@@ -9,10 +9,6 @@ from proto_language.language.generator import (
 )
 from proto_language.language.generator.progen2_generator import PROGEN2_START_TOKEN
 
-# Check if GPU is available (either locally or via cloud)
-from proto_language.utils import is_gpu_available
-
-
 @pytest.mark.uses_gpu
 class TestProGen2Generator:
     def test_progen2_single_prompt_sampling(self):
@@ -70,19 +66,20 @@ class TestProGen2Generator:
 
     def test_progen2_assign_errors(self):
         """Test error conditions for ProGen2 generator assignment."""
-        prompts = ["<|pf03668|>1MEVVIVTGMSGAGK"]
-        num_tokens = 100
-        expected_length = len(prompts[0]) + num_tokens
+        # Multiple prompts but wrong count - should raise error
+        prompts = ["<|pf03668|>1MEVVIVTGMSGAGK", "1EVQLVE", "1MKTL"]  # 3 prompts
         config = ProGen2GeneratorConfig(prompts=prompts)
         progen2_generator = ProGen2Generator(config)
 
-        # Should raise error if number of prompts doesn't match segment candidates
+        # Create segment with 2 candidates
+        expected_length = 120
         segment_two_candidates = Segment(length=expected_length, sequence_type=SequenceType.PROTEIN)
         segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
         progen2_generator.assign(segment_two_candidates)
         
-        with pytest.warns(UserWarning, match="Number of prompts"):
-            progen2_generator.sample()  # Will warn because 1 prompt but 2 candidates
+        # 3 prompts but 2 candidates - should raise ValueError
+        with pytest.raises(ValueError, match="must either be 1"):
+            progen2_generator.sample()
 
     def test_progen2_custom_parameters(self):
         """Test ProGen2 generator with custom generation parameters."""

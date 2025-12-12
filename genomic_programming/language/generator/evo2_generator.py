@@ -5,14 +5,13 @@ from __future__ import annotations
 from typing import List, Optional, Dict, final, Union
 import warnings
 
-from pydantic import model_validator
+from pydantic import model_validator, field_validator
 
 from proto_language.language.core import Generator, Segment
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.tools.language_models.evo2 import run_evo2_sample, Evo2SampleInput, Evo2SampleConfig
 from proto_language.tools.language_models.evo2.inference import EVO2_MODEL_CHECKPOINTS
 from proto_language.language.generator.generator_registry import GeneratorRegistry
-
 
 class Evo2GeneratorConfig(BaseConfig):
     """Configuration object for Evo2Generator.
@@ -171,6 +170,12 @@ class Evo2GeneratorConfig(BaseConfig):
         hidden=True,
     )
 
+    @field_validator("prompts", mode="before")
+    @classmethod
+    def normalize_prompts(cls, v):
+        """Convert single string to list for consistent internal handling."""
+        return [v] if isinstance(v, str) else v
+    
     @model_validator(mode='after')
     def validate_prompts_length(self):
         """Validate that all prompts have the same length."""
@@ -287,10 +292,15 @@ class Evo2Generator(Generator):
         """
         # Use provided prompts or fall back to the default prompt
         sampling_prompts = prompts if prompts is not None else self.prompts
-
-        # Warn if number of prompts does not match candidate pool size
-        if len(sampling_prompts) != len(self._assigned_segment.candidate_sequences):
-            warnings.warn(f"Number of prompts ({len(sampling_prompts)}) does not match candidate pool size ({len(self._assigned_segment.candidate_sequences)})")
+        num_candidates = len(self._assigned_segment.candidate_sequences)
+        
+        # Handle prompt count matching
+        if len(sampling_prompts) != num_candidates:
+            if len(sampling_prompts) == 1:
+                # Replicate single prompt for all candidates
+                sampling_prompts = sampling_prompts * num_candidates
+            else:
+                raise ValueError(f"Number of prompts ({len(sampling_prompts)}) must either be 1 (will be replicated) or match the number of candidates ({num_candidates})")
 
         # Create config for the tool
         inputs = Evo2SampleInput(prompts=sampling_prompts)

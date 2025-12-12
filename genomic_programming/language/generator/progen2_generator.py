@@ -2,9 +2,10 @@
 ProGen2 Generator for protein sequence generation.
 """
 from __future__ import annotations
-from pydantic import model_validator
 from typing import List, Optional, final, Union
 import warnings
+
+from pydantic import field_validator, model_validator
 
 from proto_language.language.core import Generator, Segment
 from proto_language.base_config import BaseConfig, ConfigField
@@ -20,7 +21,6 @@ from proto_language.tools.language_models.progen2.inference import (
     PROGEN2_START_TOKEN,
     PROGEN2_END_TOKEN,
 )
-
 
 class ProGen2GeneratorConfig(BaseConfig):
     """Configuration object for ProGen2Generator.
@@ -99,7 +99,6 @@ class ProGen2GeneratorConfig(BaseConfig):
         title="Prompts",
         description="Prompt sequences for protein sequence generation",
     )
-    
     model_checkpoint: PROGEN2_MODEL_CHECKPOINTS = ConfigField(
         default="progen2-large",
         title="Model Checkpoint",
@@ -158,6 +157,11 @@ class ProGen2GeneratorConfig(BaseConfig):
         hidden=True,
     )
 
+    @field_validator("prompts", mode="before")
+    @classmethod
+    def normalize_prompts(cls, v):
+        """Convert single string to list for consistent internal handling."""
+        return [v] if isinstance(v, str) else v
 
 @GeneratorRegistry.register(
     key="progen2",
@@ -207,19 +211,15 @@ class ProGen2Generator(Generator):
         """Generate protein sequences using ProGen2 tool."""
 
         sampling_prompts = prompts if prompts is not None else self.prompts
-
-        if isinstance(sampling_prompts, str):
-            sampling_prompts = [sampling_prompts]
-
         num_candidates = len(self._assigned_segment.candidate_sequences)
+        
+        # Handle prompt count matching
         if len(sampling_prompts) != num_candidates:
-            warnings.warn(
-                f"Number of prompts ({len(sampling_prompts)}) does not match "
-                f"candidate pool size ({num_candidates})"
-            )
             if len(sampling_prompts) == 1:
-                # Replicate single prompt for all candidates.
+                # Replicate single prompt for all candidates
                 sampling_prompts = sampling_prompts * num_candidates
+            else:
+                raise ValueError(f"Number of prompts ({len(sampling_prompts)}) must either be 1 (will be replicated) or match the number of candidates ({num_candidates})")
 
         tool_input = ProGen2SampleInput(prompts=sampling_prompts)
 

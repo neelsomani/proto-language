@@ -8,45 +8,14 @@
 
 A framework for designing biological sequences (DNA, RNA, proteins) with constraint-based optimization.
 
-## Installation
+## Installation 
 
+To install create the `proto-language` conda environment and install the dependencies, run the following command:
 
-1. Create the conda environment: 
 ```bash
-conda create --name proto-language python=3.12 -y
+bash install.sh
 conda activate proto-language
-conda install -c conda-forge -c bioconda -c nvidia mmseqs2 blast pymol-open-source tmalign cuda-nvcc cuda-cudart-dev transformer-engine-torch=2.3.0 -y
 ```
-2. Install as an editable package:
-
-    A) Only with CPU tool + API  dependencies:
-    ```bash
-    pip install uv
-    uv pip install -e .[tools,api]
-    ```
-
-    B) Or with GPU dependencies:
-    ```bash
-    pip install uv
-    uv pip install -e .[tools,api,gpu]
-    uv pip install flash-attn==2.8.0.post2 --no-build-isolation
-    pip install evo2
-    ```
-
-    C) Or with full dependencies (including dev):
-    ```bash
-    pip install uv
-    uv pip install -e .[all]
-    uv pip install flash-attn==2.8.0.post2 --no-build-isolation
-    pip install evo2
-    ```
-
-
-> [!NOTE]
-> ProteinMPNN requires the following, but this is incompatible with Evo2 due to conflicts:
-> ```bash
-> uv pip install "jax[cuda12_local]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-> ```
 
 
 ## Running the API

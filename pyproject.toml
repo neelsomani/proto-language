@@ -49,6 +49,7 @@ tools = [
     "pyhmmer",
     "sinkhorn-transformer",
     "huggingface_hub>=0.16.0",
+    "rdkit",
 
 ]
 

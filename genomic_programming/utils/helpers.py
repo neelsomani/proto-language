@@ -5,6 +5,7 @@ This module provides utilities for metadata management and structural/geometric
 calculations used across the proto-language framework.
 """
 from __future__ import annotations
+import numpy as np
 import random
 import subprocess
 from typing import Any, Dict, List, Optional
@@ -98,6 +99,34 @@ def calculate_normalized_deviation(actual: float, target: float) -> float:
         and higher values indicate greater deviation from target.
     """
     return min(MAX_ENERGY, abs(actual - target) / max(target, 1))
+
+
+def sigmoid_score(
+    metric: float,
+    inflection: float,
+    slope: float = 3.0,
+) -> float:
+    """
+    Squeezes a non-negative metric (i.e., >= 0) into a 0-1 score using a sigmoid
+    function.
+
+    Args:
+        metric: A non-negative metric value.
+        inflection: The value of the original metric where the transformed score
+            would be 0.5.
+        slope: The steepness of the curve. Default: 3.0.
+
+    Returns:
+        float: Score between 0.0 (good/low) and 1.0 (bad/high).
+    """
+    if metric < 0:
+        raise ValueError(f"Input metric value cannot be negative, found {metric}")
+
+    # 1 / (1 + e^(-k(x - x0)))
+    # We want low metric -> 0 and high metric -> 1.
+    # The standard sigmoid 1/(1+e^-x) goes 0->1 as x increases.
+    # We use slope * (metric - inflection).
+    return 1.0 / (1.0 + np.exp(-slope * (metric - inflection)))
 
 
 # =============================================================================

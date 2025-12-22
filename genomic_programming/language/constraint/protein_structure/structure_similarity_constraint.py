@@ -23,9 +23,9 @@ from proto_language.language.constraint.constraint_registry import (
 )
 from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionComplex,
-    StructurePredictionOutput,
 )
 from proto_language.utils import MAX_ENERGY, sigmoid_score
+from .structure_prediction_dispatcher import predict_structures
 
 logger = getLogger(__name__)
 
@@ -138,58 +138,6 @@ def _compute_tm_score_from_pdb(target_pdb_text: str, candidate_pdb_text: str) ->
             os.unlink(target_path)
         if os.path.exists(candidate_path):
             os.unlink(candidate_path)
-
-
-# ============================================================================
-# Prediction dispatcher
-# ============================================================================
-
-def _predict_structures(
-    complexes: List[StructurePredictionComplex],
-    tool_name: str,
-    tool_config: Dict[str, Any]
-) -> StructurePredictionOutput:
-    """
-    Dispatch helper to run the requested structure prediction tool.
-    Dynamically imports tools to avoid circular dependencies.
-    """
-    tool_name = tool_name.lower().strip()
-
-    if tool_name == "esmfold":
-        from proto_language.tools.structure_prediction.esmfold import (
-            run_esmfold, ESMFoldInput, ESMFoldConfig
-        )
-        # Filter config keys relevant to ESMFoldConfig if needed, or rely on pydantic ignoring extras
-        cfg = ESMFoldConfig(**tool_config)
-        return run_esmfold(ESMFoldInput(complexes=complexes), cfg)
-
-    elif tool_name in ["af3", "alphafold3"]:
-        from proto_language.tools.structure_prediction.af3 import (
-            run_af3, AlphaFold3Input, AlphaFold3Config
-        )
-        cfg = AlphaFold3Config(**tool_config)
-        return run_af3(AlphaFold3Input(complexes=complexes), cfg)
-
-    elif tool_name == "boltz":
-        from proto_language.tools.structure_prediction.boltz import (
-            run_boltz, BoltzInput, BoltzConfig
-        )
-        cfg = BoltzConfig(**tool_config)
-        return run_boltz(BoltzInput(complexes=complexes), cfg)
-
-    elif tool_name == "chai":
-        from proto_language.tools.structure_prediction.chai import (
-            run_chai, ChaiInput, ChaiConfig
-        )
-        cfg = ChaiConfig(**tool_config)
-        return run_chai(ChaiInput(complexes=complexes), cfg)
-
-    else:
-        raise ValueError(
-            f"Unknown structure prediction tool: '{tool_name}'. "
-            "Supported: 'esmfold', 'alphafold3', 'boltz', 'chai'."
-        )
-
 
 # ============================================================================
 # Configuration
@@ -414,7 +362,7 @@ def _prepare_target_structure(config: StructureConstraintBaseConfig) -> Optional
         ]
 
         try:
-            output = _predict_structures(complexes, config.structure_tool, config.tool_config)
+            output = predict_structures(complexes, config.structure_tool, config.tool_config)
         except Exception as e:
             logger.error(f"Failed to fold target sequence: {e}")
             return None
@@ -470,7 +418,7 @@ def structure_rmsd_constraint(
 
     # Run prediction on candidates.
     try:
-        results = _predict_structures(complexes, config.structure_tool, config.tool_config)
+        results = predict_structures(complexes, config.structure_tool, config.tool_config)
     except Exception as e:
         logger.error(f"Structure prediction failed: {e}")
         return [MAX_ENERGY] * len(candidates)
@@ -534,7 +482,7 @@ def structure_tmscore_constraint(
 
     # Run prediction on candidates.
     try:
-        results = _predict_structures(complexes, config.structure_tool, config.tool_config)
+        results = predict_structures(complexes, config.structure_tool, config.tool_config)
     except Exception as e:
         logger.error(f"Structure prediction failed: {e}")
         return [MAX_ENERGY] * len(candidates)

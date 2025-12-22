@@ -9,8 +9,8 @@ from proto_language.language.core import (
     SequenceType,
 )
 from proto_language.language.constraint import (
-    esmfold_plddt_constraint,
-    esmfold_ptm_constraint,
+    structure_plddt_constraint,
+    structure_ptm_constraint,
     protein_globularity_constraint,
     protein_symmetry_ring_constraint,
 )
@@ -34,7 +34,8 @@ N_STEPS = 30_000
 ## Segments ##
 #######################
 
-protomer = Segment(length=MONOMER_LENGTH,
+protomer = Segment(
+    length=MONOMER_LENGTH,
     sequence_type="protein",
 )
 
@@ -58,15 +59,15 @@ uniform_gen.assign(protomer)
 #################
 
 esmfold_plddt = Constraint(
-    inputs=[protomer],
-    function=esmfold_plddt_constraint,
-    function_config={"n_replications": N_SYMMETRIC_UNITS},
+    inputs=[protomer for _ in range(N_SYMMETRIC_UNITS)],
+    function=structure_plddt_constraint,
+    function_config={"structure_tool": "esmfold"},
 )
 
 esmfold_ptm = Constraint(
-    inputs=[protomer],
-    function=esmfold_ptm_constraint,
-    function_config={"n_replications": N_SYMMETRIC_UNITS},
+    inputs=[protomer for _ in range(N_SYMMETRIC_UNITS)],
+    function=structure_ptm_constraint,
+    function_config={"structure_tool": "esmfold"},
 )
 
 symmetry = Constraint(
@@ -92,6 +93,7 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].selected_sequences[0]
     metakeys = list(output_sequence._metadata.keys())
     folded_sequence = output_sequence._metadata[
+        # This attribute is added by the symmetry and globularity constraints:
         next(key for key in metakeys if key.endswith('esmfolded_sequence'))
     ]
     plddt = output_sequence._metadata[
@@ -110,6 +112,7 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
 
 
 mcmc_optimizer_config = MCMCOptimizerConfig(
+    num_selected=1,
     mcmc_width=1,
     num_steps=N_STEPS,
     max_temperature=1.,

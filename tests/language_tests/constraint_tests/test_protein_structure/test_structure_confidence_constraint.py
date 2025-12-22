@@ -1,0 +1,900 @@
+"""
+Comprehensive tests for structure confidence constraints.
+
+Tests cover:
+1. Score calculation for all metrics (pLDDT, pTM, ipTM, pAE)
+2. Tool dispatching (ESMFold, AlphaFold3, Boltz, Chai)
+3. Metric availability validation per tool
+4. Multimer support (monomers, homodimers, heteromultimers)
+5. Tool configuration passthrough
+6. Metadata storage
+7. Error handling
+"""
+
+import pytest
+from unittest.mock import patch, MagicMock
+
+from proto_language.language.core import Sequence
+from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
+    StructureConfidenceConfig,
+    structure_plddt_constraint,
+    structure_ptm_constraint,
+    structure_iptm_constraint,
+    structure_pae_constraint,
+    _structure_confidence,
+    TOOL_AVAILABLE_METRICS,
+)
+from proto_language.tools.structure_prediction import StructurePredictionOutput
+from proto_language.tools.structures import ProteinStructure
+
+
+# ============================================================================
+# Fixtures
+# ============================================================================
+
+MOCK_PDB = """ATOM      1  N   ALA A   1       0.000   0.000   0.000  1.00  0.90           N
+ATOM      2  CA  ALA A   1       1.458   0.000   0.000  1.00  0.90           C
+END
+"""
+
+
+def make_mock_structure(**metrics) -> ProteinStructure:
+    """Create a mock ProteinStructure with specified metrics."""
+    structure = MagicMock(spec=ProteinStructure)
+    structure.metrics = metrics
+    structure.structure_pdb = MOCK_PDB
+    return structure
+
+
+def make_mock_output(structures: list) -> StructurePredictionOutput:
+    """Create a mock StructurePredictionOutput."""
+    output = MagicMock(spec=StructurePredictionOutput)
+    output.structures = structures
+    return output
+
+
+@pytest.fixture
+def protein_sequence():
+    """Single protein sequence."""
+    return Sequence("MKTAYIAKQRQISFVK", "protein")
+
+
+@pytest.fixture
+def protein_sequence_b():
+    """Second protein sequence for heteromers."""
+    return Sequence("GVQVETISPGDGRTFPK", "protein")
+
+@pytest.fixture
+def dna_sequence():
+    """Single DNA sequence."""
+    return Sequence("ACGTACGTACGT", "dna")
+
+@pytest.fixture
+def rna_sequence():
+    """Single RNA sequence."""
+    return Sequence("ACGUACGUACGU", "rna")
+
+
+# ============================================================================
+# Test Score Calculations
+# ============================================================================
+
+class TestScoreCalculations:
+    """Test that constraint scores are calculated correctly."""
+
+    @pytest.mark.parametrize(
+        "metric_value,expected_score",
+        [
+            (1.0, 0.0),   # Perfect confidence
+            (0.9, 0.1),
+            (0.75, 0.25),
+            (0.5, 0.5),
+            (0.0, 1.0),   # No confidence
+        ],
+    )
+    def test_plddt_scoring(self, protein_sequence, metric_value, expected_score):
+        """Test that pLDDT score = 1.0 - avg_plddt."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=metric_value, ptm=0.8)
+            ])
+
+            scores = structure_plddt_constraint(candidates, config)
+            assert abs(scores[0] - expected_score) < 1e-9
+
+    @pytest.mark.parametrize(
+        "metric_value,expected_score",
+        [
+            (1.0, 0.0),
+            (0.85, 0.15),
+            (0.5, 0.5),
+            (0.0, 1.0),
+        ],
+    )
+    def test_ptm_scoring(self, protein_sequence, metric_value, expected_score):
+        """Test that pTM score = 1.0 - ptm."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=metric_value)
+            ])
+
+            scores = structure_ptm_constraint(candidates, config)
+            assert abs(scores[0] - expected_score) < 1e-9
+
+    @pytest.mark.parametrize(
+        "metric_value,expected_score",
+        [
+            (1.0, 0.0),
+            (0.7, 0.3),
+            (0.5, 0.5),
+            (0.0, 1.0),
+        ],
+    )
+    def test_iptm_scoring(self, protein_sequence, protein_sequence_b, metric_value, expected_score):
+        """Test that ipTM score = 1.0 - iptm."""
+        candidates = [(protein_sequence, protein_sequence_b)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)
+            ])
+
+            scores = structure_iptm_constraint(candidates, config)
+            assert abs(scores[0] - expected_score) < 1e-9
+
+    @pytest.mark.parametrize(
+        "metric_value,expected_score",
+        [
+            (1.0, 0.0),
+            (0.7, 0.3),
+            (0.5, 0.5),
+            (0.0, 1.0),
+        ],
+    )
+    def test_iptm_scoring_dna(self, protein_sequence, dna_sequence, metric_value, expected_score):
+        """Test that ipTM score = 1.0 - iptm."""
+        candidates = [(protein_sequence, dna_sequence)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)
+            ])
+
+            scores = structure_iptm_constraint(candidates, config)
+            assert abs(scores[0] - expected_score) < 1e-9
+
+    @pytest.mark.parametrize(
+        "metric_value,expected_score",
+        [
+            (1.0, 0.0),
+            (0.7, 0.3),
+            (0.5, 0.5),
+            (0.0, 1.0),
+        ],
+    )
+    def test_iptm_scoring_rna(self, protein_sequence, rna_sequence, metric_value, expected_score):
+        """Test that ipTM score = 1.0 - iptm."""
+        candidates = [(protein_sequence, rna_sequence)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)
+            ])
+
+            scores = structure_iptm_constraint(candidates, config)
+            assert abs(scores[0] - expected_score) < 1e-9
+
+    @pytest.mark.parametrize(
+        "metric_value,expected_score",
+        [
+            (1.0, 0.0),    # Perfect (low error)
+            (0.8, 0.2),
+            (0.5, 0.5),
+            (0.0, 1.0),    # High error
+        ],
+    )
+    def test_pae_scoring(self, protein_sequence, metric_value, expected_score):
+        """Test that pAE score = 1.0 - avg_pae."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=metric_value)
+            ])
+
+            scores = structure_pae_constraint(candidates, config)
+            assert abs(scores[0] - expected_score) < 1e-9
+
+
+# ============================================================================
+# Test Tool Dispatching
+# ============================================================================
+
+class TestToolDispatching:
+    """Test that constraints correctly dispatch to different tools."""
+
+    @pytest.mark.parametrize("tool_name", ["esmfold", "alphafold3", "boltz", "chai"])
+    def test_plddt_dispatches_to_correct_tool(self, protein_sequence, tool_name):
+        """Test that pLDDT constraint dispatches to the specified tool."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool=tool_name)
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=0.85)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            mock_predict.assert_called_once()
+            call_args = mock_predict.call_args[0]
+            assert call_args[1] == tool_name
+
+    @pytest.mark.parametrize("tool_name", ["alphafold3", "boltz", "chai"])
+    def test_iptm_dispatches_to_correct_tool(self, protein_sequence, protein_sequence_b, tool_name):
+        """Test that ipTM constraint dispatches to supported tools."""
+        candidates = [(protein_sequence, protein_sequence_b)]
+        config = StructureConfidenceConfig(structure_tool=tool_name)
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=0.85)
+            ])
+
+            structure_iptm_constraint(candidates, config)
+
+            mock_predict.assert_called_once()
+            call_args = mock_predict.call_args[0]
+            assert call_args[1] == tool_name
+
+    def test_af3_alias_works(self, protein_sequence):
+        """Test that 'af3' is accepted as alias for 'alphafold3'."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="af3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=0.85)
+            ])
+
+            scores = structure_plddt_constraint(candidates, config)
+
+            mock_predict.assert_called_once()
+            assert scores[0] == pytest.approx(0.1)
+
+
+# ============================================================================
+# Test Metric Availability Validation
+# ============================================================================
+
+class TestMetricAvailability:
+    """Test that metrics are validated against tool capabilities."""
+
+    def test_esmfold_supports_plddt_and_ptm(self, protein_sequence):
+        """Test that ESMFold supports avg_plddt and ptm."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8)
+            ])
+
+            # Should not raise
+            structure_plddt_constraint(candidates, config)
+            structure_ptm_constraint(candidates, config)
+
+    def test_esmfold_does_not_support_iptm(self, protein_sequence):
+        """Test that ESMFold raises error for ipTM."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with pytest.raises(ValueError, match="Metric 'iptm' is not available for tool 'esmfold'"):
+            structure_iptm_constraint(candidates, config)
+
+    def test_alphafold3_supports_all_metrics(self, protein_sequence):
+        """Test that AlphaFold3 supports all metrics."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=0.85)
+            ])
+
+            # All should work without raising
+            structure_plddt_constraint(candidates, config)
+            structure_ptm_constraint(candidates, config)
+            structure_iptm_constraint(candidates, config)
+            structure_pae_constraint(candidates, config)
+
+    @pytest.mark.parametrize(
+        "tool,unavailable_metric",
+        [
+            ("esmfold", "iptm"),
+            ("chai", "avg_pae"),
+        ],
+    )
+    def test_unavailable_metrics_raise_error(self, protein_sequence, tool, unavailable_metric):
+        """Test that unavailable metrics raise appropriate errors."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool=tool)
+
+        with pytest.raises(ValueError, match=f"Metric '{unavailable_metric}' is not available"):
+            _structure_confidence(candidates, config, unavailable_metric)
+
+    def test_tool_available_metrics_constant(self):
+        """Test that TOOL_AVAILABLE_METRICS has expected structure."""
+        assert "esmfold" in TOOL_AVAILABLE_METRICS
+        assert "alphafold3" in TOOL_AVAILABLE_METRICS
+        assert "boltz" in TOOL_AVAILABLE_METRICS
+        assert "chai" in TOOL_AVAILABLE_METRICS
+
+        # ESMFold has limited metrics
+        assert TOOL_AVAILABLE_METRICS["esmfold"] == {"avg_plddt", "ptm", "avg_pae"}
+
+        # AF3 has the most metrics
+        assert "iptm" in TOOL_AVAILABLE_METRICS["alphafold3"]
+        assert "avg_pae" in TOOL_AVAILABLE_METRICS["alphafold3"]
+
+
+# ============================================================================
+# Test Multimer Support
+# ============================================================================
+
+class TestMultimerSupport:
+    """Test support for monomers, homodimers, and heteromultimers."""
+
+    def test_monomer_single_chain(self, protein_sequence):
+        """Test monomer prediction (single chain tuple)."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            # Verify single chain complex was created
+            call_args = mock_predict.call_args
+            complexes = call_args[0][0]  # First positional arg
+            assert len(complexes) == 1
+            assert len(complexes[0].chains) == 1
+            assert complexes[0].chains[0] == "MKTAYIAKQRQISFVK"
+
+    def test_homodimer_two_identical_chains(self, protein_sequence):
+        """Test homodimer prediction (same sequence twice)."""
+        candidates = [(protein_sequence, protein_sequence)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.85, ptm=0.75)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            # Verify two-chain complex was created
+            call_args = mock_predict.call_args
+            complexes = call_args[0][0]
+            assert len(complexes[0].chains) == 2
+            assert complexes[0].chains[0] == complexes[0].chains[1]
+
+    def test_heterodimer_two_different_chains(self, protein_sequence, protein_sequence_b):
+        """Test heterodimer prediction (two different sequences)."""
+        candidates = [(protein_sequence, protein_sequence_b)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.88, ptm=0.78, iptm=0.72, avg_pae=0.8)
+            ])
+
+            structure_iptm_constraint(candidates, config)
+
+            # Verify heterodimer complex was created
+            call_args = mock_predict.call_args
+            complexes = call_args[0][0]
+            assert len(complexes[0].chains) == 2
+            assert complexes[0].chains[0] == "MKTAYIAKQRQISFVK"
+            assert complexes[0].chains[1] == "GVQVETISPGDGRTFPK"
+
+    def test_homotrimer_three_chains(self, protein_sequence):
+        """Test homotrimer prediction."""
+        candidates = [(protein_sequence, protein_sequence, protein_sequence)]
+        config = StructureConfidenceConfig(structure_tool="boltz")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.82, ptm=0.7, iptm=0.65, avg_pae=0.75)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            call_args = mock_predict.call_args
+            complexes = call_args[0][0]
+            assert len(complexes[0].chains) == 3
+
+    def test_batch_of_multiple_complexes(self, protein_sequence, protein_sequence_b):
+        """Test batch processing of multiple complexes."""
+        candidates = [
+            (protein_sequence,),                           # Monomer
+            (protein_sequence, protein_sequence),          # Homodimer
+            (protein_sequence, protein_sequence_b),        # Heterodimer
+        ]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.85, iptm=0.8, avg_pae=0.88),
+                make_mock_structure(avg_plddt=0.85, ptm=0.8, iptm=0.75, avg_pae=0.82),
+                make_mock_structure(avg_plddt=0.88, ptm=0.82, iptm=0.78, avg_pae=0.85),
+            ])
+
+            scores = structure_plddt_constraint(candidates, config)
+
+            assert len(scores) == 3
+            assert scores[0] == pytest.approx(0.1)   # 1 - 0.9
+            assert scores[1] == pytest.approx(0.15)  # 1 - 0.85
+            assert scores[2] == pytest.approx(0.12)  # 1 - 0.88
+
+    def test_entity_types_correctly_set(self, protein_sequence):
+        """Test that entity types are correctly inferred from sequences."""
+        candidates = [(protein_sequence, protein_sequence)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            call_args = mock_predict.call_args
+            complexes = call_args[0][0]
+            assert complexes[0].entity_types == ["protein", "protein"]
+
+
+# ============================================================================
+# Test Tool Configuration Passthrough
+# ============================================================================
+
+class TestToolConfigPassthrough:
+    """Test that tool-specific configuration is passed correctly."""
+
+    def test_esmfold_config_passthrough(self, protein_sequence):
+        """Test that ESMFold-specific config is passed through."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(
+            structure_tool="esmfold",
+            tool_config={
+                "verbose": True,
+                "residue_idx_offset": 256,
+                "chain_linker": "GGGGG",
+            },
+        )
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            call_args = mock_predict.call_args
+            passed_tool_config = call_args[0][2]  # Third positional arg
+            assert passed_tool_config["verbose"] is True
+            assert passed_tool_config["residue_idx_offset"] == 256
+            assert passed_tool_config["chain_linker"] == "GGGGG"
+
+    def test_alphafold3_config_passthrough(self, protein_sequence):
+        """Test that AlphaFold3-specific config is passed through."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(
+            structure_tool="alphafold3",
+            tool_config={
+                "seeds": [0, 1, 2],
+                "msa_mode": "local",
+                "verbose": True,
+            },
+        )
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=0.85)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            call_args = mock_predict.call_args
+            passed_tool_config = call_args[0][2]
+            assert passed_tool_config["seeds"] == [0, 1, 2]
+            assert passed_tool_config["msa_mode"] == "local"
+
+    def test_empty_tool_config_default(self, protein_sequence):
+        """Test that empty tool config works (uses defaults)."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            call_args = mock_predict.call_args
+            passed_tool_config = call_args[0][2]
+            assert passed_tool_config == {}
+
+
+# ============================================================================
+# Test Metadata Storage
+# ============================================================================
+
+class TestMetadataStorage:
+    """Test that results are correctly stored in sequence metadata."""
+
+    def test_plddt_metadata_storage(self, protein_sequence):
+        """Test that pLDDT and related metadata is stored."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.92, ptm=0.88)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            metadata = protein_sequence._metadata
+            assert metadata["avg_plddt"] == 0.92
+            assert metadata["pdb_output"] == MOCK_PDB
+            assert metadata["structure_tool"] == "esmfold"
+
+    def test_ptm_metadata_storage(self, protein_sequence):
+        """Test that pTM constraint stores ptm in metadata."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.85)
+            ])
+
+            structure_ptm_constraint(candidates, config)
+
+            metadata = protein_sequence._metadata
+            assert metadata["ptm"] == 0.85
+            assert metadata["structure_tool"] == "esmfold"
+
+    def test_iptm_metadata_storage(self, protein_sequence, protein_sequence_b):
+        """Test that ipTM constraint stores iptm in metadata."""
+        candidates = [(protein_sequence, protein_sequence_b)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.85, iptm=0.78, avg_pae=0.82)
+            ])
+
+            structure_iptm_constraint(candidates, config)
+
+            # Metadata should be on first sequence in tuple
+            metadata = protein_sequence._metadata
+            assert metadata["iptm"] == 0.78
+            assert metadata["structure_tool"] == "alphafold3"
+
+    def test_pae_metadata_storage(self, protein_sequence):
+        """Test that pAE constraint stores avg_pae in metadata."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.85, iptm=0.78, avg_pae=0.88)
+            ])
+
+            structure_pae_constraint(candidates, config)
+
+            metadata = protein_sequence._metadata
+            assert metadata["avg_pae"] == 0.88
+
+    def test_metadata_on_first_sequence_in_tuple(self, protein_sequence, protein_sequence_b):
+        """Test that metadata is attached to first sequence in tuple only."""
+        candidates = [(protein_sequence, protein_sequence_b)]
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
+
+        # Clear any existing metadata
+        protein_sequence._metadata = {}
+        protein_sequence_b._metadata = {}
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.85, iptm=0.78, avg_pae=0.82)
+            ])
+
+            structure_plddt_constraint(candidates, config)
+
+            # First sequence should have metadata
+            assert "avg_plddt" in protein_sequence._metadata
+            assert "pdb_output" in protein_sequence._metadata
+
+            # Second sequence should NOT have metadata (or have empty)
+            assert "avg_plddt" not in protein_sequence_b._metadata
+
+
+# ============================================================================
+# Test Error Handling
+# ============================================================================
+
+class TestErrorHandling:
+    """Test error handling and edge cases."""
+
+    def test_unknown_tool_raises_error(self, protein_sequence):
+        """Test that unknown tool raises ValueError."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="unknown_tool")
+
+        with pytest.raises(ValueError, match="Metric 'avg_plddt' is not available"):
+            structure_plddt_constraint(candidates, config)
+
+    def test_prediction_failure_returns_worst_score(self, protein_sequence):
+        """Test that prediction failure returns score of 1.0."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.side_effect = RuntimeError("GPU out of memory")
+
+            scores = structure_plddt_constraint(candidates, config)
+
+            assert len(scores) == 1
+            assert scores[0] == 1.0
+
+    def test_missing_metric_returns_worst_score(self, protein_sequence):
+        """Test that missing metric in output returns score of 1.0."""
+        candidates = [(protein_sequence,)]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            # Return structure without the expected metric
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(ptm=0.8)  # No avg_plddt
+            ])
+
+            scores = structure_plddt_constraint(candidates, config)
+
+            assert scores[0] == 1.0
+
+    def test_empty_candidates_returns_empty_scores(self):
+        """Test that empty candidates list returns empty scores."""
+        candidates = []
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([])
+
+            scores = structure_plddt_constraint(candidates, config)
+
+            assert scores == []
+
+    def test_batch_with_partial_failure(self, protein_sequence, protein_sequence_b):
+        """Test batch where some predictions have missing metrics."""
+        candidates = [
+            (protein_sequence,),
+            (protein_sequence_b,),
+        ]
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.9, ptm=0.8),  # Good
+                make_mock_structure(ptm=0.7),  # Missing avg_plddt
+            ])
+
+            scores = structure_plddt_constraint(candidates, config)
+
+            assert len(scores) == 2
+            assert scores[0] == pytest.approx(0.1)  # Good result
+            assert scores[1] == 1.0  # Missing metric
+
+
+# ============================================================================
+# Test Configuration Defaults
+# ============================================================================
+
+class TestConfigurationDefaults:
+    """Test default configuration values."""
+
+    def test_default_tool_is_esmfold(self):
+        """Test that default structure_tool is 'esmfold'."""
+        config = StructureConfidenceConfig()
+        assert config.structure_tool == "esmfold"
+
+    def test_default_tool_config_is_empty(self):
+        """Test that default tool_config is empty dict."""
+        config = StructureConfidenceConfig()
+        assert config.tool_config == {}
+
+    def test_tool_name_normalization(self, protein_sequence):
+        """Test that tool names are normalized (lowercase, stripped)."""
+        candidates = [(protein_sequence,)]
+
+        for tool_variant in ["ESMFold", "ESMFOLD", " esmfold ", "EsmFold"]:
+            config = StructureConfidenceConfig(structure_tool=tool_variant)
+
+            with patch(
+                "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            ) as mock_predict:
+                mock_predict.return_value = make_mock_output([
+                    make_mock_structure(avg_plddt=0.9, ptm=0.8)
+                ])
+
+                # Should not raise
+                scores = structure_plddt_constraint(candidates, config)
+                assert len(scores) == 1
+
+
+# ============================================================================
+# Integration-Style Tests
+# ============================================================================
+
+class TestIntegrationScenarios:
+    """Test realistic usage scenarios."""
+
+    def test_heterodimer_interface_assessment(self, protein_sequence, protein_sequence_b):
+        """Test assessing a heterodimer interface with ipTM."""
+        candidates = [(protein_sequence, protein_sequence_b)]
+        config = StructureConfidenceConfig(
+            structure_tool="alphafold3",
+            tool_config={"seeds": [0]},
+        )
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.88, ptm=0.82, iptm=0.75, avg_pae=0.8)
+            ])
+
+            # Get ipTM score for interface quality
+            iptm_scores = structure_iptm_constraint(candidates, config)
+
+            assert iptm_scores[0] == pytest.approx(0.25)  # 1 - 0.75
+            assert protein_sequence._metadata["iptm"] == 0.75
+
+    def test_compare_multiple_tools_same_sequence(self, protein_sequence):
+        """Test comparing predictions from different tools."""
+        candidates = [(protein_sequence,)]
+
+        results = {}
+        for tool in ["esmfold", "alphafold3", "boltz", "chai"]:
+            config = StructureConfidenceConfig(structure_tool=tool)
+
+            with patch(
+                "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            ) as mock_predict:
+                # Simulate slightly different results per tool
+                plddt = {"esmfold": 0.85, "alphafold3": 0.92, "boltz": 0.88, "chai": 0.90}[tool]
+                mock_predict.return_value = make_mock_output([
+                    make_mock_structure(avg_plddt=plddt, ptm=0.8, iptm=0.7, avg_pae=0.82)
+                ])
+
+                scores = structure_plddt_constraint(candidates, config)
+                results[tool] = scores[0]
+
+        # Verify different tools give different scores
+        assert results["esmfold"] == pytest.approx(0.15)
+        assert results["alphafold3"] == pytest.approx(0.08)
+        assert results["boltz"] == pytest.approx(0.12)
+        assert results["chai"] == pytest.approx(0.10)
+
+    def test_screening_multiple_candidates(self, protein_sequence, protein_sequence_b):
+        """Test screening multiple candidate complexes."""
+        # Simulate screening 5 candidate dimers
+        seq_c = Sequence("MAEGEITTFTALTEKFNLPPGN", "protein")
+        seq_d = Sequence("MGSSHHHHHHSSGLVPRGSH", "protein")
+        seq_e = Sequence("MKFLILLFNILCLFPVLAAD", "protein")
+
+        candidates = [
+            (protein_sequence, protein_sequence_b),
+            (protein_sequence, seq_c),
+            (protein_sequence_b, seq_d),
+            (seq_c, seq_e),
+            (protein_sequence, seq_e),
+        ]
+
+        config = StructureConfidenceConfig(
+            structure_tool="chai",
+            tool_config={"verbose": False},
+        )
+
+        with patch(
+            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            # Simulate varying quality predictions
+            mock_predict.return_value = make_mock_output([
+                make_mock_structure(avg_plddt=0.92, ptm=0.88, iptm=0.85),
+                make_mock_structure(avg_plddt=0.78, ptm=0.72, iptm=0.65),
+                make_mock_structure(avg_plddt=0.85, ptm=0.80, iptm=0.75),
+                make_mock_structure(avg_plddt=0.60, ptm=0.55, iptm=0.45),
+                make_mock_structure(avg_plddt=0.88, ptm=0.82, iptm=0.78),
+            ])
+
+            scores = structure_iptm_constraint(candidates, config)
+
+            assert len(scores) == 5
+            # Best candidate (highest ipTM = lowest score)
+            best_idx = scores.index(min(scores))
+            assert best_idx == 0  # First candidate had ipTM=0.85

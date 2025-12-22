@@ -449,8 +449,12 @@ class TestBuiltinConstraints:
     def test_all_protein_structure_constraints_registered(self):
         """Test that all protein structure constraints are registered."""
         expected = [
-            "esmfold-plddt",
-            "esmfold-ptm",
+            "structure-plddt",
+            "structure-ptm",
+            "structure-pae",
+            "structure-iptm",
+            "structure-rmsd",
+            "structure-tmscore",
             "protein-symmetry-ring",
             "protein-globularity",
             "boltz-binding-strength"
@@ -477,8 +481,10 @@ class TestBuiltinConstraints:
         """Test that GPU-requiring constraints are properly marked."""
         # Constraints that should be marked as GPU-required
         gpu_constraints = [
-            "esmfold-plddt",
-            "esmfold-ptm",
+            "structure-plddt",
+            "structure-ptm",
+            "structure-pae",
+            "structure-iptm",
             "protein-symmetry-ring",
             "protein-globularity",
             "boltz-binding-strength"

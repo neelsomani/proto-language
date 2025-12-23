@@ -60,6 +60,8 @@ from .language.generator import (
     ESM3GeneratorConfig,
     ProGen2Generator,
     ProGen2GeneratorConfig,
+    ProteinMPNNGenerator,
+    ProteinMPNNGeneratorConfig,
 )
 from .language.optimizer import (
     # Registry
@@ -196,6 +198,8 @@ __all__ = [
     "ESM3GeneratorConfig",
     "ProGen2Generator",
     "ProGen2GeneratorConfig",
+    "ProteinMPNNGenerator",
+    "ProteinMPNNGeneratorConfig",
     # Optimizer registry
     "OptimizerRegistry",
     "OptimizerSpec",

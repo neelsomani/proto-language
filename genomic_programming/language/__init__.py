@@ -20,6 +20,10 @@ from .generator import (
     ESM2GeneratorConfig,
     ESM3Generator,
     ESM3GeneratorConfig,
+    ProGen2Generator,
+    ProGen2GeneratorConfig,
+    ProteinMPNNGenerator,
+    ProteinMPNNGeneratorConfig,
 )
 
 from .optimizer import (
@@ -55,6 +59,10 @@ __all__ = [
     "ESM2GeneratorConfig",
     "ESM3Generator",
     "ESM3GeneratorConfig",
+    "ProGen2Generator",
+    "ProGen2GeneratorConfig",
+    "ProteinMPNNGenerator",
+    "ProteinMPNNGeneratorConfig",
     # Optimizer registry
     "OptimizerRegistry",
     "OptimizerSpec",

@@ -219,9 +219,6 @@ class MCMCOptimizer(Optimizer):
         self.min_temperature: float = config.min_temperature
         self.track_step_size: int = config.track_step_size
         self.custom_logging: Optional[Callable] = custom_logging
-        for generator in generators:
-            if generator.category != "mutation":
-                raise ValueError(f"MCMCOptimizer requires mutation generators. The provided generator '{generator.__class__.__name__}' is not a mutation generator.")
 
     def run(self) -> None:
         """

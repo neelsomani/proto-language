@@ -25,6 +25,12 @@ from .progen2_generator import (
     ProGen2GeneratorConfig,
 )
 
+# Inverse folding generators
+from .proteinmpnn_generator import (
+    ProteinMPNNGenerator,
+    ProteinMPNNGeneratorConfig,
+)
+
 __all__ = [
     # Registry
     "GeneratorRegistry",
@@ -41,4 +47,7 @@ __all__ = [
     "ESM3GeneratorConfig",
     "ProGen2Generator",
     "ProGen2GeneratorConfig",
+    # Inverse folding generators
+    "ProteinMPNNGenerator",
+    "ProteinMPNNGeneratorConfig",
 ]

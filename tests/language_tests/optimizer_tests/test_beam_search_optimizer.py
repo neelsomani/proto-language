@@ -2,6 +2,7 @@ from __future__ import annotations
 import pytest
 import time
 import random
+import math
 from typing import Tuple, List, Dict, Optional
 from unittest.mock import Mock
 
@@ -762,8 +763,9 @@ class TestBeamSearchOptimizer:
         assert optimizer.top_beam_kv_caches[1] == all_kv_caches[3]
         assert optimizer.top_beam_kv_caches[2] == all_kv_caches[2]
 
-    def test_generate_candidates_without_kv_caching(self):
-        """Tests _generate_candidates without KV caching."""
+    def test_generate_candidates_for_single_beam(self):
+        """Tests _generate_candidates_for_beam with and without KV caching."""
+        # Test without KV caching
         optimizer, generator, _, segments = _setup_beam_search_components(
             beam_width=2,
             candidates_per_beam=3,
@@ -775,60 +777,48 @@ class TestBeamSearchOptimizer:
 
         # Mock the generator's sample method
         def mock_sample(prompts=None, prepend_prompt=None, old_kv_cache=None):
-            # Generate mock sequences
             segment.candidate_sequences = [
                 Sequence(sequence="ATCGATCGATCGATCG", sequence_type="dna") for _ in range(len(prompts))
             ]
             generator.kv_caches = []
 
         generator.sample = mock_sample
-
-        # Set running prompts (valid DNA)
         optimizer.running_prompts = ["ATCG", "GCTA"]
 
-        # Call _generate_candidates
-        all_kv_caches = optimizer._generate_candidates(segment)
+        # Generate for beam 0
+        sequences, kv_caches = optimizer._generate_candidates_for_beam(segment, beam_idx=0)
 
-        # Should have generated beam_width * candidates_per_beam sequences
-        assert len(segment.candidate_sequences) == 6
-
+        # Should have generated candidates_per_beam sequences
+        assert len(sequences) == optimizer.candidates_per_beam
         # KV caches should be empty when caching is disabled
-        assert len(all_kv_caches) == 0
+        assert len(kv_caches) == 0
 
-    def test_generate_candidates_with_kv_caching(self):
-        """Tests _generate_candidates with KV caching."""
-        optimizer, generator, _, segments = _setup_beam_search_components(
+        # Test with KV caching
+        optimizer_cached, generator_cached, _, segments_cached = _setup_beam_search_components(
             beam_width=2,
             candidates_per_beam=3,
             num_segments=1,
             use_kv_caching=True,
         )
 
-        segment = segments[0]
-
-        # Set up mock KV caches
+        segment_cached = segments_cached[0]
         mock_cache = create_mock_kv_cache()
-        optimizer.top_beam_kv_caches = [mock_cache, None]
+        optimizer_cached.top_beam_kv_caches = [mock_cache, None]
 
-        # Mock the generator's sample and kv_caches
-        def mock_sample(prompts=None, prepend_prompt=None, old_kv_cache=None):
-            segment.candidate_sequences = [
+        def mock_sample_cached(prompts=None, prepend_prompt=None, old_kv_cache=None):
+            segment_cached.candidate_sequences = [
                 Sequence(sequence="ATCGATCGATCG", sequence_type="dna") for _ in range(len(prompts))
             ]
-            generator.kv_caches = [create_mock_kv_cache() for _ in range(len(prompts))]
+            generator_cached.kv_caches = [create_mock_kv_cache() for _ in range(len(prompts))]
 
-        generator.sample = mock_sample
-        generator.kv_caches = []
+        generator_cached.sample = mock_sample_cached
+        optimizer_cached.running_prompts = ["ATCG", "GCTA"]
 
-        optimizer.running_prompts = ["ATCG", "GCTA"]
+        sequences_cached, kv_caches_cached = optimizer_cached._generate_candidates_for_beam(segment_cached, beam_idx=0)
 
-        all_kv_caches = optimizer._generate_candidates(segment)
-
-        # Should have generated sequences
-        assert len(segment.candidate_sequences) == 6
-
-        # Should have collected KV caches
-        assert len(all_kv_caches) == 6
+        # Should have generated sequences and KV caches
+        assert len(sequences_cached) == optimizer_cached.candidates_per_beam
+        assert len(kv_caches_cached) == optimizer_cached.candidates_per_beam
 
     def test_run_single_segment(self):
         """Tests the run method with a single segment."""
@@ -1208,3 +1198,470 @@ class TestBeamSearchOptimizer:
 
             # This is a rough check - memory growth should be reasonable
             print(f"\nMemory growth: {memory_growth / 1024 / 1024:.2f} MB")
+
+    def test_infinite_energy_filtering(self):
+        """Test that beam search filters out inf/NaN energies."""        
+        # Use restrictive GC constraint with threshold to generate inf energies
+        prompt = "ATCG"
+        segment1 = Segment(length=20, sequence_type="dna")
+        construct = Construct([segment1])
+        
+        gen = MockAutoregressiveGenerator(num_tokens=20, use_kv_caching=False)
+        
+        # Very restrictive: only 48-52% GC passes (threshold=0.0 converts to boolean)
+        constraint = Constraint(
+            inputs=[segment1],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=48.0, max_gc=52.0),
+            threshold=0.0,  # Returns inf for sequences outside range
+        )
+        
+        config = BeamSearchOptimizerConfig(
+            prompt=prompt,
+            beam_width=3,
+            candidates_per_beam=5,
+            use_kv_caching=False,
+            verbose=False
+        )
+        
+        optimizer = BeamSearchOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        
+        optimizer.run()
+        
+        # Verify all final energies are finite
+        for energy in optimizer.energy_scores:
+            assert not math.isinf(energy), "Found infinite energy in final results"
+            assert not math.isnan(energy), "Found NaN energy in final results"
+        
+        # Verify we got the expected number of candidates
+        assert len(segment1.selected_sequences) == config.beam_width
+
+    def test_resample_until_all_beams_valid(self):
+        """Test that resampling continues until all beams have candidates_per_beam valid candidates."""        
+        prompt = "ATCG"
+        segment1 = Segment(length=20, sequence_type="dna")
+        construct = Construct([segment1])
+        
+        gen = MockAutoregressiveGenerator(num_tokens=20, use_kv_caching=False)
+        
+        # Very restrictive GC constraint - many random sequences will fail
+        constraint = Constraint(
+            inputs=[segment1],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=48.0, max_gc=52.0),
+            threshold=0.0,  # Convert to boolean: inf if outside range, 0.0 if inside
+        )
+        
+        config = BeamSearchOptimizerConfig(
+            prompt=prompt,
+            beam_width=3,
+            candidates_per_beam=4,
+            use_kv_caching=False,
+            verbose=True  # To see resampling messages
+        )
+        
+        optimizer = BeamSearchOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        
+        optimizer.run()
+        
+        # Verify all beams produced valid candidates
+        assert len(segment1.selected_sequences) == config.beam_width
+        
+        # Verify all energies are finite
+        for energy in optimizer.energy_scores:
+            assert not math.isinf(energy), "Found infinite energy in results"
+            assert not math.isnan(energy), "Found NaN energy in results"
+
+    def test_all_invalid_raises_error(self):
+        """Test that optimizer raises error when all candidates are invalid after max attempts."""        
+        prompt = "ATCG"
+        segment1 = Segment(length=10, sequence_type="dna")
+        construct = Construct([segment1])
+        
+        gen = MockAutoregressiveGenerator(num_tokens=10, use_kv_caching=False)
+        
+        # Impossible constraint: GC must be exactly 100% with zero tolerance
+        # Random DNA will never be all GC, so all candidates will be rejected
+        constraint = Constraint(
+            inputs=[segment1],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=100.0, max_gc=100.0),
+            threshold=0.0,  # Reject any deviation
+        )
+        
+        config = BeamSearchOptimizerConfig(
+            prompt=prompt,
+            beam_width=2,
+            candidates_per_beam=3,
+            use_kv_caching=False,
+            verbose=False
+        )
+        
+        optimizer = BeamSearchOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        
+        # Should raise RuntimeError due to all invalid candidates
+        with pytest.raises(RuntimeError, match="could not produce.*valid candidates"):
+            optimizer.run()
+
+    def test_partial_beam_invalidity_with_resampling(self):
+        """Test that optimizer correctly handles when only some beams produce invalid candidates.
+        
+        Scenario: beam_width=2, candidates_per_beam=4
+        - Initial generation (2 calls, one per beam): Beam 0 gets all invalid, Beam 1 gets all valid
+        - Resampling (1 call): Beam 0 regenerates and gets valid candidates
+        - Total: 3 calls to generator.sample()
+        """        
+        # Use mock generator with fixed outputs to control which beams are valid
+        class ControlledMockGenerator(Generator):
+            """Mock generator that produces specific sequences to control GC content."""
+            def __init__(self, beam_width: int, candidates_per_beam: int):
+                super().__init__()
+                self.category = "autoregressive"
+                self.kv_caches = []
+                self.call_count = 0
+                self.beam_width = beam_width
+                self.candidates_per_beam = candidates_per_beam
+                
+            def assign(self, assigned_segment: Segment) -> None:
+                self._assigned_segment = assigned_segment
+                
+            def sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None):
+                """Generate sequences with varying GC content."""
+                self.call_count += 1
+                sequences = []
+                
+                # Total candidates in initial generation per beam
+                beam_0_end = self.candidates_per_beam
+                
+                for i, prompt in enumerate(prompts):
+                    # First call (initial generation): beam 0 gets invalid, beam 1 gets valid
+                    # Subsequent calls (resampling): all valid
+                    if self.call_count == 1 and i < beam_0_end:
+                        # Beam 0 in initial generation: produce invalid low-GC sequences
+                        seq = "A" * 20  # 0% GC - will be rejected by constraint
+                    else:
+                        # Beam 1 in initial generation or any resampling: produce valid sequences
+                        seq = "ATCGATCG" * 3  # 50% GC - valid
+                    
+                    if prepend_prompt:
+                        seq = prompt + seq
+                    sequences.append(seq)
+                
+                self._assigned_segment.candidate_sequences = [
+                    Sequence(sequence=seq, sequence_type="dna") for seq in sequences
+                ]
+                self.kv_caches = []
+            
+            def replicate_cache(self, cache, n):
+                return cache
+        
+        prompt = "ATCG"
+        beam_width = 2
+        candidates_per_beam = 4
+        
+        segment1 = Segment(length=20, sequence_type="dna")
+        construct = Construct([segment1])
+        
+        gen = ControlledMockGenerator(beam_width=beam_width, candidates_per_beam=candidates_per_beam)
+        gen._assigned_segment = segment1
+        
+        # Constraint that rejects sequences with GC < 40%
+        constraint = Constraint(
+            inputs=[segment1],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            threshold=0.0,
+        )
+        
+        config = BeamSearchOptimizerConfig(
+            prompt=prompt,
+            beam_width=beam_width,
+            candidates_per_beam=candidates_per_beam,
+            use_kv_caching=False,
+            verbose=False
+        )
+        
+        optimizer = BeamSearchOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        
+        # Run should succeed - beam 0 will need resampling, beam 1 is fine
+        optimizer.run()
+        
+        # Verify all final energies are finite
+        for energy in optimizer.energy_scores:
+            assert not math.isinf(energy), "Found infinite energy after resampling"
+            assert not math.isnan(energy), "Found NaN energy after resampling"
+        
+        # Verify resampling happened
+        # Expected: beam_width calls for initial generation (2) + 1 resample for beam 0 = 3 total
+        assert gen.call_count == 3, f"Expected 3 generation calls (2 for initial, 1 resample), got {gen.call_count}"
+        
+        # Verify we got exactly beam_width * candidates_per_beam final candidates
+        expected_candidates = beam_width * candidates_per_beam
+        assert len(optimizer.construct.segments[0].candidate_sequences) == expected_candidates, \
+            f"Expected {expected_candidates} final candidates, got {len(optimizer.construct.segments[0].candidate_sequences)}"
+
+    def test_resampling_with_multiple_segments(self):
+        """Test that resampling works correctly across multiple segments with context accumulation."""
+        class SegmentAwareMockGenerator(Generator):
+            """Mock generator that produces invalid candidates for first segment, valid for subsequent.
+            
+            Test scenario:
+            - 3 segments, beam_width=2, candidates_per_beam=3
+            - Segment 0: Beam 0 produces invalid candidates (requires resampling)
+            - Segments 1-2: All beams produce valid candidates
+            - Verify running_prompts correctly accumulate across segments
+            """
+            def __init__(self, num_tokens: int):
+                super().__init__()
+                self.category = "autoregressive"
+                self.kv_caches = []
+                self.call_count_per_segment = {}
+                self.current_segment_idx = 0
+                self.num_tokens = num_tokens
+                
+            def assign(self, assigned_segment: Segment) -> None:
+                self._assigned_segment = assigned_segment
+                
+            def sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None):
+                """Generate sequences with varying validity based on segment and call count."""
+                # Track which segment we're on by prompt length
+                if prompts and len(prompts) > 0:
+                    prompt_len = len(prompts[0])
+                    # Segment 0: prompt is 4 chars ("ATCG")
+                    # Segment 1: prompt is 4 + num_tokens
+                    # Segment 2: prompt is 4 + 2*num_tokens
+                    if prompt_len == 4:
+                        self.current_segment_idx = 0
+                    elif prompt_len == 4 + self.num_tokens:
+                        self.current_segment_idx = 1
+                    elif prompt_len == 4 + 2*self.num_tokens:
+                        self.current_segment_idx = 2
+                
+                # Track calls per segment
+                seg_key = self.current_segment_idx
+                self.call_count_per_segment[seg_key] = self.call_count_per_segment.get(seg_key, 0) + 1
+                
+                sequences = []
+                for i, prompt in enumerate(prompts):
+                    # For segment 0, first call, first 3 candidates (beam 0): produce invalid
+                    if self.current_segment_idx == 0 and self.call_count_per_segment[seg_key] == 1 and i < 3:
+                        seq = "A" * self.num_tokens  # 0% GC - invalid
+                    else:
+                        seq = "ATCGATCG" * (self.num_tokens // 8 + 1)  # ~50% GC - valid
+                        seq = seq[:self.num_tokens]  # Trim to exact length
+                    
+                    if prepend_prompt:
+                        seq = prompt + seq
+                    sequences.append(seq)
+                
+                self._assigned_segment.candidate_sequences = [
+                    Sequence(sequence=seq, sequence_type="dna") for seq in sequences
+                ]
+                self.kv_caches = []
+            
+            def replicate_cache(self, cache, n):
+                return cache
+        
+        prompt = "ATCG"
+        beam_width = 2
+        candidates_per_beam = 3
+        segment_length = 16
+        num_segments = 3
+        
+        # Create multiple segments
+        segments = [Segment(length=segment_length, sequence_type="dna") for _ in range(num_segments)]
+        construct = Construct(segments)
+        
+        gen = SegmentAwareMockGenerator(num_tokens=segment_length)
+        
+        # Constraint that rejects sequences with GC < 40% on first segment only
+        constraint = Constraint(
+            inputs=[segments[0]],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            threshold=0.0,
+        )
+        
+        config = BeamSearchOptimizerConfig(
+            prompt=prompt,
+            beam_width=beam_width,
+            candidates_per_beam=candidates_per_beam,
+            use_kv_caching=False,
+            verbose=False
+        )
+        
+        optimizer = BeamSearchOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        
+        # Run should succeed with resampling only on first segment
+        optimizer.run()
+        
+        # Verify resampling occurred only for segment 0
+        # Each segment makes beam_width calls (one per beam) for initial generation
+        # Segment 0 also makes 1 additional call to resample beam 0
+        assert gen.call_count_per_segment.get(0, 0) == 3, \
+            f"Expected 3 calls for segment 0 (2 beams initial + 1 resample), got {gen.call_count_per_segment.get(0, 0)}"
+        assert gen.call_count_per_segment.get(1, 0) == 2, \
+            f"Expected 2 calls for segment 1 (2 beams, no resample), got {gen.call_count_per_segment.get(1, 0)}"
+        assert gen.call_count_per_segment.get(2, 0) == 2, \
+            f"Expected 2 calls for segment 2 (2 beams, no resample), got {gen.call_count_per_segment.get(2, 0)}"
+        
+        # Verify all segments have expected number of candidates
+        expected_candidates = beam_width * candidates_per_beam
+        for i, segment in enumerate(segments):
+            assert len(segment.candidate_sequences) == expected_candidates, \
+                f"Segment {i}: expected {expected_candidates} candidates, got {len(segment.candidate_sequences)}"
+        
+        # Verify running prompts accumulated correctly (length should increase with each segment)
+        assert len(optimizer.running_prompts) == beam_width, \
+            f"Expected {beam_width} running prompts, got {len(optimizer.running_prompts)}"
+        
+        expected_final_length = len(prompt) + num_segments * segment_length
+        for i, running_prompt in enumerate(optimizer.running_prompts):
+            assert len(running_prompt) == expected_final_length, \
+                f"Running prompt {i}: expected length {expected_final_length}, got {len(running_prompt)}"
+        
+        # Verify all final energies are finite
+        for energy in optimizer.energy_scores:
+            assert not math.isinf(energy), "Found infinite energy after optimization"
+            assert not math.isnan(energy), "Found NaN energy after optimization"
+
+    def test_accumulative_resampling(self):
+        """Test that resampling accumulates valid candidates across attempts and selects the best."""
+        class AccumulativeTrackingGenerator(Generator):
+            """Generator that tracks generation calls and produces controlled validity patterns.
+            
+            Test scenario:
+            - beam_width=2, candidates_per_beam=5
+            - Initial generation: 10 candidates (2 beams × 5 candidates)
+                - Beam 0: Only 2 valid candidates (need 3 more)
+                - Beam 1: All 5 valid candidates
+            - Resampling generates full batch (5) but accumulates valid candidates
+            - Best 5 candidates by energy are selected for beam 0
+            """
+            def __init__(self):
+                super().__init__()
+                self.category = "autoregressive"
+                self.kv_caches = []
+                self.call_count = 0
+                self.generation_sizes = []  # Track size of each generation request
+                
+            def assign(self, assigned_segment: Segment) -> None:
+                self._assigned_segment = assigned_segment
+                
+            def sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None):
+                """Generate sequences and track request size."""
+                self.call_count += 1
+                num_requested = len(prompts) if prompts else 0
+                self.generation_sizes.append(num_requested)
+                
+                sequences = []
+                for i, prompt in enumerate(prompts):
+                    # First call: beam 0 (indices 0-4) gets mostly invalid, beam 1 gets all valid
+                    if self.call_count == 1 and i < 5:
+                        # Beam 0 in initial generation: first 2 valid, rest invalid
+                        if i < 2:
+                            seq = "ATCGATCG" * 3  # 50% GC - valid
+                        else:
+                            seq = "A" * 20  # 0% GC - invalid
+                    else:
+                        # Beam 1 in initial generation or any resampling: all valid
+                        seq = "ATCGATCG" * 3  # 50% GC - valid
+                    
+                    if prepend_prompt:
+                        seq = prompt + seq
+                    sequences.append(seq)
+                
+                self._assigned_segment.candidate_sequences = [
+                    Sequence(sequence=seq, sequence_type="dna") for seq in sequences
+                ]
+                self.kv_caches = []
+            
+            def replicate_cache(self, cache, n):
+                return cache
+        
+        prompt = "ATCG"
+        beam_width = 2
+        candidates_per_beam = 5
+        
+        segment1 = Segment(length=20, sequence_type="dna")
+        construct = Construct([segment1])
+        
+        gen = AccumulativeTrackingGenerator()
+        
+        # Constraint that rejects sequences with GC < 40%
+        constraint = Constraint(
+            inputs=[segment1],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            threshold=0.0,
+        )
+        
+        config = BeamSearchOptimizerConfig(
+            prompt=prompt,
+            beam_width=beam_width,
+            candidates_per_beam=candidates_per_beam,
+            use_kv_caching=False,
+            verbose=False
+        )
+        
+        optimizer = BeamSearchOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        
+        # Run optimization
+        optimizer.run()
+        
+        # Verify generation pattern
+        # Initial generation: beam_width calls of candidates_per_beam each
+        # Then resampling calls as needed
+        assert len(gen.generation_sizes) >= beam_width, \
+            f"Expected at least {beam_width} generation calls, got {len(gen.generation_sizes)}"
+        
+        # First beam_width calls should be for initial generation (candidates_per_beam each)
+        for i in range(beam_width):
+            assert gen.generation_sizes[i] == candidates_per_beam, \
+                f"Initial generation call {i} should request {candidates_per_beam} candidates, got {gen.generation_sizes[i]}"
+        
+        # Subsequent resampling calls should also use full batch size (candidates_per_beam)
+        # This maintains efficient batching while accumulating valid candidates
+        for i in range(beam_width, len(gen.generation_sizes)):
+            assert gen.generation_sizes[i] == candidates_per_beam, \
+                f"Resample call {i} should request full batch ({candidates_per_beam} candidates), got {gen.generation_sizes[i]}"
+        
+        # Verify final state: all beams have exactly candidates_per_beam valid candidates
+        expected_candidates = beam_width * candidates_per_beam
+        assert len(optimizer.construct.segments[0].candidate_sequences) == expected_candidates, \
+            f"Expected {expected_candidates} final candidates, got {len(optimizer.construct.segments[0].candidate_sequences)}"
+        
+        # Verify all final energies are finite
+        for energy in optimizer.energy_scores:
+            assert not math.isinf(energy), "Found infinite energy after resampling"
+            assert not math.isnan(energy), "Found NaN energy after resampling"

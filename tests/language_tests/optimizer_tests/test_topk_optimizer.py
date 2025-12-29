@@ -324,3 +324,55 @@ class TestTopKOptimizer:
                 max_num_samples=50,
                 verbose=False
             )
+
+    def test_infinite_energy_rejection(self):
+        """Test that TopK optimizer skips inf/nan energies from heap."""
+        import math
+        from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+        
+        # Start with moderate GC sequence so mutations can go both above and below threshold
+        segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")  # 50% GC
+        construct = Construct([segment])
+        
+        gen = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(num_mutations=3)
+        )
+        gen.assign(segment)
+        
+        # Use GC content constraint with threshold=0 to convert scores to boolean
+        # This will return True (inf energy) for sequences outside the range
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+            threshold=0.0,  # Convert to boolean filter: True (inf) if outside range, False (0.0) if inside
+        )
+        
+        config = TopKOptimizerConfig(
+            min_num_samples=100,  # Generate many samples, some will have inf energy, some won't
+            k=5,
+            batch_size=10,
+            verbose=False
+        )
+        
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        
+        optimizer.run()
+        
+        # Verify all returned sequences have finite energies
+        assert len(optimizer.energy_scores) > 0, "Should have at least some valid sequences"
+        assert len(optimizer.energy_scores) <= config.k
+        for energy in optimizer.energy_scores:
+            assert not math.isinf(energy), f"Found infinite energy {energy} in results - filtering failed!"
+            assert not math.isnan(energy), f"Found NaN energy in results - filtering failed!"
+        
+        # Verify all selected sequences pass the threshold (GC 40-60%)
+        for seq_obj in segment.selected_sequences:
+            gc_count = sum(1 for nt in seq_obj.sequence.upper() if nt in 'GC')
+            gc_percent = 100.0 * gc_count / len(seq_obj.sequence)
+            assert 40.0 <= gc_percent <= 60.0, f"Sequence with GC {gc_percent}% should have been rejected (inf energy)"

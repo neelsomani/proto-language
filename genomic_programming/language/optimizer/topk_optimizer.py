@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Callable, List, Optional, final
 import copy
 import heapq
+import math
 
 import numpy as np
 from pydantic import model_validator
@@ -276,6 +277,10 @@ class TopKOptimizer(Optimizer):
         # 4. Process each candidate in the batch
         for candidate_idx in range(self.batch_size):
             energy = self.energy_scores[candidate_idx]
+
+            # Skip inf/nan energies
+            if math.isinf(energy) or math.isnan(energy):
+                continue
 
             # Save the resulting sequences from this candidate
             candidate_sequences = {

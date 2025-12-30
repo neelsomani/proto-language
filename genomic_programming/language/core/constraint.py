@@ -121,92 +121,89 @@ class Constraint:
         # Validate inputs
         self._validate_inputs()
 
-    def evaluate(self, mask: Optional[List[bool]] = None, verbose=False) -> Union[List[float], List[bool]]:
+    def evaluate(
+        self,
+        mask: Optional[List[bool]] = None,
+        verbose: bool = False
+    ) -> Union[List[float], List[bool]]:
         """
-        Evaluate the constraint on candidate sequences.
+        Evaluate the constraint on candidates.
 
-        This method orchestrates the evaluation by:
-        1. Extracting candidate sequences from input segments (optionally filtered by mask, for sequences that were rejected by filtering constraints)
-        2. Calling the scoring function (batched or sequential)
-        3. Propagating scores back to original candidate sequence metadata
-        4. Converting scores to boolean filters if threshold is set or applying weight to scores if weight is set.
+        This method orchestrates the evaluation:
+        1. Extract candidate sequences from input segments (only those that passed)
+        2. Call the scoring function (batched or sequential)
+        3. Propagate scores back to original candidate sequence metadata
+        4. Convert scores to boolean filters if threshold is set, or apply weight if not
+        5. Build a dense result array (one entry per candidate)
 
         Args:
-            mask: Optional boolean mask to filter which candidates to evaluate.
-                If provided, only candidates where mask[i] is True are evaluated.
-            verbose: If true, logs the information about the constraint.
+            mask: Boolean mask indicating which candidates to evaluate. If None, evaluates all.
+            verbose: If true, logs evaluation details.
 
         Returns:
-            If threshold is None: List of scores (0.0-1.0), one per candidate.
-                Lower scores are better (0.0 = perfect).
-            If threshold is set: List of boolean values (True/False), one per candidate.
-                True = accept (score <= threshold), False = reject (score > threshold).
+            List of results.
+            - Filter constraints: False for unevaluated candidates
+            - Scoring constraints: 0.0 for unevaluated candidates
         """
         num_candidates = self.inputs[0].num_candidates
 
-        # Determine which candidate indices to process
+        # Default: evaluate all candidates
         if mask is None:
             mask = [True] * num_candidates
         if len(mask) != num_candidates:
             raise ValueError(f"Mask length ({len(mask)}) must match number of candidates ({num_candidates})")
-        indices_to_process = [i for i, m in enumerate(mask) if m]
-        if len(indices_to_process) == 0:
-            return []
 
+        # Convert mask to indices for sparse evaluation
+        indices_to_evaluate = [i for i in range(num_candidates) if mask[i]]
+
+        # Early return if no candidates to evaluate
+        if not indices_to_evaluate:
+            return [float('nan')] * num_candidates if self.threshold is None else [False] * num_candidates
+
+        # Evaluate candidates at specified indices only for performance
         if self.batched:
-            # Batched mode: build list of (original_idx, sequence) pairs for sequences that passed filters
-            indexed_sequences_to_evaluate = [(idx, self._preprocess_sequence_at_index(idx)) for idx in indices_to_process]
+            # Batched mode: evaluate all sequences in one batch
+            indexed_sequences = [(idx, self._preprocess_sequence_at_index(idx)) for idx in indices_to_evaluate] # (original_idx, sequence) pairs
+            sequences_to_evaluate = [seq for _, seq in indexed_sequences]                           # list of raw sequences to evaluate
+            raw_scores = self.function(sequences_to_evaluate, config=self.function_config)          # list of raw scores
 
-            # Extract sequences for batched evaluation
-            sequences_to_evaluate = [seq for _, seq in indexed_sequences_to_evaluate]
 
-            # Evaluate all masked sequences that passed filters in one batch
-            raw_scores = self.function(sequences_to_evaluate, config=self.function_config)
-
-            # Propagate metadata back to originals using correct indices
-            for (original_idx, scored_seq) in indexed_sequences_to_evaluate:
+            for (original_idx, scored_seq) in indexed_sequences:
                 self._propagate_metadata_to_sequence(original_idx, scored_seq)
-
-            if self.threshold is None:
-                scores = [score * self.weight for score in raw_scores]
-            else:
-                scores = [raw_score <= self.threshold for raw_score in raw_scores]
-
         else:
-            # Sequential mode: process masked sequences one at a time
+            # Sequential mode: evaluate one at a time
             raw_scores = []
-            for sequence_idx in indices_to_process:
-                sequence = self._preprocess_sequence_at_index(sequence_idx)
+            for idx in indices_to_evaluate:
+                sequence = self._preprocess_sequence_at_index(idx)
                 score = self.function(sequence, config=self.function_config)
                 raw_scores.append(score)
+                self._propagate_metadata_to_sequence(idx, sequence)
 
-                # Propagate metadata from scored sequence back to original
-                self._propagate_metadata_to_sequence(sequence_idx, sequence)
-
-            if self.threshold is None:
-                scores = [score * self.weight for score in raw_scores]
-            else:
-                scores = [raw_score <= self.threshold for raw_score in raw_scores]
+        # Rebuild dense result array. Skipped candidates get NaN (scoring) or False (filter)
+        if self.threshold is None:
+            # Scoring constraint: apply weight to raw scores
+            final_scores = [float('nan')] * num_candidates
+            for j, idx in enumerate(indices_to_evaluate):
+                final_scores[idx] = raw_scores[j] * self.weight
+        else:
+            # Filter constraint: convert scores to boolean (pass if score <= threshold)
+            final_scores = [False] * num_candidates
+            for j, idx in enumerate(indices_to_evaluate):
+                final_scores[idx] = raw_scores[j] <= self.threshold
 
         if verbose:
-            sequence_idx = 0
+            evaluated_set = set(indices_to_evaluate)
             for i in range(num_candidates):
-                if mask[i]:
-                    score, raw_score = scores[sequence_idx], raw_scores[sequence_idx]
+                if i in evaluated_set:
+                    j = indices_to_evaluate.index(i)
                     if self.threshold is None:
-                        # Continous score.
-                        if self.weight != 1.0:
-                            print(f"  Candidate {i}: {f'{score:.4f}'} = {f'{raw_score:.4f}'} * {self.weight}")
-                        else:
-                            print(f"  Candidate {i}: {f'{score:.4f}'}")
+                        print(f"  Candidate {i}: {final_scores[i]:.4f} = {raw_scores[j]:.4f} * {self.weight}")
                     else:
-                        # Thresholded score.
-                        print(f"  Candidate {i}: {'PASS' if score else 'FAIL'} ({f'{raw_score:.4f}'})")
-                    sequence_idx += 1
+                        print(f"  Candidate {i}: {'PASS' if final_scores[i] else 'FAIL'} ({raw_scores[j]:.4f})")
                 else:
                     print(f"  Candidate {i}: SKIPPED")
 
-        return scores
+        return final_scores
 
     def _preprocess_sequence_at_index(self, sequence_idx: int) -> Sequence | Tuple[Sequence, ...]:
         """

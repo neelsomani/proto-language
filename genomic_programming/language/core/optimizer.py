@@ -119,61 +119,83 @@ class Optimizer(ABC):
             "constructs": copy.deepcopy(self.constructs)
         })
 
-    def score_energy(self, operation: Literal["add", "multiply"] = "add", filter_penalty: float = float('inf')) -> None:
+    def score_energy(
+        self,
+        operation: Literal["add", "multiply"] = "add",
+        filter_penalty: float = float('inf')
+    ) -> None:
         """
-        Compute energy scores by combining all constraint evaluation scores.
-        Evaluates the current state of all Sequence objects stored in segments.candidate_sequences.
+        Compute energy scores by combining all constraint evaluation scores on the candidate sequences.
 
-        Filter constraints (those with threshold set) use short-circuit evaluation: once a candidate
-        is rejected by any filter, it skips all subsequent filter and scoring evaluations.
+        Filter constraints are evaluated first. Rejected candidates skip subsequent
+        constraint evaluations for performance.
 
         Evaluation order:
-            1. Filter constraints (with threshold) evaluated sequentially in order
-            2. Each filter only evaluates candidates not yet rejected
+            1. Filter constraints (with threshold) evaluated first
+            2. Candidates must pass ALL filters (AND logic)
             3. Scoring constraints (without threshold) only evaluate candidates that passed all filters
             4. Rejected candidates receive filter_penalty without further evaluation
 
         Args:
-            operation: How to combine constraint scores across constraints:
-                - 'add': Sum weighted constraint scores (default)
-                - 'multiply': Multiply weighted constraint scores
-            filter_penalty: Score assigned to rejected candidates (default: inf)
+            operation: How to combine scores: 'add' (sum) or 'multiply' (product)
+            filter_penalty: Score for rejected candidates (default: inf)
 
         Raises:
             ValueError: If optimizer is not properly initialized or operation is not 'add' or 'multiply'.
         """
         self._validate_optimizer()
 
-        num_sequences = len(self.segments[0].candidate_sequences) if self.segments else 0
+        num_sequences = (
+            len(self.segments[0].candidate_sequences)
+            if self.segments else 0
+        )
         passed = [True] * num_sequences
 
+        # Separate constraints into filters and scoring constraints
+        filters = [c for c in self.constraints if c.threshold is not None]
+        scorers = [c for c in self.constraints if c.threshold is None]
+
         if self.verbose:
-            print(f"\n{'='*60}\nEnergy Scoring: {sum(1 for c in self.constraints if c.threshold is not None)} filters, {sum(1 for c in self.constraints if c.threshold is None)} scoring constraints\nFormula: energy = {'Σ' if operation == 'add' else 'Π'}(weight_i x constraint_score_i)\n")
+            op = 'Σ' if operation == 'add' else 'Π'
+            print(
+                f"\n{'='*60}\n"
+                f"Energy Scoring: {len(filters)} filters, {len(scorers)} scoring\n"
+                f"Formula: energy = {op}(weight_i x constraint_score_i)\n"
+            )
 
-        # Evaluate constraints, skipping subsequent constraint evaluations for sequences that have been rejected by filters
-        weighted_scores = []
-        for idx, constraint in enumerate(self.constraints):
+        # Pass 1: Evaluate all filter constraints first to skip expensive scoring on rejected candidates
+        for idx, constraint in enumerate(filters):
             if self.verbose:
-                print(f"Constraint {idx+1}: {constraint.label}")
-
-            # Only evaluate sequences that have passed all previous filters
+                print(f"Filter {idx+1}: {constraint.label}")
             results = constraint.evaluate(mask=passed, verbose=self.verbose)
+            passed = [p and r for p, r in zip(passed, results)]
 
-            if constraint.threshold is not None:
-                passed = self._apply_filter_constraint(results, passed)
-            else:
-                full_scores = self._apply_scoring_constraint(results, passed, num_sequences, filter_penalty)
-                weighted_scores.append(full_scores)
+        # Pass 2: Score passing candidates (skip rejected candidates for performance)
+        all_scores = [c.evaluate(mask=passed, verbose=self.verbose) for c in scorers]
 
-        # Combine scores across all scoring constraints
-        if weighted_scores:
-            if operation == "add":
-                self.energy_scores = [sum(scores) for scores in zip(*weighted_scores)]
-            elif operation == "multiply":
-                self.energy_scores = [math.prod(scores) for scores in zip(*weighted_scores)]
+        # Aggregate scores across all scoring constraints into a single energy score per candidate.
+        # NaN propagates through sum/prod operations, resuling in NaN if any constraint is unevaluated.
+        if operation == "add":
+            self.energy_scores = [sum(s[i] for s in all_scores) for i in range(num_sequences)]
+        elif operation == "multiply":
+            self.energy_scores = [math.prod(s[i] for s in all_scores) for i in range(num_sequences)]
         else:
-            # No scoring constraints, just use penalty for rejected, 0.0 for accepted
-            self.energy_scores = [filter_penalty if not acc else 0.0 for acc in passed]
+            raise ValueError(f"Operation must be 'add' or 'multiply'")
+
+        # Check for inconsistent state
+        assert len(self.energy_scores) == len(passed), \
+            ("Inconsistent state: energy scores should have the same length as passed mask")
+
+        # NaN signals "not evaluated" and propagates through arithmetic, making bugs visible
+        for i, (score, did_pass) in enumerate(zip(self.energy_scores, passed)):
+            if did_pass and math.isnan(score):
+                raise RuntimeError(f"Inconsistent state: candidate {i} passed all filters but has NaN score.")
+
+        # Apply filter_penalty to rejected candidates
+        self.energy_scores = [
+            score if passed[i] else filter_penalty
+            for (i, score) in enumerate(self.energy_scores)
+        ]
 
         if self.verbose:
             print("Final Energy Scores:")
@@ -181,79 +203,6 @@ class Optimizer(ABC):
                 print(f"  Candidate {i}: {score:.4f}{' [REJECTED]' if not passed[i] else ''}")
 
         self._clear_tool_cache()
-
-    def _apply_filter_constraint(
-        self,
-        results: List[bool],
-        passed: List[bool],
-    ) -> List[bool]:
-        """
-        Apply filter constraint results to update passed status.
-
-        Filter constraints evaluate only candidates that passed previous filters (sparse evaluation).
-        This method maps sparse results back to the full candidate array (dense).
-
-        Args:
-            results: Sparse list of boolean results from constraint.evaluate()
-            passed: Current boolean mask indicating which candidates have passed all filters so far
-
-        Returns:
-            Updated boolean mask after applying this filter's results
-
-        Example:
-            passed = [True, False, True, False]  # candidates 0 and 2 passed previous filters
-            results = [True, False]              # sparse: only evaluated candidates 0 and 2
-            returns: [True, False, False, False] # dense: candidate 0 passed, 2 rejected
-        """
-        sparse_idx = 0
-        for i in range(len(passed)):
-            if passed[i]:
-                passed[i] = results[sparse_idx]
-                sparse_idx += 1
-
-        return passed
-
-    def _apply_scoring_constraint(
-        self,
-        results: List[float],
-        passed: List[bool],
-        num_sequences: int,
-        filter_penalty: float,
-    ) -> List[float]:
-        """
-        Expand sparse scoring results to full array with penalties for rejected candidates.
-
-        Scoring constraints evaluate only candidates that passed all filters (sparse evaluation).
-        This method expands sparse scores to full array, assigning filter_penalty to rejected
-        candidates. Note: weights are already applied by constraint.evaluate().
-
-        Args:
-            results: Sparse list of weighted scores from constraint.evaluate()
-            passed: Boolean mask indicating which candidates passed filters
-            num_sequences: Total number of candidate sequences
-            filter_penalty: Score to assign to rejected candidates
-
-        Returns:
-            Full array of scores with penalties for rejected candidates
-
-        Example:
-            results = [0.8, 0.3]                    # sparse: weighted scores for passed candidates
-            passed = [True, False, True, False]     # candidates 0 and 2 passed filters
-            num_sequences = 4
-            filter_penalty = inf
-            returns: [0.8, inf, 0.3, inf]           # dense: scores + penalties
-        """
-        full_scores = []
-        sparse_idx = 0
-
-        for i in range(num_sequences):
-            if passed[i]:
-                full_scores.append(results[sparse_idx])
-                sparse_idx += 1
-            else:
-                full_scores.append(filter_penalty)
-
-        return full_scores
 
     def _clear_tool_cache(self) -> None:
         """

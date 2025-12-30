@@ -795,20 +795,25 @@ def test_constraint_evaluate_with_mask_sequential():
         function_config=config,
     )
 
-    # Test with mask: only evaluate candidates 0, 2, 4
-    mask = [True, False, True, False, True]
-    scores = constraint.evaluate(mask=mask)
+    # Test with passed mask: only evaluate candidates 0, 2, 4
+    passed = [True, False, True, False, True]
+    scores = constraint.evaluate(mask=passed)
 
-    # Should return sparse results (only 3 scores for 3 masked candidates)
-    assert len(scores) == 3
+    # Should return dense results (5 scores, NaN for skipped candidates)
+    import math
+    assert len(scores) == 5
 
-    # Verify scores are correct for masked candidates
+    # Verify scores are correct for evaluated candidates
     # Candidate 0: "ATTTTTTT" -> 7/8 = 0.875
+    # Candidate 1: skipped -> NaN
     # Candidate 2: "TTTTTTTT" -> 8/8 = 1.0
+    # Candidate 3: skipped -> NaN
     # Candidate 4: "ATATATAT" -> 4/8 = 0.5
     assert scores[0] == pytest.approx(0.875)
-    assert scores[1] == pytest.approx(1.0)
-    assert scores[2] == pytest.approx(0.5)
+    assert math.isnan(scores[1])
+    assert scores[2] == pytest.approx(1.0)
+    assert math.isnan(scores[3])
+    assert scores[4] == pytest.approx(0.5)
 
     # Verify metadata was propagated only to masked candidates
     # Metadata keys are prefixed with segment.constraint_label
@@ -835,20 +840,27 @@ def test_constraint_evaluate_with_mask_batched():
         function_config=config,
     )
 
-    # Test with mask: only evaluate candidates 1, 3
-    mask = [False, True, False, True, False]
-    scores = constraint.evaluate(mask=mask)
+    # Test with passed mask: only evaluate candidates 1, 3
+    passed = [False, True, False, True, False]
+    scores = constraint.evaluate(mask=passed)
 
-    # Should return sparse results (only 2 scores)
-    assert len(scores) == 2
+    # Should return dense results (5 scores, NaN for skipped candidates)
+    import math
+    assert len(scores) == 5
 
-    # Verify scores are correct for masked candidates
+    # Verify scores are correct
+    # Candidate 0: skipped -> NaN
     # Candidate 1: "AAAAAAAA" -> 0/8 = 0.0
+    # Candidate 2: skipped -> NaN
     # Candidate 3: "AAAATTTT" -> 4/8 = 0.5
-    assert scores[0] == pytest.approx(0.0)
-    assert scores[1] == pytest.approx(0.5)
+    # Candidate 4: skipped -> NaN
+    assert math.isnan(scores[0])
+    assert scores[1] == pytest.approx(0.0)
+    assert math.isnan(scores[2])
+    assert scores[3] == pytest.approx(0.5)
+    assert math.isnan(scores[4])
 
-    # Verify metadata was propagated only to masked candidates
+    # Verify metadata was propagated only to evaluated candidates
     prefix = "segment_0.mock_multi_input_scoring_function"
     assert not any(prefix in key for key in segment.candidate_sequences[0]._metadata.keys())
     assert any(prefix in key for key in segment.candidate_sequences[1]._metadata.keys())
@@ -871,12 +883,14 @@ def test_constraint_evaluate_with_mask_all_false():
         function_config=config,
     )
 
-    # Test with all False mask
-    mask = [False, False, False]
-    scores = constraint.evaluate(mask=mask)
+    # Test with all False passed mask
+    passed = [False, False, False]
+    scores = constraint.evaluate(mask=passed)
 
-    # Should return empty list
-    assert len(scores) == 0
+    # Should return dense list with all NaN (no evaluations)
+    import math
+    assert len(scores) == 3
+    assert all(math.isnan(s) for s in scores)
 
     # Verify no metadata was propagated (except default system metadata)
     prefix = "segment_0.mock_multi_input_scoring_function"
@@ -886,7 +900,7 @@ def test_constraint_evaluate_with_mask_all_false():
 
 def test_constraint_evaluate_with_mask_all_true():
     """
-    Test that mask with all True values evaluates all candidates
+    Test that passed mask with all True values evaluates all candidates
     (same as no mask).
     """
     sequences = ["ATTTTTTT", "AAAAAAAA", "TTTTTTTT"]
@@ -899,9 +913,9 @@ def test_constraint_evaluate_with_mask_all_true():
         function_config=config,
     )
 
-    # Test with all True mask
-    mask = [True, True, True]
-    scores_masked = constraint.evaluate(mask=mask)
+    # Test with all True passed mask
+    passed = [True, True, True]
+    scores_masked = constraint.evaluate(mask=passed)
 
     # Reset metadata
     for seq in segment.candidate_sequences:
@@ -938,9 +952,9 @@ def test_constraint_evaluate_with_mask_none():
     assert all(any(prefix in key for key in seq._metadata.keys()) for seq in segment.candidate_sequences)
 
 
-def test_constraint_evaluate_with_mask_invalid_length():
+def test_constraint_evaluate_with_passed_invalid_length():
     """
-    Test that mask with incorrect length raises ValueError.
+    Test that passed mask with incorrect length raises ValueError.
     """
     sequences = ["ATTTTTTT", "AAAAAAAA", "TTTTTTTT"]
     segment = _make_segment_with_candidates(sequences, "dna")
@@ -952,11 +966,11 @@ def test_constraint_evaluate_with_mask_invalid_length():
         function_config=config,
     )
 
-    # Test with wrong length mask
-    mask = [True, False]  # Only 2 elements, but 3 candidates
+    # Test with wrong length passed mask
+    passed = [True, False]  # Only 2 elements, but 3 candidates
 
-    with pytest.raises(ValueError, match="Mask length .* must match number of candidates"):
-        constraint.evaluate(mask=mask)
+    with pytest.raises(ValueError, match=r"Mask length \(\d+\) must match number of candidates \(\d+\)"):
+        constraint.evaluate(mask=passed)
 
 
 def test_constraint_evaluate_with_mask_disjoint():
@@ -978,19 +992,22 @@ def test_constraint_evaluate_with_mask_disjoint():
         function_config=config,
     )
 
-    # Mask: only evaluate candidates 0 and 2
-    mask = [True, False, True]
-    scores = constraint.evaluate(mask=mask)
+    # Passed mask: only evaluate candidates 0 and 2
+    passed = [True, False, True]
+    scores = constraint.evaluate(mask=passed)
 
-    # Should return 2 scores
-    assert len(scores) == 2
+    # Should return dense results (3 scores, NaN for skipped candidate 1)
+    import math
+    assert len(scores) == 3
 
     # Candidate 0: seg1="ATTT" (3/4=0.75 T), seg2="CCCC" (4/4=1.0 C) -> avg=0.875
+    # Candidate 1: skipped -> NaN
     # Candidate 2: seg1="TTTT" (4/4=1.0 T), seg2="AAAA" (0/4=0.0 C) -> avg=0.5
     assert scores[0] == pytest.approx(0.875)
-    assert scores[1] == pytest.approx(0.5)
+    assert math.isnan(scores[1])
+    assert scores[2] == pytest.approx(0.5)
 
-    # Verify metadata only on masked candidates
+    # Verify metadata only on evaluated candidates
     # For disjoint constraints, metadata is prefixed with segment_X.constraint_label
     prefix_seg0 = "segment_0.mock_multi_input_scoring_function_disjoint"
     prefix_seg1 = "segment_1.mock_multi_input_scoring_function_disjoint"
@@ -1021,9 +1038,9 @@ def test_constraint_evaluate_with_mask_preserves_original_indices():
         function_config=config,
     )
 
-    # Mask: skip first and last candidates
-    mask = [False, True, True, True, False]
-    _ = constraint.evaluate(mask=mask)
+    # Passed mask: skip first and last candidates
+    passed = [False, True, True, True, False]
+    _ = constraint.evaluate(mask=passed)
 
     # Verify metadata went to correct original candidates (1, 2, 3)
     prefix = "segment_0.mock_multi_input_scoring_function"
@@ -1319,12 +1336,16 @@ def test_constraint_weight_with_mask():
         weight=3.0,
     )
 
-    mask = [True, False, True, False]
-    results = constraint.evaluate(mask=mask)
+    passed = [True, False, True, False]
+    results = constraint.evaluate(mask=passed)
 
-    # Only 2 results (masked), each weighted
-    assert len(results) == 2
-    assert results == pytest.approx([0.6, 0.6])
+    # Dense results (4 total), NaN for skipped, weighted for evaluated
+    import math
+    assert len(results) == 4
+    assert results[0] == pytest.approx(0.6)
+    assert math.isnan(results[1])
+    assert results[2] == pytest.approx(0.6)
+    assert math.isnan(results[3])
 
 
 def test_constraint_weight_accepts_int():

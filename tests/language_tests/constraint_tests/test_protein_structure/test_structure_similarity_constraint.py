@@ -174,6 +174,44 @@ class TestESMFoldTMscoreConstraint:
 
         assert score_strict == 1.0
 
+    def test_multimer_perfect_match(self):
+        """
+        Test we can compare a multimer to a multimer.
+        """
+        config = StructureTMScoreConfig(
+            target_chains=(ROP_SEQ, ROP_SEQ),
+            structure_tool="esmfold",
+        )
+
+        score = structure_tmscore_constraint(
+            [(
+                Sequence(ROP_SEQ, 'protein'),
+                Sequence(ROP_SEQ, 'protein'),
+            )],
+            config,
+        )[0]
+
+        assert score < EPSILON
+
+    def test_monomer_to_multimer_subunit_match(self):
+        """
+        Test we can compare a monomer to a multimer.
+        The TM-score is normalized by the Target (Dimer) length.
+        Since the monomer covers exactly 50% of the homodimer, the max TM-score
+        is approximately 0.5.
+        """
+        config = StructureTMScoreConfig(
+            target_chains=(ROP_SEQ, ROP_SEQ),
+            structure_tool="esmfold",
+        )
+
+        score = structure_tmscore_constraint(
+            [(Sequence(ROP_SEQ, 'protein'),)],
+            config,
+        )[0]
+
+        assert 0.5 - EPSILON < score < 0.5 + EPSILON
+
 
 @pytest.mark.slow
 @pytest.mark.uses_gpu

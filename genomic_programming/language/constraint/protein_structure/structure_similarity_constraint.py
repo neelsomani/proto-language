@@ -112,7 +112,7 @@ def _filter_pdb_by_plddt(pdb_text: str, threshold: float) -> str:
     return "\n".join(filtered_lines)
 
 
-def _compute_tm_score_from_pdb(
+def _compute_tmalign_score_from_pdb(
     target_pdb_text: str,
     candidate_pdb_text: str,
     plddt_threshold: Optional[float] = None,
@@ -124,7 +124,7 @@ def _compute_tm_score_from_pdb(
     tmalign_path = shutil.which("TMalign")
     if not tmalign_path:
         raise ImportError(
-            "The 'TMalign' (or 'USalign') binary is required for TM-score constraints. "
+            "The 'TMalign' binary is required for TM-score constraints. "
             "Please install it (e.g., via Conda):\n\n"
             "  conda install -c bioconda tmalign\n"
         )
@@ -173,6 +173,72 @@ def _compute_tm_score_from_pdb(
             os.unlink(target_path)
         if os.path.exists(candidate_path):
             os.unlink(candidate_path)
+
+
+def _compute_usalign_score_from_pdb(
+    target_pdb_text: str,
+    candidate_pdb_text: str,
+    plddt_threshold: Optional[float] = None,
+) -> float:
+    """
+    Compute TM-score using 'USalign' for multimers, as standard 'TMalign' only
+    supports single-chain proteins.
+    Returns TM-score normalized by the target structure (Structure_2).
+    """
+    usalign_path = shutil.which("USalign")
+    if not usalign_path:
+        raise ImportError(
+            "The 'USalign' binary is required for multimer structural alignment. "
+            "Please install it (e.g., via Conda):\n\n"
+            "  conda install -c bioconda usalign\n"
+        )
+
+    # Filter candidate by pLDDT if requested
+    if plddt_threshold is not None:
+        candidate_pdb_text = _filter_pdb_by_plddt(candidate_pdb_text, plddt_threshold)
+        if not any(line.startswith("ATOM") for line in candidate_pdb_text.splitlines()):
+            return 0.0
+
+    # Write temporary files
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.pdb', delete=False) as f_target:
+        f_target.write(target_pdb_text)
+        target_path = f_target.name
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.pdb', delete=False) as f_candidate:
+        f_candidate.write(candidate_pdb_text)
+        candidate_path = f_candidate.name
+
+    try:
+        # Command: USalign candidate target -mm [mode] -ter 1
+        # -ter 1 aligns all chains of the first model
+        cmd = [usalign_path, candidate_path, target_path, "-mm", "1", "-ter", "1"]
+
+        # Run USalign
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        output = result.stdout
+
+        # Parse TM-score normalized by Structure_2 (Target)
+        # Output format: "TM-score= 0.91032 (normalized by length of Structure_2: ...)"
+        match = re.search(
+            r"TM-score=\s*([0-9.]+)\s+\(normalized by length of Structure_2",
+            output
+        )
+
+        if match:
+            return float(match.group(1))
+
+        logger.warning(f"Could not find normalized TM-score in USalign output.")
+        return 0.0
+
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"USalign execution failed: {e}, returning worst value")
+        return 0.0
+    finally:
+        if os.path.exists(target_path):
+            os.unlink(target_path)
+        if os.path.exists(candidate_path):
+            os.unlink(candidate_path)
+
 
 # ============================================================================
 # Configuration
@@ -488,6 +554,19 @@ def structure_rmsd_constraint(
     return scores
 
 
+def _count_pdb_chains(pdb_text: str) -> int:
+    """
+    Counts unique chain identifiers in PDB text to determine oligomer state.
+    """
+    chains = set()
+    for line in pdb_text.splitlines():
+        if line.startswith("ATOM") or line.startswith("HETATM"):
+            # Chain ID is in column 22 (index 21)
+            if len(line) > 21:
+                chains.add(line[21])
+    return len(chains) if chains else 1
+
+
 @ConstraintRegistry.register(
     key="structure-tmscore",
     label="Structural TM-score Similarity",
@@ -496,7 +575,7 @@ def structure_rmsd_constraint(
     batched=True,
     concatenate=False,  # Input is List[Tuple[Sequence, ...]]
     gpu_required=True,
-    tools_called=["esmfold", "alphafold3", "boltz", "chai", "tmalign"],
+    tools_called=["esmfold", "alphafold3", "boltz", "chai", "tmalign", "usalign"],
     category="protein_structure",
 )
 def structure_tmscore_constraint(
@@ -504,6 +583,16 @@ def structure_tmscore_constraint(
 ) -> List[float]:
     """
     Predicts structure and compares TM-score. Returns (1.0 - TMscore).
+
+    This constraint automatically selects the appropriate alignment tool based on
+    the oligomer state of the inputs:
+    - Monomer vs monomer comparisons use standard `TMalign`.
+    - Comparisons involving multiple chains use `USalign` with `-mm 1` and default
+      values for all other parameters.
+
+    Note:
+    All TM-scores are normalized by the length of the **target** structure. This
+    can help ensure consistent scoring magnitude across evaluations.
     """
 
     # Prepare target.
@@ -511,6 +600,8 @@ def structure_tmscore_constraint(
     if not target_pdb:
         logger.warning("Target preparation failed, returning worst score.")
         return [1.0] * len(candidates)
+
+    n_target_chains = _count_pdb_chains(target_pdb)
 
     # Prepare candidates.
     complexes = []
@@ -532,11 +623,23 @@ def structure_tmscore_constraint(
     # Compute TMscores.
     scores = []
     for candidate_structure, candidate_tuple in zip(results.structures, candidates):
-        tm_val = _compute_tm_score_from_pdb(
-            target_pdb,
-            candidate_structure.structure_pdb,
-            plddt_threshold=config.plddt_threshold,
-        )
+        n_cand_chains = len(candidate_tuple)
+
+        if n_target_chains == 1 and n_cand_chains == 1:
+            # Monomer vs monomer uses standard TMalign.
+            tm_val = _compute_tmalign_score_from_pdb(
+                target_pdb,
+                candidate_structure.structure_pdb,
+                plddt_threshold=config.plddt_threshold,
+            )
+        else:
+            # USalign is needed for multimer comparison.
+            tm_val = _compute_usalign_score_from_pdb(
+                target_pdb,
+                candidate_structure.structure_pdb,
+                plddt_threshold=config.plddt_threshold
+            )
+
         score = 1.0 - tm_val
 
         if candidate_tuple:

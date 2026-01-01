@@ -34,8 +34,6 @@ def predict_structures(
     Raises:
         ValueError: If tool_name is not recognized.
     """
-    tool_name = tool_name.lower().strip()
-
     if tool_name == "esmfold":
         from proto_language.tools.structure_prediction.esmfold import (
             run_esmfold,
@@ -45,7 +43,7 @@ def predict_structures(
         cfg = ESMFoldConfig(**tool_config)
         return run_esmfold(ESMFoldInput(complexes=complexes), cfg)
 
-    elif tool_name in ("af3", "alphafold3"):
+    elif tool_name == "alphafold3":
         from proto_language.tools.structure_prediction.af3 import (
             run_af3,
             AlphaFold3Input,

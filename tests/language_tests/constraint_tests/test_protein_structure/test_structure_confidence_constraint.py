@@ -307,9 +307,9 @@ class TestToolDispatching:
             assert call_args[1] == tool_name
 
     def test_af3_alias_works(self, protein_sequence):
-        """Test that 'af3' is accepted as alias for 'alphafold3'."""
+        """Test that 'alphafold3' tool works."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="af3")
+        config = StructureConfidenceConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -744,12 +744,11 @@ class TestErrorHandling:
     """Test error handling and edge cases."""
 
     def test_unknown_tool_raises_error(self, protein_sequence):
-        """Test that unknown tool raises ValueError."""
-        candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="unknown_tool")
-
-        with pytest.raises(ValueError, match="Metric 'avg_plddt' is not available"):
-            structure_plddt_constraint(candidates, config)
+        """Test that unknown tool raises ValidationError at config time."""
+        from pydantic import ValidationError
+        
+        with pytest.raises(ValidationError, match="Input should be 'esmfold', 'alphafold3', 'boltz' or 'chai'"):
+            StructureConfidenceConfig(structure_tool="unknown_tool")
 
     def test_prediction_failure_returns_worst_score(self, protein_sequence):
         """Test that prediction failure returns score of 1.0."""
@@ -837,23 +836,18 @@ class TestConfigurationDefaults:
         config = StructureConfidenceConfig()
         assert config.tool_config == {}
 
-    def test_tool_name_normalization(self, protein_sequence):
-        """Test that tool names are normalized (lowercase, stripped)."""
-        candidates = [(protein_sequence,)]
+    def test_tool_name_strict(self, protein_sequence):
+        """Test that tool names must be exact (case-sensitive, no whitespace)."""
+        from pydantic import ValidationError
 
-        for tool_variant in ["ESMFold", "ESMFOLD", " esmfold ", "EsmFold"]:
-            config = StructureConfidenceConfig(structure_tool=tool_variant)
-
-            with patch(
-                "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
-            ) as mock_predict:
-                mock_predict.return_value = make_mock_output([
-                    make_mock_structure(avg_plddt=0.9, ptm=0.8)
-                ])
-
-                # Should not raise
-                scores = structure_plddt_constraint(candidates, config)
-                assert len(scores) == 1
+        # Only exact lowercase names should work
+        config = StructureConfidenceConfig(structure_tool="esmfold")
+        assert config.structure_tool == "esmfold"
+        
+        # Case variations and whitespace should fail
+        for tool_variant in ["ESMFold", "ESMFOLD", " esmfold ", "EsmFold", "af3"]:
+            with pytest.raises(ValidationError):
+                StructureConfidenceConfig(structure_tool=tool_variant)
 
 
 # ============================================================================

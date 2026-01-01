@@ -16,7 +16,7 @@ Constraints:
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Literal
 from logging import getLogger
 
 from proto_language.language.core import Sequence
@@ -75,10 +75,10 @@ class StructureConfidenceConfig(BaseConfig):
             tool documentation for available options. Default: ``{}``.
     """
 
-    structure_tool: str = ConfigField(
+    structure_tool: Literal["esmfold", "alphafold3", "boltz", "chai"] = ConfigField(
         title="Structure Prediction Tool",
         default="esmfold",
-        description="Tool to use: 'esmfold', 'alphafold3', 'boltz', 'chai'",
+        description="Tool to use for structure prediction.",
     )
 
     tool_config: Dict[str, Any] = ConfigField(
@@ -114,14 +114,10 @@ def _structure_confidence(
     Raises:
         ValueError: If target_metric is not available for the specified tool.
     """
-    tool = config.structure_tool.lower().strip()
-
-    lookup_tool = "alphafold3" if tool == "af3" else tool
-
-    available = TOOL_AVAILABLE_METRICS.get(lookup_tool, set())
+    available = TOOL_AVAILABLE_METRICS.get(config.structure_tool, set())
     if target_metric not in available:
         raise ValueError(
-            f"Metric '{target_metric}' is not available for tool '{tool}'. "
+            f"Metric '{target_metric}' is not available for tool '{config.structure_tool}'. "
             f"Available metrics: {', '.join(sorted(available))}"
         )
 
@@ -136,7 +132,7 @@ def _structure_confidence(
 
     # Run structure prediction.
     try:
-        output = predict_structures(complexes, tool, config.tool_config)
+        output = predict_structures(complexes, config.structure_tool, config.tool_config)
     except Exception as e:
         logger.error(f"Structure prediction failed: {e}")
         # Return worst possible scores
@@ -160,7 +156,7 @@ def _structure_confidence(
             candidate_tuple[0]._metadata.update({
                 target_metric: metric_value,
                 "pdb_output": structure.structure_pdb,
-                "structure_tool": tool,
+                "structure_tool": config.structure_tool,
             })
 
         raw_metrics.append(metric_value)
@@ -215,7 +211,7 @@ def structure_plddt_constraint(
             scores.append(1.)
             continue
         # Each structure predictor returns differently normalized pLDDTs.
-        if config.structure_tool in ["af3", "alphafold3"]:
+        if config.structure_tool == "alphafold3":
             metric /= 100.
         scores.append(1. - metric)
     return scores

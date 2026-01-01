@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import re
 import tempfile
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Literal
 from logging import getLogger
 
 from proto_language.language.core import Sequence
@@ -274,11 +274,11 @@ class StructureConstraintBaseConfig(BaseConfig):
             Useful when the PDB data is loaded in memory or passed via API.
             This is mutually exclusive with `target_chains` and `target_pdb_file`.
 
-        structure_tool (str):
+        structure_tool (Literal["esmfold", "alphafold3", "boltz", "chai"]):
             The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the candidate sequences. Supported options include:
+            as a sequence) and the candidate sequences. Supported options:
             - "esmfold": ESMFold (Meta AI)
-            - "alphafold3" or "af3": AlphaFold 3 (Google DeepMind)
+            - "alphafold3": AlphaFold 3 (Google DeepMind)
             - "boltz": Boltz-1 (MIT)
             - "chai": Chai-1 (Chai Discovery)
             Default is "esmfold".
@@ -315,10 +315,10 @@ class StructureConstraintBaseConfig(BaseConfig):
     )
 
     # Tool selection:
-    structure_tool: str = ConfigField(
+    structure_tool: Literal["esmfold", "alphafold3", "boltz", "chai"] = ConfigField(
         title="Structure Prediction Tool",
         default="esmfold",
-        description="Tool to use: 'esmfold', 'alphafold3', 'boltz', or 'chai'.",
+        description="Tool to use for structure prediction.",
     )
     tool_config: Dict[str, Any] = ConfigField(
         title="Tool Config",
@@ -377,7 +377,7 @@ class StructureRMSDConfig(StructureConstraintBaseConfig):
         target_pdb_content (Optional[str]):
             Inherited from `StructureConstraintBaseConfig`.
 
-        structure_tool (str):
+        structure_tool (Literal["esmfold", "alphafold3", "boltz", "chai"]):
             Inherited from `StructureConstraintBaseConfig`.
 
         tool_config (Dict[str, Any]):
@@ -426,7 +426,7 @@ class StructureTMScoreConfig(StructureConstraintBaseConfig):
         target_pdb_content (Optional[str]):
             Inherited from `StructureConstraintBaseConfig`.
 
-        structure_tool (str):
+        structure_tool (Literal["esmfold", "alphafold3", "boltz", "chai"]):
             Inherited from `StructureConstraintBaseConfig`.
 
         tool_config (Dict[str, Any]):

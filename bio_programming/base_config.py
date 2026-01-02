@@ -51,7 +51,7 @@ class BaseConfig(BaseModel):
     """
     
     model_config = ConfigDict(
-        extra='forbid',              # Catch typos in config keys
+        extra='ignore',              # Ignore unknown fields
         validate_assignment=True,    # Validate on field updates
         use_enum_values=True,        # Serialize enums as values
         validate_default=True,       # Validate default values

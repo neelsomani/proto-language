@@ -268,21 +268,19 @@ def _process_dna_sequences(
         prodigal_inputs = ProdigalInput(input_sequences=dna_sequences)
         prodigal_config = ProdigalConfig()
         result = run_prodigal_prediction(prodigal_inputs, prodigal_config)
-        all_proteins_per_seq = result.results_per_sequence
-        gene_counts = result.total_num_genes_per_sequence
+        all_proteins_per_seq = result.predicted_orfs
+        gene_counts = result.num_orfs_per_sequence
 
     except Exception as e:
         raise RuntimeError(f"Prodigal execution failed: {e}")
 
     scores = []
-    for seq_idx, (input_sequence, proteins_df, gene_count) in enumerate(
-        zip(input_sequences, all_proteins_per_seq, gene_counts)
-    ):
+    for input_sequence, proteins_list, gene_count in zip(input_sequences, all_proteins_per_seq, gene_counts):
         # Store Prodigal results in metadata
-        input_sequence._metadata["prodigal_proteins"] = proteins_df
+        input_sequence._metadata["prodigal_proteins"] = [orf.model_dump() for orf in proteins_list]
         input_sequence._metadata["prodigal_protein_count"] = gene_count
 
-        if len(proteins_df) == 0:
+        if len(proteins_list) == 0:
             # No proteins predicted
             input_sequence._metadata["domain_search_results"] = []
             input_sequence._metadata["domain_keywords_found"] = []
@@ -290,7 +288,7 @@ def _process_dna_sequences(
             scores.append(MAX_ENERGY)
             continue
         
-        protein_sequences = proteins_df["protein_sequence"].tolist()
+        protein_sequences = [orf.amino_acid_sequence for orf in proteins_list]
         batch_results = _check_protein_domains_batch(
             protein_sequences,
             str(hmm_db),
@@ -305,15 +303,13 @@ def _process_dna_sequences(
         matching_proteins = []
         all_keywords_found = set()
 
-        for protein_idx, (protein_row, result) in enumerate(
-            zip(proteins_df.itertuples(index=False), batch_results)
-        ):
-            result["protein_id"] = protein_row.id
-            result["protein_description"] = protein_row.description
+        for orf, result in zip(proteins_list, batch_results):
+            result["protein_id"] = orf.id
+            result["protein_description"] = orf.description if hasattr(orf, 'description') and orf.description else ""
             all_results.append(result)
 
             if result["keywords_found"]:
-                matching_proteins.append(protein_row.id)
+                matching_proteins.append(orf.id)
                 all_keywords_found.update(result["keywords_found"])
 
         # Store metadata

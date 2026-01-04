@@ -4,6 +4,7 @@ Comprehensive tests for mmseqs_similarity_constraint.
 Tests the MMseqs2 similarity constraint for protein sequences.
 """
 
+import pandas as pd
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -48,7 +49,6 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 search
         with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
-            import pandas as pd
             mock_output = MagicMock(spec=MmseqsOutput)
             mock_output.success = True
             # Provide results_df with the proper format expected by the constraint
@@ -92,7 +92,6 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with no results
         with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
-            import pandas as pd
             mock_output = MagicMock(spec=MmseqsOutput)
             mock_output.success = True
             mock_output.results_df = pd.DataFrame()  # Empty DataFrame
@@ -130,7 +129,6 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with results
         with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
-            import pandas as pd
             mock_output = MagicMock(spec=MmseqsOutput)
             mock_output.success = True
             # Provide results_df with the proper format expected by the constraint

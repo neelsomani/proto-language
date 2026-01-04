@@ -11,7 +11,6 @@ Tests cover:
 7. Error handling
 """
 
-import pandas as pd
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -148,19 +147,25 @@ class TestProteinDomainConstraint:
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         config = ProteinDomainConfig(hmm_db=str(TEST_HMM), keywords=["kinase"])
 
-        # Mock Prodigal returning proteins
-        proteins_df = pd.DataFrame(
-            {
-                "id": ["gene_1"],
-                "description": ["test_description"],
-                "protein_sequence": [SAMPLE_SEQUENCE],
-            }
+        # Mock Prodigal returning proteins with ProdigalOrf objects
+        from proto_language.tools.orf_prediction.prodigal.prodigal import ProdigalOrf
+        
+        mock_orf = ProdigalOrf(
+            parent_id="seq_0",
+            orf_id="gene_1",
+            strand="+",
+            frame=1,
+            amino_acid_sequence=SAMPLE_SEQUENCE,
+            nucleotide_sequence="ATCGATCGATCG",
+            amino_acid_length=len(SAMPLE_SEQUENCE),
+            nucleotide_length=12,
+            nucleotide_start=0,
+            nucleotide_end=12,
         )
+        
         mock_prodigal_output = Mock()
-        mock_prodigal_output.results_df = proteins_df
-        mock_prodigal_output.num_genes = 1
-        mock_prodigal_output.results_per_sequence = [proteins_df]
-        mock_prodigal_output.total_num_genes_per_sequence = [1]
+        mock_prodigal_output.predicted_orfs = [[mock_orf]]
+        mock_prodigal_output.num_orfs_per_sequence = [1]
 
         with (
             patch(
@@ -186,12 +191,9 @@ class TestProteinDomainConstraint:
         config = ProteinDomainConfig(hmm_db=str(TEST_HMM), keywords=["kinase"])
 
         # Mock Prodigal returning no proteins
-        empty_df = pd.DataFrame(columns=["id", "description", "sequence"])
         mock_prodigal_output = Mock()
-        mock_prodigal_output.results_df = empty_df
-        mock_prodigal_output.num_genes = 0
-        mock_prodigal_output.results_per_sequence = [empty_df]
-        mock_prodigal_output.total_num_genes_per_sequence = [0]
+        mock_prodigal_output.predicted_orfs = [[]]
+        mock_prodigal_output.num_orfs_per_sequence = [0]
 
         with patch('proto_language.language.constraint.protein_quality.protein_domain_constraint.Path') as mock_path, \
              patch('proto_language.language.constraint.protein_quality.protein_domain_constraint.run_prodigal_prediction') as mock_prodigal:

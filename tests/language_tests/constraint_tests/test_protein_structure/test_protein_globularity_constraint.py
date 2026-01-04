@@ -4,7 +4,6 @@ Tests for Protein Globularity constraint.
 
 from unittest.mock import Mock, patch
 
-import pandas as pd
 from proto_language.language.core import Constraint, Segment
 from proto_language.language.constraint import protein_globularity_constraint
 from proto_language.language.constraint.protein_structure.protein_globularity_constraint import (
@@ -96,19 +95,25 @@ class TestProteinGlobularityConstraint:
         segment = Segment(sequence="ATGAAAAAACGT", sequence_type="dna")  # Codes for MKR
         config = ProteinGlobularityConfig()
 
-        # Mock the Prodigal output
-        mock_prodigal_result = pd.DataFrame(
-            {
-                "protein_sequence": ["MKR"],
-                "start": [1],
-                "end": [9],
-                "strand": [1],
-                "partial": ["00"],
-            }
+        # Mock the Prodigal output with ProdigalOrf objects
+        from proto_language.tools.orf_prediction.prodigal.prodigal import ProdigalOrf
+        
+        mock_orf = ProdigalOrf(
+            parent_id="seq_0",
+            orf_id="gene_1",
+            strand="+",
+            frame=1,
+            amino_acid_sequence="MKR",
+            nucleotide_sequence="ATGAAAAAACGT",
+            amino_acid_length=3,
+            nucleotide_length=12,
+            nucleotide_start=0,
+            nucleotide_end=12,
         )
+        
         mock_prodigal_output = Mock(spec=ProdigalOutput)
-        mock_prodigal_output.results_per_sequence = [mock_prodigal_result]
-        mock_prodigal_output.total_num_genes_per_sequence = [1]
+        mock_prodigal_output.predicted_orfs = [[mock_orf]]
+        mock_prodigal_output.num_orfs_per_sequence = [1]
 
         # Mock the ESMFold output
         mock_structure = MockProteinStructure(

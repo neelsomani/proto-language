@@ -287,23 +287,23 @@ def _evaluate_dna_symmetry(
     distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
     scores = []
 
-    for dna_seq, proteins_df, num_genes in zip(
+    for dna_seq, proteins_list, num_genes in zip(
         dna_sequences,
-        prodigal_result.results_per_sequence,
-        prodigal_result.total_num_genes_per_sequence
+        prodigal_result.predicted_orfs,
+        prodigal_result.num_orfs_per_sequence
     ):
         dna_seq._metadata.update({
-            "prodigal_proteins": proteins_df,
+            "prodigal_proteins": [orf.model_dump() for orf in proteins_list],
             "prodigal_protein_count": num_genes
         })
 
         # If there are no genes predicted, score is MAX_ENERGY
-        if num_genes == 0 or len(proteins_df) == 0:
+        if num_genes == 0 or len(proteins_list) == 0:
             scores.append(MAX_ENERGY)
             continue
 
         # Create complexes with n_replications of each protein sequence
-        protein_seqs = proteins_df['protein_sequence'].tolist()
+        protein_seqs = [orf.amino_acid_sequence for orf in proteins_list]
         complexes = [
             StructurePredictionComplex(
                 chains=[seq] * config.n_replications,

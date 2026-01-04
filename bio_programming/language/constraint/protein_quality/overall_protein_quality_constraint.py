@@ -567,15 +567,15 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
         batch_result = run_prodigal_prediction(inputs=prodigal_input, config=prodigal_config)
 
         # Process each DNA sequence's results
-        for input_sequence, proteins_df, num_genes in zip(
+        for input_sequence, proteins_list, num_genes in zip(
             dna_sequences,
-            batch_result.results_per_sequence,
-            batch_result.total_num_genes_per_sequence
+            batch_result.predicted_orfs,
+            batch_result.num_orfs_per_sequence
         ):
-            input_sequence._metadata["prodigal_proteins"] = proteins_df
+            input_sequence._metadata["prodigal_proteins"] = [orf.model_dump() for orf in proteins_list]
             input_sequence._metadata["prodigal_protein_count"] = num_genes
 
-            if len(proteins_df) == 0:
+            if len(proteins_list) == 0:
                 input_sequence._metadata["predicted_protein_count"] = 0
                 input_sequence._metadata["high_quality_protein_count"] = 0
                 input_sequence._metadata["high_quality_protein_fraction"] = 0.0
@@ -585,8 +585,8 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
 
             # Convert to Sequence objects for batch constraint evaluation
             predicted_protein_seqs = [
-                Sequence(row["protein_sequence"], "protein")
-                for _, row in proteins_df.iterrows()
+                Sequence(orf.amino_acid_sequence, "protein")
+                for orf in proteins_list
             ]
 
             quality_scores = {}
@@ -628,16 +628,15 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
 
             # Build details
             protein_quality_details = []
-            for prot_idx, (protein_row, protein_seq) in enumerate(zip(proteins_df.iterrows(), predicted_protein_seqs)):
-                idx, row = protein_row
+            for prot_idx, (orf, protein_seq) in enumerate(zip(proteins_list, predicted_protein_seqs)):
                 individual_scores = {
                     name: scores[prot_idx] 
                     for name, scores in quality_scores.items()
                 }
 
                 protein_quality_details.append({
-                    "protein_id": row["id"],
-                    "length": row["protein_length"],
+                    "protein_id": orf.id,
+                    "length": orf.amino_acid_length,
                     "is_high_quality": bool(is_high_quality[prot_idx]),
                     "avg_constraint_score": float(avg_scores[prot_idx]),
                     "quality_scores": individual_scores,
@@ -648,7 +647,7 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
             is_dna_high_quality = overall_avg_protein_score <= threshold
 
             # Store metadata
-            input_sequence._metadata["predicted_protein_count"] = len(proteins_df)
+            input_sequence._metadata["predicted_protein_count"] = len(proteins_list)
             input_sequence._metadata["avg_constraint_score"] = overall_avg_protein_score
             input_sequence._metadata["is_high_quality"] = is_dna_high_quality
             input_sequence._metadata["protein_quality_details"] = protein_quality_details

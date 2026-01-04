@@ -270,38 +270,26 @@ def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimila
                 prodigal_input = ProdigalInput(input_sequences=sequences_clean)
                 result = run_prodigal_prediction(inputs=prodigal_input, config=prodigal_config)
 
-                for seq_idx, orfs_df in enumerate(result.results_per_sequence):
-                    sequences[seq_idx]._metadata["prodigal_orfs"] = (
-                        orfs_df.to_dict("records") if not orfs_df.empty else []
-                    )
-
-                    if not orfs_df.empty:
-                        for _, row in orfs_df.iterrows():
-                            all_proteins_data.append((
-                                seq_idx, row['id'], row['protein_sequence']
-                            ))
+                for seq_idx, orfs_list in enumerate(result.predicted_orfs):
+                    sequences[seq_idx]._metadata["prodigal_orfs"] = [orf.model_dump() for orf in orfs_list]
+                    
+                    for orf in orfs_list:
+                        all_proteins_data.append((
+                            seq_idx, orf.orf_id, orf.amino_acid_sequence
+                        ))
 
             else:  # orfipy
                 orfipy_input = OrfipyInput(sequences=sequences_clean)
                 orfipy_config = config.orfipy_config or OrfipyConfig()
                 result = run_orfipy_prediction(inputs=orfipy_input, config=orfipy_config)
-                full_orfs = result.results_df if result.results_df is not None else pd.DataFrame()
 
-                for seq_idx in range(len(sequences)):
-                    if not full_orfs.empty:
-                        seq_orfs = full_orfs[full_orfs['parent_id'] == f'seq_{seq_idx}'].copy()
-                    else:
-                        seq_orfs = pd.DataFrame()
-
-                    sequences[seq_idx]._metadata["orfipy_orfs"] = (
-                        seq_orfs.to_dict("records") if not seq_orfs.empty else []
-                    )
-
-                    if not seq_orfs.empty:
-                        for _, row in seq_orfs.iterrows():
-                            all_proteins_data.append((
-                                seq_idx, row['orf_id'], row['amino_acid_sequence']
-                            ))
+                for seq_idx, orfs_list in enumerate(result.predicted_orfs):
+                    sequences[seq_idx]._metadata["orfipy_orfs"] = [orf.model_dump() for orf in orfs_list]
+                    
+                    for orf in orfs_list:
+                        all_proteins_data.append((
+                            seq_idx, orf.orf_id, orf.amino_acid_sequence
+                        ))
 
         else:  # PROTEIN sequences - use directly
             for seq_idx, seq in enumerate(sequences):
@@ -373,7 +361,7 @@ def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimila
         num_hits = len(seq_results) if not seq_results.empty else 0
 
         seq._metadata.update({
-            "mmseqs_results": seq_results.to_dict("records") if not seq_results.empty else [],
+            "mmseqs_results": seq_results.to_dict("records"),
             "unique_orfs_with_hits": num_hits,
         })
 

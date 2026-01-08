@@ -257,13 +257,18 @@ def mask_assigned_positions(
     return "".join(sequence_list)
 
 
-def run_subprocess_command(cmd: List[str], tool_name: str) -> None:
+def run_subprocess_command(
+    cmd: List[str], tool_name: str
+) -> subprocess.CompletedProcess:
     """
     Run subprocess command with error handling.
 
     Args:
         cmd: Command and arguments to execute.
         tool_name: Name of the tool being executed for error messages.
+
+    Returns:
+        CompletedProcess object with stdout/stderr accessible.
 
     Raises:
         RuntimeError: If the subprocess exits with a non-zero return code.
@@ -274,3 +279,4 @@ def run_subprocess_command(cmd: List[str], tool_name: str) -> None:
             f"{tool_name} failed (exit {proc.returncode})\n"
             f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
         )
+    return proc

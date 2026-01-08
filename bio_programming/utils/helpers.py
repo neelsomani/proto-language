@@ -10,7 +10,6 @@ import random
 import subprocess
 from typing import Any, Dict, List, Optional
 
-
 # =============================================================================
 # CONSTRAINT SCORING UTILITIES
 # =============================================================================
@@ -280,3 +279,22 @@ def run_subprocess_command(
             f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
         )
     return proc
+
+def resolve_sequence_ids(sequences: List[str], ids: Optional[List[str]]) -> List[str]:
+    """Resolve sequence identifiers, using provided IDs or generating defaults.
+
+    Args:
+        sequences: List of sequences to generate IDs for.
+        ids: Optional list of user-provided sequence identifiers.
+
+    Returns:
+        List of sequence identifiers (provided IDs or seq_0, seq_1, ...).
+
+    Raises:
+        ValueError: If ids length doesn't match sequences length.
+    """
+    if ids is not None:
+        if len(ids) != len(sequences):
+            raise ValueError(f"sequence_ids length ({len(ids)}) must match sequences length ({len(sequences)})")
+        return ids
+    return [f"seq_{i}" for i in range(len(sequences))]

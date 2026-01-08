@@ -18,6 +18,7 @@ from .helpers import (
     mask_p,
     mask_assigned_positions,
     run_subprocess_command,
+    resolve_sequence_ids,
 )
 
 # Infrastructure utilities (compute and file resolution)
@@ -61,4 +62,5 @@ __all__ = [
     "mask_p",
     "mask_assigned_positions",
     "run_subprocess_command",
+    "resolve_sequence_ids",
 ]

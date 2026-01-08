@@ -59,10 +59,7 @@ class MockGenerator(Generator):
         pass
 
 
-def _setup_base_optimizer_components(
-    num_candidates: int = 4,
-    num_selected: int = 2,
-):
+def _setup_base_optimizer_components(num_candidates: int = 4):
     """Helper function to set up components for testing Optimizer."""
     # 1. Create segment
     segment = Segment(sequence="ATCG", sequence_type="dna")
@@ -129,9 +126,7 @@ class TestOptimizer:
 
     def test_sequence_pool_initialization_fresh(self):
         """Tests initialization of sequence pools when no previous candidates exist."""
-        construct, generator, constraint, segment = _setup_base_optimizer_components(
-            num_candidates=5, num_selected=2
-        )
+        construct, generator, constraint, segment = _setup_base_optimizer_components(num_candidates=5)
         # Ensure segment starts fresh
         segment.candidate_sequences = []
         segment.selected_sequences = []
@@ -161,9 +156,7 @@ class TestOptimizer:
 
     def test_sequence_pool_initialization_chained(self):
         """Tests initialization when inheriting sequences from previous optimizer."""
-        construct, generator, constraint, segment = _setup_base_optimizer_components(
-            num_candidates=5, num_selected=3
-        )
+        construct, generator, constraint, segment = _setup_base_optimizer_components(num_candidates=5)
 
         # Simulate results from a previous run
         prev_best = Sequence(sequence="AAAA", sequence_type="dna")
@@ -193,9 +186,7 @@ class TestOptimizer:
 
     def test_score_energy_add(self):
         """Tests basic energy scoring with 'add' operation."""
-        construct, generator, constraint1, segment = _setup_base_optimizer_components(
-            num_candidates=2
-        )
+        construct, generator, constraint1, segment = _setup_base_optimizer_components(num_candidates=2)
 
         # Setup Constraint 1: weight 1.0, scores [10.0, 20.0]
         constraint1.weight = 1.0
@@ -229,9 +220,7 @@ class TestOptimizer:
 
     def test_score_energy_multiply(self):
         """Tests energy scoring with 'multiply' operation."""
-        construct, generator, constraint1, segment = _setup_base_optimizer_components(
-            num_candidates=2
-        )
+        construct, generator, constraint1, segment = _setup_base_optimizer_components(num_candidates=2)
 
         # Setup Constraint 1: weight 1.0, scores [2.0, 3.0]
         constraint1.weight = 1.0
@@ -262,9 +251,7 @@ class TestOptimizer:
 
     def test_score_energy_filter_rejection(self):
         """Tests that filter constraints correctly reject candidates."""
-        construct, generator, constraint1, segment = _setup_base_optimizer_components(
-            num_candidates=3
-        )
+        construct, generator, constraint1, segment = _setup_base_optimizer_components(num_candidates=3)
         segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
         # Constraint 1: Filter. Rejects index 1.
@@ -298,9 +285,7 @@ class TestOptimizer:
 
     def test_score_energy_sparse_evaluation(self):
         """Tests that subsequent constraints are NOT evaluated for rejected candidates."""
-        construct, generator, constraint1, segment = _setup_base_optimizer_components(
-            num_candidates=3
-        )
+        construct, generator, constraint1, segment = _setup_base_optimizer_components(num_candidates=3)
         segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
         # Constraint 1: Filter. Rejects index 1.
@@ -335,9 +320,7 @@ class TestOptimizer:
         With the preprocessing approach, filters are evaluated first, then scoring
         constraints are only evaluated on passing candidates.
         """
-        construct, generator, scoring_constraint, segment = _setup_base_optimizer_components(
-            num_candidates=2
-        )
+        construct, generator, scoring_constraint, segment = _setup_base_optimizer_components(num_candidates=2)
         segment.candidate_sequences = [
             Sequence("PASS", "protein"),
             Sequence("FAIL", "protein"),
@@ -408,9 +391,7 @@ class TestOptimizer:
 
     def test_progress_snapshot(self):
         """Tests that history snapshots capture correct state."""
-        construct, generator, constraint, segment = _setup_base_optimizer_components(
-            num_candidates=2, num_selected=1
-        )
+        construct, generator, constraint, segment = _setup_base_optimizer_components(num_candidates=2)
         optimizer = ConcreteOptimizer(
             [construct], [generator], [constraint], 2, 1
         )
@@ -443,9 +424,7 @@ class TestOptimizer:
         This tests the inconsistent state check: if a candidate passes all filters,
         it should have been evaluated by all scoring constraints and should not have NaN.
         """
-        construct, generator, constraint, segment = _setup_base_optimizer_components(
-            num_candidates=3
-        )
+        construct, generator, constraint, segment = _setup_base_optimizer_components(num_candidates=3)
         segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
         # No filter constraints - all candidates should pass

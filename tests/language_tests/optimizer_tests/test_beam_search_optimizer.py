@@ -32,11 +32,10 @@ class MockAutoregressiveGenerator(Generator):
 
     Generates random DNA sequences and optionally maintains mock KV caches.
     """
-    def __init__(self, num_tokens: int, use_kv_caching: bool = True):
+    def __init__(self, num_tokens: int = 20, use_kv_caching: bool = True):
         super().__init__()
         self.num_tokens = num_tokens
         self.use_kv_caching = use_kv_caching
-        self.category = "autoregressive"
         self.kv_caches: List[Dict] = []
 
     def assign(self, assigned_segment: Segment) -> None:
@@ -90,6 +89,24 @@ class MockAutoregressiveGenerator(Generator):
 
     def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
         """Replicate cache N times for beam branching."""
+        return cache
+
+
+# Mock Mutation Generator for testing non-autoregressive rejection
+class MockMutationGenerator(Generator):
+    """Mock mutation generator for testing non-autoregressive rejection."""
+    def __init__(self, num_tokens: int = 20):
+        super().__init__()
+        self.num_tokens = num_tokens
+        self.kv_caches: List[Dict] = []
+
+    def assign(self, assigned_segment: Segment) -> None:
+        self._assigned_segment = assigned_segment
+
+    def sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None) -> None:
+        pass
+
+    def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
         return cache
 
 
@@ -258,10 +275,9 @@ class TestBeamSearchOptimizer:
         segments = [Segment(length=20, sequence_type="dna") for _ in range(3)]
         construct = Construct(segments)
 
-        # Create a non-autoregressive generator (mock)
-        generator = MockAutoregressiveGenerator(num_tokens=20)
+        # Create a non-autoregressive (mutation) generator 
+        generator = MockMutationGenerator(num_tokens=20)
         generator._assigned_segment = segments[0]  # Required for validation
-        generator.category = "mutation"  # Override to make it mutation generator
 
         constraint = Constraint(
             inputs=[segments[0]],
@@ -1331,7 +1347,6 @@ class TestBeamSearchOptimizer:
             """Mock generator that produces specific sequences to control GC content."""
             def __init__(self, beam_width: int, candidates_per_beam: int):
                 super().__init__()
-                self.category = "autoregressive"
                 self.kv_caches = []
                 self.call_count = 0
                 self.beam_width = beam_width

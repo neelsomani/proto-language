@@ -7,7 +7,7 @@ import os
 from pydantic import model_validator
 from typing import final, Optional, Dict, List
 
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.generator.generator_registry import GeneratorRegistry
 from proto_language.tools.inverse_folding.proteinmpnn import run_proteinmpnn_sample
@@ -220,8 +220,6 @@ class ProteinMPNNGenerator(Generator):
         >>> gen.sample()  # Generates sequences compatible with the backbone
     """
 
-    supported_sequence_types = ["protein"]
-
     def __init__(self, config: ProteinMPNNGeneratorConfig) -> None:
         """Initialize the ProteinMPNN generator with structure and sampling configuration.
 
@@ -239,7 +237,6 @@ class ProteinMPNNGenerator(Generator):
         self.seed = config.seed
         self.device = config.device
         self.verbose = config.verbose
-        self.category = "autoregressive"
 
         # Structure configuration.
         if self.dynamic_structure_path:
@@ -289,23 +286,6 @@ class ProteinMPNNGenerator(Generator):
                     f"Fixed position chain IDs {missing} not found in structure. "
                     f"Available chains: {available_chains}"
                 )
-
-    def assign(self, assigned_segment: Segment) -> None:
-        """Assign a Segment to this generator.
-
-        Validates that the structure is compatible with the segment and sets up
-        chain information. Unlike mutation generators, does not initialize a
-        random starting sequence since ProteinMPNN generates from structure.
-
-        Args:
-            assigned_segment: The Segment to assign to this generator.
-
-        Raises:
-            ValueError: If chain_ids contains chains not present in the structure.
-        """
-        super().assign(assigned_segment)
-        self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
 
     def sample(self) -> None:
         """Generate protein sequences conditioned on the assigned structure.

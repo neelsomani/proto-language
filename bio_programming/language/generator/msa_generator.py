@@ -117,7 +117,6 @@ class MSAGenerator(Generator):
         self.msa = config.msa
         self.num_mutations = config.num_mutations
         self.include_gaps = config.include_gaps
-        self.category = "mutation"
 
         # Compute position-specific probability distributions
         self.position_probs: List[Optional[Dict[str, float]]] = []
@@ -155,9 +154,6 @@ class MSAGenerator(Generator):
 
         if not self.mutable_positions:
             raise ValueError("No mutable positions in MSA (all positions are gaps)")
-
-        self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
 
     def sample(self) -> None:
         """Sample mutations for candidate sequences using MSA distributions.

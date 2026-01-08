@@ -108,7 +108,6 @@ class ESM3Generator(Generator):
         temperature (float): Sampling temperature for diversity control.
         decoding_method (str): Position selection strategy (entropy/max_logit/random).
         num_mutations (int): Number of positions to mutate per iteration.
-        category (str): Set to ``"mutation"``.
 
     Example:
         >>> from proto_language.language.generator import ESM3Generator, ESM3GeneratorConfig
@@ -124,8 +123,6 @@ class ESM3Generator(Generator):
         >>> gen.sample()  # Refines 5 highest-entropy positions
     """
 
-    supported_sequence_types = ["protein"]
-
     def __init__(self, config: ESM3GeneratorConfig) -> None:
         """
         Initialize the ESM3 generator with model and sampling configuration.
@@ -138,7 +135,6 @@ class ESM3Generator(Generator):
         self.temperature = config.temperature
         self.decoding_method = config.decoding_method
         self.num_mutations = config.num_mutations
-        self.category = "mutation"
 
     def assign(
         self, assigned_segment: Segment
@@ -157,9 +153,6 @@ class ESM3Generator(Generator):
             assigned_segment.original_sequence.sequence = "".join(
                 random.choice(valid_chars_list) for _ in range(assigned_segment.sequence_length)
             )
-        
-        self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
 
     def sample(self) -> None:
         """

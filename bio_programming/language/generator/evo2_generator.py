@@ -215,8 +215,6 @@ class Evo2Generator(Generator):
         temperature (float): Sampling temperature for diversity control.
         num_tokens (int): Number of tokens to generate (calculated dynamically on assign).
         kv_caches (List[Dict]): Stored KV caches when ``store_kv_cache=True``.
-        category (str): Set to ``"autoregressive"``.
-        supported_sequence_types (List[SequenceType]): Only supports DNA sequences.
 
     Example:
         >>> from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
@@ -231,8 +229,6 @@ class Evo2Generator(Generator):
         >>> gen.assign(segment)  # num_tokens = 1003 - 3 = 1000
         >>> gen.sample()  # Generates DNA sequences
     """
-
-    supported_sequence_types = ["dna"]
 
     def __init__(self, config: Evo2GeneratorConfig) -> None:
         """
@@ -259,7 +255,6 @@ class Evo2Generator(Generator):
         self.batched = config.batched
         self.store_kv_cache = config.store_kv_cache
         self.prepend_prompt = config.prepend_prompt
-        self.category = "autoregressive"
         self.num_tokens: Optional[int] = None # num_tokens will be calculated dynamically on assign()
         self.kv_caches: List[Dict] = [] # store old KV caches for cached generation
 
@@ -278,9 +273,6 @@ class Evo2Generator(Generator):
 
         if self.num_tokens < 1:
             raise ValueError(f"Must increase segment length (currently {assigned_segment.sequence_length})")
-
-        self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
 
     def sample(self, prompts: Optional[List[str]] = None, prepend_prompt: Optional[bool] = None, old_kv_cache: Optional[Dict] = None) -> None:
         """

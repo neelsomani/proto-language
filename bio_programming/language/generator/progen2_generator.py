@@ -177,8 +177,6 @@ class ProGen2GeneratorConfig(BaseConfig):
 class ProGen2Generator(Generator):
     """Protein sequence generator using ProGen2 autoregressive language model."""
 
-    supported_sequence_types = ["protein"]
-
     def __init__(self, config: ProGen2GeneratorConfig) -> None:
         super().__init__()
         self.prompts = config.prompts
@@ -191,7 +189,6 @@ class ProGen2Generator(Generator):
         self.strip_special_tokens = config.strip_special_tokens
         self.prepend_prompt = config.prepend_prompt
         self.verbose = config.verbose
-        self.category = "autoregressive"
         
         # This should get assigned during `self.assign()`.
         self.max_length: Optional[int] = None
@@ -199,8 +196,6 @@ class ProGen2Generator(Generator):
     def assign(self, assigned_segment: Segment) -> None:
         """Assign a Segment to this generator and calculate lengths."""
         super().assign(assigned_segment)
-        self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
 
         prompt_length = len(self.prompts[0]) if isinstance(self.prompts, list) else len(self.prompts)
 

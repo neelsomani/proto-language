@@ -5,21 +5,18 @@ Provides the abstract interface for sequence generation algorithms.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from .segment import Segment
-from .sequence import SequenceType
 
 
 class Generator(ABC):
     """
-    Generator base class that modify candidate_sequences of assigned segments during optimization.
+    Generator base class that modifies candidate_sequences of assigned segments during optimization.
 
-    Subclasses must implement `__init__()`, `assign()`, and `sample()`
-    Subclasses must also define `supported_sequence_types` to specify which sequence types they support.
+    Subclasses must implement `__init__()` and `sample()`. Override `assign()` only if
+    additional validation or initialization is needed (call super().assign() first).
     """
-
-    supported_sequence_types: List[SequenceType] = []
 
     @abstractmethod
     def __init__(self) -> None:
@@ -29,24 +26,30 @@ class Generator(ABC):
         # TODO: add logic to handle multiple assigned segments (if necessary)
         self._assigned_segment: Optional[Segment] = None
 
-    @abstractmethod
-    def assign(
-        self, assigned_segment: Segment
-    ) -> None:
-        """
-        Assign a Segment to the generator and initialize the generator.
-        The generator will modify the Segment's candidate_sequences internally during sampling.
-        
+    def assign(self, assigned_segment: Segment) -> None:
+        """Assign a Segment to the generator.
+
+        Validates the segment and stores it. Subclasses should call super().assign()
+        first, then perform any additional validation or initialization.
+
         Raises:
             ValueError: If segment is constant or has incompatible sequence type.
         """
+        from proto_language.language.generator.generator_registry import GeneratorRegistry
+
         if assigned_segment.constant:
             raise ValueError(f"Cannot assign constant segment '{assigned_segment.label}' to generator. Constant segments should not be mutated during optimization.")
-        
-        # Validate sequence type compatibility
-        if self.supported_sequence_types and assigned_segment.sequence_type not in self.supported_sequence_types:
-            supported_types_str = ", ".join(self.supported_sequence_types)
+
+        # Validate sequence type compatibility from registry
+        spec = GeneratorRegistry.get(GeneratorRegistry.get_key(self))
+        supported_types = spec.supported_sequence_types
+
+        if supported_types and assigned_segment.sequence_type not in supported_types:
+            supported_types_str = ", ".join(supported_types)
             raise ValueError(f"Generator {self.__class__.__name__} does not support sequence type '{assigned_segment.sequence_type}'. Supported types: [{supported_types_str}]")
+
+        self._assigned_segment = assigned_segment
+        self._assigned_segment._is_assigned = True
 
     @abstractmethod
     def sample(self) -> None:

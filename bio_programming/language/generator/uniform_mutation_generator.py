@@ -140,8 +140,6 @@ class UniformMutationGenerator(Generator):
         num_mutations (int): Number of positions to mutate per sample.
         mutation_window (Optional[MutationWindow]): Optional region to restrict mutations.
         debug_with_sleep_calls (bool): Whether to add sleep delays for testing.
-        category (str): Set to ``"mutation"``.
-        supported_sequence_types (List[SequenceType]): Empty list indicates support for all sequence types.
 
     Example:
         >>> from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
@@ -152,8 +150,6 @@ class UniformMutationGenerator(Generator):
         >>> gen.assign(segment)
         >>> gen.sample()  # Introduces 2 random mutations
     """
-
-    supported_sequence_types = []  # Empty list means supports all sequence types
 
     def __init__(self, config: UniformMutationGeneratorConfig) -> None:
         """
@@ -166,7 +162,6 @@ class UniformMutationGenerator(Generator):
         self.num_mutations = config.num_mutations
         self.debug_with_sleep_calls = config.debug_with_sleep_calls
         self.mutation_window = config.mutation_window
-        self.category = "mutation"
 
     def assign(self, assigned_segment: Segment) -> None:
         """
@@ -189,9 +184,6 @@ class UniformMutationGenerator(Generator):
         # Generate random sequence matching segment's length
         if not assigned_segment.original_sequence.sequence:
             assigned_segment.original_sequence.sequence = "".join(random.choice(valid_chars_list) for _ in range(assigned_segment.sequence_length))
-
-        self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
 
     def sample(self) -> None:
         """

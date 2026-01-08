@@ -8,6 +8,49 @@ from uuid import uuid4
 import os
 
 
+# Helper to create a mock generator spec for patching
+def _create_mock_generator_spec(category: str = "autoregressive"):
+    """Create a mock GeneratorSpec with the given category."""
+    mock_spec = Mock()
+    mock_spec.category = category
+    mock_spec.supported_sequence_types = ["dna"]
+    return mock_spec
+
+
+# Fixture to patch GeneratorRegistry for mock generators
+@pytest.fixture(autouse=True)
+def mock_generator_registry(monkeypatch):
+    """Patch GeneratorRegistry to return autoregressive category for mock generators."""
+    from proto_language.language.generator import generator_registry
+    
+    original_get_key = generator_registry.GeneratorRegistry.get_key
+    original_get = generator_registry.GeneratorRegistry.get
+    
+    def patched_get_key(generator):
+        # For mock generators, return a fake key
+        if generator.__class__.__name__ in (
+            "MockAutoregressiveGenerator",
+            "ControlledMockGenerator",
+            "SegmentAwareMockGenerator", 
+            "AccumulativeTrackingGenerator",
+        ):
+            return f"mock-{generator.__class__.__name__}"
+        if generator.__class__.__name__ == "MockMutationGenerator":
+            return "mock-mutation"
+        return original_get_key(generator)
+    
+    def patched_get(key):
+        # For mock generator keys, return appropriate mock spec
+        if key.startswith("mock-"):
+            if key == "mock-mutation":
+                return _create_mock_generator_spec("mutation")
+            return _create_mock_generator_spec("autoregressive")
+        return original_get(key)
+    
+    monkeypatch.setattr(generator_registry.GeneratorRegistry, "get_key", classmethod(lambda cls, gen: patched_get_key(gen)))
+    monkeypatch.setattr(generator_registry.GeneratorRegistry, "get", classmethod(lambda cls, key: patched_get(key)))
+
+
 def pytest_addoption(parser):
     """Add custom command line options to pytest."""
     parser.addoption(

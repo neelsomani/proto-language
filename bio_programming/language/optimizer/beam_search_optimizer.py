@@ -195,7 +195,9 @@ class BeamSearchOptimizer(Optimizer):
         self.prompt = config.prompt  # Extract prompt from config
 
         # Beam Search only works with autoregressive generators with non-empty prompts
-        if generator.category != "autoregressive":
+        from proto_language.language.generator.generator_registry import GeneratorRegistry
+        generator_spec = GeneratorRegistry.get(GeneratorRegistry.get_key(generator))
+        if generator_spec.category != "autoregressive":
             raise ValueError(f"BeamSearchOptimizer requires autoregressive generators. The provided generator '{generator.__class__.__name__}' is not autoregressive.")
 
         if not self.prompt:

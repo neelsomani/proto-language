@@ -165,8 +165,7 @@ class Program:
                 print(f"  [{seq_idx}] Energy: {energy:.4f}")
                 for construct_idx, construct in enumerate(self.constructs):
                     seq = construct.joined_sequences[seq_idx]
-                    seq_preview = seq[:80] + ('...' if len(seq) > 80 else '')
-                    print(f"    Construct {construct_idx}: {seq_preview}")
+                    print(f"    Construct {construct_idx}: {seq}")
 
         # Clean up model caches
         self.cleanup()

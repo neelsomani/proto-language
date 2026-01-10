@@ -5,6 +5,8 @@ Provides the abstract interface for sequence generation algorithms.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
+import random
+import warnings
 from typing import Optional
 
 from .segment import Segment
@@ -29,8 +31,9 @@ class Generator(ABC):
     def assign(self, assigned_segment: Segment) -> None:
         """Assign a Segment to the generator.
 
-        Validates the segment and stores it. Subclasses should call super().assign()
-        first, then perform any additional validation or initialization.
+        For mutation generators, initializes a random starting sequence if none is 
+        provided. Subclasses should call super().assign() first, then perform any 
+        additional validation/initialization as necessary.
 
         Raises:
             ValueError: If segment is constant or has incompatible sequence type.
@@ -49,7 +52,12 @@ class Generator(ABC):
             raise ValueError(f"Generator {self.__class__.__name__} does not support sequence type '{assigned_segment.sequence_type}'. Supported types: [{supported_types_str}]")
 
         self._assigned_segment = assigned_segment
-        self._assigned_segment._is_assigned = True
+
+        # For mutation generators, initialize a random starting sequence if not provided
+        if spec.category == "mutation" and not assigned_segment.original_sequence.sequence:
+            warnings.warn(f"No starting sequence provided for generator {self.__class__.__name__}. Initializing a random starting sequence.")
+            valid_chars = list(assigned_segment._valid_chars - set(" "))
+            assigned_segment.original_sequence.sequence = "".join(random.choice(valid_chars) for _ in range(assigned_segment.sequence_length))
 
     @abstractmethod
     def sample(self) -> None:

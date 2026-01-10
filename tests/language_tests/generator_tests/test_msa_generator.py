@@ -164,7 +164,6 @@ class TestMSAGeneratorAssign:
         gen.assign(segment)
 
         assert gen._assigned_segment is segment
-        assert segment._is_assigned is True
 
     def test_assign_length_mismatch(self):
         """Test that assign raises error for length mismatch."""
@@ -173,15 +172,6 @@ class TestMSAGeneratorAssign:
         segment = Segment(sequence="MVLSPADKTN", sequence_type="protein")  # Length 10
 
         with pytest.raises(ValueError, match="alignment length.*must match.*segment length"):
-            gen.assign(segment)
-
-    def test_assign_constant_segment_rejected(self):
-        """Test that constant segments are rejected."""
-        config = MSAGeneratorConfig(msa=["MVLS", "AVLS"])
-        gen = MSAGenerator(config)
-        segment = Segment(sequence="MVLS", sequence_type="protein", constant=True)
-
-        with pytest.raises(ValueError, match="Cannot assign constant segment"):
             gen.assign(segment)
 
     def test_assign_all_gaps_rejected(self):
@@ -239,7 +229,7 @@ class TestMSAGeneratorSample:
         aligned_seqs = ["A" + "GGG"] * 9 + ["C" + "GGG"]
         config = MSAGeneratorConfig(msa=aligned_seqs, num_mutations=1)
         gen = MSAGenerator(config)
-        segment = Segment(sequence="XGGG", sequence_type="protein")
+        segment = Segment(sequence="MMMM", sequence_type="protein")
         gen.assign(segment)
 
         # Sample many times and count outcomes at position 0
@@ -295,7 +285,7 @@ class TestMSAGeneratorSample:
     def test_sample_skips_all_gap_positions(self):
         """Test that sample only mutates positions with non-gap characters."""
         config = MSAGeneratorConfig(
-            msa=["A--S", "C--S"],  # Positions 1, 2 are all gaps
+            msa=["A--G", "C--G"],  # Positions 1, 2 are all gaps
             num_mutations=2,
         )
         gen = MSAGenerator(config)
@@ -309,9 +299,9 @@ class TestMSAGeneratorSample:
         # Positions 1 and 2 should be unchanged (all gaps in MSA)
         assert mutated[1] == "G"
         assert mutated[2] == "G"
-        # Positions 0 and 3 should be mutated (to A/C and S)
+        # Positions 0 and 3 should be mutated (to A/C and G)
         assert mutated[0] in ["A", "C"]
-        assert mutated[3] == "S"
+        assert mutated[3] == "G"
 
     def test_sample_caps_mutations_to_mutable_positions(self):
         """Test that num_mutations is capped at available mutable positions."""
@@ -341,7 +331,7 @@ class TestMSAGeneratorSample:
                 num_mutations=2,
             )
             gen = MSAGenerator(config)
-            segment = Segment(sequence="XXXX", sequence_type="protein")
+            segment = Segment(sequence="MMMM", sequence_type="protein")
             gen.assign(segment)
             segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
             gen.sample()

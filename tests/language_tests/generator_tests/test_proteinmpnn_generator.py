@@ -68,7 +68,6 @@ class TestProteinMPNNGenerator:
         proteinmpnn_generator.assign(segment)
 
         assert proteinmpnn_generator._assigned_segment is segment
-        assert segment._is_assigned
 
         # Before sampling, metrics should be None
         assert proteinmpnn_generator.last_perplexities is None
@@ -163,23 +162,6 @@ class TestProteinMPNNGenerator:
             assert segment.candidate_sequences[i].sequence is not None
             assert len(segment.candidate_sequences[i].sequence) == 5
             assert segment.candidate_sequences[i].sequence_type == "protein"
-
-    def test_constant_segment_rejection(self, temp_pdb_file):
-        """Test that generators reject constant segments during assign()."""
-        config = ProteinMPNNGeneratorConfig(structure=temp_pdb_file)
-        gen = ProteinMPNNGenerator(config)
-
-        # Create a constant segment
-        constant_segment = Segment(
-            sequence="AGSVL",
-            sequence_type="protein",
-            constant=True,
-        )
-
-        # Should raise ValueError when trying to assign a constant segment
-        with pytest.raises(ValueError, match="Cannot assign constant segment"):
-            gen.assign(constant_segment)
-
 
 class TestProteinMPNNGeneratorValidation:
     """Test configuration and sequence type validation for ProteinMPNN generator."""

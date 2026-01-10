@@ -91,9 +91,7 @@ class Sequence:
         """
         invalid_chars = _return_invalid_chars(sequence, self._valid_chars)
         if invalid_chars:
-            warnings.warn(
-                f"Invalid characters found: {', '.join(invalid_chars)}. Valid characters are: {', '.join(sorted(self._valid_chars))}"
-            )
+            warnings.warn(f"Invalid characters found: {', '.join(invalid_chars)}. Valid characters are: {', '.join(sorted(self._valid_chars))}")
 
     @property
     def metadata(self) -> Dict[str, Any]:

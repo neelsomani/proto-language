@@ -3,9 +3,8 @@ ESM2 Generator for protein sequence generation
 """
 from __future__ import annotations
 from typing import final, Literal
-import random
 
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.tools.language_models.esm2.esm2 import run_esm2_sample, ESM2SampleConfig, LanguageModelInput
 from proto_language.tools.language_models.esm2.inference import ESM2_MODEL_CHECKPOINTS
@@ -137,23 +136,6 @@ class ESM2Generator(Generator):
         self.decoding_method = config.decoding_method
         self.num_mutations = config.num_mutations
 
-    def assign(
-        self, assigned_segment: Segment
-    ) -> None:
-        """
-        Assign a Segment to this generator.
-        
-        If no starting sequence is provided, initializes a random protein sequence.
-        """
-        super().assign(assigned_segment)
-        
-        # Generate random sequence matching segment's length if not provided
-        if not assigned_segment.original_sequence.sequence:
-            valid_chars = assigned_segment._valid_chars - set(" ")
-            valid_chars_list = list(valid_chars)
-            assigned_segment.original_sequence.sequence = "".join(
-                random.choice(valid_chars_list) for _ in range(assigned_segment.sequence_length)
-            )
 
     def sample(self) -> None:
         """

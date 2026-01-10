@@ -26,7 +26,6 @@ class TestUniformMutationGenerator:
         gen.assign(segment)
 
         assert gen._assigned_segment is segment
-        assert segment._is_assigned
         assert segment.num_selected == 1  # assign() initializes one selected sequence
         assert len(segment.selected_sequences[0].sequence) == seq_len
         assert all(c in "ACGU" for c in segment.selected_sequences[0].sequence)
@@ -172,22 +171,6 @@ class TestUniformMutationGenerator:
             1 for a, b in zip(initial_sequence, mutated_sequence) if a != b
         )
         assert diff_count == seq_len
-
-    def test_constant_segment_rejection(self):
-        """Tests that generators reject constant segments during assign()."""
-        config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(config)
-        
-        # Create a constant segment
-        constant_segment = Segment(sequence="ATCGATCGAT",
-            sequence_type="dna",
-            label="promoter",
-            constant=True
-        )
-        
-        # Should raise ValueError when trying to assign a constant segment
-        with pytest.raises(ValueError, match="Cannot assign constant segment"):
-            gen.assign(constant_segment)
 
     def test_mutation_window(self):
         """Test mutation window restricts mutations to specified region."""

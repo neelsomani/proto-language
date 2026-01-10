@@ -22,7 +22,6 @@ class TestESM3Generator:
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
-        assert segment._is_assigned
 
         # Sample and check results
         esm3_generator.sample()
@@ -46,7 +45,6 @@ class TestESM3Generator:
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
-        assert segment._is_assigned
 
         # Sample and check results
         esm3_generator.sample()
@@ -70,7 +68,6 @@ class TestESM3Generator:
         esm3_generator.assign(segment)
         
         assert esm3_generator._assigned_segment is segment
-        assert segment._is_assigned
 
         # Sample and check results
         esm3_generator.sample()
@@ -105,22 +102,6 @@ class TestESM3Generator:
             assert segment.candidate_sequences[i].sequence is not None
             assert len(segment.candidate_sequences[i].sequence) == 15
             assert segment.candidate_sequences[i].sequence_type == "protein"
-
-    def test_constant_segment_rejection(self):
-        """Tests that generators reject constant segments during assign()."""
-        config = ESM3GeneratorConfig()
-        gen = ESM3Generator(config)
-        
-        # Create a constant segment
-        constant_segment = Segment(sequence="MMMMPPPP",
-            sequence_type="protein",
-            constant=True
-        )
-        
-        # Should raise ValueError when trying to assign a constant segment
-        with pytest.raises(ValueError, match="Cannot assign constant segment"):
-            gen.assign(constant_segment)
-
 
 class TestESM3GeneratorValidation:
     """Test sequence type validation for ESM3 generator."""

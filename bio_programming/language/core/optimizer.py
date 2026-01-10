@@ -279,10 +279,39 @@ class Optimizer(ABC):
             if not constraint.inputs:
                 raise RuntimeError(f"Constraint {i} has no input segment(s) assigned")
 
-        # Ensure all segments are assigned
-        unassigned_segments = [segment for segment in self.segments if not segment._is_assigned]
-        if unassigned_segments:
-            raise RuntimeError(f"Found {len(unassigned_segments)} non-constant segments not assigned to any generator.")
+        # Build set of segments that have an active generator in THIS optimizer
+        # Validate generators: all generators must have assigned segments
+        assigned_segments = set()
+        for gen in self.generators:
+            if gen._assigned_segment is None:
+                raise RuntimeError(f"Generator '{gen.__class__.__name__}' has no segment assigned. All generators in an optimizer must have an assigned segment.")
+            assigned_segments.add(gen._assigned_segment)
+
+        # Validate each segment: must be constant OR have an active generator (not both, not neither)
+        for segment in self.segments:
+            has_active_generator = segment in assigned_segments
+            is_constant = segment.constant
+
+            if has_active_generator and is_constant:
+                raise RuntimeError(
+                    f"Segment '{segment.label or 'unlabeled'}' is both constant and assigned to a generator. "
+                    "A segment cannot be both - either assign a generator to it or mark it as constant."
+                )
+            if not has_active_generator and not is_constant:
+                raise RuntimeError(
+                    f"Segment '{segment.label or 'unlabeled'}' is neither constant nor assigned to a generator in this optimizer. "
+                    "Each segment must be either assigned to a generator (to be mutated) or marked as constant (to be skipped)."
+                )
+
+        # Validate constraints don't reference empty constant segments
+        for constraint in self.constraints:
+            for segment in constraint.inputs:
+                if segment.constant and not segment.original_sequence.sequence:
+                    raise RuntimeError(
+                        f"Constraint '{constraint.label}' has input segment '{segment.label}' "
+                        "which is constant but has no input sequence. A constant segment used as a "
+                        "constraint input must have a input sequence to evaluate or a generator assigned."
+                    )
 
     def _initialize_sequence_pools(self) -> None:
         """Initialize the sequence pools for all segments.

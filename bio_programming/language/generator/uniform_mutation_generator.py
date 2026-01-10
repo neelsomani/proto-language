@@ -167,8 +167,8 @@ class UniformMutationGenerator(Generator):
         """
         Assign a Segment to this generator.
 
-        - If no starting sequence, initialize a uniformly random sequence matching segment's length.
-        - Validates mutation_window against segment's sequence_length if specified.
+        Validates mutation_window against segment's sequence_length if specified.
+        Random starting sequence initialization is handled by the base class.
         """
         super().assign(assigned_segment)
 
@@ -177,13 +177,6 @@ class UniformMutationGenerator(Generator):
             self.mutation_window.start is not None and
             (self.mutation_window.start >= assigned_segment.sequence_length or self.mutation_window.end > assigned_segment.sequence_length)):
             raise ValueError(f"Mutation window ({self.mutation_window.start}, {self.mutation_window.end}) incompatible with segment length {assigned_segment.sequence_length}.")
-
-        valid_chars = assigned_segment._valid_chars - set(" ")
-        valid_chars_list = list(valid_chars)
-
-        # Generate random sequence matching segment's length
-        if not assigned_segment.original_sequence.sequence:
-            assigned_segment.original_sequence.sequence = "".join(random.choice(valid_chars_list) for _ in range(assigned_segment.sequence_length))
 
     def sample(self) -> None:
         """

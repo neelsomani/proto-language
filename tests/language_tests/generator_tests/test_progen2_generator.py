@@ -25,7 +25,6 @@ class TestProGen2Generator:
         progen2_generator.assign(segment)
 
         assert progen2_generator._assigned_segment is segment
-        assert segment._is_assigned
 
         # Sample and check results
         progen2_generator.sample()
@@ -50,7 +49,6 @@ class TestProGen2Generator:
         progen2_generator.assign(segment)
 
         assert progen2_generator._assigned_segment is segment
-        assert segment._is_assigned
         assert len(segment.candidate_sequences) == len(prompts)
 
         # Sample and check results
@@ -108,23 +106,6 @@ class TestProGen2Generator:
         assert segment[0].sequence is not None
         assert segment[0].sequence_type == "protein"
         assert segment[0].sequence.startswith(PROGEN2_START_TOKEN)
-
-    def test_constant_segment_rejection(self):
-        """Tests that generators reject constant segments during assign()."""
-        config = ProGen2GeneratorConfig(prompts=["<|pf03668|>1MEVVIVTGMSGAGK"])
-        gen = ProGen2Generator(config)
-        
-        # Create a constant segment
-        constant_segment = Segment(
-            sequence="EVQLVE",
-            sequence_type="protein",
-            constant=True
-        )
-        
-        # Should raise ValueError when trying to assign a constant segment
-        with pytest.raises(ValueError, match="Cannot assign constant segment"):
-            gen.assign(constant_segment)
-
 
 class TestProGen2GeneratorValidation:
     """Test sequence type validation for ProGen2 generator."""

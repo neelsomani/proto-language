@@ -83,12 +83,8 @@ class Segment:
         self._valid_chars: Optional[Set[str]] = seq._valid_chars
         self.label: Optional[str] = label
 
-        if constant and not self.original_sequence.sequence:
-            raise ValueError("Constant segment must be initialized with a non-empty sequence.")
-
-        # Constant segment is assigned by default
-        self.constant = constant
-        self._is_assigned: bool = True if constant else False
+        # Validation happens at the optimizer level (segment must be constant XOR have active generator)
+        self.constant = constant # if True, segment should not be mutated in this optimization step
 
     @property
     def num_selected(self) -> int:
@@ -119,7 +115,6 @@ class Segment:
             "valid_chars": list(self._valid_chars) if self._valid_chars else None,
             "label": self.label,
             "constant": self.constant,
-            "_is_assigned": self._is_assigned,
         }
 
     @classmethod
@@ -143,7 +138,6 @@ class Segment:
         segment.original_sequence = original_seq
         segment.candidate_sequences = [Sequence.from_dict(seq_data) for seq_data in data["candidate_sequences"]]
         segment.selected_sequences = [Sequence.from_dict(seq_data) for seq_data in data["selected_sequences"]]
-        segment._is_assigned = data.get("_is_assigned", False)
 
         return segment
 

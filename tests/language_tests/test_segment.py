@@ -48,10 +48,16 @@ class TestSegment:
         # Regular segment
         regular_segment = Segment(sequence="ATCG", sequence_type="dna")
         assert regular_segment.constant is False
-        assert regular_segment._is_assigned is False
-        
+
         # Constant segment
         constant_segment = Segment(sequence="ATCG", sequence_type="dna", constant=True)
         assert constant_segment.constant is True
-        assert constant_segment._is_assigned is True  # Constant segments should be pre-assigned
         assert constant_segment.selected_sequences[0].sequence == "ATCG"
+
+    def test_empty_constant_segment_allowed(self):
+        """Tests that constant segments can be created with length only (no sequence)."""
+        # Empty constant segment (for multi-step optimization where it will be filled later)
+        empty_constant = Segment(length=50, sequence_type="dna", constant=True)
+        assert empty_constant.constant is True
+        assert empty_constant.sequence_length == 50
+        assert empty_constant.original_sequence.sequence == ""

@@ -25,7 +25,6 @@ class TestEvo2Generator:
         evo2_generator.assign(segment)
 
         assert evo2_generator._assigned_segment is segment
-        assert segment._is_assigned
 
         # Sample and check results
         evo2_generator.sample()
@@ -50,7 +49,6 @@ class TestEvo2Generator:
         evo2_generator.assign(segment)
 
         assert evo2_generator._assigned_segment is segment
-        assert segment._is_assigned
         assert len(segment.candidate_sequences) == len(prompts)
 
         # Sample and check results
@@ -115,22 +113,6 @@ class TestEvo2Generator:
 
         assert segment[0].sequence is not None
         assert segment[0].sequence_type == "dna"
-
-    def test_constant_segment_rejection(self):
-        """Tests that generators reject constant segments during assign()."""
-        config = Evo2GeneratorConfig(prompts=["ATCG"])
-        gen = Evo2Generator(config)
-        
-        # Create a constant segment
-        constant_segment = Segment(sequence="ATCGATCGAT",
-            sequence_type="dna",
-            constant=True
-        )
-        
-        # Should raise ValueError when trying to assign a constant segment
-        with pytest.raises(ValueError, match="Cannot assign constant segment"):
-            gen.assign(constant_segment)
-
 
 class TestEvo2GeneratorValidation:
     """Test sequence type validation for Evo2 generator."""

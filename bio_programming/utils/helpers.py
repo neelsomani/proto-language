@@ -125,7 +125,48 @@ def sigmoid_score(
     # We want low metric -> 0 and high metric -> 1.
     # The standard sigmoid 1/(1+e^-x) goes 0->1 as x increases.
     # We use slope * (metric - inflection).
+
     return 1.0 / (1.0 + np.exp(-slope * (metric - inflection)))
+
+
+def inverse_sigmoid_score(
+    score: float,
+    inflection: float,
+    slope: float = 3.0,
+) -> float:
+    """
+    Inverts the sigmoid_score function to recover the original metric from a 0-1
+    score using the **logit function**. Helps to recover the original metric from a
+    0-1 score.
+
+    Args:
+        score: A score value strictly between 0.0 and 1.0.
+        inflection: The value of the original metric where the transformed score
+                    is 0.5.
+        slope: The steepness of the curve. Default: 3.0.
+
+    Returns:
+        float: The recovered metric value.
+    """
+    # The sigmoid function has asymptotes at 0 and 1, so exact 0.0 or 1.0
+    # scores correspond to -infinity and +infinity metrics respectively.
+    if score <= 0.0 or score >= 1.0:
+        raise ValueError(f"Input score must be strictly between 0 and 1, found {score}")
+
+    if slope == 0:
+        raise ValueError("Slope cannot be zero for inversion.")
+
+    # Mathematical derivation:
+    # y = 1 / (1 + e^(-k(x - x0)))
+    # 1/y = 1 + e^(-k(x - x0))
+    # (1 - y) / y = e^(-k(x - x0))
+    # ln((1 - y) / y) = -slope * (metric - inflection)
+    # -1/slope * ln((1 - y) / y) = metric - inflection
+    #
+    # Using the property -ln(a/b) = ln(b/a):
+    # metric = inflection + (1/slope) * ln(y / (1 - y))
+
+    return inflection + (np.log(score / (1.0 - score)) / slope)
 
 
 # =============================================================================
@@ -134,13 +175,13 @@ def sigmoid_score(
 
 
 def propagate_metadata(
-    source_metadata: Dict[str, Any], 
-    target_metadata: Dict[str, Any], 
+    source_metadata: Dict[str, Any],
+    target_metadata: Dict[str, Any],
     prefix: Optional[str] = None
 ) -> None:
     """
     Utility function to propagate metadata from source to target, filtering out system keys.
-    
+
     Args:
         source_metadata: Metadata from scored sequence
         target_metadata: Target metadata dictionary to receive the metadata

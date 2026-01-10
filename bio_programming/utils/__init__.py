@@ -11,6 +11,7 @@ from .helpers import (
     calculate_percentage_range_deviation,
     calculate_normalized_deviation,
     sigmoid_score,
+    inverse_sigmoid_score,
     # Metadata
     propagate_metadata,
     # Tool utilities
@@ -46,6 +47,7 @@ __all__ = [
     "calculate_percentage_range_deviation",
     "calculate_normalized_deviation",
     "sigmoid_score",
+    "inverse_sigmoid_score",
     # Metadata
     "propagate_metadata",
     # Compute

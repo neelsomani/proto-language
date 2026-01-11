@@ -117,6 +117,7 @@ def run_beam_search(
     )
 
     optimizer = BeamSearchOptimizer(
+        target_segment=segment,
         constructs=[construct],
         generators=[generator],
         constraints=[constraint],

@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Callable, Literal
 from pydantic import model_validator
-import warnings
 import copy
 import sys
 import math
@@ -16,6 +15,7 @@ import numpy as np
 
 from proto_language.language.core import Optimizer, Construct, Constraint, Generator, Segment, Sequence
 from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.language.generator.generator_registry import GeneratorRegistry
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 
@@ -169,15 +169,14 @@ class BeamSearchOptimizerConfig(BaseConfig):
 class BeamSearchOptimizer(Optimizer):
     """Beam search optimizer for sequence generation.
 
-    This optimizer implements beam search for sequence optimization where a single
+    This optimizer implements beam search for sequence optimization where a single target 
     segment is generated with beam search. The optimizer maintains K beams (running sequences)
     and generates K x N total candidates at each step by producing N variations per beam.
     After constraint evaluation on the FULL accumulated sequence, only the top K sequences by
     energy are retained for the next step.
 
     Attributes:
-        construct (Construct): Single construct being optimized (must have exactly one segment).
-        segment (Segment): The single segment being generated.
+        target_segment (Segment): The target segment to generate with beam search.
         generator (Generator): Single autoregressive generator for sequence generation.
         prompt (str): Initial prompt sequence starting all beams.
         beam_length (int): Tokens per beam.
@@ -200,19 +199,21 @@ class BeamSearchOptimizer(Optimizer):
         ...     candidates_per_beam=10
         ... )
         >>> beam_search = BeamSearchOptimizer(
+        ...     target_segment=segment,
         ...     constructs=[construct],
         ...     generators=[generator],
         ...     constraints=[gc_constraint],
-        ...     config=config
+        ...     config=config,
         ... )
         >>> beam_search.run()
-        >>> top_sequences = beam_search.segment.selected_sequences
+        >>> top_sequences = beam_search.target_segment.selected_sequences
     """
     # Class attribute required by OptimizerRegistry
     config_class = BeamSearchOptimizerConfig
 
     def __init__(
         self,
+        target_segment: Segment,
         constructs: List[Construct],
         generators: List[Generator],
         constraints: List[Constraint],
@@ -224,7 +225,8 @@ class BeamSearchOptimizer(Optimizer):
         Initialize the Beam Search Optimizer.
 
         Args:
-            constructs: List containing a single Construct with a single Segment.
+            target_segment: The specific Segment to optimize with beam search. Must belong to one of the constructs.
+            constructs: List of Construct objects. The target_segment must belong to one of these constructs.
             generators: List containing a single autoregressive Generator object (must have category="autoregressive").
             constraints: List of Constraint objects for evaluation (lower scores are better).
             config: Configuration object containing algorithm parameters.
@@ -233,24 +235,18 @@ class BeamSearchOptimizer(Optimizer):
                               (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
         """
-        # Store config values needed for validation
+        if len(generators) != 1:
+            raise ValueError(f"BeamSearchOptimizer only supports one generator, but currently has {len(generators)} generators.")
+        generator = generators[0]
+        generator.assign(target_segment)
+
+        # Store config values required for validation
+        self.target_segment: Segment = target_segment
         self.prompt: str = config.prompt
         self.beam_length: int = config.beam_length
+        self.generator: Generator = generator
 
-        # Extract construct and generator (validation happens in _validate_optimizer)
-        construct = constructs[0] if constructs else None
-        generator = generators[0] if generators else None
-
-        # Assign generator to first segment if possible (will be validated in _validate_optimizer)
-        if construct and generator and construct.segments:
-            generator.assign(construct.segments[0])
-
-        # Warn about overwriting existing candidate sequences
-        if construct and construct.segments:
-            segment = construct.segments[0]
-            if any(seq.sequence for seq in segment.candidate_sequences):
-                warnings.warn(f"BeamSearchOptimizer will overwrite {segment.num_candidates} existing candidate(s) in segment '{segment.label or 'unlabeled'}' during run()")
-
+        # Base class init (calls _validate_optimizer)
         super().__init__(
             constructs=constructs,
             generators=generators,
@@ -260,9 +256,7 @@ class BeamSearchOptimizer(Optimizer):
             clear_tool_cache=clear_tool_cache,
             verbose=config.verbose,
         )
-        self.construct: Construct = construct
-        self.segment: Segment = construct.segments[0] if construct and construct.segments else None
-        self.generator: Generator = generator
+
         self.prepend_prompt: bool = config.prepend_prompt
         self.beam_width: int = config.beam_width
         self.candidates_per_beam: int = config.candidates_per_beam
@@ -273,80 +267,37 @@ class BeamSearchOptimizer(Optimizer):
         self.custom_logging: Optional[Callable] = custom_logging
 
         # Initialize beam states
-        self.beams: List[BeamState] = [
-            BeamState(running_sequence=self.prompt) for _ in range(self.beam_width)
-        ]
+        self.beams: List[BeamState] = [BeamState(running_sequence=self.prompt) for _ in range(self.beam_width)]
 
-        # Calculate number of beams
-        self.total_tokens = self.segment.sequence_length
-        self.num_beams = math.ceil(self.total_tokens / self.beam_length)
+        # Calculate number of beams based on target segment
+        self.num_beams = math.ceil(self.target_segment.sequence_length / self.beam_length)
 
-        # Set up generator for beam generation
-        self.generator.max_seqlen = len(self.prompt) + self.total_tokens
+        # Set up generator for beam search
+        self.generator.max_seqlen = len(self.prompt) + self.target_segment.sequence_length
         self.generator.store_kv_cache = self.use_kv_caching
+        # Always use cached generation internally
         self.generator.cached_generation = True
         self.generator.batched = True
 
     def _validate_optimizer(self) -> None:
         """
-        BeamSearch-specific validation.
+        Beam Search processes a single target segment with beam search.
 
-        BeamSearch processes a single segment with beam search, so we validate:
-        1. Exactly one construct with exactly one segment
-        2. Exactly one autoregressive generator with assigned segment
-        3. Non-empty prompt
-        4. Segment is not constant (BeamSearch processes all segments)
-        5. Valid constraints with input segments
-        6. beam_length does not exceed segment length
+        Validation ensures:
+        1. Constructs are valid and non-empty
+        2. Constraints are valid and have input segments
+        3. target_segment is in one of the constructs and is not constant
+        4. Non-target segments must be marked as constant
+        5. Generator is valid and autoregressive
+        6. Prompt is not empty
+        7. beam_length does not exceed target_segment length
         """
-        from proto_language.language.generator.generator_registry import GeneratorRegistry
-
-        # Validate exactly one construct
+        # Validate constructs list is not empty and contains valid Constructs
         if not self.constructs:
             raise ValueError("Constructs list cannot be empty")
-        if len(self.constructs) != 1:
-            raise ValueError(f"BeamSearchOptimizer only supports a single construct, but received {len(self.constructs)} constructs.")
-
-        construct = self.constructs[0]
-        if not isinstance(construct, Construct):
-            raise TypeError(f"Construct has type {type(construct)}, expected Construct")
-        if not construct.segments:
-            raise ValueError("Construct has no segments")
-
-        # Validate exactly one segment
-        if len(construct.segments) != 1:
-            raise ValueError(
-                f"BeamSearchOptimizer only supports a single segment, but received {len(construct.segments)} segments. "
-                f"Use MultiSegmentBeamSearchOptimizer for constructs with multiple segments."
-            )
-
-        segment = construct.segments[0]
-
-        # Validate exactly one generator
-        if not self.generators:
-            raise ValueError("Generators list cannot be empty")
-        if len(self.generators) != 1:
-            raise ValueError(f"BeamSearchOptimizer only supports a single generator, but received {len(self.generators)} generators.")
-
-        generator = self.generators[0]
-        if not isinstance(generator, Generator):
-            raise TypeError(f"Generator has type {type(generator)}, expected Generator")
-
-        # Validate generator is autoregressive
-        generator_spec = GeneratorRegistry.get(GeneratorRegistry.get_key(generator))
-        if generator_spec.category != "autoregressive":
-            raise ValueError(f"BeamSearchOptimizer requires autoregressive generators. The provided generator '{generator.__class__.__name__}' is not autoregressive.")
-
-        # Validate non-empty prompt
-        if not self.prompt:
-            raise ValueError("BeamSearchOptimizer requires a non-empty prompt to start beam search.")
-
-        # Validate segment is not constant (BeamSearch processes all segments)
-        if segment.constant:
-            raise RuntimeError(
-                f"Segment '{segment.label or 'unlabeled'}' is marked as constant, but BeamSearchOptimizer "
-                "processes all segments. Remove the constant flag or use a different optimizer."
-            )
+        for i, construct in enumerate(self.constructs):
+            if not isinstance(construct, Construct):
+                raise TypeError(f"Construct {i} has type {type(construct)}, expected Construct")
 
         # Validate constraints
         if not self.constraints:
@@ -357,9 +308,31 @@ class BeamSearchOptimizer(Optimizer):
             if not constraint.inputs:
                 raise RuntimeError(f"Constraint {i} has no input segment(s) assigned")
 
-        # Validate beam_length does not exceed segment length
-        if self.beam_length > segment.sequence_length:
-            raise ValueError(f"beam_length={self.beam_length} cannot be greater than segment length ({segment.sequence_length})")
+        # Validate target_segment belongs to one of the constructs and is not constant
+        if self.target_segment not in self.segments:
+            raise ValueError(f"target_segment '{self.target_segment.label or 'unlabeled'}' is not in any of the provided constructs")
+        if self.target_segment.constant:
+            raise ValueError(f"target_segment '{self.target_segment.label or 'unlabeled'}' is constant but BeamSearchOptimizer requires a non-constant segment")
+
+        # Validate non-target segments are constant
+        non_target_non_constant = [seg for seg in self.segments if seg is not self.target_segment and not seg.constant]
+        if non_target_non_constant:
+            raise ValueError(f"Non-target segments must be marked as constant for multi-step optimization: {', '.join([seg.label or 'unlabeled' for seg in non_target_non_constant])}")
+
+        # Validate generator is valid and autoregressive
+        if not isinstance(self.generator, Generator):
+            raise TypeError(f"Generator has type {type(self.generator)}, expected Generator")
+        generator_spec = GeneratorRegistry.get(GeneratorRegistry.get_key(self.generator))
+        if generator_spec.category != "autoregressive":
+            raise ValueError(f"BeamSearchOptimizer requires autoregressive generators. The provided generator '{self.generator.__class__.__name__}' is not autoregressive.")
+        
+        # Validate prompt is not empty
+        if not self.prompt:
+            raise ValueError("Prompt for BeamSearchOptimizer cannot be empty")
+
+        # Validate beam_length does not exceed target_segment length
+        if self.beam_length > self.target_segment.sequence_length:
+            raise ValueError(f"beam_length={self.beam_length} cannot be greater than target_segment length ({self.target_segment.sequence_length})")
 
     def run(self) -> None:
         """
@@ -379,7 +352,7 @@ class BeamSearchOptimizer(Optimizer):
 
         for beam_idx in range(self.num_beams):
             # Calculate tokens to generate this beam (may be less for final beam)
-            remaining_tokens = self.total_tokens - tokens_generated
+            remaining_tokens = self.target_segment.sequence_length - tokens_generated
             beam_tokens = min(self.beam_length, remaining_tokens)
 
             # Override generator's num_tokens for this beam
@@ -402,10 +375,10 @@ class BeamSearchOptimizer(Optimizer):
                 self._log_beamsearch_progress(beam_idx)
 
         # Write final sequences to segment
-        self.segment.selected_sequences = [
+        self.target_segment.selected_sequences = [
             Sequence(
                 sequence=beam.running_sequence if self.prepend_prompt else beam.running_sequence[len(self.prompt):],
-                sequence_type=self.segment.sequence_type
+                sequence_type=self.target_segment.sequence_type
             )
             for beam in self.beams
         ]
@@ -413,7 +386,7 @@ class BeamSearchOptimizer(Optimizer):
         # Save progress snapshot
         self.history.append({
             "time_step": self.num_beams - 1,
-            "beams_completed": self.num_beams,
+            "beams_generated": self.num_beams,
             "total_beams": self.num_beams,
             "energy_scores": self.energy_scores[:self.beam_width].copy() if self.energy_scores else [],
             "constructs": copy.deepcopy(self.constructs)
@@ -463,7 +436,7 @@ class BeamSearchOptimizer(Optimizer):
             # Collect results from this batch
             kv_caches = self.generator.kv_caches if self.use_kv_caching else [None] * batch_count
             for i in range(batch_count):
-                generated_seq = self.segment.candidate_sequences[i].sequence
+                generated_seq = self.target_segment.candidate_sequences[i].sequence
                 new_prompt = generated_seq if prepend_prompt else beam.running_sequence + generated_seq
 
                 candidates.append(BeamState(
@@ -500,8 +473,8 @@ class BeamSearchOptimizer(Optimizer):
             all_candidates.extend(candidates)
 
         # Score all candidates on their FULL accumulated sequences
-        self.segment.candidate_sequences = [
-            Sequence(sequence=beam.running_sequence, sequence_type=self.segment.sequence_type)
+        self.target_segment.candidate_sequences = [
+            Sequence(sequence=beam.running_sequence, sequence_type=self.target_segment.sequence_type)
             for beam in all_candidates
         ]
         self.score_energy()
@@ -529,8 +502,8 @@ class BeamSearchOptimizer(Optimizer):
                 candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt)
 
                 # Score candidates on their FULL accumulated sequences
-                self.segment.candidate_sequences = [
-                    Sequence(sequence=beam.running_sequence, sequence_type=self.segment.sequence_type)
+                self.target_segment.candidate_sequences = [
+                    Sequence(sequence=beam.running_sequence, sequence_type=self.target_segment.sequence_type)
                     for beam in candidates
                 ]
                 self.score_energy()
@@ -630,7 +603,7 @@ class BeamSearchOptimizer(Optimizer):
     def _log_run_start(self) -> None:
         """Log beam search configuration at the start of run()."""
         print(f"Processing segment with {self.num_beams} beams (beam_length={self.beam_length})")
-        print(f"Total tokens to generate: {self.total_tokens}")
+        print(f"Total tokens to generate: {self.target_segment.sequence_length}")
         print(f"Beam width: {self.beam_width}, Candidates per beam: {self.candidates_per_beam}")
         print(f"Score by: {self.score_by}")
         print(f"KV caching: {'enabled' if self.use_kv_caching else 'disabled'}")

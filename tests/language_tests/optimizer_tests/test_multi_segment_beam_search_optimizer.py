@@ -158,6 +158,7 @@ def _setup_multi_segment_beam_search_components(
         generators=[generator],
         constraints=[constraint],
         config=config,
+        target_construct=construct,
     )
 
     return optimizer, generator, constraint, segments
@@ -259,7 +260,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         """Tests successful initialization and validation of MultiSegmentBeamSearchOptimizer."""
         optimizer, generator, constraint, segments = _setup_multi_segment_beam_search_components()
 
-        assert list(optimizer.construct.segments) == segments
+        assert list(optimizer.target_construct.segments) == segments
         assert optimizer.generator == generator
         assert optimizer.constraints == [constraint]
         assert optimizer.constraint_weights == [1.0]
@@ -297,12 +298,13 @@ class TestMultiSegmentBeamSearchOptimizer:
                 generators=[generator],
                 constraints=[constraint],
                 config=config,
+                target_construct=construct,
             )
 
     def test_initialization_with_multiple_constructs(self):
-        """Tests that MultiSegmentBeamSearchOptimizer rejects multiple constructs."""
+        """Tests that MultiSegmentBeamSearchOptimizer works with multiple constructs when target_construct is specified."""
         segments1 = [Segment(length=20, sequence_type="dna") for _ in range(2)]
-        segments2 = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        segments2 = [Segment(length=20, sequence_type="dna", constant=True) for _ in range(2)]
         construct1 = Construct(segments1)
         construct2 = Construct(segments2)
 
@@ -316,14 +318,79 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
         )
 
-        with pytest.raises(ValueError, match="only supports a single construct"):
+        # Should work when target_construct is specified
+        optimizer = MultiSegmentBeamSearchOptimizer(
+            constructs=[construct1, construct2],
+            generators=[generator],
+            constraints=[constraint],
+            config=config,
+            target_construct=construct1,
+        )
+
+        assert optimizer.target_construct == construct1
+        assert optimizer.target_construct == construct1
+
+    def test_target_construct_not_in_constructs_fails(self):
+        """Tests that target_construct must be in the constructs list."""
+        segments1 = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        segments2 = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        construct1 = Construct(segments1)
+        construct2 = Construct(segments2)  # Not in constructs list
+
+        generator = MockAutoregressiveGenerator(num_tokens=20)
+        generator._assigned_segment = segments2[0]
+
+        constraint = Constraint(
+            inputs=[segments1[0]],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = MultiSegmentBeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_width=3,
+            candidates_per_beam=5,
+        )
+
+        with pytest.raises(ValueError, match="target_construct is not in the constructs list"):
             MultiSegmentBeamSearchOptimizer(
-                constructs=[construct1, construct2],
+                target_construct=construct2,
+                constructs=[construct1],
+                generators=[generator],
+                constraints=[constraint],
+                config=config,
+            )
+
+    def test_constant_segment_in_target_construct_fails(self):
+        """Tests that constant segments in target_construct are rejected."""
+        segments = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        segments[1].constant = True  # Mark one segment as constant
+        construct = Construct(segments)
+
+        generator = MockAutoregressiveGenerator(num_tokens=20)
+        generator._assigned_segment = segments[0]
+
+        constraint = Constraint(
+            inputs=[segments[0]],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = MultiSegmentBeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_width=3,
+            candidates_per_beam=5,
+        )
+
+        with pytest.raises(ValueError, match="has constant segments"):
+            MultiSegmentBeamSearchOptimizer(
+                target_construct=construct,
+                constructs=[construct],
                 generators=[generator],
                 constraints=[constraint],
                 config=config,
@@ -346,42 +413,46 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
         )
 
-        with pytest.raises(ValueError, match="only supports a single generator"):
+        with pytest.raises(ValueError, match="only supports one generator"):
             MultiSegmentBeamSearchOptimizer(
+                target_construct=construct,
                 constructs=[construct],
                 generators=[generator1, generator2],
                 constraints=[constraint],
                 config=config,
             )
 
-    def test_initialization_with_existing_candidates_warning(self):
-        """Tests that a warning is raised if segments have existing candidates."""
-        segments = [Segment(sequence="ATCG", sequence_type="dna") for _ in range(2)]
-        construct = Construct(segments)
+    def test_non_target_segment_not_constant_fails(self):
+        """Tests that non-target segments (in other constructs) must be marked as constant."""
+        target_segments = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        other_segment = Segment(length=20, sequence_type="dna")  # Not constant
+        target_construct = Construct(target_segments)
+        other_construct = Construct([other_segment])
 
         generator = MockAutoregressiveGenerator(num_tokens=20)
-        generator._assigned_segment = segments[0]  # Required for validation
+        generator._assigned_segment = target_segments[0]
 
         constraint = Constraint(
-            inputs=[segments[0]],
+            inputs=[target_segments[0]],
             function=gc_content_constraint,
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
         )
 
-        with pytest.warns(UserWarning, match="will overwrite"):
+        with pytest.raises(ValueError, match="Non-target segments must be marked as constant"):
             MultiSegmentBeamSearchOptimizer(
-                constructs=[construct],
+                target_construct=target_construct,
+                constructs=[target_construct, other_construct],
                 generators=[generator],
                 constraints=[constraint],
                 config=config,
@@ -428,7 +499,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         generator._assigned_segment = segments[0]  # Required for validation
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
         )
@@ -439,6 +510,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[generator],
             constraints=[optimizer.constraints[0], constraint2],
             config=config,
+            target_construct=construct,
         )
 
         assert optimizer.constraint_weights == [1.0, 2.0]
@@ -464,7 +536,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             use_kv_caching=True,
@@ -476,6 +548,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[generator],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
 
         # Create a real cache for GPU testing
@@ -528,7 +601,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             use_kv_caching=True,
@@ -540,6 +613,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[generator],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
 
         # Create a cache with batch size > 1
@@ -611,7 +685,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=2,
             candidates_per_beam=3,
         )
@@ -621,6 +695,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[generator],
             constraints=[constraint_01, constraint_0],
             config=config,
+            target_construct=construct,
         )
 
         # Initially, only segment 0 has candidates
@@ -662,7 +737,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=2,
             candidates_per_beam=3,
         )
@@ -672,6 +747,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[generator],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
 
         # Only segment 0 has candidates, so constraint is not active
@@ -922,6 +998,7 @@ class TestMultiSegmentBeamSearchOptimizer:
                 generators=[generator],
                 constraints=[constraint],
                 config=config,
+                target_construct=construct,
             )
 
         # Run WITHOUT caching first (establishes baseline with clean GPU state)
@@ -1012,7 +1089,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             verbose=False,
@@ -1023,6 +1100,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[generator],
             constraints=[constraint_0, constraint_01, constraint_012],
             config=config,
+            target_construct=construct,
         )
 
         # Run and check that all segments are populated
@@ -1086,7 +1164,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         optimizer.run()
 
         # Get the joined sequences
-        joined_sequences = optimizer.construct.joined_sequences
+        joined_sequences = optimizer.target_construct.joined_sequences
 
         # Should have beam_width joined sequences
         assert len(joined_sequences) == optimizer.beam_width
@@ -1152,8 +1230,8 @@ class TestMultiSegmentBeamSearchOptimizer:
         optimizer_large.run()
 
         # Larger beam width should explore more options
-        assert len(optimizer_small.construct.joined_sequences) == 2
-        assert len(optimizer_large.construct.joined_sequences) == 10
+        assert len(optimizer_small.target_construct.joined_sequences) == 2
+        assert len(optimizer_large.target_construct.joined_sequences) == 10
 
     @pytest.mark.uses_gpu
     @pytest.mark.slow
@@ -1178,7 +1256,7 @@ class TestMultiSegmentBeamSearchOptimizer:
         )
 
         config = MultiSegmentBeamSearchOptimizerConfig(
-        prompt="ATCG",
+            prompt="ATCG",
             beam_width=3,
             candidates_per_beam=5,
             use_kv_caching=True,
@@ -1190,6 +1268,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[generator],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
 
         # Track initial GPU memory if CUDA is available
@@ -1245,6 +1324,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[gen],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
         
         optimizer.run()
@@ -1287,6 +1367,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[gen],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
         
         # Should raise RuntimeError due to all invalid candidates
@@ -1375,6 +1456,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[gen],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
         
         # Run should succeed - beam 0 will need resampling, beam 1 is fine
@@ -1391,8 +1473,8 @@ class TestMultiSegmentBeamSearchOptimizer:
         
         # Verify we got exactly beam_width * candidates_per_beam final candidates
         expected_candidates = beam_width * candidates_per_beam
-        assert len(optimizer.construct.segments[0].candidate_sequences) == expected_candidates, \
-            f"Expected {expected_candidates} final candidates, got {len(optimizer.construct.segments[0].candidate_sequences)}"
+        assert len(optimizer.target_construct.segments[0].candidate_sequences) == expected_candidates, \
+            f"Expected {expected_candidates} final candidates, got {len(optimizer.target_construct.segments[0].candidate_sequences)}"
 
     def test_resampling_with_multiple_segments(self):
         """Test that resampling works correctly across multiple segments with context accumulation."""
@@ -1489,6 +1571,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[gen],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
         
         # Run should succeed with resampling only on first segment
@@ -1608,6 +1691,7 @@ class TestMultiSegmentBeamSearchOptimizer:
             generators=[gen],
             constraints=[constraint],
             config=config,
+            target_construct=construct,
         )
         
         # Run optimization
@@ -1632,10 +1716,130 @@ class TestMultiSegmentBeamSearchOptimizer:
         
         # Verify final state: all beams have exactly candidates_per_beam valid candidates
         expected_candidates = beam_width * candidates_per_beam
-        assert len(optimizer.construct.segments[0].candidate_sequences) == expected_candidates, \
-            f"Expected {expected_candidates} final candidates, got {len(optimizer.construct.segments[0].candidate_sequences)}"
+        assert len(optimizer.target_construct.segments[0].candidate_sequences) == expected_candidates, \
+            f"Expected {expected_candidates} final candidates, got {len(optimizer.target_construct.segments[0].candidate_sequences)}"
         
         # Verify all final energies are finite
         for energy in optimizer.energy_scores:
             assert not math.isinf(energy), "Found infinite energy after resampling"
             assert not math.isnan(energy), "Found NaN energy after resampling"
+
+
+class TestMultiSegmentBeamSearchMultiStepOptimization:
+    """Tests for multi-step optimization with MultiSegmentBeamSearchOptimizer."""
+
+    def test_multiple_constructs_with_target_construct(self):
+        """Test MultiSegmentBeamSearchOptimizer with multiple constructs, targeting one construct."""
+        # Create two constructs
+        target_segments = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        other_segment = Segment(sequence="GCGCGCGCGC", sequence_type="dna", constant=True)
+        target_construct = Construct(target_segments)
+        other_construct = Construct([other_segment])
+
+        generator = MockAutoregressiveGenerator(num_tokens=20, use_kv_caching=False)
+        generator._assigned_segment = target_segments[0]
+
+        constraint = Constraint(
+            inputs=[target_segments[0]],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = MultiSegmentBeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_width=2,
+            candidates_per_beam=3,
+            use_kv_caching=False,
+        )
+
+        optimizer = MultiSegmentBeamSearchOptimizer(
+            constructs=[target_construct, other_construct],
+            generators=[generator],
+            constraints=[constraint],
+            config=config,
+            target_construct=target_construct,
+        )
+
+        optimizer.run()
+
+        # Verify target construct was optimized
+        for segment in target_segments:
+            assert len(segment.selected_sequences) == 2
+
+        # Verify other construct's segment was not modified
+        assert other_segment.original_sequence.sequence == "GCGCGCGCGC"
+
+    def test_target_construct_attribute(self):
+        """Test that target_construct is properly stored and accessible."""
+        segments = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        construct = Construct(segments)
+
+        generator = MockAutoregressiveGenerator(num_tokens=20)
+        generator._assigned_segment = segments[0]
+
+        constraint = Constraint(
+            inputs=[segments[0]],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = MultiSegmentBeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_width=2,
+            candidates_per_beam=3,
+        )
+
+        optimizer = MultiSegmentBeamSearchOptimizer(
+            constructs=[construct],
+            generators=[generator],
+            constraints=[constraint],
+            config=config,
+            target_construct=construct,
+        )
+
+        assert optimizer.target_construct is construct
+
+    def test_other_constructs_can_have_constant_segments(self):
+        """Test that segments in non-target constructs can be constant."""
+        # Target construct with segments to optimize
+        target_segments = [Segment(length=20, sequence_type="dna") for _ in range(2)]
+        target_construct = Construct(target_segments)
+
+        # Other construct with constant segments
+        constant_segment = Segment(sequence="AAAAAAAAAA", sequence_type="dna", constant=True)
+        other_construct = Construct([constant_segment])
+
+        generator = MockAutoregressiveGenerator(num_tokens=20, use_kv_caching=False)
+        generator._assigned_segment = target_segments[0]
+
+        # Constraint references both constructs
+        constraint = Constraint(
+            inputs=[target_segments[0]],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = MultiSegmentBeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_width=2,
+            candidates_per_beam=3,
+            use_kv_caching=False,
+        )
+
+        # Should work - constant segments are allowed in non-target constructs
+        optimizer = MultiSegmentBeamSearchOptimizer(
+            constructs=[target_construct, other_construct],
+            generators=[generator],
+            constraints=[constraint],
+            config=config,
+            target_construct=target_construct,
+        )
+
+        optimizer.run()
+
+        # Verify target construct was optimized
+        for segment in target_segments:
+            assert len(segment.selected_sequences) == 2
+
+        # Verify constant segment was not modified
+        assert constant_segment.original_sequence.sequence == "AAAAAAAAAA"

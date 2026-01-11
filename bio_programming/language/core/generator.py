@@ -53,6 +53,10 @@ class Generator(ABC):
 
         self._assigned_segment = assigned_segment
 
+        # Warn if segment already has candidate sequences that will be overwritten (autoregressive only)
+        if spec.category == "autoregressive" and assigned_segment.candidate_sequences:
+            warnings.warn(f"Segment '{assigned_segment.label or 'unlabeled'}' has populated candidate sequence(s) that will be overwritten by {self.__class__.__name__}.")
+
         # For mutation generators, initialize a random starting sequence if not provided
         if spec.category == "mutation" and not assigned_segment.original_sequence.sequence:
             warnings.warn(f"No starting sequence provided for generator {self.__class__.__name__}. Initializing a random starting sequence.")

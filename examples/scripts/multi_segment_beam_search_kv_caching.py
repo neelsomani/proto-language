@@ -99,6 +99,7 @@ def run_beam_search(
     )
 
     optimizer = MultiSegmentBeamSearchOptimizer(
+        target_construct=construct,
         constructs=[construct],
         generators=[generator],
         constraints=[constraint],

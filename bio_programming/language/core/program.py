@@ -127,6 +127,50 @@ class Program:
                         "persistence between sequential optimizations."
                     )
 
+        # Validate no generator/constraint reuse across optimizers
+        self._validate_no_instance_reuse()
+
+    def _validate_no_instance_reuse(self) -> None:
+        """
+        Validate that no generator or constraint instance is reused across optimizers.
+
+        Each optimizer must have its own generator and constraint instances to avoid
+        shared mutable state issues between optimization stages.
+
+        Raises:
+            ValueError: If a generator or constraint instance appears in multiple optimizers.
+        """
+        # No reuse possible with single optimizer
+        if len(self.optimizers) <= 1:
+            return
+        # Track which optimizer each generator instance belongs to
+        seen_generators: Dict[int, int] = {}  # id(generator) -> optimizer_index
+        for opt_idx, optimizer in enumerate(self.optimizers):
+            for generator in optimizer.generators:
+                gen_id = id(generator)
+                if gen_id in seen_generators:
+                    raise ValueError(
+                        f"Generator '{generator.__class__.__name__}' instance is reused "
+                        f"across optimizer {seen_generators[gen_id]} and optimizer {opt_idx}. "
+                        "Each optimizer must have its own generator instances to avoid "
+                        "shared state issues. Create a new generator instance for each optimizer."
+                    )
+                seen_generators[gen_id] = opt_idx
+
+        # Track which optimizer each constraint instance belongs to
+        seen_constraints: Dict[int, int] = {}  # id(constraint) -> optimizer_index
+        for opt_idx, optimizer in enumerate(self.optimizers):
+            for constraint in optimizer.constraints:
+                con_id = id(constraint)
+                if con_id in seen_constraints:
+                    raise ValueError(
+                        f"Constraint '{constraint.label}' instance is reused "
+                        f"across optimizer {seen_constraints[con_id]} and optimizer {opt_idx}. "
+                        "Each optimizer must have its own constraint instances to avoid "
+                        "shared state issues. Create a new constraint instance for each optimizer."
+                    )
+                seen_constraints[con_id] = opt_idx
+
     def run(self) -> None:
         """
         Execute the sequence optimization process for all optimizers sequentially.

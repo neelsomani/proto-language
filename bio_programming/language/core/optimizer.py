@@ -283,6 +283,28 @@ class Optimizer(ABC):
             if not constraint.inputs:
                 raise RuntimeError(f"Constraint {i} has no input segment(s) assigned")
 
+        # Check for duplicate generator instances
+        seen_gen_ids: set[int] = set()
+        for generator in self.generators:
+            gen_id = id(generator)
+            if gen_id in seen_gen_ids:
+                raise ValueError(
+                    f"Generator '{generator.__class__.__name__}' instance appears multiple times "
+                    "in the generators list. Each generator instance can only be used once."
+                )
+            seen_gen_ids.add(gen_id)
+
+        # Check for duplicate constraint instances
+        seen_con_ids: set[int] = set()
+        for constraint in self.constraints:
+            con_id = id(constraint)
+            if con_id in seen_con_ids:
+                raise ValueError(
+                    f"Constraint '{constraint.label}' instance appears multiple times "
+                    "in the constraints list. Each constraint instance can only be used once."
+                )
+            seen_con_ids.add(con_id)
+
         # Build set of segments that have an active generator in THIS optimizer
         # Validate generators: all generators must have assigned segments
         assigned_segments = set()

@@ -172,7 +172,14 @@ class TestMultipleOptimizers:
         gen2 = UniformMutationGenerator(gen_config)
         gen2.assign(segment)
 
-        constraint = Constraint(
+        # Each optimizer must have its own constraint instance
+        constraint1 = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 50, "max_gc": 100},
+        )
+
+        constraint2 = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
             function_config={"min_gc": 50, "max_gc": 100},
@@ -181,14 +188,14 @@ class TestMultipleOptimizers:
         optimizer1 = TopKOptimizer(
             constructs=[construct],  # Same construct object
             generators=[gen1],
-            constraints=[constraint],
+            constraints=[constraint1],
             config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
         )
 
         optimizer2 = TopKOptimizer(
             constructs=[construct],  # Same construct object
             generators=[gen2],
-            constraints=[constraint],
+            constraints=[constraint2],
             config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
         )
 
@@ -415,3 +422,154 @@ class TestMultipleOptimizers:
         assert len(program.optimizers) == 2
         assert all(len(opt.history) > 0 for opt in program.optimizers)
         assert len(program.energy_scores) > 0
+
+    def test_generator_reuse_across_optimizers_fails(self):
+        """Test that reusing the same generator instance across optimizers raises ValueError."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        # Create single generator instance
+        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        shared_gen = UniformMutationGenerator(gen_config)
+        shared_gen.assign(segment)
+
+        # Each optimizer needs its own constraint
+        constraint1 = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 50, "max_gc": 100},
+        )
+
+        constraint2 = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 50, "max_gc": 100},
+        )
+
+        optimizer1 = TopKOptimizer(
+            constructs=[construct],
+            generators=[shared_gen],  # Same generator instance
+            constraints=[constraint1],
+            config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
+        )
+
+        optimizer2 = TopKOptimizer(
+            constructs=[construct],
+            generators=[shared_gen],  # Same generator instance - should fail
+            constraints=[constraint2],
+            config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
+        )
+
+        with pytest.raises(ValueError, match="Generator.*reused"):
+            Program(optimizers=[optimizer1, optimizer2])
+
+    def test_constraint_reuse_across_optimizers_fails(self):
+        """Test that reusing the same constraint instance across optimizers raises ValueError."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+
+        gen1 = UniformMutationGenerator(gen_config)
+        gen1.assign(segment)
+
+        gen2 = UniformMutationGenerator(gen_config)
+        gen2.assign(segment)
+
+        # Create single constraint instance
+        shared_constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 50, "max_gc": 100},
+        )
+
+        optimizer1 = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen1],
+            constraints=[shared_constraint],  # Same constraint instance
+            config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
+        )
+
+        optimizer2 = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen2],
+            constraints=[shared_constraint],  # Same constraint instance - should fail
+            config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
+        )
+
+        with pytest.raises(ValueError, match="Constraint.*reused"):
+            Program(optimizers=[optimizer1, optimizer2])
+
+    def test_single_optimizer_no_reuse_validation(self):
+        """Test that single optimizer programs don't trigger reuse validation."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        gen = UniformMutationGenerator(gen_config)
+        gen.assign(segment)
+
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 50, "max_gc": 100},
+        )
+
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
+        )
+
+        # Should not raise - single optimizer has no reuse concerns
+        program = Program(optimizers=[optimizer])
+        assert len(program.optimizers) == 1
+
+    def test_duplicate_generator_in_single_optimizer_fails(self):
+        """Test that same generator instance appearing twice in one optimizer raises ValueError."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        gen = UniformMutationGenerator(gen_config)
+        gen.assign(segment)
+
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 50, "max_gc": 100},
+        )
+
+        # Same generator instance twice in generators list
+        with pytest.raises(ValueError, match="appears multiple times"):
+            TopKOptimizer(
+                constructs=[construct],
+                generators=[gen, gen],  # Duplicate generator
+                constraints=[constraint],
+                config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
+            )
+
+    def test_duplicate_constraint_in_single_optimizer_fails(self):
+        """Test that same constraint instance appearing twice in one optimizer raises ValueError."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        gen = UniformMutationGenerator(gen_config)
+        gen.assign(segment)
+
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 50, "max_gc": 100},
+        )
+
+        # Same constraint instance twice in constraints list
+        with pytest.raises(ValueError, match="appears multiple times"):
+            TopKOptimizer(
+                constructs=[construct],
+                generators=[gen],
+                constraints=[constraint, constraint],  # Duplicate constraint
+                config=TopKOptimizerConfig(num_samples=5, k=1, batch_size=5),
+            )

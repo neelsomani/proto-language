@@ -28,9 +28,9 @@ class TestESM2Generator:
         # Sample and check results
         esm2_generator.sample()
 
-        assert segment[0].sequence is not None
-        assert len(segment[0].sequence) == 20
-        assert segment[0].sequence_type == "protein"
+        assert segment.candidate_sequences[0].sequence is not None
+        assert len(segment.candidate_sequences[0].sequence) == 20
+        assert segment.candidate_sequences[0].sequence_type == "protein"
 
     def test_esm2_max_logit_sampling(self):
         """Test ESM2 generator with max logit sampling."""
@@ -52,9 +52,9 @@ class TestESM2Generator:
         # Sample and check results
         esm2_generator.sample()
 
-        assert segment[0].sequence is not None
-        assert len(segment[0].sequence) == 20
-        assert segment[0].sequence_type == "protein"
+        assert segment.candidate_sequences[0].sequence is not None
+        assert len(segment.candidate_sequences[0].sequence) == 20
+        assert segment.candidate_sequences[0].sequence_type == "protein"
 
     def test_esm2_random_sampling(self):
         """Test ESM2 generator with random sampling."""
@@ -76,9 +76,9 @@ class TestESM2Generator:
         # Sample and check results
         esm2_generator.sample()
 
-        assert segment[0].sequence is not None
-        assert len(segment[0].sequence) == 20
-        assert segment[0].sequence_type == "protein"
+        assert segment.candidate_sequences[0].sequence is not None
+        assert len(segment.candidate_sequences[0].sequence) == 20
+        assert segment.candidate_sequences[0].sequence_type == "protein"
 
     def test_esm2_batch_sampling(self):
         """Test ESM2 generator with batch processing."""

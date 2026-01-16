@@ -81,9 +81,9 @@ class TestLigandMPNNGenerator:
 
         generator.sample()
 
-        assert segment[0].sequence is not None
-        assert len(segment[0].sequence) == 5
-        assert segment[0].sequence_type == "protein"
+        assert segment.candidate_sequences[0].sequence is not None
+        assert len(segment.candidate_sequences[0].sequence) == 5
+        assert segment.candidate_sequences[0].sequence_type == "protein"
 
     def test_fixed_positions(self, temp_pdb_file):
         """Test that fixed positions are preserved in generated sequences."""
@@ -102,8 +102,8 @@ class TestLigandMPNNGenerator:
         generator.sample()
 
         # Fixed positions should match original PDB residues
-        assert segment[0].sequence[0] == "A"  # Position 1 is ALA
-        assert segment[0].sequence[1] == "G"  # Position 2 is GLY
+        assert segment.candidate_sequences[0].sequence[0] == "A"  # Position 1 is ALA
+        assert segment.candidate_sequences[0].sequence[1] == "G"  # Position 2 is GLY
 
     def test_batch_sampling(self, temp_pdb_file):
         """Test generating multiple sequences from single structure."""

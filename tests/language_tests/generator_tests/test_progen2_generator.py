@@ -29,9 +29,9 @@ class TestProGen2Generator:
         # Sample and check results
         progen2_generator.sample()
 
-        assert segment[0].sequence is not None
-        assert len(segment[0].sequence) > len(prompts[0])  # Should be longer than prompt
-        assert segment[0].sequence_type == "protein"
+        assert segment.candidate_sequences[0].sequence is not None
+        assert len(segment.candidate_sequences[0].sequence) > len(prompts[0])  # Should be longer than prompt
+        assert segment.candidate_sequences[0].sequence_type == "protein"
 
     def test_progen2_batch_sampling(self):
         """Test ProGen2 generator with multiple prompt sequences."""
@@ -103,9 +103,9 @@ class TestProGen2Generator:
         # Sample and check results
         progen2_generator.sample()
 
-        assert segment[0].sequence is not None
-        assert segment[0].sequence_type == "protein"
-        assert segment[0].sequence.startswith(PROGEN2_START_TOKEN)
+        assert segment.candidate_sequences[0].sequence is not None
+        assert segment.candidate_sequences[0].sequence_type == "protein"
+        assert segment.candidate_sequences[0].sequence.startswith(PROGEN2_START_TOKEN)
 
 class TestProGen2GeneratorValidation:
     """Test sequence type validation for ProGen2 generator."""

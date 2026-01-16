@@ -9,6 +9,7 @@ rollback for rejected candidates.
 from __future__ import annotations
 
 import copy
+import inspect
 import math
 from typing import Any, Callable, List, Optional, final
 
@@ -44,7 +45,7 @@ class CyclingOptimizerConfig(BaseConfig):
             maintain. Each candidate is processed independently through the
             conditioning function and generator. Must be >= 1.
 
-        conditioning_field (str): The keyword argument name to pass conditioning
+        conditioning_param_name (str): The keyword argument name to pass conditioning
             data to in the generator's ``sample()`` method. For example:
             - ``"structure_inputs"`` for inverse folding generators (ProteinMPNN, LigandMPNN)
             - ``"prompts"`` for autoregressive generators (Evo2)
@@ -52,7 +53,7 @@ class CyclingOptimizerConfig(BaseConfig):
         verbose (bool): Whether to print progress information. Default: ``False``.
 
     Note:
-        - Works with any generator that accepts the specified conditioning_field
+        - Works with any generator that accepts the specified conditioning_param_name
         - Constraints are optional but if provided must be filter constraints
           (must have ``threshold`` set)
 
@@ -60,7 +61,7 @@ class CyclingOptimizerConfig(BaseConfig):
         >>> config = CyclingOptimizerConfig(
         ...     num_steps=5,
         ...     num_candidates=4,
-        ...     conditioning_field="structure_inputs",
+        ...     conditioning_param_name="structure_inputs",
         ... )
     """
 
@@ -74,9 +75,9 @@ class CyclingOptimizerConfig(BaseConfig):
         title="Number of Candidates",
         description="Number of independent candidate trajectories to maintain.",
     )
-    conditioning_field: str = ConfigField(
-        title="Conditioning Field",
-        description="Generator sample() kwarg to pass conditioning data to.",
+    conditioning_param_name: str = ConfigField(
+        title="Conditioning Param Name",
+        description="Generator sample() parameter name to pass conditioning data into.",
     )
     verbose: bool = ConfigField(
         default=False,
@@ -113,7 +114,7 @@ class CyclingOptimizer(Optimizer):
         generator (Generator): The generator to use for sequence generation.
         conditioning_fn (ConditioningFn): User-defined function that produces
             conditioning data from current sequences.
-        conditioning_field (str): Generator sample() kwarg for conditioning data.
+        conditioning_param_name (str): Generator sample() parameter name for conditioning data.
         num_steps (int): Number of cycles to run.
         num_candidates (int): Number of independent candidate trajectories.
 
@@ -130,7 +131,7 @@ class CyclingOptimizer(Optimizer):
         ...     config=CyclingOptimizerConfig(
         ...         num_steps=5,
         ...         num_candidates=4,
-        ...         conditioning_field="structure_inputs",
+        ...         conditioning_param_name="structure_inputs",
         ...     ),
         ...     conditioning_fn=my_conditioning_fn,
         ... )
@@ -190,7 +191,7 @@ class CyclingOptimizer(Optimizer):
         self.target_segment: Segment = target_segment
         self.generator: Generator = generator
         self.conditioning_fn: ConditioningFn = conditioning_fn
-        self.conditioning_field: str = config.conditioning_field
+        self.conditioning_param_name: str = config.conditioning_param_name
         self.init_fn: Optional[Callable[[Segment], None]] = init_fn
 
         super().__init__(
@@ -234,7 +235,7 @@ class CyclingOptimizer(Optimizer):
             conditioning_data = self.conditioning_fn(current_sequences, previous_constraint_scores)
 
             # 3. Generate sequences conditioned on the conditioning data
-            self.generator.sample(**{self.conditioning_field: conditioning_data})
+            self.generator.sample(**{self.conditioning_param_name: conditioning_data})
 
             # 4. Evaluate filter constraints and rollback rejected
             num_passed = self.num_candidates
@@ -249,14 +250,7 @@ class CyclingOptimizer(Optimizer):
             self._log_step_progress(step, num_passed)
 
     def _validate_optimizer(self) -> None:
-        """Validate optimizer configuration.
-
-        Validates:
-        1. Constructs are valid and non-empty
-        2. target_segment belongs to one of the constructs
-        3. Generator is valid
-        4. Constraints (if any) must be filter constraints (have threshold set)
-        """
+        """Validate optimizer configuration."""
         # Validate constructs
         if not self.constructs:
             raise ValueError("Constructs list cannot be empty")
@@ -274,13 +268,29 @@ class CyclingOptimizer(Optimizer):
         if not isinstance(self.generator, Generator):
             raise TypeError(f"Generator has type {type(self.generator)}, expected Generator")
 
+        # Validate conditioning_fn is callable
+        if not callable(self.conditioning_fn):
+            raise TypeError(f"conditioning_fn must be callable, got {type(self.conditioning_fn)}")
+
+        # Validate init_fn is callable (if provided)
+        if self.init_fn is not None and not callable(self.init_fn):
+            raise TypeError(f"init_fn must be callable, got {type(self.init_fn)}")
+
+        # Validate conditioning_param_name is accepted by generator.sample()
+        sample_sig = inspect.signature(self.generator.sample)
+        valid_params = set(sample_sig.parameters.keys()) - {"self"}
+        if self.conditioning_param_name not in valid_params:
+            raise ValueError(
+                f"Generator {self.generator.__class__.__name__}.sample() does not accept parameter '{self.conditioning_param_name}'. "
+                f"Valid parameters: {sorted(valid_params)}"
+            )
+
         # Validate constraints (optional, but if present must be filters)
         for i, constraint in enumerate(self.constraints):
             if not isinstance(constraint, Constraint):
                 raise TypeError(f"Constraint {i} has type {type(constraint)}, expected Constraint")
             if not constraint.inputs:
                 raise RuntimeError(f"Constraint {i} has no input segment(s) assigned")
-            # This optimizer only supports filter constraints
             if constraint.threshold is None:
                 raise ValueError(f"CyclingOptimizer only supports filter constraints. Constraint {i} ('{constraint.label}') has no threshold set.")
 

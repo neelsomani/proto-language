@@ -96,7 +96,7 @@ def _setup_cycling_components(
     config = CyclingOptimizerConfig(
         num_steps=num_steps,
         num_candidates=num_candidates,
-        conditioning_field="structure_inputs",
+        conditioning_param_name="structure_inputs",
     )
 
     conditioning_fn, _ = make_mock_conditioning_fn(num_candidates)
@@ -124,22 +124,22 @@ class TestCyclingOptimizerConfig:
         config = CyclingOptimizerConfig(
             num_steps=5,
             num_candidates=4,
-            conditioning_field="structure_inputs",
+            conditioning_param_name="structure_inputs",
         )
         assert config.num_steps == 5
         assert config.num_candidates == 4
-        assert config.conditioning_field == "structure_inputs"
+        assert config.conditioning_param_name == "structure_inputs"
         assert config.verbose is False
 
     def test_invalid_config_values(self):
         """Test that invalid config values are rejected."""
         with pytest.raises(ValidationError):
             CyclingOptimizerConfig(
-                num_steps=0, num_candidates=1, conditioning_field="structure_inputs"
+                num_steps=0, num_candidates=1, conditioning_param_name="structure_inputs"
             )
         with pytest.raises(ValidationError):
             CyclingOptimizerConfig(
-                num_steps=1, num_candidates=0, conditioning_field="structure_inputs"
+                num_steps=1, num_candidates=0, conditioning_param_name="structure_inputs"
             )
 
     def test_conditioning_field_required(self):
@@ -341,7 +341,7 @@ class TestCyclingOptimizerRun:
         config = CyclingOptimizerConfig(
             num_steps=num_steps,
             num_candidates=num_candidates,
-            conditioning_field="structure_inputs",
+            conditioning_param_name="structure_inputs",
         )
 
         optimizer = CyclingOptimizer(
@@ -440,7 +440,7 @@ class TestCyclingOptimizerRun:
         config = CyclingOptimizerConfig(
             num_steps=1,
             num_candidates=3,
-            conditioning_field="structure_inputs",
+            conditioning_param_name="structure_inputs",
         )
 
         optimizer = CyclingOptimizer(
@@ -521,7 +521,7 @@ class TestCyclingOptimizerGPU:
         config = CyclingOptimizerConfig(
             num_steps=2,
             num_candidates=2,
-            conditioning_field="structure_inputs",
+            conditioning_param_name="structure_inputs",
             verbose=True,
         )
 
@@ -596,7 +596,7 @@ class TestCyclingOptimizerGPU:
         config = CyclingOptimizerConfig(
             num_steps=2,
             num_candidates=2,
-            conditioning_field="structure_inputs",
+            conditioning_param_name="structure_inputs",
             verbose=True,
         )
 

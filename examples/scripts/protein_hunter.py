@@ -147,7 +147,7 @@ def custom_logging(cycle: int, segments: Tuple[Segment, ...]) -> None:
 optimizer_config = CyclingOptimizerConfig(
     num_steps=NUM_CYCLES,
     num_candidates=NUM_CANDIDATES,
-    conditioning_field="structure_inputs",  # Pass structures to generator.sample()
+    conditioning_param_name="structure_inputs",  # Pass structures to generator.sample()
     verbose=True,
 )
 

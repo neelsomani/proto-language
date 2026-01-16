@@ -24,9 +24,6 @@ from proto_language.language.core import (
 )
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
-# Type alias for the conditioning function
-ConditioningFn = Callable[[List[Sequence], Optional[List[float]]], List[Any]]
-
 
 class CyclingOptimizerConfig(BaseConfig):
     """Configuration for CyclingOptimizer.
@@ -112,8 +109,7 @@ class CyclingOptimizer(Optimizer):
     Attributes:
         target_segment (Segment): The segment being optimized.
         generator (Generator): The generator to use for sequence generation.
-        conditioning_fn (ConditioningFn): User-defined function that produces
-            conditioning data from current sequences.
+        conditioning_fn (Callable): User-defined function that produces conditioning data.
         conditioning_param_name (str): Generator sample() parameter name for conditioning data.
         num_steps (int): Number of cycles to run.
         num_candidates (int): Number of independent candidate trajectories.
@@ -151,9 +147,9 @@ class CyclingOptimizer(Optimizer):
         generators: List[Generator],
         constraints: List[Constraint],
         config: CyclingOptimizerConfig,
-        conditioning_fn: ConditioningFn,
+        conditioning_fn: Callable[[List[Sequence], Optional[List[float]]], List[Any]],
         init_fn: Optional[Callable[[Segment], None]] = None,
-        custom_logging: Optional[Callable] = None,
+        custom_logging: Optional[Callable[[int, tuple], None]] = None,
         clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
     ) -> None:
         """Initialize the Cycling Optimizer.
@@ -190,9 +186,9 @@ class CyclingOptimizer(Optimizer):
         # Store for validation before super().__init__
         self.target_segment: Segment = target_segment
         self.generator: Generator = generator
-        self.conditioning_fn: ConditioningFn = conditioning_fn
+        self.conditioning_fn = conditioning_fn
         self.conditioning_param_name: str = config.conditioning_param_name
-        self.init_fn: Optional[Callable[[Segment], None]] = init_fn
+        self.init_fn = init_fn
 
         super().__init__(
             constructs=constructs,

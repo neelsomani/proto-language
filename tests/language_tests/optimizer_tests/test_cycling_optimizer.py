@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
@@ -48,9 +48,7 @@ def make_mock_conditioning_fn(num_candidates: int):
     """Create a mock conditioning function that returns structures."""
     structures = [make_mock_structure() for _ in range(num_candidates)]
 
-    def conditioning_fn(
-        sequences: List[Sequence], constraint_scores: Optional[List[float]] = None
-    ) -> List[ProteinStructure]:
+    def conditioning_fn(sequences: List[Sequence]) -> List[ProteinStructure]:
         return structures
 
     return conditioning_fn, structures
@@ -235,9 +233,9 @@ class TestCyclingOptimizerRun:
         call_count = [0]
         original_fn = components["conditioning_fn"]
 
-        def tracked_conditioning_fn(sequences, constraint_scores=None):
+        def tracked_conditioning_fn(sequences):
             call_count[0] += 1
-            return original_fn(sequences, constraint_scores)
+            return original_fn(sequences)
 
         # Mock the generator.sample to update sequences
         def mock_sample(structure_inputs=None):
@@ -295,71 +293,6 @@ class TestCyclingOptimizerRun:
 
         # init_fn should still only be called once
         assert init_call_count[0] == 1
-
-    def test_constraint_scores_passed_to_conditioning_fn(self):
-        """Test that constraint scores are passed to conditioning function."""
-        num_steps, num_candidates = 3, 2
-        target_segment = Segment(sequence="ACDEFGHIKLMNPQRSTVWY", sequence_type="protein")
-        construct = Construct([target_segment])
-
-        mock_structure = make_mock_structure()
-        generator = ProteinMPNNGenerator(
-            ProteinMPNNGeneratorConfig(
-                structure_inputs=InverseFoldingStructureInput(structure=mock_structure)
-            )
-        )
-        generator.assign(target_segment)
-
-        # Filter that passes and returns a specific score
-        def filter_func(seq, config=None):
-            return 0.3  # Below threshold, passes
-
-        filter_func._constraint_batched = False
-        filter_func._constraint_concatenate = True
-        filter_func._constraint_config_class = EmptyConfig
-
-        constraint = Constraint(
-            inputs=[target_segment],
-            function=filter_func,
-            function_config=EmptyConfig(),
-            threshold=0.5,
-        )
-
-        # Track constraint scores received
-        received_scores = []
-
-        def tracking_conditioning_fn(sequences, constraint_scores=None):
-            received_scores.append(constraint_scores)
-            return [mock_structure for _ in sequences]
-
-        def mock_sample(structure_inputs=None):
-            for c in target_segment.candidate_sequences:
-                c.sequence = "MKTAYIAKQRQISFVKSHFS"
-
-        generator.sample = mock_sample
-
-        config = CyclingOptimizerConfig(
-            num_steps=num_steps,
-            num_candidates=num_candidates,
-            conditioning_param_name="structure_inputs",
-        )
-
-        optimizer = CyclingOptimizer(
-            target_segment=target_segment,
-            constructs=[construct],
-            generators=[generator],
-            constraints=[constraint],
-            config=config,
-            conditioning_fn=tracking_conditioning_fn,
-        )
-        optimizer.run()
-
-        # First call should have None (no previous scores)
-        assert received_scores[0] is None
-        # Subsequent calls should have scores from previous step
-        for scores in received_scores[1:]:
-            assert scores is not None
-            assert len(scores) == num_candidates
 
     def test_filter_constraint_rollback(self):
         """Test that failing candidates are rolled back to previous sequences."""
@@ -504,7 +437,7 @@ class TestCyclingOptimizerGPU:
         )
         generator.assign(target_segment)
 
-        def structure_conditioning_fn(sequences, constraint_scores=None):
+        def structure_conditioning_fn(sequences):
             complexes = [
                 StructurePredictionComplex(chains=[seq.sequence])
                 for seq in sequences
@@ -579,7 +512,7 @@ class TestCyclingOptimizerGPU:
             threshold=0.5,
         )
 
-        def structure_conditioning_fn(sequences, constraint_scores=None):
+        def structure_conditioning_fn(sequences):
             complexes = [
                 StructurePredictionComplex(chains=[seq.sequence])
                 for seq in sequences

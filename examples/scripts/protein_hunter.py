@@ -18,7 +18,7 @@ Usage:
 """
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from proto_language.language.core import (
     Construct,
@@ -92,10 +92,7 @@ proteinmpnn_generator = ProteinMPNNGenerator(
 # Conditioning Function for Structure Prediction
 # =============================================================================
 
-def structure_conditioning_fn(
-    sequences: List[Sequence],
-    constraint_scores: Optional[List[float]] = None,
-) -> List:
+def structure_conditioning_fn(sequences: List[Sequence]) -> List:
     """
     Predict 3D structures from current sequences.
 

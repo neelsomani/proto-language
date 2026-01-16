@@ -29,9 +29,8 @@ class CyclingOptimizerConfig(BaseConfig):
     """Configuration for CyclingOptimizer.
 
     This optimizer cycles between a user-defined conditioning function and a generator.
-    On each cycle, the conditioning function receives the current candidate sequences
-    (and optionally previous constraint scores), produces conditioning data, which is
-    then passed to the generator's sample() method.
+    On each cycle, the conditioning function receives the current candidate sequences,
+    produces conditioning data, which is then passed to the generator's sample() method.
 
     Attributes:
         num_steps (int): Number of conditioning -> generation cycles to run.
@@ -83,6 +82,8 @@ class CyclingOptimizerConfig(BaseConfig):
         hidden=True,
     )
 
+# TODO: Cycling optimizer conditioning_fn is not supported in client at all, since we can't serialize or define callables
+# In the future, we can optionally include constraints scores into the conditioning_fn for more granular control over the optimization process.
 
 @OptimizerRegistry.register(
     key="cycling",
@@ -97,7 +98,7 @@ class CyclingOptimizer(Optimizer):
     A generalized optimizer that cycles between a user-defined conditioning function
     and a generator:
 
-    1. Call conditioning function with current sequences (and previous constraint scores)
+    1. Call conditioning function with current sequences
     2. Pass conditioning output to generator's sample() method
     3. Optionally filter sequences using constraints (with rollback for rejected)
     4. Repeat for num_steps
@@ -115,7 +116,7 @@ class CyclingOptimizer(Optimizer):
         num_candidates (int): Number of independent candidate trajectories.
 
     Example:
-        >>> def my_conditioning_fn(sequences, constraint_scores=None):
+        >>> def my_conditioning_fn(sequences):
         ...     # Process sequences and return conditioning data
         ...     return [process(seq) for seq in sequences]
         ...
@@ -147,7 +148,7 @@ class CyclingOptimizer(Optimizer):
         generators: List[Generator],
         constraints: List[Constraint],
         config: CyclingOptimizerConfig,
-        conditioning_fn: Callable[[List[Sequence], Optional[List[float]]], List[Any]],
+        conditioning_fn: Callable[[List[Sequence]], List[Any]],
         init_fn: Optional[Callable[[Segment], None]] = None,
         custom_logging: Optional[Callable[[int, tuple], None]] = None,
         clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
@@ -164,7 +165,7 @@ class CyclingOptimizer(Optimizer):
                 If provided, all constraints must have ``threshold`` set (filter mode).
             config: Configuration object with algorithm parameters.
             conditioning_fn: User-defined function that produces conditioning data.
-                Signature: ``(sequences: List[Sequence], constraint_scores: Optional[List[float]]) -> List[Any]``
+                Signature: ``(sequences: List[Sequence]) -> List[Any]``
                 Returns one conditioning item per candidate.
             init_fn: Optional function to initialize the target segment's sequences.
                 Signature: ``(segment: Segment) -> None``. Called once before optimization.
@@ -215,9 +216,6 @@ class CyclingOptimizer(Optimizer):
             print(f"CyclingOptimizer: {self.num_steps} steps, {self.num_candidates} candidates")
         self._save_progress_snapshot(time_step=0)
 
-        # Track constraint scores for feedback to conditioning function
-        previous_constraint_scores: Optional[List[float]] = None
-
         for step in range(1, self.num_steps + 1):
             # 1. Save state for potential rollback
             if self.constraints:
@@ -227,8 +225,8 @@ class CyclingOptimizer(Optimizer):
                 ]
 
             # 2. Call conditioning function with current sequences
-            current_sequences = list(self.target_segment.candidate_sequences)
-            conditioning_data = self.conditioning_fn(current_sequences, previous_constraint_scores)
+            current_sequences = List(self.target_segment.candidate_sequences)
+            conditioning_data = self.conditioning_fn(current_sequences)
 
             # 3. Generate sequences conditioned on the conditioning data
             self.generator.sample(**{self.conditioning_param_name: conditioning_data})
@@ -237,7 +235,6 @@ class CyclingOptimizer(Optimizer):
             num_passed = self.num_candidates
             if self.constraints:
                 self.score_energy()
-                previous_constraint_scores = self.energy_scores.copy()
                 num_passed = self._revert_rejected_candidates(previous_sequences)
 
             # 5. Sync and save

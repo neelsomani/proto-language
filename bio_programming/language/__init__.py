@@ -36,8 +36,6 @@ from .optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,
-    MultiSegmentBeamSearchOptimizer,
-    MultiSegmentBeamSearchOptimizerConfig,
     TopKOptimizer,
     TopKOptimizerConfig,
 )
@@ -79,8 +77,6 @@ __all__ = [
     "BeamSearchOptimizer",
     "BeamSearchOptimizerConfig",
     "BeamState",
-    "MultiSegmentBeamSearchOptimizer",
-    "MultiSegmentBeamSearchOptimizerConfig",
     "TopKOptimizer",
     "TopKOptimizerConfig",
 ]

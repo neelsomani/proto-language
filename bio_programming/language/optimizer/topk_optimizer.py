@@ -2,7 +2,7 @@
 TopK Optimizer that runs multiple independent sampling rounds and returns the top-k best constructs.
 """
 from __future__ import annotations
-from typing import Callable, List, Optional, final
+from typing import Callable, Dict, List, Optional, final
 import copy
 import heapq
 import logging
@@ -11,7 +11,7 @@ import math
 import numpy as np
 from pydantic import model_validator
 
-from proto_language.language.core import Optimizer, Construct, Generator, Constraint
+from proto_language.language.core import Optimizer, Construct, Generator, Constraint, Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
@@ -180,6 +180,10 @@ class TopKOptimizer(Optimizer):
         Raises:
             ValueError: If any validation checks fail.
         """
+        # Store initial sequences per segment, captured at optimizer init for resetting candidates each round
+        # Used in _initialize_sequence_pools which is called by __init__ below.
+        self._initial_sequences: Dict[int, str] = {}
+
         # Map TopK variables to base Optimizer:
         # - batch_size → num_candidates (candidate pool size per round)
         # - k → num_selected (top-k to keep in results)
@@ -214,17 +218,22 @@ class TopKOptimizer(Optimizer):
         # This keeps the worst (highest) energy at the root for easy replacement
         self.top_k_heap: List[tuple] = []
 
+
     def _initialize_sequence_pools(self) -> None:
         """
-        Initialize sequence pools for TopK optimizer.
+        Initialize sequence pools for TopK optimizer. Overrides the base Optimizer method.
 
         TopK starts with an empty selected pool and only populates candidates.
         Unlike MCMC which maintains N selected sequences throughout, TopK builds
         up the top-k list as optimization progresses through sampling rounds.
 
-        The selected pool will be populated by set_topk_constructs() as rounds complete.
+        Captures the initial sequence state (from previous optimizer or original) for use in resetting candidates each round.
         """
-        for segment in self.segments:
+        for seg_idx, segment in enumerate(self.segments):
+            # Capture initial state (from previous optimizer or original)
+            source = segment.selected_sequences[0] if segment.selected_sequences else segment.original_sequence
+            self._initial_sequences[seg_idx] = source.sequence
+
             # Start with empty selected pool (will be populated by set_topk_constructs)
             segment.selected_sequences = []
 
@@ -241,10 +250,16 @@ class TopKOptimizer(Optimizer):
         Args:
             round_idx: The index of the current round (for tracking purposes).
         """
-        # 1. Reset all candidate sequences to original state at the start of each round
-        for segment in self.segments:
-            for candidate_seq in segment.candidate_sequences:
-                candidate_seq.sequence = copy.deepcopy(segment.original_sequence.sequence)
+        # 1. Create fresh candidate sequences at the start of each round (clean metadata state)
+        for seg_idx, segment in enumerate(self.segments):
+            segment.candidate_sequences = [
+                Sequence(
+                    sequence=self._initial_sequences[seg_idx],
+                    sequence_type=segment.sequence_type,
+                    valid_chars=segment._valid_chars
+                )
+                for _ in range(self.num_candidates)
+            ]
 
         # 2. Sample each generator in sequence (they see all batch_size candidates)
         for generator in self.generators:

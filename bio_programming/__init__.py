@@ -61,6 +61,8 @@ from .language.optimizer import (  # Registry; Optimizers
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,
+    CyclingOptimizer,
+    CyclingOptimizerConfig,
     MCMCOptimizer,
     MCMCOptimizerConfig,
     OptimizerRegistry,
@@ -223,6 +225,8 @@ __all__ = [
     "BeamState",
     "TopKOptimizer",
     "TopKOptimizerConfig",
+    "CyclingOptimizer",
+    "CyclingOptimizerConfig",
     # Tool infrastructure
     "BaseToolOutput",
     "ToolRegistry",

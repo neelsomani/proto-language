@@ -1,23 +1,24 @@
 """
 Protein Hunter Example
 
-Demonstrates the CyclicalOptimizer for de novo protein design using the
+Demonstrates the CyclingOptimizer for de novo protein design using the
 Protein Hunter algorithm: iteratively cycling between structure prediction
 and inverse folding to refine protein sequences.
 
 This example designs a protein starting from an all-X (unknown) sequence,
-using Boltz for structure prediction and LigandMPNN for inverse folding.
+using Boltz for structure prediction and ProteinMPNN for inverse folding.
 
 Algorithm:
 1. Predict 3D structure from current sequence (starts with all-X)
-2. Use inverse folding (LigandMPNN) to design sequences for predicted structure
-3. Repeat for num_cycles iterations
+2. Use inverse folding (ProteinMPNN) to design sequences for predicted structure
+3. Repeat for num_steps iterations
 
 Usage:
     python protein_hunter.py
 """
 from __future__ import annotations
-from typing import Tuple
+
+from typing import List, Optional, Tuple
 
 from proto_language.language.core import (
     Construct,
@@ -26,13 +27,17 @@ from proto_language.language.core import (
     Program,
 )
 from proto_language.language.generator import (
-    LigandMPNNGenerator,
-    LigandMPNNGeneratorConfig,
+    ProteinMPNNGenerator,
+    ProteinMPNNGeneratorConfig,
 )
 from proto_language.language.optimizer import (
-    CyclicalOptimizer,
-    CyclicalOptimizerConfig,
+    CyclingOptimizer,
+    CyclingOptimizerConfig,
 )
+from proto_language.tools.structure_prediction.schemas import (
+    StructurePredictionComplex,
+)
+from proto_language.utils.helpers import predict_structures
 
 
 # =============================================================================
@@ -42,11 +47,11 @@ from proto_language.language.optimizer import (
 NUM_CYCLES = 5           # Number of structure prediction -> inverse folding cycles
 NUM_CANDIDATES = 2       # Number of parallel candidate trajectories
 DESIGN_LENGTH = 100      # Length of the protein to design
-STRUCTURE_TOOL = "boltz" # Structure prediction tool: "boltz", "chai", "esmfold", "alphafold3"
+STRUCTURE_TOOL = "boltz" # Structure prediction tool: "boltz", "chai", "alphafold3"
 
 # Tool-specific configuration for structure prediction
 TOOL_CONFIG = {
-    "use_msa_server": False,  # Set True for better quality predictions (slower)
+    "use_msa_server": False,
 }
 
 
@@ -54,8 +59,6 @@ TOOL_CONFIG = {
 # Define the Protein Segment
 # =============================================================================
 
-# Define segment with just the length - CyclicalOptimizer automatically initializes
-# sequences to 'X' (unknown residues) for the Protein Hunter hallucination trick.
 protein = Segment(
     length=DESIGN_LENGTH,
     sequence_type="protein",
@@ -74,15 +77,56 @@ protein_construct = Construct([protein])
 # Define the Generator
 # =============================================================================
 
-# LigandMPNN generator for inverse folding.
-# No structure_inputs needed here - CyclicalOptimizer will provide predicted
-# structures at runtime via sample(structure_inputs=...).
-ligandmpnn_generator = LigandMPNNGenerator(
-    LigandMPNNGeneratorConfig(
+# ProteinMPNN generator for inverse folding.
+# No structure_inputs needed here - CyclingOptimizer will provide predicted
+# structures at runtime via the conditioning function.
+proteinmpnn_generator = ProteinMPNNGenerator(
+    ProteinMPNNGeneratorConfig(
         temperature=0.1,  # Low temperature for more confident designs
         excluded_amino_acids=["C"],  # Exclude cysteine to avoid disulfide complications
     )
 )
+
+
+# =============================================================================
+# Conditioning Function for Structure Prediction
+# =============================================================================
+
+def structure_conditioning_fn(
+    sequences: List[Sequence],
+    constraint_scores: Optional[List[float]] = None,
+) -> List:
+    """
+    Predict 3D structures from current sequences.
+
+    This is the conditioning function for the Protein Hunter algorithm.
+    It takes current candidate sequences and predicts their structures,
+    which are then used to condition the inverse folding generator.
+    """
+    complexes = [
+        StructurePredictionComplex(chains=[seq.sequence])
+        for seq in sequences
+    ]
+    return predict_structures(complexes, STRUCTURE_TOOL, TOOL_CONFIG).structures
+
+
+# =============================================================================
+# Initialization Function (Protein Hunter Hallucination Trick)
+# =============================================================================
+
+def init_unknown_sequences(segment: Segment) -> None:
+    """
+    Initialize sequences with 'X' (unknown) residues.
+
+    This is the 'hallucination trick' from Protein Hunter - starting with unknown
+    residues allows structure predictors to explore novel folds without being
+    biased by an input sequence.
+    """
+    unknown_seq = "X" * segment.sequence_length
+    for seq in segment.candidate_sequences:
+        seq.sequence = unknown_seq
+    for seq in segment.selected_sequences:
+        seq.sequence = unknown_seq
 
 
 # =============================================================================
@@ -93,8 +137,6 @@ def custom_logging(cycle: int, segments: Tuple[Segment, ...]) -> None:
     """Log progress after each cycle."""
     output_sequence: Sequence = segments[0].selected_sequences[0]
     seq = output_sequence.sequence
-
-
     print(f"\n  Cycle {cycle}: {seq} (len={len(seq)})")
 
 
@@ -102,20 +144,21 @@ def custom_logging(cycle: int, segments: Tuple[Segment, ...]) -> None:
 # Define the Optimizer
 # =============================================================================
 
-optimizer_config = CyclicalOptimizerConfig(
-    num_cycles=NUM_CYCLES,
+optimizer_config = CyclingOptimizerConfig(
+    num_steps=NUM_CYCLES,
     num_candidates=NUM_CANDIDATES,
-    structure_tool=STRUCTURE_TOOL,
-    tool_config=TOOL_CONFIG,
+    conditioning_field="structure_inputs",  # Pass structures to generator.sample()
     verbose=True,
 )
 
-optimizer = CyclicalOptimizer(
+optimizer = CyclingOptimizer(
     target_segment=protein,
     constructs=[protein_construct],
-    generators=[ligandmpnn_generator],  # Must be a list with exactly one generator
+    generators=[proteinmpnn_generator], # Must be a list with exactly one generator
     constraints=[],  # No filtering constraints - pure Protein Hunter cycling
     config=optimizer_config,
+    conditioning_fn=structure_conditioning_fn,
+    init_fn=init_unknown_sequences,
     custom_logging=custom_logging,
 )
 

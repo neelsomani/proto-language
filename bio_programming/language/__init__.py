@@ -38,6 +38,8 @@ from .optimizer import (
     BeamState,
     TopKOptimizer,
     TopKOptimizerConfig,
+    CyclingOptimizer,
+    CyclingOptimizerConfig,
 )
 
 __all__ = [
@@ -79,4 +81,6 @@ __all__ = [
     "BeamState",
     "TopKOptimizer",
     "TopKOptimizerConfig",
+    "CyclingOptimizer",
+    "CyclingOptimizerConfig",
 ]

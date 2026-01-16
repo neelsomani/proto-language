@@ -15,9 +15,9 @@ from .topk_optimizer import (
     TopKOptimizer,
     TopKOptimizerConfig,
 )
-from .cyclical_optimizer import (
-    CyclicalOptimizer,
-    CyclicalOptimizerConfig,
+from .cycling_optimizer import (
+    CyclingOptimizer,
+    CyclingOptimizerConfig,
 )
 
 __all__ = [
@@ -34,7 +34,7 @@ __all__ = [
     # TopK Optimizer
     "TopKOptimizer",
     "TopKOptimizerConfig",
-    # Cyclical Optimizer
-    "CyclicalOptimizer",
-    "CyclicalOptimizerConfig",
+    # Cycling Optimizer
+    "CyclingOptimizer",
+    "CyclingOptimizerConfig",
 ]

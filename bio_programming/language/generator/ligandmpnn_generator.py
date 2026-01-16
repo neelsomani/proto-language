@@ -45,7 +45,7 @@ class LigandMPNNGeneratorConfig(BaseConfig):
             design constraints. Each ``InverseFoldingStructureInput`` bundles a structure with optional
             ``chain_ids`` and ``fixed_positions`` specific to that structure.
 
-            This field is optional (defaults to ``None``) primarily to support ``CyclicalOptimizer``
+            This field is optional (defaults to ``None``) primarily to support ``CyclingOptimizer``
             workflows, where the structure is provided dynamically from a previous step (e.g.,
             structure prediction) rather than being specified upfront in the config.
 

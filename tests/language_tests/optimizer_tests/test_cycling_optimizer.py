@@ -1,26 +1,25 @@
-"""Tests for CyclicalOptimizer."""
+"""Tests for CyclingOptimizer."""
 
 from __future__ import annotations
 
 import copy
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from typing import List, Optional
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from proto_language.language.core import Constraint, Construct, Segment
+from proto_language.language.core import Constraint, Construct, Segment, Sequence
 from proto_language.language.generator import (
     LigandMPNNGenerator,
     LigandMPNNGeneratorConfig,
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
 )
 from proto_language.language.optimizer import (
-    CyclicalOptimizer,
-    CyclicalOptimizerConfig,
+    CyclingOptimizer,
+    CyclingOptimizerConfig,
 )
 from proto_language.tools.inverse_folding.schemas import InverseFoldingStructureInput
 from proto_language.tools.structures import ProteinStructure
@@ -45,33 +44,27 @@ END
     return ProteinStructure(structure_filepath_or_content=pdb_content)
 
 
-def make_mock_predict_structures_return(num_candidates: int):
-    """Create a mock return value for predict_structures."""
-    mock_result = MagicMock()
-    mock_result.structures = [make_mock_structure() for _ in range(num_candidates)]
-    return mock_result
+def make_mock_conditioning_fn(num_candidates: int):
+    """Create a mock conditioning function that returns structures."""
+    structures = [make_mock_structure() for _ in range(num_candidates)]
+
+    def conditioning_fn(
+        sequences: List[Sequence], constraint_scores: Optional[List[float]] = None
+    ) -> List[ProteinStructure]:
+        return structures
+
+    return conditioning_fn, structures
 
 
-def _setup_cyclical_components(
-    num_cycles: int = 2,
+def _setup_cycling_components(
+    num_steps: int = 2,
     num_candidates: int = 2,
     include_constraint: bool = False,
     constraint_passes: bool = True,
-    include_context_segment: bool = False,
 ):
-    """Helper to set up CyclicalOptimizer with mocked components."""
+    """Helper to set up CyclingOptimizer with mocked components."""
     target_segment = Segment(sequence="ACDEFGHIKLMNPQRSTVWY", sequence_type="protein")
-    segments = [target_segment]
-
-    context_segment = None
-    if include_context_segment:
-        context_segment = Segment(
-            sequence="MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
-            sequence_type="protein",
-        )
-        segments.append(context_segment)
-
-    construct = Construct(segments)
+    construct = Construct([target_segment])
 
     mock_structure = make_mock_structure()
     generator = ProteinMPNNGenerator(
@@ -100,20 +93,21 @@ def _setup_cyclical_components(
             )
         )
 
-    config = CyclicalOptimizerConfig(
-        num_cycles=num_cycles,
+    config = CyclingOptimizerConfig(
+        num_steps=num_steps,
         num_candidates=num_candidates,
-        structure_tool="boltz",
-        tool_config={},
+        conditioning_field="structure_inputs",
     )
+
+    conditioning_fn, _ = make_mock_conditioning_fn(num_candidates)
 
     return {
         "target_segment": target_segment,
-        "context_segment": context_segment,
         "construct": construct,
         "generator": generator,
         "constraints": constraints,
         "config": config,
+        "conditioning_fn": conditioning_fn,
     }
 
 
@@ -122,32 +116,36 @@ def _setup_cyclical_components(
 # =============================================================================
 
 
-class TestCyclicalOptimizerConfig:
-    """Tests for CyclicalOptimizerConfig validation."""
+class TestCyclingOptimizerConfig:
+    """Tests for CyclingOptimizerConfig validation."""
 
     def test_valid_config(self):
         """Test valid configuration and defaults."""
-        config = CyclicalOptimizerConfig(
-            num_cycles=5,
+        config = CyclingOptimizerConfig(
+            num_steps=5,
             num_candidates=4,
-            structure_tool="boltz",
-            tool_config={"use_msa_server": False},
+            conditioning_field="structure_inputs",
         )
-        assert config.num_cycles == 5
+        assert config.num_steps == 5
         assert config.num_candidates == 4
-        assert config.structure_tool == "boltz"
+        assert config.conditioning_field == "structure_inputs"
         assert config.verbose is False
 
     def test_invalid_config_values(self):
         """Test that invalid config values are rejected."""
         with pytest.raises(ValidationError):
-            CyclicalOptimizerConfig(num_cycles=0, num_candidates=1)
-        with pytest.raises(ValidationError):
-            CyclicalOptimizerConfig(num_cycles=1, num_candidates=0)
-        with pytest.raises(ValidationError):
-            CyclicalOptimizerConfig(
-                num_cycles=1, num_candidates=1, structure_tool="invalid"
+            CyclingOptimizerConfig(
+                num_steps=0, num_candidates=1, conditioning_field="structure_inputs"
             )
+        with pytest.raises(ValidationError):
+            CyclingOptimizerConfig(
+                num_steps=1, num_candidates=0, conditioning_field="structure_inputs"
+            )
+
+    def test_conditioning_field_required(self):
+        """Test that conditioning_field is required."""
+        with pytest.raises(ValidationError):
+            CyclingOptimizerConfig(num_steps=1, num_candidates=1)
 
 
 # =============================================================================
@@ -155,60 +153,43 @@ class TestCyclicalOptimizerConfig:
 # =============================================================================
 
 
-class TestCyclicalOptimizerValidation:
-    """Tests for CyclicalOptimizer initialization validation."""
+class TestCyclingOptimizerValidation:
+    """Tests for CyclingOptimizer initialization validation."""
 
     def test_requires_exactly_one_generator(self):
-        """Test that exactly one inverse_folding generator is required."""
-        components = _setup_cyclical_components()
+        """Test that exactly one generator is required."""
+        components = _setup_cycling_components()
 
-        with pytest.raises(ValueError, match="requires one inverse_folding generator"):
-            CyclicalOptimizer(
+        with pytest.raises(ValueError, match="requires exactly one generator"):
+            CyclingOptimizer(
                 target_segment=components["target_segment"],
                 constructs=[components["construct"]],
                 generators=[],
                 constraints=[],
                 config=components["config"],
+                conditioning_fn=components["conditioning_fn"],
             )
 
     def test_target_segment_must_be_in_constructs(self):
         """Test that target_segment must belong to a construct."""
-        components = _setup_cyclical_components()
+        components = _setup_cycling_components()
         orphan_segment = Segment(sequence="ACDEFGHIK", sequence_type="protein")
 
         with pytest.raises(
             ValueError, match="is not in any of the provided constructs"
         ):
-            CyclicalOptimizer(
+            CyclingOptimizer(
                 target_segment=orphan_segment,
                 constructs=[components["construct"]],
                 generators=[components["generator"]],
                 constraints=[],
                 config=components["config"],
-            )
-
-    def test_generator_must_be_inverse_folding(self):
-        """Test that only inverse_folding generators are accepted."""
-        target = Segment(sequence="ACDEFGHIK", sequence_type="protein")
-        construct = Construct([target])
-
-        wrong_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
-        )
-        wrong_gen.assign(target)
-
-        with pytest.raises(ValueError, match="requires an inverse_folding generator"):
-            CyclicalOptimizer(
-                target_segment=target,
-                constructs=[construct],
-                generators=[wrong_gen],
-                constraints=[],
-                config=CyclicalOptimizerConfig(num_cycles=1, num_candidates=1),
+                conditioning_fn=components["conditioning_fn"],
             )
 
     def test_constraints_must_be_filters(self):
         """Test that constraints must have threshold set (filter mode)."""
-        components = _setup_cyclical_components()
+        components = _setup_cycling_components()
 
         def scoring_func(seq, config=None):
             return 0.5
@@ -225,21 +206,13 @@ class TestCyclicalOptimizerValidation:
         )
 
         with pytest.raises(ValueError, match="only supports filter constraints"):
-            CyclicalOptimizer(
+            CyclingOptimizer(
                 target_segment=components["target_segment"],
                 constructs=[components["construct"]],
                 generators=[components["generator"]],
                 constraints=[scoring_constraint],
                 config=components["config"],
-            )
-
-    def test_esmfold_not_supported(self):
-        """Test that ESMFold is rejected as structure_tool at config level."""
-        with pytest.raises(ValidationError, match="ESMFold is not supported"):
-            CyclicalOptimizerConfig(
-                num_cycles=1,
-                num_candidates=1,
-                structure_tool="esmfold",
+                conditioning_fn=components["conditioning_fn"],
             )
 
 
@@ -248,85 +221,168 @@ class TestCyclicalOptimizerValidation:
 # =============================================================================
 
 
-class TestCyclicalOptimizerRun:
-    """Tests for the CyclicalOptimizer run method."""
+class TestCyclingOptimizerRun:
+    """Tests for the CyclingOptimizer run method."""
 
-    @patch("proto_language.language.optimizer.cyclical_optimizer.predict_structures")
-    def test_run_completes_and_tracks_history(self, mock_predict):
-        """Test run completes, calls predict_structures, and tracks history."""
-        num_cycles, num_candidates = 3, 2
-        components = _setup_cyclical_components(
-            num_cycles=num_cycles, num_candidates=num_candidates
+    def test_run_completes_and_tracks_history(self):
+        """Test run completes, calls conditioning_fn, and tracks history."""
+        num_steps, num_candidates = 3, 2
+        components = _setup_cycling_components(
+            num_steps=num_steps, num_candidates=num_candidates
         )
 
-        mock_predict.return_value = make_mock_predict_structures_return(num_candidates)
-        components["generator"].sample = lambda structure_inputs=None: [
-            setattr(c, "sequence", "MKTAYIAKQRQISFVKSHFS")
-            for c in components["target_segment"].candidate_sequences
-        ]
+        # Track conditioning function calls
+        call_count = [0]
+        original_fn = components["conditioning_fn"]
 
-        optimizer = CyclicalOptimizer(
+        def tracked_conditioning_fn(sequences, constraint_scores=None):
+            call_count[0] += 1
+            return original_fn(sequences, constraint_scores)
+
+        # Mock the generator.sample to update sequences
+        def mock_sample(structure_inputs=None):
+            for c in components["target_segment"].candidate_sequences:
+                c.sequence = "MKTAYIAKQRQISFVKSHFS"
+
+        components["generator"].sample = mock_sample
+
+        optimizer = CyclingOptimizer(
             target_segment=components["target_segment"],
             constructs=[components["construct"]],
             generators=[components["generator"]],
             constraints=[],
             config=components["config"],
+            conditioning_fn=tracked_conditioning_fn,
         )
         optimizer.run()
 
-        assert mock_predict.call_count == num_cycles
-        assert len(optimizer.history) == num_cycles + 1
+        assert call_count[0] == num_steps
+        assert len(optimizer.history) == num_steps + 1
         for entry in optimizer.history:
             assert "time_step" in entry and "constructs" in entry
 
-    @patch("proto_language.language.optimizer.cyclical_optimizer.predict_structures")
-    def test_run_with_context_segment(self, mock_predict):
-        """Test run with multi-chain structural context."""
-        components = _setup_cyclical_components(
-            num_cycles=1, num_candidates=2, include_context_segment=True
-        )
+    def test_init_fn_called_once(self):
+        """Test that init_fn is called exactly once at initialization."""
+        components = _setup_cycling_components(num_steps=3, num_candidates=2)
 
-        mock_predict.return_value = make_mock_predict_structures_return(2)
-        components["generator"].sample = lambda structure_inputs=None: [
-            setattr(c, "sequence", "MKTAYIAKQRQISFVKSHFS")
-            for c in components["target_segment"].candidate_sequences
-        ]
+        init_call_count = [0]
 
-        optimizer = CyclicalOptimizer(
+        def init_fn(segment: Segment):
+            init_call_count[0] += 1
+            for seq in segment.candidate_sequences:
+                seq.sequence = "X" * segment.sequence_length
+
+        def mock_sample(structure_inputs=None):
+            for c in components["target_segment"].candidate_sequences:
+                c.sequence = "MKTAYIAKQRQISFVKSHFS"
+
+        components["generator"].sample = mock_sample
+
+        optimizer = CyclingOptimizer(
             target_segment=components["target_segment"],
             constructs=[components["construct"]],
             generators=[components["generator"]],
             constraints=[],
             config=components["config"],
+            conditioning_fn=components["conditioning_fn"],
+            init_fn=init_fn,
+        )
+
+        # init_fn should be called during __init__
+        assert init_call_count[0] == 1
+
+        optimizer.run()
+
+        # init_fn should still only be called once
+        assert init_call_count[0] == 1
+
+    def test_constraint_scores_passed_to_conditioning_fn(self):
+        """Test that constraint scores are passed to conditioning function."""
+        num_steps, num_candidates = 3, 2
+        target_segment = Segment(sequence="ACDEFGHIKLMNPQRSTVWY", sequence_type="protein")
+        construct = Construct([target_segment])
+
+        mock_structure = make_mock_structure()
+        generator = ProteinMPNNGenerator(
+            ProteinMPNNGeneratorConfig(
+                structure_inputs=InverseFoldingStructureInput(structure=mock_structure)
+            )
+        )
+        generator.assign(target_segment)
+
+        # Filter that passes and returns a specific score
+        def filter_func(seq, config=None):
+            return 0.3  # Below threshold, passes
+
+        filter_func._constraint_batched = False
+        filter_func._constraint_concatenate = True
+        filter_func._constraint_config_class = EmptyConfig
+
+        constraint = Constraint(
+            inputs=[target_segment],
+            function=filter_func,
+            function_config=EmptyConfig(),
+            threshold=0.5,
+        )
+
+        # Track constraint scores received
+        received_scores = []
+
+        def tracking_conditioning_fn(sequences, constraint_scores=None):
+            received_scores.append(constraint_scores)
+            return [mock_structure for _ in sequences]
+
+        def mock_sample(structure_inputs=None):
+            for c in target_segment.candidate_sequences:
+                c.sequence = "MKTAYIAKQRQISFVKSHFS"
+
+        generator.sample = mock_sample
+
+        config = CyclingOptimizerConfig(
+            num_steps=num_steps,
+            num_candidates=num_candidates,
+            conditioning_field="structure_inputs",
+        )
+
+        optimizer = CyclingOptimizer(
+            target_segment=target_segment,
+            constructs=[construct],
+            generators=[generator],
+            constraints=[constraint],
+            config=config,
+            conditioning_fn=tracking_conditioning_fn,
         )
         optimizer.run()
 
-        # Verify both chains passed to predict_structures
-        complexes = mock_predict.call_args_list[0][0][0]
-        assert len(complexes[0].chains) == 2
+        # First call should have None (no previous scores)
+        assert received_scores[0] is None
+        # Subsequent calls should have scores from previous step
+        for scores in received_scores[1:]:
+            assert scores is not None
+            assert len(scores) == num_candidates
 
-    @patch("proto_language.language.optimizer.cyclical_optimizer.predict_structures")
-    def test_filter_constraint_rollback(self, mock_predict):
+    def test_filter_constraint_rollback(self):
         """Test that failing candidates are rolled back to previous sequences."""
-        components = _setup_cyclical_components(
-            num_cycles=1,
+        components = _setup_cycling_components(
+            num_steps=1,
             num_candidates=2,
             include_constraint=True,
             constraint_passes=False,
         )
 
-        mock_predict.return_value = make_mock_predict_structures_return(2)
-        components["generator"].sample = lambda structure_inputs=None: [
-            setattr(c, "sequence", "NEWSEQENCEAAAAAAAAAAA")
-            for c in components["target_segment"].candidate_sequences
-        ]
+        def mock_sample(structure_inputs=None):
+            for c in components["target_segment"].candidate_sequences:
+                c.sequence = "NEWSEQENCEAAAAAAAAAAA"
 
-        optimizer = CyclicalOptimizer(
+        components["generator"].sample = mock_sample
+
+        optimizer = CyclingOptimizer(
             target_segment=components["target_segment"],
             constructs=[components["construct"]],
             generators=[components["generator"]],
             constraints=components["constraints"],
             config=components["config"],
+            conditioning_fn=components["conditioning_fn"],
         )
 
         original_seqs = [
@@ -336,11 +392,12 @@ class TestCyclicalOptimizerRun:
         optimizer.run()
 
         # All should be rolled back since constraint fails all
-        for i, candidate in enumerate(components["target_segment"].candidate_sequences):
+        for i, candidate in enumerate(
+            components["target_segment"].candidate_sequences
+        ):
             assert candidate.sequence == original_seqs[i]
 
-    @patch("proto_language.language.optimizer.cyclical_optimizer.predict_structures")
-    def test_partial_filter_rejection(self, mock_predict):
+    def test_partial_filter_rejection(self):
         """Test that only failing candidates are rolled back."""
         target_segment = Segment(sequence="A" * 20, sequence_type="protein")
         construct = Construct([target_segment])
@@ -369,7 +426,7 @@ class TestCyclicalOptimizerRun:
             threshold=0.5,
         )
 
-        mock_predict.return_value = make_mock_predict_structures_return(3)
+        conditioning_fn, _ = make_mock_conditioning_fn(3)
 
         pass_seq, fail_seq = "MKTAYIAKQRQISFVKSHFS", "FAILAYIAKQRQISFVKSHF"
 
@@ -380,12 +437,19 @@ class TestCyclicalOptimizerRun:
 
         generator.sample = mock_sample
 
-        optimizer = CyclicalOptimizer(
+        config = CyclingOptimizerConfig(
+            num_steps=1,
+            num_candidates=3,
+            conditioning_field="structure_inputs",
+        )
+
+        optimizer = CyclingOptimizer(
             target_segment=target_segment,
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            config=CyclicalOptimizerConfig(num_cycles=1, num_candidates=3),
+            config=config,
+            conditioning_fn=conditioning_fn,
         )
 
         original_seqs = [
@@ -413,12 +477,17 @@ def pdb_structure():
 
 
 @pytest.mark.uses_gpu
-class TestCyclicalOptimizerGPU:
+class TestCyclingOptimizerGPU:
     """Integration tests with real models (require GPU)."""
 
     @pytest.mark.slow
     def test_full_cycle_with_ligandmpnn(self, pdb_structure):
-        """Test complete optimization cycle with LigandMPNN and ESMFold."""
+        """Test complete optimization cycle with LigandMPNN."""
+        from proto_language.tools.structure_prediction.schemas import (
+            StructurePredictionComplex,
+        )
+        from proto_language.utils.helpers import predict_structures
+
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)
 
@@ -435,14 +504,35 @@ class TestCyclicalOptimizerGPU:
         )
         generator.assign(target_segment)
 
-        optimizer = CyclicalOptimizer(
+        def structure_conditioning_fn(sequences, constraint_scores=None):
+            complexes = [
+                StructurePredictionComplex(chains=[seq.sequence])
+                for seq in sequences
+            ]
+            return predict_structures(complexes, "boltz", {}).structures
+
+        def init_unknown(segment):
+            unknown_seq = "X" * segment.sequence_length
+            for seq in segment.candidate_sequences:
+                seq.sequence = unknown_seq
+            for seq in segment.selected_sequences:
+                seq.sequence = unknown_seq
+
+        config = CyclingOptimizerConfig(
+            num_steps=2,
+            num_candidates=2,
+            conditioning_field="structure_inputs",
+            verbose=True,
+        )
+
+        optimizer = CyclingOptimizer(
             target_segment=target_segment,
             constructs=[construct],
             generators=[generator],
             constraints=[],
-            config=CyclicalOptimizerConfig(
-                num_cycles=2, num_candidates=2, structure_tool="boltz", verbose=True
-            ),
+            config=config,
+            conditioning_fn=structure_conditioning_fn,
+            init_fn=init_unknown,
         )
         optimizer.run()
 
@@ -454,6 +544,11 @@ class TestCyclicalOptimizerGPU:
     @pytest.mark.slow
     def test_with_filter_constraint(self, pdb_structure):
         """Test with filter constraint using real models."""
+        from proto_language.tools.structure_prediction.schemas import (
+            StructurePredictionComplex,
+        )
+        from proto_language.utils.helpers import predict_structures
+
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)
 
@@ -484,14 +579,35 @@ class TestCyclicalOptimizerGPU:
             threshold=0.5,
         )
 
-        optimizer = CyclicalOptimizer(
+        def structure_conditioning_fn(sequences, constraint_scores=None):
+            complexes = [
+                StructurePredictionComplex(chains=[seq.sequence])
+                for seq in sequences
+            ]
+            return predict_structures(complexes, "boltz", {}).structures
+
+        def init_unknown(segment):
+            unknown_seq = "X" * segment.sequence_length
+            for seq in segment.candidate_sequences:
+                seq.sequence = unknown_seq
+            for seq in segment.selected_sequences:
+                seq.sequence = unknown_seq
+
+        config = CyclingOptimizerConfig(
+            num_steps=2,
+            num_candidates=2,
+            conditioning_field="structure_inputs",
+            verbose=True,
+        )
+
+        optimizer = CyclingOptimizer(
             target_segment=target_segment,
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            config=CyclicalOptimizerConfig(
-                num_cycles=2, num_candidates=2, structure_tool="boltz", verbose=True
-            ),
+            config=config,
+            conditioning_fn=structure_conditioning_fn,
+            init_fn=init_unknown,
         )
         optimizer.run()
 

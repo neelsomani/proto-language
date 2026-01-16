@@ -63,8 +63,6 @@ from .language.optimizer import (  # Registry; Optimizers
     BeamState,
     MCMCOptimizer,
     MCMCOptimizerConfig,
-    MultiSegmentBeamSearchOptimizer,
-    MultiSegmentBeamSearchOptimizerConfig,
     OptimizerRegistry,
     OptimizerSpec,
     TopKOptimizer,
@@ -223,8 +221,6 @@ __all__ = [
     "BeamSearchOptimizer",
     "BeamSearchOptimizerConfig",
     "BeamState",
-    "MultiSegmentBeamSearchOptimizer",
-    "MultiSegmentBeamSearchOptimizerConfig",
     "TopKOptimizer",
     "TopKOptimizerConfig",
     # Tool infrastructure

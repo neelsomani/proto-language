@@ -389,13 +389,7 @@ class BeamSearchOptimizer(Optimizer):
         ]
 
         # Save progress snapshot
-        self.history.append({
-            "time_step": self.num_beams - 1,
-            "beams_generated": self.num_beams,
-            "total_beams": self.num_beams,
-            "energy_scores": self.energy_scores[:self.beam_width].copy() if self.energy_scores else [],
-            "constructs": copy.deepcopy(self.constructs)
-        })
+        self._save_progress_snapshot(time_step=0)
 
     def _generate_candidates_for_beam(
         self,

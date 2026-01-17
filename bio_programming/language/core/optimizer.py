@@ -78,12 +78,11 @@ class Optimizer(ABC):
         self.clear_tool_cache = clear_tool_cache
         self.custom_logging = custom_logging
         self.verbose = verbose
-        self.energy_scores: List[float] = []  # Each index corresponds to a candidate, empty until first score_energy() call
+        self.energy_scores: List[float] = [float("inf")] * num_candidates  # Initialized to inf (unscored)
         self.history: List[Dict[str, Any]] = []
 
-        # Default values for progress tracking (can be overridden by subclasses)
+        # Default value for progress tracking (can be overridden by subclasses)
         self.num_steps: int = 1
-        self.track_step_size: int = 1
 
         # Create program-scoped tool cache
         self.tool_cache = ToolCache()

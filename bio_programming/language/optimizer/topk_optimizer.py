@@ -214,13 +214,15 @@ class TopKOptimizer(Optimizer):
     def _initialize_sequence_pools(self) -> None:
         """Initialize sequence pools for TopK optimizer.
         
-        Only initializes candidate_sequences; leaves selected_sequences unchanged
-        (TopK clears and populates selected_sequences dynamically during run()).
+        Preserves indices from existing sequences when possible, padding with
+        the first sequence if more candidates are needed. Leaves selected_sequences
+        unchanged (TopK clears and populates it dynamically during run()).
         """
         for segment in self.segments:
-            source = segment.selected_sequences[0] if segment.selected_sequences else segment.original_sequence
+            source = segment.candidate_sequences or segment.selected_sequences or [segment.original_sequence]
             segment.candidate_sequences = [
-                copy.deepcopy(source) for _ in range(self.num_candidates)
+                copy.deepcopy(source[i] if i < len(source) else source[0])
+                for i in range(self.num_candidates)
             ]
 
     def _run_sampling_round(self, round_idx: int) -> None:

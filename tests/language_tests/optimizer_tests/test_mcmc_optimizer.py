@@ -825,11 +825,10 @@ class TestMCMCOptimizer:
 
         # Verify state was captured with correct content
         assert optimizer._initial_state is not None
-        seg_id = id(segment)
-        assert seg_id in optimizer._initial_state['segments']
+        assert len(optimizer._initial_state['segments']) == 1
         
-        # Verify captured state contains original sequence
-        captured_selected = optimizer._initial_state['segments'][seg_id]['selected']
+        # Verify captured state contains original sequence (using index 0)
+        captured_selected = optimizer._initial_state['segments'][0]['selected']
         assert len(captured_selected) == 1
         assert captured_selected[0].sequence == original_seq
         

@@ -572,12 +572,11 @@ class TestCyclingOptimizerRestart:
 
         # Verify state was captured
         assert optimizer._initial_state is not None
-        seg_id = id(components["target_segment"])
-        assert seg_id in optimizer._initial_state['segments']
+        assert len(optimizer._initial_state['segments']) == 1
         
-        # Verify captured state contains actual sequence content
-        captured_selected = optimizer._initial_state['segments'][seg_id]['selected']
-        captured_candidates = optimizer._initial_state['segments'][seg_id]['candidates']
+        # Verify captured state contains actual sequence content (using index 0)
+        captured_selected = optimizer._initial_state['segments'][0]['selected']
+        captured_candidates = optimizer._initial_state['segments'][0]['candidates']
         
         assert len(captured_selected) == len(original_selected)
         assert len(captured_candidates) == len(original_candidates)

@@ -362,20 +362,20 @@ class Optimizer(ABC):
     def _capture_initial_state(self) -> None:
         """Capture current segment and optimizer state."""
         self._initial_state = {
-            'segments': {
-                id(seg): {
+            'segments': [
+                {
                     'selected': copy.deepcopy(seg.selected_sequences),
                     'candidates': copy.deepcopy(seg.candidate_sequences),
                 }
                 for seg in self.segments
-            },
+            ],
             'energy_scores': self.energy_scores.copy(),
         }
 
     def _restore_initial_state(self) -> None:
         """Restore to captured state. Override for optimizer-specific state."""
-        for seg in self.segments:
-            state = self._initial_state['segments'][id(seg)]
+        for i, seg in enumerate(self.segments):
+            state = self._initial_state['segments'][i]
             seg.selected_sequences = copy.deepcopy(state['selected'])
             seg.candidate_sequences = copy.deepcopy(state['candidates'])
         self.energy_scores = self._initial_state['energy_scores'].copy()

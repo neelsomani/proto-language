@@ -744,11 +744,10 @@ class TestBeamSearchOptimizerRestart:
         # Verify beams grew beyond prompt
         assert all(len(b) > len(prompt) for b in first_run_beams)
         
-        # Verify captured state contains original sequences
-        seg_id = id(segment)
-        assert seg_id in optimizer._initial_state['segments']
-        captured_selected = optimizer._initial_state['segments'][seg_id]['selected']
-        captured_candidates = optimizer._initial_state['segments'][seg_id]['candidates']
+        # Verify captured state contains original sequences (using index 0)
+        assert len(optimizer._initial_state['segments']) == 1
+        captured_selected = optimizer._initial_state['segments'][0]['selected']
+        captured_candidates = optimizer._initial_state['segments'][0]['candidates']
         
         # Verify captured sequences match originals
         assert len(captured_selected) == len(original_selected)

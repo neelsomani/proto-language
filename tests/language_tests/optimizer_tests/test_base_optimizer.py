@@ -456,7 +456,6 @@ class TestStateRestartBehavior:
         # Modify current state
         segment.candidate_sequences[0].sequence = "XXXX"
 
-        # Captured state should be unchanged
-        seg_id = id(segment)
-        captured_seq = optimizer._initial_state['segments'][seg_id]['candidates'][0].sequence
+        # Captured state should be unchanged (using index 0)
+        captured_seq = optimizer._initial_state['segments'][0]['candidates'][0].sequence
         assert captured_seq == "ATCG"

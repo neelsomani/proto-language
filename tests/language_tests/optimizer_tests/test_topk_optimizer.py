@@ -246,10 +246,9 @@ class TestTopKOptimizerStandardMode:
         assert len(segment.selected_sequences) == 3
         assert optimizer._initial_state is not None
         
-        # Verify captured state contains original sequence
-        seg_id = id(segment)
-        assert seg_id in optimizer._initial_state['segments']
-        captured_selected = optimizer._initial_state['segments'][seg_id]['selected']
+        # Verify captured state contains original sequence (using index 0)
+        assert len(optimizer._initial_state['segments']) == 1
+        captured_selected = optimizer._initial_state['segments'][0]['selected']
         assert len(captured_selected) == 1
         assert captured_selected[0].sequence == original_seq
         

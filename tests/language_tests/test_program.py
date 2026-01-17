@@ -117,10 +117,10 @@ class TestProgramRestart:
         program.run()
         assert program.optimizers[0]._initial_state is not None
         
-        # Verify captured state contains original sequence
+        # Verify captured state contains original sequence (using index 0)
         segment = program.constructs[0].segments[0]
-        seg_id = id(segment)
-        captured_state = program.optimizers[0]._initial_state['segments'][seg_id]
+        assert len(program.optimizers[0]._initial_state['segments']) == 1
+        captured_state = program.optimizers[0]._initial_state['segments'][0]
         captured_selected = captured_state['selected']
         captured_candidates = captured_state['candidates']
         

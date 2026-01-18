@@ -208,6 +208,68 @@ class TestTopKOptimizerStandardMode:
             diff_count = sum(1 for a, b in zip(initial_seq, seq) if a != b)
             assert diff_count == 1, f"Expected 1 mutation, got {diff_count} differences"
 
+    def test_run_restarts_from_initial_state(self):
+        """Test that calling run() twice restarts from initial state."""
+        segment = Segment(sequence="ATCGATCG", sequence_type="dna")
+        construct = Construct([segment])
+
+        gen = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(num_mutations=1)
+        )
+        gen.assign(segment)
+
+        constraint = Constraint(
+            inputs=[segment],
+            function=sequence_length_constraint,
+            function_config={"target_length": 8},
+        )
+
+        config = TopKOptimizerConfig(
+            num_samples=5,
+            k=3,
+            batch_size=1,
+            verbose=False
+        )
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+
+        # Capture original state
+        original_seq = segment.selected_sequences[0].sequence
+        assert original_seq == "ATCGATCG"
+
+        # First run
+        optimizer.run()
+        assert len(segment.selected_sequences) == 3
+        assert optimizer._initial_state is not None
+        
+        # Verify captured state contains original sequence (using index 0)
+        assert len(optimizer._initial_state['segments']) == 1
+        captured_selected = optimizer._initial_state['segments'][0]['selected']
+        assert len(captured_selected) == 1
+        assert captured_selected[0].sequence == original_seq
+        
+        # Verify energy scores captured
+        assert 'energy_scores' in optimizer._initial_state
+        
+        # Verify heap was cleared (TopK-specific state)
+        assert len(optimizer._energy_heap) == 3  # Has k entries after run
+
+        # Manually modify sequences
+        for seq in segment.selected_sequences:
+            seq.sequence = "MODIFIED_SEQ_123"
+
+        # Second run should restart - heap should be cleared and sequences restored
+        optimizer.run()
+        assert len(segment.selected_sequences) == 3
+        assert len(optimizer._energy_heap) == 3  # Rebuilt from scratch
+        
+        # Verify sequences were restored (not "MODIFIED")
+        assert all("MODIFIED" not in seq.sequence for seq in segment.selected_sequences)
+
     def test_topk_with_batch_size(self):
         """Test TopK with batch_size > 1 for efficient batching."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")

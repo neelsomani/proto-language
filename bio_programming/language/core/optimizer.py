@@ -78,12 +78,12 @@ class Optimizer(ABC):
         self.clear_tool_cache = clear_tool_cache
         self.custom_logging = custom_logging
         self.verbose = verbose
-        self.energy_scores: List[float] = []  # Each index corresponds to a candidate, empty until first score_energy() call
+        self.energy_scores: List[float] = [float("inf")] * num_candidates  # Initialized to inf (unscored)
         self.history: List[Dict[str, Any]] = []
+        self._initial_state: Optional[Dict] = None  # Captured on first run() for restart
 
-        # Default values for progress tracking (can be overridden by subclasses)
+        # Default value for progress tracking (can be overridden by subclasses)
         self.num_steps: int = 1
-        self.track_step_size: int = 1
 
         # Create program-scoped tool cache
         self.tool_cache = ToolCache()
@@ -351,3 +351,32 @@ class Optimizer(ABC):
             segment.candidate_sequences = [
                 copy.deepcopy(best_seq) for _ in range(self.num_candidates)
             ]
+
+    def _prepare_run(self) -> None:
+        """Call at start of run(). Captures state on first run, restores on subsequent."""
+        if self._initial_state is None:
+            self._capture_initial_state()
+        else:
+            self._restore_initial_state()
+
+    def _capture_initial_state(self) -> None:
+        """Capture current segment and optimizer state."""
+        self._initial_state = {
+            'segments': [
+                {
+                    'selected': copy.deepcopy(seg.selected_sequences),
+                    'candidates': copy.deepcopy(seg.candidate_sequences),
+                }
+                for seg in self.segments
+            ],
+            'energy_scores': self.energy_scores.copy(),
+        }
+
+    def _restore_initial_state(self) -> None:
+        """Restore to captured state. Override for optimizer-specific state."""
+        for i, seg in enumerate(self.segments):
+            state = self._initial_state['segments'][i]
+            seg.selected_sequences = copy.deepcopy(state['selected'])
+            seg.candidate_sequences = copy.deepcopy(state['candidates'])
+        self.energy_scores = self._initial_state['energy_scores'].copy()
+        self.history = []

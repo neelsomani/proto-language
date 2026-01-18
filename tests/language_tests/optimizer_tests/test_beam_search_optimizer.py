@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import random
 from typing import Dict, List, Optional
 from unittest.mock import Mock
@@ -396,7 +397,6 @@ class TestBeamSearchOptimizer:
         optimizer, _, _, _ = _setup_beam_search(segment_length=60, beam_length=20)
         optimizer.run()
         assert len(optimizer.history) > 0
-        assert optimizer.history[-1]["beams_generated"] == 3
 
     # --- Prepend Prompt ---
     def test_prepend_prompt_true(self):
@@ -717,3 +717,95 @@ class TestBeamSearchMultiStepOptimization:
         )
 
         assert optimizer.target_segment is segment
+
+
+class TestBeamSearchOptimizerRestart:
+    """Tests for BeamSearchOptimizer state restart behavior."""
+
+    def test_run_restarts_from_initial_state(self):
+        """Test that calling run() twice restarts from initial state."""
+        prompt = "ATCG"
+        optimizer, generator, constraint, segment = _setup_beam_search(
+            prompt=prompt,
+            beam_width=2,
+            candidates_per_beam=2,
+            segment_length=40,
+            beam_length=20,
+        )
+
+        # Capture original state before run
+        original_selected = [copy.deepcopy(s) for s in segment.selected_sequences]
+
+        # First run
+        optimizer.run()
+        assert optimizer._initial_state is not None
+        first_run_beams = [b.running_sequence for b in optimizer.beams]
+        # Verify beams grew beyond prompt
+        assert all(len(b) > len(prompt) for b in first_run_beams)
+        
+        # Verify captured state contains original sequences (using index 0)
+        assert len(optimizer._initial_state['segments']) == 1
+        captured_selected = optimizer._initial_state['segments'][0]['selected']
+        
+        # Verify captured sequences match originals
+        assert len(captured_selected) == len(original_selected)
+        for orig, captured in zip(original_selected, captured_selected):
+            assert orig.sequence == captured.sequence
+            
+        # Manually modify sequences to verify restore
+        segment.selected_sequences[0].sequence = "MODIFIED_SEQ_123"
+        segment.candidate_sequences[0].sequence = "MODIFIED_CAND_123"
+
+        # Second run should restart - beams should be reset to prompt
+        optimizer.run()
+        second_run_beams = [b.running_sequence for b in optimizer.beams]
+        # Verify beams grew again (optimization ran)
+        assert all(len(b) > len(prompt) for b in second_run_beams)
+        
+        # Verify sequences were restored (not "MODIFIED")
+        assert all("MODIFIED" not in seq.sequence for seq in segment.selected_sequences)
+        
+        # History should be fresh (cleared on restart)
+        assert len(optimizer.history) == 1  # Only final snapshot
+
+    def test_beams_reset_on_restore(self):
+        """Test that beams are reset to initial prompt on restore and sequences are restored."""
+        prompt = "ATCGATCG"
+        optimizer, _, _, segment = _setup_beam_search(
+            prompt=prompt,
+            beam_width=3,
+            candidates_per_beam=2,
+            segment_length=40,
+            beam_length=20,
+        )
+
+        # Capture original sequences
+        original_selected = [s.sequence for s in segment.selected_sequences]
+
+        # First run - beams will be modified
+        optimizer.run()
+
+        # Capture modified beams
+        modified_beams = [b.running_sequence for b in optimizer.beams]
+        assert all(len(b) > len(prompt) for b in modified_beams)
+        
+        # Manually modify sequences further
+        for seq in segment.selected_sequences:
+            seq.sequence = "MANUALLY_MODIFIED_SEQ"
+
+        # Trigger restore
+        optimizer._restore_initial_state()
+
+        # Beams should be reset to prompt
+        assert len(optimizer.beams) == 3
+        for beam in optimizer.beams:
+            assert beam.running_sequence == prompt
+            assert beam.kv_cache is None
+            assert beam.beam_scores == []
+            
+        # Sequences should be restored to original state
+        restored_sequences = [s.sequence for s in segment.selected_sequences]
+        assert len(restored_sequences) == len(original_selected)
+        for orig, restored in zip(original_selected, restored_sequences):
+            assert orig == restored
+        assert all("MANUALLY_MODIFIED" not in seq for seq in restored_sequences)

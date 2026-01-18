@@ -7,7 +7,6 @@ performs beam search, accumulating KV cache state across beams.
 
 from __future__ import annotations
 
-import copy
 import math
 import sys
 from dataclasses import dataclass, field
@@ -339,6 +338,16 @@ class BeamSearchOptimizer(Optimizer):
         if self.beam_length > self.target_segment.sequence_length:
             raise ValueError(f"beam_length={self.beam_length} cannot be greater than target_segment length ({self.target_segment.sequence_length})")
 
+    def _capture_initial_state(self) -> None:
+        """Capture state and reset BeamSearch-specific state for fresh run."""
+        super()._capture_initial_state()
+        self.beams = [BeamState(running_sequence=self.prompt) for _ in range(self.beam_width)]
+
+    def _restore_initial_state(self) -> None:
+        """Restore to captured state and reset BeamSearch-specific state."""
+        super()._restore_initial_state()
+        self.beams = [BeamState(running_sequence=self.prompt) for _ in range(self.beam_width)]
+
     def run(self) -> None:
         """
         Run beam search within a single segment.
@@ -349,6 +358,8 @@ class BeamSearchOptimizer(Optimizer):
         3. Score all candidates using FULL accumulated sequence
         4. Select top K candidates and update beam states for next beam
         """
+        self._prepare_run()
+
         if self.verbose:
             self._log_run_start()
 
@@ -389,13 +400,7 @@ class BeamSearchOptimizer(Optimizer):
         ]
 
         # Save progress snapshot
-        self.history.append({
-            "time_step": self.num_beams - 1,
-            "beams_generated": self.num_beams,
-            "total_beams": self.num_beams,
-            "energy_scores": self.energy_scores[:self.beam_width].copy() if self.energy_scores else [],
-            "constructs": copy.deepcopy(self.constructs)
-        })
+        self._save_progress_snapshot(time_step=0)
 
     def _generate_candidates_for_beam(
         self,

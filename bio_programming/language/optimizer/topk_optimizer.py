@@ -2,7 +2,7 @@
 TopK Optimizer that runs multiple independent sampling rounds and returns the top-k best constructs.
 """
 from __future__ import annotations
-from typing import Callable, Dict, List, Optional, final
+from typing import Callable, List, Optional, final
 import copy
 import heapq
 import logging
@@ -179,10 +179,6 @@ class TopKOptimizer(Optimizer):
         Raises:
             ValueError: If any validation checks fail.
         """
-        # Initialize _initial_sequences state before super().__init__() which calls _initialize_sequence_pools
-        # Used to reset candidates to initial states in each round.
-        self._initial_sequence_states: Dict[int, str] = {}
-
         # Map TopK variables to base Optimizer:
         # - batch_size → num_candidates (candidate pool size per round)
         # - k → num_selected (top-k to keep in results)
@@ -216,28 +212,17 @@ class TopKOptimizer(Optimizer):
         self._energy_heap: List[tuple] = []
 
     def _initialize_sequence_pools(self) -> None:
+        """Initialize sequence pools for TopK optimizer.
+        
+        Preserves indices from existing sequences when possible, padding with
+        the first sequence if more candidates are needed. Leaves selected_sequences
+        unchanged (TopK clears and populates it dynamically during run()).
         """
-        Initialize sequence pools for TopK optimizer. Overrides the base Optimizer method.
-
-        Captures initial sequence state for resetting candidates each round. Initializes
-        selected_sequences to empty - it will be populated during optimization via in-place
-        updates to maintain the top-k sequences. Initializes candidate pool with batch_size copies.
-
-        Note: Unlike the base optimizer, selected_sequences grows dynamically during optimization
-        as better sequences are discovered, rather than being pre-allocated.
-        """
-        for seg_idx, segment in enumerate(self.segments):
-            # Capture initial state (from previous optimizer or original)
-            source = segment.selected_sequences[0] if segment.selected_sequences else segment.original_sequence
-            self._initial_sequence_states[seg_idx] = source.sequence
-
-            # Start with empty selected pool (will be populated during optimization)
-            segment.selected_sequences = []
-
-            # Initialize candidate pool with batch_size copies for sampling
+        for segment in self.segments:
+            source = segment.candidate_sequences or segment.selected_sequences or [segment.original_sequence]
             segment.candidate_sequences = [
-                copy.deepcopy(segment.candidate_sequences[0])
-                for _ in range(self.num_candidates)
+                copy.deepcopy(source[i] if i < len(source) else source[0])
+                for i in range(self.num_candidates)
             ]
 
     def _run_sampling_round(self, round_idx: int) -> None:
@@ -249,9 +234,10 @@ class TopKOptimizer(Optimizer):
         """
         # 1. Create fresh candidate sequences at the start of each round (clean metadata state)
         for seg_idx, segment in enumerate(self.segments):
+            initial_seq = self._initial_state['segments'][seg_idx]['candidates'][0].sequence
             segment.candidate_sequences = [
                 Sequence(
-                    sequence=self._initial_sequence_states[seg_idx],
+                    sequence=initial_seq,
                     sequence_type=segment.sequence_type,
                     valid_chars=segment._valid_chars
                 )
@@ -293,6 +279,16 @@ class TopKOptimizer(Optimizer):
         # Sort for logging (both default and custom)
         self._log_round_progress(round_idx)
 
+    def _capture_initial_state(self) -> None:
+        """Capture state and clear TopK-specific state for fresh run."""
+        super()._capture_initial_state()
+        self._energy_heap = []
+
+    def _restore_initial_state(self) -> None:
+        """Restore to captured state and reset TopK-specific state."""
+        super()._restore_initial_state()
+        self._energy_heap = []
+
     def run(self) -> None:
         """
         Execute TopK optimization through multiple sampling rounds.
@@ -308,8 +304,9 @@ class TopKOptimizer(Optimizer):
         - Evaluates all candidates with constraints
         - Updates the top-k in selected_sequences (in-place)
         """
-        # Reset top-k tracking state for fresh run
-        self._energy_heap = []
+        self._prepare_run()
+
+        # Clear selected_sequences since TopK populates this dynamically during optimization
         for segment in self.segments:
             segment.selected_sequences = []
 

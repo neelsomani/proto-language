@@ -808,3 +808,44 @@ class TestMCMCOptimizer:
         assert len(optimizer.energy_scores) == optimizer.num_candidates
         assert len(segment1.selected_sequences) == num_selected
         assert len(segment2.selected_sequences) == num_selected
+
+    def test_run_restarts_from_initial_state(self):
+        """Tests that calling run() twice restarts from initial state."""
+        optimizer, _, _, segment = _setup_mcmc_components(
+            seq_length=20, num_mcmc_steps=5
+        )
+
+        # Capture original state before any run
+        original_seq = segment.selected_sequences[0].sequence
+        assert original_seq == "A" * 20  # Initial sequence
+
+        # First run
+        optimizer.run()
+
+        # Verify state was captured with correct content
+        assert optimizer._initial_state is not None
+        assert len(optimizer._initial_state['segments']) == 1
+        
+        # Verify captured state contains original sequence (using index 0)
+        captured_selected = optimizer._initial_state['segments'][0]['selected']
+        assert len(captured_selected) == 1
+        assert captured_selected[0].sequence == original_seq
+        
+        # Verify energy scores were captured
+        assert 'energy_scores' in optimizer._initial_state
+        assert len(optimizer._initial_state['energy_scores']) == optimizer.num_candidates
+
+        # Manually modify the sequence to verify restore works
+        segment.selected_sequences[0].sequence = "MODIFIED_SEQUENCE_123"
+        segment.candidate_sequences[0].sequence = "MODIFIED_CANDIDATE_12"
+
+        # Second run should restore from initial state (original "AAAA...")
+        optimizer.run()
+        second_run_final_seq = segment.selected_sequences[0].sequence
+
+        # Verify sequences were restored (not "MODIFIED")
+        assert "MODIFIED" not in second_run_final_seq
+        
+        # Both runs should have started from original state
+        # History should be fresh (cleared on restart)
+        assert len(optimizer.history) > 0

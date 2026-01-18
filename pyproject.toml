@@ -71,6 +71,9 @@ gpu = [
     "enformer-pytorch",
     #"colabfold[alphafold]>=1.5.5", # Due to dependency conflicts, needs to be installed separately with --no-deps.
 
+    # Structure dynamics models
+    "bioemu",
+
     # Inverse folding
     #"colabdesign @ git+https://github.com/sokrypton/ColabDesign.git@v1.1.1", # REMOVED FOR NOW DUE TO CONFLICTS WITH EVO2
 ]

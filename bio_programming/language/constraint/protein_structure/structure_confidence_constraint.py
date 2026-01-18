@@ -174,7 +174,7 @@ def _structure_confidence(
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
-    supported_sequence_types=["protein"],
+    supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_plddt_constraint(
     complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
@@ -228,7 +228,7 @@ def structure_plddt_constraint(
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
-    supported_sequence_types=["protein"],
+    supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_ptm_constraint(
     complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
@@ -270,7 +270,7 @@ def structure_ptm_constraint(
     gpu_required=True,
     tools_called=["alphafold3", "boltz", "chai"],
     category="protein_structure",
-    supported_sequence_types=["protein"],
+    supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_iptm_constraint(
     complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
@@ -331,7 +331,7 @@ def structure_iptm_constraint(
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
-    supported_sequence_types=["protein"],
+    supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_pae_constraint(
     complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig

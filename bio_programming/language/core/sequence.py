@@ -6,7 +6,7 @@ Sequence class for the proto-language.
 Represents a single DNA, RNA, protein, or ligand sequence with validation and metadata.
 """
 from __future__ import annotations
-from typing import Any, Dict, Iterable, List, Literal, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, Literal, Optional, Set
 import warnings
 
 from proto_language.utils.helpers import propagate_metadata

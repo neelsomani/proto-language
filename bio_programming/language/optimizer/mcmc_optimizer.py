@@ -357,10 +357,11 @@ class MCMCOptimizer(Optimizer):
                     best_candidate_idx = candidate_idx
 
             # Step 2: Apply MH acceptance and update trajectory
-            # Accept if: (1) valid proposal exists, and (2) passes MH criterion
-            alpha = self._compute_mcmc_acceptance(old_selected_energy, best_energy, step)
-            valid_proposal = best_candidate_idx is not None
-            accepted = valid_proposal and random.random() < alpha
+            # Accept if: (1) valid proposal exists
+            #            (2) passes MH criterion
+            valid_proposals_exist = best_candidate_idx is not None
+            alpha = self._compute_mcmc_alpha(old_selected_energy, best_energy, step)
+            accepted = valid_proposals_exist and random.random() < alpha
 
             if accepted:
                 for segment in self.segments:
@@ -390,7 +391,7 @@ class MCMCOptimizer(Optimizer):
         else:
             return self.max_temperature * (self.min_temperature / self.max_temperature) ** ((step - 1) / (self.num_steps - 1))
 
-    def _compute_mcmc_acceptance(self, current_energy: float, proposed_energy: float, step: int) -> float:
+    def _compute_mcmc_alpha(self, current_energy: float, proposed_energy: float, step: int) -> float:
         """Compute Metropolis-Hastings acceptance probability: alpha = min(1, exp(-(E_new - E_old) / T))
 
         Note:

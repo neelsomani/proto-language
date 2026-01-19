@@ -2,6 +2,9 @@ from .structure_similarity_constraint import (
     structure_rmsd_constraint,
     structure_tmscore_constraint,
 )
+from .structure_ensemble_similarity_constraint import (
+    structure_ensemble_rmsd_constraint,
+)
 from .structure_confidence_constraint import (
     structure_plddt_constraint,
     structure_ptm_constraint,
@@ -15,6 +18,7 @@ from .boltz_binding_strength_constraint import boltz_binding_strength_constraint
 __all__ = [
     "structure_rmsd_constraint",
     "structure_tmscore_constraint",
+    "structure_ensemble_rmsd_constraint",
     "structure_plddt_constraint",
     "structure_ptm_constraint",
     "structure_iptm_constraint",

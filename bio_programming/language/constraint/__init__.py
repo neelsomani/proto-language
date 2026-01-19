@@ -13,6 +13,7 @@ from .sequence_composition import (
 from .protein_structure import (
     structure_rmsd_constraint,
     structure_tmscore_constraint,
+    structure_ensemble_rmsd_constraint,
     structure_plddt_constraint,
     structure_ptm_constraint,
     structure_iptm_constraint,
@@ -67,6 +68,7 @@ __all__ = [
     # Protein structure
     "structure_rmsd_constraint",
     "structure_tmscore_constraint",
+    "structure_ensemble_rmsd_constraint",
     "structure_plddt_constraint",
     "structure_ptm_constraint",
     "structure_iptm_constraint",

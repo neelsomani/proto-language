@@ -497,54 +497,6 @@ class TestMCMCOptimizer:
         alpha = optimizer._compute_mcmc_acceptance(0.0, 1000.0, 1)
         assert 0.0 <= alpha < 1e-10
 
-    def test_energy_non_regression(self):
-        """Tests that best energy never gets worse (monotonic improvement)."""
-        num_selected = 3
-        seq_length = 20
-        num_steps = 50
-        # Use mcmc_width > 1 to ensure we pick best among proposals, preventing regression
-        mcmc_width = 5
-
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
-        )
-        segment = Segment(sequence="A" * seq_length, sequence_type="dna")
-        proposal_gen.assign(segment)
-        construct = Construct([segment])
-
-        constraint = Constraint(
-            inputs=[segment],
-            function=gc_content_constraint,
-            function_config=GCContentConfig(min_gc=50.0, max_gc=50.0),
-        )
-
-        optimizer = MCMCOptimizer(
-            constructs=[construct],
-            generators=[proposal_gen],
-            constraints=[constraint],
-            config=MCMCOptimizerConfig(
-                num_selected=num_selected,
-                mcmc_width=mcmc_width,
-                num_steps=num_steps,
-                track_step_size=1,
-                max_temperature=0.5,
-                min_temperature=0.01,
-                verbose=False,
-            ),
-        )
-
-        optimizer.run()
-
-        # Extract best energy at each step from history
-        best_energies_over_time = [
-            min(entry["energy_scores"]) for entry in optimizer.history
-        ]
-
-        # Best energy should never increase
-        tolerance = 1e-6
-        for i in range(1, len(best_energies_over_time)):
-            assert best_energies_over_time[i] <= best_energies_over_time[i - 1] + tolerance
-
     def test_convergence_to_optimal(self):
         """Tests that MCMC converges toward optimal solution with enough steps."""
         num_selected = 3
@@ -949,14 +901,13 @@ class TestMCMCOptimizer:
         # Run acceptance step
         optimizer._select_topk_with_mcmc_acceptance(step=1, old_selected_sequences=old_selected_sequences)
 
-        # Verify NO CROSSOVER: 
-        # - Trajectory 0 should NOT have stolen the "AAAAAAAAAA" from trajectory 1's pool
-        #   (trajectory 0 already has "AAAAAAAAAA", so it stays the same)
-        # - Trajectory 1 SHOULD have improved to "AAAAAAAAAA" from its own pool
-        # - Trajectory 2 should have whatever was best in its pool or reverted
+        # Verify NO CROSSOVER with the new "best first, then MH" logic:
+        # - Trajectory 1 finds its best proposal (energy=0 at index 4)
+        # - MH acceptance is applied: old_energy=10, new_energy=0, so alpha=1.0 (always accept improvement)
+        # - Trajectory 1 should now have "AAAAAAAAAA"
+        # - Trajectory 0 should NOT have stolen from trajectory 1's pool
         
         # The key test: trajectory 1's selected sequence should now be "AAAAAAAAAA"
-        # (since candidate[4] with energy=0 was in trajectory 1's pool and was accepted)
         assert segment.selected_sequences[1].sequence == "A" * seq_length, (
             f"Trajectory 1 should have selected from its own pool. "
             f"Got: {segment.selected_sequences[1].sequence}"
@@ -1030,3 +981,112 @@ class TestMCMCOptimizer:
         assert gc_0 > 0, "Trajectory 0 should have evolved from 0% GC"
         # Trajectory 1 started at 100% GC, should have decreased
         assert gc_1 < 100, "Trajectory 1 should have evolved from 100% GC"
+
+    def test_best_first_then_mh_selection(self):
+        """Tests that selection picks best proposal first, then applies single MH decision.
+        
+        The new selection logic:
+        1. Find the best proposal by energy (lowest)
+        2. Apply MH acceptance to that single best proposal
+        3. If rejected, keep old state
+        """
+        num_selected = 1
+        mcmc_width = 3
+        seq_length = 10
+
+        proposal_gen = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(num_mutations=1)
+        )
+        segment = Segment(sequence="A" * seq_length, sequence_type="dna")
+        proposal_gen.assign(segment)
+        construct = Construct([segment])
+
+        # Custom constraint: energy = count of non-A characters
+        def count_non_a_energy(seq, config=None):
+            return seq_length - seq.sequence.count("A")
+        count_non_a_energy._constraint_batched = False
+        count_non_a_energy._constraint_multi_input = False
+        count_non_a_energy._constraint_config_class = EmptyConfig
+        count_non_a_energy._constraint_supported_sequence_types = ["dna"]
+
+        constraint = Constraint(
+            inputs=[segment],
+            function=count_non_a_energy,
+            function_config=EmptyConfig(),
+        )
+
+        # Scenario 1: Low temperature - best proposal improves energy -> should be accepted
+        optimizer = MCMCOptimizer(
+            constructs=[construct],
+            generators=[proposal_gen],
+            constraints=[constraint],
+            config=MCMCOptimizerConfig(
+                num_selected=num_selected,
+                mcmc_width=mcmc_width,
+                num_steps=1,
+                max_temperature=0.002,  # Very low temp = greedy
+                min_temperature=0.001,
+                verbose=False,
+            ),
+        )
+
+        # Set initial sequence with energy=5
+        segment.selected_sequences[0].sequence = "AAAAAGGGGG"  # 5 non-A = energy 5
+        optimizer.energy_scores[0] = 5.0
+
+        old_selected_sequences = optimizer._save_sequence_state()
+        optimizer._populate_candidate_sequences()
+
+        # Set up proposals with different energies: [0.8, 0.3, 0.9]
+        # Best is at index 1 with energy 0.3
+        segment.candidate_sequences[0].sequence = "AAAAAAAGGG"  # 3 non-A
+        segment.candidate_sequences[1].sequence = "AAAAAAAAAT"  # 1 non-A (best)
+        segment.candidate_sequences[2].sequence = "AAAAAAGGGG"  # 4 non-A
+        optimizer.energy_scores = [3.0, 1.0, 4.0]
+
+        optimizer._select_topk_with_mcmc_acceptance(step=1, old_selected_sequences=old_selected_sequences)
+
+        # With low temperature, the best proposal (energy=1.0) should be accepted
+        # because it improves from energy=5.0
+        assert segment.selected_sequences[0].sequence == "AAAAAAAAAT", (
+            f"Expected best proposal to be accepted. Got: {segment.selected_sequences[0].sequence}"
+        )
+        assert optimizer.energy_scores[0] == 1.0
+
+        # Scenario 2: Test that only the best proposal is considered for MH
+        # Set up a case where the best proposal worsens energy
+        optimizer2 = MCMCOptimizer(
+            constructs=[Construct([segment])],
+            generators=[proposal_gen],
+            constraints=[constraint],
+            config=MCMCOptimizerConfig(
+                num_selected=num_selected,
+                mcmc_width=mcmc_width,
+                num_steps=1,
+                max_temperature=0.002,  # Very low temp
+                min_temperature=0.001,
+                verbose=False,
+            ),
+        )
+
+        # Start with a very good sequence (energy=0)
+        segment.selected_sequences[0].sequence = "A" * seq_length  # 0 non-A = energy 0
+        optimizer2.energy_scores[0] = 0.0
+
+        old_selected_sequences2 = optimizer2._save_sequence_state()
+        optimizer2._populate_candidate_sequences()
+
+        # All proposals are worse than current (energy 0)
+        segment.candidate_sequences[0].sequence = "AAAAAAAAAT"  # 1 non-A
+        segment.candidate_sequences[1].sequence = "AAAAAAGGGG"  # 4 non-A
+        segment.candidate_sequences[2].sequence = "AAAAAAAAAC"  # 1 non-A
+        optimizer2.energy_scores = [1.0, 4.0, 1.0]
+
+        optimizer2._select_topk_with_mcmc_acceptance(step=1, old_selected_sequences=old_selected_sequences2)
+
+        # At very low temperature, worse proposals should be rejected
+        # The old state should be kept
+        assert segment.selected_sequences[0].sequence == "A" * seq_length, (
+            f"Expected rejection - old state should be kept. Got: {segment.selected_sequences[0].sequence}"
+        )
+        assert optimizer2.energy_scores[0] == 0.0

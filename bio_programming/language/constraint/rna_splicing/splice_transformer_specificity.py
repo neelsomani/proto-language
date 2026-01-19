@@ -2,7 +2,7 @@
 Evaluate tissue-specific splicing with SpliceTransformer.
 """
 from __future__ import annotations
-from typing import List, Optional, Literal
+from typing import List, Literal
 
 from pydantic import field_validator
 
@@ -62,10 +62,9 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
             active in the target tissue, or "min" to create sites that are silenced
             in the target tissue. Default: "max".
 
-        splice_transformer_config (Optional[SpliceTransformerConfig]): Optional
-            advanced SpliceTransformer configuration including context length,
-            device settings, and model parameters. If None, uses default
-            configuration with context_length=4000. Default: None.
+        splice_transformer_config (SpliceTransformerConfig): Advanced SpliceTransformer
+            configuration including context length, device settings, and model
+            parameters. Default: SpliceTransformerConfig().
     """
 
     # Required parameters
@@ -92,10 +91,10 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
         description="Whether to maximize or minimize the value. Defaults to 'max'",
     )
     # Optional parameter
-    splice_transformer_config: Optional[SpliceTransformerConfig] = ConfigField(
+    splice_transformer_config: SpliceTransformerConfig = ConfigField(
         title="SpliceTransformer Config",
-        default=None,
-        description="Advanced parameter configuration for SpliceTransformer. If None, uses default configuration.",
+        default_factory=SpliceTransformerConfig,
+        description="Advanced parameter configuration for SpliceTransformer.",
         advanced=True,
     )
 
@@ -217,10 +216,8 @@ def splice_transformer_specificity(
         left_contexts=[config.left_context],
         right_contexts=[config.right_context],
     )
-    if config.splice_transformer_config is None:
-        splice_transformer_config = SpliceTransformerConfig(context_length=context_length)
-    else:
-        splice_transformer_config = config.splice_transformer_config
+    splice_transformer_config = config.splice_transformer_config
+    splice_transformer_config.context_length = context_length
 
     output = run_splice_transformer(
         splice_transformer_input,

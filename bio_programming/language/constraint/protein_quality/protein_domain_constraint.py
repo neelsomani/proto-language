@@ -55,13 +55,12 @@ class ProteinDomainConfig(BaseConfig):
             for strict multi-domain requirements (e.g., ["kinase", "ATP-binding"]
             both must be present). Default: False.
 
-        hmmscan_config (Optional[PyHmmerConfig]): Optional advanced configuration
-            for PyHMMER hmmscan (threading, bit score thresholds, etc.). If None,
-            uses default configuration. The ``sequences`` and ``hmm_db`` fields
-            are set programmatically and should not be specified here. Default: None.
-            Example usage:
-            ``PyHmmerConfig(cpus=4, Z=1000, domZ=1000)`` to use 4 CPU cores and
-            set database size parameters for E-value calculation. Default: None.
+        hmmscan_config (PyHmmerConfig): Advanced configuration for PyHMMER hmmscan
+            (threading, bit score thresholds, etc.). The ``sequences`` and ``hmm_db``
+            fields are set programmatically and should not be specified here.
+            Example: ``PyHmmerConfig(cpus=4, Z=1000, domZ=1000)`` to use 4 CPU cores
+            and set database size parameters for E-value calculation.
+            Default: PyHmmerConfig().
     
     Note:
         For DNA sequences, Prodigal is used to predict ORFs first, then each
@@ -98,10 +97,10 @@ class ProteinDomainConfig(BaseConfig):
         description="If True, require ALL keywords to be found. If False, require ANY keyword (default).",
         advanced=True,
     )
-    hmmscan_config: Optional[PyHmmerConfig] = ConfigField(
+    hmmscan_config: PyHmmerConfig = ConfigField(
         title="PyHMMER Config",
-        default=None,
-        description="Optional configuration for PyHMMER hmmscan. If None, uses default configuration.",
+        default_factory=PyHmmerConfig,
+        description="Configuration for PyHMMER hmmscan.",
         advanced=True,
     )
 
@@ -410,7 +409,7 @@ def _check_protein_domains_batch(
     )
 
     # Use provided config or default
-    final_config = hmmscan_config if hmmscan_config is not None else PyHmmerConfig()
+    final_config = hmmscan_config
 
     # Run PyHMMER hmmscan
     result = pyhmmer_hmmscan(inputs=hmmscan_input, config=final_config)

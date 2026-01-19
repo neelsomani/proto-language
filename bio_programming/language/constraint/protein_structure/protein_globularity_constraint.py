@@ -5,7 +5,7 @@ Protein globularity constraint for compact protein structures.
 from __future__ import annotations
 
 from io import StringIO
-from typing import Optional,List
+from typing import List
 
 import numpy as np
 
@@ -63,11 +63,10 @@ class ProteinGlobularityConfig(BaseConfig):
             lower scores (e.g., 10 Å globularity = 0.5 score for max_globularity of 20.0 Å).
             Default: 20.0.
 
-        esmfold_config (Optional[ESMFoldConfig]): Optional advanced ESMFold
-            configuration parameters including residue indexing offset, chain
-            linker settings, and verbosity. If None, uses default ESMFold settings.
+        esmfold_config (ESMFoldConfig): Advanced ESMFold configuration parameters
+            including residue indexing offset, chain linker settings, and verbosity.
             The ``complexes`` field is set programmatically and should not be
-            specified here. Default: None.
+            specified here. Default: ESMFoldConfig().
     """
     # Required parameter
     n_replications: int = ConfigField(
@@ -84,10 +83,10 @@ class ProteinGlobularityConfig(BaseConfig):
         description="Max std from backbone atoms to the structure's centroid to be considered highly extended/ unfolded.",
         advanced=True,
     )
-    esmfold_config: Optional[ESMFoldConfig] = ConfigField(
+    esmfold_config: ESMFoldConfig = ConfigField(
         title="ESMFold Config",
-        default=None,
-        description="Optional ESMFold configuration. If None, uses default configuration.",
+        default_factory=ESMFoldConfig,
+        description="ESMFold configuration for structure prediction.",
         advanced=True,
     )
 
@@ -216,7 +215,7 @@ def _evaluate_protein_globularity(
 
     # Run ESMFold
     output = run_esmfold(
-        inputs=esmfold_input, config=config.esmfold_config or ESMFoldConfig()
+        inputs=esmfold_input, config=config.esmfold_config
     )
 
     scores = []
@@ -282,7 +281,7 @@ def _evaluate_dna_globularity(
         # Run ESMFold
         esmfold_output = run_esmfold(
             inputs=ESMFoldInput(complexes=complexes),
-            config=config.esmfold_config or ESMFoldConfig(),
+            config=config.esmfold_config,
         )
 
         # Calculate globularity for all proteins, use best (lowest std)

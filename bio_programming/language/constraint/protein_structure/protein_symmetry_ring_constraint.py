@@ -73,11 +73,10 @@ class ProteinSymmetryRingConfig(BaseConfig):
             and sufficient for most symmetric rings. Use True for stringent
             symmetry requirements or asymmetric arrangements. Default: False.
 
-        esmfold_config (Optional[ESMFoldConfig]): Optional advanced ESMFold
-            configuration parameters including residue indexing offset, chain
-            linker settings, and verbosity. If None, uses default ESMFold settings.
+        esmfold_config (ESMFoldConfig): Advanced ESMFold configuration parameters
+            including residue indexing offset, chain linker settings, and verbosity.
             The ``complexes`` field is set programmatically and should not be
-            specified here. Default: None.
+            specified here. Default: ESMFoldConfig().
     """
     # Required parameters
     n_replications: int = ConfigField(
@@ -102,10 +101,10 @@ class ProteinSymmetryRingConfig(BaseConfig):
         description="True uses pairwise distances between all protomers. Else, use distances between adjacent protomers",
         advanced=True,
     )
-    esmfold_config: Optional[ESMFoldConfig] = ConfigField(
-        default=None,
+    esmfold_config: ESMFoldConfig = ConfigField(
+        default_factory=ESMFoldConfig,
         title="ESMFold Config",
-        description="Optional ESMFold configuration. If None, uses default configuration.",
+        description="ESMFold configuration for structure prediction.",
         advanced=True,
     )
 
@@ -237,7 +236,7 @@ def _evaluate_protein_symmetry(
     # Run ESMFold
     output = run_esmfold(
         inputs=ESMFoldInput(complexes=complexes),
-        config=config.esmfold_config or ESMFoldConfig(),
+        config=config.esmfold_config,
     )
 
     # Determine distance function
@@ -316,7 +315,7 @@ def _evaluate_dna_symmetry(
         # Run ESMFold
         esmfold_output = run_esmfold(
             inputs=ESMFoldInput(complexes=complexes),
-            config=config.esmfold_config or ESMFoldConfig(),
+            config=config.esmfold_config,
         )
 
         # Calculate symmetry for all proteins, use best (lowest std)

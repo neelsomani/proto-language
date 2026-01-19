@@ -140,11 +140,10 @@ class BoltzBindingStrengthConfig(BaseConfig):
             Use specific metrics to focus on particular aspects like interface
             quality (iptm) or distance accuracy (complex_ipde). Default: "total_penalty".
 
-        boltz_config (Optional[BoltzConfig]): Optional advanced Boltz configuration
-            including MSA usage, recycling steps, sampling parameters, device
-            settings, and verbosity. If None, uses default Boltz settings. The
-            ``complexes`` field is set programmatically from input sequences.
-            Default: None.
+        boltz_config (BoltzConfig): Advanced Boltz configuration including MSA usage,
+            recycling steps, sampling parameters, device settings, and verbosity.
+            The ``complexes`` field is set programmatically from input sequences.
+            Default: BoltzConfig().
     
     Note:
         **Metric interpretation:**
@@ -232,10 +231,11 @@ class BoltzBindingStrengthConfig(BaseConfig):
     )
 
     # Nested Boltz2 configuration
-    boltz_config: Optional[BoltzConfig] = ConfigField(
-        default=None,
+    boltz_config: BoltzConfig = ConfigField(
+        default_factory=BoltzConfig,
         title="Boltz Config",
-        description="Optional Boltz2 configuration. If None, uses default configuration.",
+        description="Boltz2 configuration for structure prediction.",
+        advanced=True,
     )
 
     def model_post_init(self, __context: Any) -> None:
@@ -361,7 +361,7 @@ def boltz_binding_strength_constraint(
     )
 
     # Run Boltz2
-    outputs = run_boltz(inputs=inputs, config=config.boltz_config or BoltzConfig())
+    outputs = run_boltz(inputs=inputs, config=config.boltz_config)
 
     # Scoring each complex
     penalties = []

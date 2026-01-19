@@ -2,7 +2,7 @@
 Evaluate intron boundary prediction with SpliceTransformer.
 """
 from __future__ import annotations
-from typing import List, Optional
+from typing import List
 
 from pydantic import field_validator
 
@@ -53,10 +53,9 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
             after the "AG". Can be a single integer (automatically converted to list)
             or list of integers for multiple acceptors.
 
-        splice_transformer_config (Optional[SpliceTransformerConfig]): Optional
-            advanced SpliceTransformer configuration including context length,
-            device settings, and model parameters. If None, uses default
-            configuration with context_length=4000. Default: None.
+        splice_transformer_config (SpliceTransformerConfig): Advanced SpliceTransformer
+            configuration including context length, device settings, and model
+            parameters. Default: SpliceTransformerConfig().
     
     Note:
         SpliceTransformer requires sequences of specific lengths:
@@ -96,10 +95,10 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
         return v
 
     # Optional parameter
-    splice_transformer_config: Optional[SpliceTransformerConfig] = ConfigField(
+    splice_transformer_config: SpliceTransformerConfig = ConfigField(
         title="SpliceTransformer Config",
-        default=None,
-        description="Advanced parameter configuration for SpliceTransformer. If None, uses default configuration.",
+        default_factory=SpliceTransformerConfig,
+        description="Advanced parameter configuration for SpliceTransformer.",
         advanced=True,
     )
 
@@ -213,10 +212,9 @@ def splice_transformer_intron_boundary(
         left_contexts=[config.left_context],
         right_contexts=[config.right_context],
     )
-    if config.splice_transformer_config is None:
-        splice_transformer_config = SpliceTransformerConfig(context_length=context_length)
-    else:
-        splice_transformer_config = config.splice_transformer_config
+    splice_transformer_config = config.splice_transformer_config.model_copy(
+        update={"context_length": context_length}
+    )
 
     output = run_splice_transformer(
         splice_transformer_input,

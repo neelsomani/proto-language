@@ -5,7 +5,7 @@ Supports DNA (with ORF prediction) and Protein sequences (direct search).
 
 from __future__ import annotations
 
-from typing import Optional, List, Literal
+from typing import List, Literal
 
 import numpy as np
 from pydantic import model_validator
@@ -50,11 +50,10 @@ class MMseqsSimilarityConfig(BaseConfig):
             Must be a preprocessed MMseqs2 database (created with `mmseqs createdb`).
             Example: "/data/databases/uniref50" or "~/databases/ncbi_nr_mmseqs".
 
-        mmseqs_config (Optional[MmseqsSearchProteinsConfig]): Optional MMseqs2
-            configuration including sensitivity, threads, E-value threshold, and
-            other search parameters. If None, uses default configuration (sensitivity=7.5,
-            threads=4). Example: ``MmseqsSearchProteinsConfig(threads=16, sensitivity=8.0)``
-            for faster, more sensitive searches. Default: None.
+        mmseqs_config (MmseqsSearchProteinsConfig): MMseqs2 configuration including
+            sensitivity, threads, E-value threshold, and other search parameters.
+            Example: ``MmseqsSearchProteinsConfig(threads=16, sensitivity=8.0)``
+            for faster, more sensitive searches. Default: MmseqsSearchProteinsConfig().
 
         orf_predictor (Literal["orfipy", "prodigal"]): ORF prediction tool for
             DNA sequences (ignored for protein inputs). Options:
@@ -64,16 +63,13 @@ class MMseqsSimilarityConfig(BaseConfig):
             Choose based on your organism: prodigal for bacteria, orfipy for
             viral sequences. Default: "prodigal".
 
-        orfipy_config (Optional[OrfipyConfig]): Optional ORFipy configuration
-            (DNA only, used when ``orf_predictor="orfipy"``). Controls minimum
-            ORF length, start codons, and other ORF parameters. If None, uses
-            default configuration (min_length=75, all standard start codons).
-            Default: None.
+        orfipy_config (OrfipyConfig): ORFipy configuration (DNA only, used when
+            ``orf_predictor="orfipy"``). Controls minimum ORF length, start codons,
+            and other ORF parameters. Default: OrfipyConfig().
 
-        prodigal_config (Optional[ProdigalConfig]): Optional Prodigal configuration
-            (DNA only, used when ``orf_predictor="prodigal"``). Controls gene
-            finding mode and translation table. If None, uses default configuration
-            (single mode, translation_table=11). Default: None.
+        prodigal_config (ProdigalConfig): Prodigal configuration (DNA only, used
+            when ``orf_predictor="prodigal"``). Controls gene finding mode and
+            translation table. Default: ProdigalConfig().
     
     Note:
         The similarity range [min_similarity, max_similarity] defines acceptable percent
@@ -104,10 +100,10 @@ class MMseqsSimilarityConfig(BaseConfig):
     )
 
     # Advanced parameters
-    mmseqs_config: Optional[MmseqsSearchProteinsConfig] = ConfigField(
+    mmseqs_config: MmseqsSearchProteinsConfig = ConfigField(
         title="MMseqs Configuration",
-        default=None,
-        description="MMseqs configuration (threads, sensitivity, etc.). If None, uses default configuration.",
+        default_factory=MmseqsSearchProteinsConfig,
+        description="MMseqs configuration (threads, sensitivity, etc.).",
         advanced=True,
     )
     orf_predictor: Literal["orfipy", "prodigal"] = ConfigField(
@@ -117,16 +113,16 @@ class MMseqsSimilarityConfig(BaseConfig):
         advanced=True,
     )
     # TODO: These should be the same parameter
-    orfipy_config: Optional[OrfipyConfig] = ConfigField(
+    orfipy_config: OrfipyConfig = ConfigField(
         title="ORFipy Configuration",
-        default=None,
-        description="ORFipy configuration (DNA only, used if orf_predictor='orfipy'). If None, uses default.",
+        default_factory=OrfipyConfig,
+        description="ORFipy configuration (DNA only, used if orf_predictor='orfipy').",
         advanced=True,
     )
-    prodigal_config: Optional[ProdigalConfig] = ConfigField(
+    prodigal_config: ProdigalConfig = ConfigField(
         title="Prodigal Configuration",
-        default=None,
-        description="Prodigal configuration (DNA only, used if orf_predictor='prodigal'). If None, uses default.",
+        default_factory=ProdigalConfig,
+        description="Prodigal configuration (DNA only, used if orf_predictor='prodigal').",
         advanced=True,
     )
 
@@ -269,7 +265,7 @@ def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimila
         ]
 
         if config.orf_predictor == "prodigal":
-            prodigal_config = config.prodigal_config or ProdigalConfig()
+            prodigal_config = config.prodigal_config
             prodigal_input = ProdigalInput(input_sequences=sequences_clean)
             result = run_prodigal_prediction(inputs=prodigal_input, config=prodigal_config)
 
@@ -280,7 +276,7 @@ def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimila
 
         else:  # orfipy
             orfipy_input = OrfipyInput(sequences=sequences_clean)
-            orfipy_config = config.orfipy_config or OrfipyConfig()
+            orfipy_config = config.orfipy_config
             result = run_orfipy_prediction(inputs=orfipy_input, config=orfipy_config)
 
             for seq_idx, orfs_list in enumerate(result.predicted_orfs):
@@ -315,7 +311,7 @@ def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimila
 
     # Run MMseqs search
     resolved_db = resolve_paths(config.mmseqs_db)
-    mmseqs_config = config.mmseqs_config or MmseqsSearchProteinsConfig()
+    mmseqs_config = config.mmseqs_config
 
     mmseqs_input = MmseqsSearchProteinsInput(
         query_sequences=protein_sequences,

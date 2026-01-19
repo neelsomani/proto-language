@@ -729,3 +729,55 @@ class TestBeamSearchOptimizerSerialization:
         program2 = DarwinParser(result).parse()
         assert program2.optimizers[0].__class__.__name__ == "BeamSearchOptimizer"
         assert program2.optimizers[0].target_segment is not None
+
+    def test_construct_label_serialization(self):
+        """Test that construct labels are preserved during serialization."""
+        # Create program with labeled constructs
+        seg1 = Segment(sequence="ATGC" * 10, sequence_type="dna", label="promoter")
+        seg2 = Segment(sequence="GCTA" * 10, sequence_type="dna", label="gene")
+        
+        construct1 = Construct([seg1], label="plasmid")
+        construct2 = Construct([seg2], label="insert")
+        construct3 = Construct([Segment(sequence="TTAA" * 10, sequence_type="dna")])  # No label
+        
+        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig())
+        gen1.assign(seg1)
+        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig())
+        gen2.assign(seg2)
+        
+        constraint1 = ConstraintRegistry.create(
+            key="gc-content",
+            segments=[seg1],
+            config_dict={"min_gc": 0, "max_gc": 100},
+        )
+        constraint2 = ConstraintRegistry.create(
+            key="gc-content",
+            segments=[seg2],
+            config_dict={"min_gc": 0, "max_gc": 100},
+        )
+        
+        opt_config = TopKOptimizerConfig(num_samples=2, k=1, batch_size=2)
+        optimizer = TopKOptimizer(
+            constructs=[construct1, construct2, construct3],
+            generators=[gen1, gen2],
+            constraints=[constraint1, constraint2],
+            config=opt_config,
+        )
+        
+        program = Program(optimizers=[optimizer])
+        
+        # Serialize
+        result = serialize_program(program)
+        
+        # Verify construct labels are present
+        assert len(result["constructs"]) == 3
+        assert result["constructs"][0]["label"] == "plasmid"
+        assert result["constructs"][1]["label"] == "insert"
+        # construct3 gets auto-labeled by Program as "construct_2"
+        assert result["constructs"][2]["label"] == "construct_2"
+        
+        # Verify round-trip
+        program2 = DarwinParser(result).parse()
+        assert program2.constructs[0].label == "plasmid"
+        assert program2.constructs[1].label == "insert"
+        assert program2.constructs[2].label == "construct_2"

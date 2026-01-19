@@ -220,3 +220,20 @@ class TestConstructSerialization:
 
         assert construct_restored.segments[0].has_original_sequence is True
         assert construct_restored.segments[1].has_original_sequence is False
+
+    def test_construct_label_roundtrip(self):
+        """Test that construct labels are preserved during serialization."""
+        seg1 = Segment(sequence="ATCG", sequence_type="dna", label="promoter")
+        seg2 = Segment(sequence="GGGG", sequence_type="dna", label="cds")
+
+        # Test with explicit label
+        construct_with_label = Construct([seg1, seg2], label="plasmid")
+        construct_dict = construct_with_label.to_dict()
+        construct_restored = Construct.from_dict(construct_dict)
+        assert construct_restored.label == "plasmid"
+
+        # Test without label (should be None)
+        construct_without_label = Construct([seg1, seg2])
+        construct_dict = construct_without_label.to_dict()
+        construct_restored = Construct.from_dict(construct_dict)
+        assert construct_restored.label is None

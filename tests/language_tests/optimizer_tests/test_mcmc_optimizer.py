@@ -785,10 +785,10 @@ class TestMCMCOptimizer:
         assert optimizer._initial_state is not None
         assert len(optimizer._initial_state['segments']) == 1
         
-        # Verify captured state contains original sequence (using index 0)
+        # Verify captured state contains original sequence
         captured_selected = optimizer._initial_state['segments'][0]['selected']
         assert len(captured_selected) == 1
-        assert captured_selected[0].sequence == original_seq
+        assert captured_selected[0]['sequence'] == original_seq
         
         # Verify energy scores were captured (initial state captures full num_candidates before first run)
         assert 'energy_scores' in optimizer._initial_state

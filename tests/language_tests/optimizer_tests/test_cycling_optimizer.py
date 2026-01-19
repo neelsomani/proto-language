@@ -588,12 +588,12 @@ class TestCyclingOptimizerRestart:
         
         # Verify sequences match
         for orig, captured in zip(original_selected, captured_selected):
-            assert orig.sequence == captured.sequence
-            assert orig.sequence_type == captured.sequence_type
+            assert orig.sequence == captured['sequence']
+            assert orig.sequence_type == captured['sequence_type']
             
         for orig, captured in zip(original_candidates, captured_candidates):
-            assert orig.sequence == captured.sequence
-            assert orig.sequence_type == captured.sequence_type
+            assert orig.sequence == captured['sequence']
+            assert orig.sequence_type == captured['sequence_type']
 
 
 # =============================================================================

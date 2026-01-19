@@ -122,11 +122,11 @@ class TestProgramRestart:
         captured_selected = captured_state['selected']
         captured_candidates = captured_state['candidates']
         
-        # Verify captured sequences match original
+        # Verify captured sequences match original (now serialized as dicts)
         assert len(captured_selected) == 1
-        assert captured_selected[0].sequence == original_seq
+        assert captured_selected[0]['sequence'] == original_seq
         assert len(captured_candidates) > 0
-        assert all(c.sequence == original_seq for c in captured_candidates)
+        assert all(c['sequence'] == original_seq for c in captured_candidates)
 
         # Manually modify sequences to all G's to verify restore works
         for seq in segment.selected_sequences:

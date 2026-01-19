@@ -234,7 +234,7 @@ class TopKOptimizer(Optimizer):
         """
         # 1. Create fresh candidate sequences at the start of each round (clean metadata state)
         for seg_idx, segment in enumerate(self.segments):
-            initial_seq = self._initial_state['segments'][seg_idx]['candidates'][0].sequence
+            initial_seq = self._initial_state['segments'][seg_idx]['candidates'][0]['sequence']
             segment.candidate_sequences = [
                 Sequence(
                     sequence=initial_seq,

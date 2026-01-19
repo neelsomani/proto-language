@@ -246,11 +246,11 @@ class TestTopKOptimizerStandardMode:
         assert len(segment.selected_sequences) == 3
         assert optimizer._initial_state is not None
         
-        # Verify captured state contains original sequence (using index 0)
+        # Verify captured state contains original sequence
         assert len(optimizer._initial_state['segments']) == 1
         captured_selected = optimizer._initial_state['segments'][0]['selected']
         assert len(captured_selected) == 1
-        assert captured_selected[0].sequence == original_seq
+        assert captured_selected[0]['sequence'] == original_seq
         
         # Verify energy scores captured
         assert 'energy_scores' in optimizer._initial_state

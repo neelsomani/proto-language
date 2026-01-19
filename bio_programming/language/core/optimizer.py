@@ -17,6 +17,7 @@ from proto_language.tools.tool_cache import ToolCache, _program_tool_cache
 from .constraint import Constraint
 from .construct import Construct
 from .generator import Generator
+from .sequence import Sequence
 
 
 class Optimizer(ABC):
@@ -131,7 +132,7 @@ class Optimizer(ABC):
         self.history.append({
             "time_step": time_step,
             "energy_scores": self.energy_scores.copy(),
-            "constructs": copy.deepcopy(self.constructs)
+            "constructs": [c.to_dict() for c in self.constructs],  # Optimization: serialize instead of deepcopy
         })
 
     def score_energy(
@@ -368,12 +369,12 @@ class Optimizer(ABC):
             self._restore_initial_state()
 
     def _capture_initial_state(self) -> None:
-        """Capture current segment and optimizer state."""
+        """Capture current segment and optimizer state via serialization."""
         self._initial_state = {
             'segments': [
                 {
-                    'selected': copy.deepcopy(seg.selected_sequences),
-                    'candidates': copy.deepcopy(seg.candidate_sequences),
+                    'selected': [seq.to_dict() for seq in seg.selected_sequences],
+                    'candidates': [seq.to_dict() for seq in seg.candidate_sequences],
                 }
                 for seg in self.segments
             ],
@@ -381,10 +382,10 @@ class Optimizer(ABC):
         }
 
     def _restore_initial_state(self) -> None:
-        """Restore to captured state. Override for optimizer-specific state."""
+        """Restore to captured state via deserialization."""
         for i, seg in enumerate(self.segments):
             state = self._initial_state['segments'][i]
-            seg.selected_sequences = copy.deepcopy(state['selected'])
-            seg.candidate_sequences = copy.deepcopy(state['candidates'])
+            seg.selected_sequences = [Sequence.from_dict(s) for s in state['selected']]
+            seg.candidate_sequences = [Sequence.from_dict(s) for s in state['candidates']]
         self.energy_scores = self._initial_state['energy_scores'].copy()
         self.history = []

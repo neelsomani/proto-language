@@ -390,8 +390,9 @@ class TestProgressSnapshot:
         assert snapshot["time_step"] == 5
         assert snapshot["energy_scores"] == [0.1]
         assert "constructs" in snapshot
-        # Should be deep copy
-        assert snapshot["constructs"] is not optimizer.constructs
+        # History stores serialized dicts, not Construct objects
+        assert isinstance(snapshot["constructs"], list)
+        assert isinstance(snapshot["constructs"][0], dict)
 
     def test_snapshot_validates_energy_scores_length(self):
         """Tests that snapshot raises error if energy_scores length != num_selected."""
@@ -457,7 +458,7 @@ class TestStateRestartBehavior:
 
         assert optimizer.history == []
 
-    def test_state_independence_via_deepcopy(self):
+    def test_state_independence_via_serialization(self):
         """Tests that captured state is independent of current state."""
         construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 2)
@@ -467,6 +468,6 @@ class TestStateRestartBehavior:
         # Modify current state
         segment.candidate_sequences[0].sequence = "XXXX"
 
-        # Captured state should be unchanged (using index 0)
-        captured_seq = optimizer._initial_state['segments'][0]['candidates'][0].sequence
+        # Captured state should be unchanged (now stored as serialized dicts)
+        captured_seq = optimizer._initial_state['segments'][0]['candidates'][0]['sequence']
         assert captured_seq == "ATCG"

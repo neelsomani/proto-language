@@ -750,7 +750,7 @@ class TestBeamSearchOptimizerRestart:
         # Verify captured sequences match originals
         assert len(captured_selected) == len(original_selected)
         for orig, captured in zip(original_selected, captured_selected):
-            assert orig.sequence == captured.sequence
+            assert orig.sequence == captured['sequence']
             
         # Manually modify sequences to invalid values to verify restore
         segment.selected_sequences[0].sequence = "G" * 44  # prompt (4) + segment_length (40)

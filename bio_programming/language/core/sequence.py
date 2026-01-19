@@ -6,7 +6,8 @@ Sequence class for the proto-language.
 Represents a single DNA, RNA, protein, or ligand sequence with validation and metadata.
 """
 from __future__ import annotations
-from typing import Any, Dict, Iterable, Literal, Optional, Set
+import copy
+from typing import Any, Dict, Iterable, Literal, Optional, Set, FrozenSet
 import warnings
 
 from proto_language.utils.helpers import propagate_metadata
@@ -15,6 +16,11 @@ from proto_language.utils.helpers import propagate_metadata
 DNA_NUCLEOTIDES = "ACGT"
 RNA_NUCLEOTIDES = "ACGU"
 PROTEIN_AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+
+# MEMORY OPTIMIZATION FOR DEEPCOPYING: shared default character sets (frozenset for immutability)
+_DEFAULT_DNA_CHARS: FrozenSet[str] = frozenset(DNA_NUCLEOTIDES)
+_DEFAULT_RNA_CHARS: FrozenSet[str] = frozenset(RNA_NUCLEOTIDES)
+_DEFAULT_PROTEIN_CHARS: FrozenSet[str] = frozenset(PROTEIN_AMINO_ACIDS)
 
 
 # Type alias for supported biological sequence types
@@ -54,20 +60,21 @@ class Sequence:
                 If provided, overrides the default character set for the sequence_type.
             metadata: Additional data associated with this sequence.
         """
-        self.sequence_type: SequenceType = sequence_type
+        self._sequence_type: SequenceType = sequence_type
         # Set up character validation based on sequence type or custom valid_chars
+        # Default chars use shared module-level frozensets to avoid allocation
         if valid_chars:
-            self._valid_chars: Optional[Set[str]] = valid_chars
-        elif self.sequence_type == "dna":
-            self._valid_chars = set(DNA_NUCLEOTIDES)
-        elif self.sequence_type == "rna":
-            self._valid_chars = set(RNA_NUCLEOTIDES)
-        elif self.sequence_type == "protein":
-            self._valid_chars = set(PROTEIN_AMINO_ACIDS)
-        elif self.sequence_type == "ligand":
+            self._valid_chars: Optional[Set[str] | FrozenSet[str]] = valid_chars
+        elif self._sequence_type == "dna":
+            self._valid_chars = _DEFAULT_DNA_CHARS
+        elif self._sequence_type == "rna":
+            self._valid_chars = _DEFAULT_RNA_CHARS
+        elif self._sequence_type == "protein":
+            self._valid_chars = _DEFAULT_PROTEIN_CHARS
+        elif self._sequence_type == "ligand":
             self._valid_chars = None  # Validation handled by RDKit.
         else:
-            raise ValueError(f"Unsupported sequence_type: {self.sequence_type}")
+            raise ValueError(f"Unsupported sequence_type: {self._sequence_type}")
 
         self._validate_sequence(sequence)
         self._sequence: str = sequence
@@ -110,6 +117,16 @@ class Sequence:
                 f"Invalid characters found: {', '.join(invalid_chars)}. "
                 f"Valid characters are: {', '.join(sorted(self._valid_chars))}"
             )
+
+    @property
+    def sequence_type(self) -> SequenceType:
+        """Sequence type (read-only after construction)."""
+        return self._sequence_type
+
+    @property
+    def valid_chars(self) -> Optional[Set[str] | FrozenSet[str]]:
+        """Valid characters for this sequence (read-only after construction)."""
+        return self._valid_chars
 
     @property
     def metadata(self) -> Dict[str, Any]:
@@ -181,13 +198,30 @@ class Sequence:
         """
         return self._sequence[key]
 
+    def __deepcopy__(self, memo):
+        """
+        Optimized deepcopy: share stable data, only copy metadata.
+
+        - _valid_chars, _sequence_type: Never change, share reference
+        - _sequence: Share reference; generators create new strings on mutation
+        - _metadata: Must deep copy (constraints modify it)
+        """
+        new_seq = object.__new__(Sequence)
+        new_seq._sequence = self._sequence
+        new_seq._sequence_type = self._sequence_type
+        new_seq._valid_chars = self._valid_chars
+        new_seq._metadata = copy.deepcopy(self._metadata, memo)
+        memo[id(self)] = new_seq
+        return new_seq
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize Sequence to dictionary for cloud/API communication."""
         return {
             "sequence": self._sequence,
             "sequence_type": self.sequence_type,
             "valid_chars": list(self._valid_chars) if self._valid_chars else None,
-            "metadata": {k: v for k, v in self._metadata.items() if k not in ["sequence", "sequence_length"]},
+            # Deep copy needed: metadata contains mutable objects
+            "metadata": copy.deepcopy(self._metadata),
         }
 
     @classmethod

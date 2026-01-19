@@ -1,3 +1,4 @@
+import copy
 import pytest
 import warnings
 
@@ -118,3 +119,68 @@ class TestValidateSmiles:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             validate_smiles("CCO", verbose=True)  # Should not raise
+
+
+class TestSequenceDeepCopy:
+    """Tests for optimized __deepcopy__ behavior."""
+
+    def test_deepcopy_string_independence(self):
+        """Verify that modifying a deepcopy's sequence doesn't affect the original."""
+        seq1 = Sequence("ATCG", "dna")
+        seq2 = copy.deepcopy(seq1)
+
+        # Modify the copy
+        seq2.sequence = "GGGG"
+
+        # Original should be unaffected (strings are immutable, setter replaces reference)
+        assert seq1.sequence == "ATCG"
+        assert seq2.sequence == "GGGG"
+
+    def test_deepcopy_metadata_independence(self):
+        """Verify that modifying a deepcopy's metadata doesn't affect the original."""
+        seq1 = Sequence("ATCG", "dna", metadata={"scores": [1, 2, 3]})
+        seq2 = copy.deepcopy(seq1)
+
+        # Modify nested mutable object in copy's metadata
+        seq2._metadata["scores"].append(4)
+        seq2._metadata["new_key"] = "new_value"
+
+        # Original should be unaffected
+        assert seq1._metadata["scores"] == [1, 2, 3]
+        assert "new_key" not in seq1._metadata
+
+    def test_deepcopy_shares_immutable_refs(self):
+        """Verify that deepcopy shares immutable data for efficiency."""
+        seq1 = Sequence("ATCG", "dna")
+        seq2 = copy.deepcopy(seq1)
+
+        # Immutable data should be shared (same object)
+        assert seq1._valid_chars is seq2._valid_chars
+        assert seq1._sequence_type is seq2._sequence_type
+
+
+class TestSequenceSerialization:
+    """Tests for to_dict/from_dict serialization."""
+
+    def test_to_dict_metadata_independence(self):
+        """Verify that to_dict returns independent metadata (deep copied)."""
+        seq = Sequence("ATCG", "dna", metadata={"scores": [1, 2, 3], "nested": {"a": 1}})
+        serialized = seq.to_dict()
+
+        # Modify the serialized metadata
+        serialized["metadata"]["scores"].append(4)
+        serialized["metadata"]["nested"]["a"] = 999
+
+        # Original should be unaffected
+        assert seq._metadata["scores"] == [1, 2, 3]
+        assert seq._metadata["nested"]["a"] == 1
+
+    def test_roundtrip_preserves_data(self):
+        """Verify that to_dict/from_dict roundtrip preserves sequence data."""
+        original = Sequence("ATCG", "dna", metadata={"custom": "value"})
+        serialized = original.to_dict()
+        restored = Sequence.from_dict(serialized)
+
+        assert restored.sequence == original.sequence
+        assert restored.sequence_type == original.sequence_type
+        assert restored._metadata["custom"] == "value"

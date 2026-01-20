@@ -491,7 +491,6 @@ class TestSerializeRestoreState:
 
         assert "current_stage" in state
         assert "segments" in state
-        assert "energy_scores" in state
         assert state["current_stage"] == 1
         assert len(state["segments"]) == 1  # One segment
 
@@ -514,16 +513,6 @@ class TestSerializeRestoreState:
             assert "metadata" in seq_data
             assert isinstance(seq_data["sequence"], str)
             assert isinstance(seq_data["metadata"], dict)
-
-    def test_serialize_state_captures_energy_scores(self):
-        """Test that serialize_state captures energy_scores from last optimizer."""
-        program = _create_simple_program(num_stages=1)
-        program.run_stage(0)
-
-        state = program.serialize_state()
-
-        assert len(state["energy_scores"]) == 2  # k=2
-        assert all(isinstance(s, float) for s in state["energy_scores"])
 
     def test_restore_state_restores_sequences(self):
         """Test that restore_state correctly restores selected_sequences."""
@@ -635,3 +624,23 @@ class TestSerializeRestoreState:
         restored = json.loads(json_str)
         assert restored["current_stage"] == state["current_stage"]
         assert len(restored["segments"]) == len(state["segments"])
+
+    def test_serialize_restore_preserves_valid_chars(self):
+        """Test that valid_chars are preserved through serialize/restore roundtrip."""
+        program = _create_simple_program(num_stages=1)
+        program.run_stage(0)
+
+        # Verify serialized state includes valid_chars
+        state = program.serialize_state()
+        seq_data = state["segments"][0]["selected_sequences"][0]
+        assert "valid_chars" in seq_data
+        assert "sequence_type" in seq_data
+
+        # Restore and verify valid_chars is preserved
+        fresh_program = _create_simple_program(num_stages=1)
+        fresh_program.restore_state(state)
+
+        original_seq = program.constructs[0].segments[0].selected_sequences[0]
+        restored_seq = fresh_program.constructs[0].segments[0].selected_sequences[0]
+        assert restored_seq.valid_chars == original_seq.valid_chars
+        assert restored_seq.sequence_type == original_seq.sequence_type

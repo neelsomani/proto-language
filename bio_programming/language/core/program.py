@@ -354,32 +354,19 @@ class Program:
         Serialize the current program state for persistence between stages.
 
         Returns:
-            Dictionary containing current_stage, segments with sequences/metadata,
-            and energy_scores from last completed optimizer.
+            Dictionary containing current_stage and segments with sequences/metadata.
         """
         segment_states = []
         for construct in self.constructs:
             for segment in construct.segments:
                 segment_state = {
-                    "selected_sequences": [
-                        {
-                            "sequence": seq.sequence,
-                            "metadata": seq._metadata,
-                        }
-                        for seq in segment.selected_sequences
-                    ],
+                    "selected_sequences": [seq.to_dict() for seq in segment.selected_sequences],
                 }
                 segment_states.append(segment_state)
-
-        energy_scores = []
-        if self.current_stage > 0:
-            last_optimizer = self.optimizers[self.current_stage - 1]
-            energy_scores = last_optimizer.energy_scores
 
         return {
             "current_stage": self.current_stage,
             "segments": segment_states,
-            "energy_scores": energy_scores,
         }
 
     def restore_state(self, state: Dict) -> None:
@@ -406,11 +393,7 @@ class Program:
 
         for segment, segment_state in zip(all_segments, state["segments"]):
             segment.selected_sequences = [
-                Sequence(
-                    sequence=seq_data["sequence"],
-                    sequence_type=segment.sequence_type,
-                    metadata=seq_data["metadata"],
-                )
+                Sequence.from_dict(seq_data)
                 for seq_data in segment_state["selected_sequences"]
             ]
 

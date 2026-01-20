@@ -246,6 +246,62 @@ class TestRunStageRestart:
         assert "sequence" in segment
         assert "constraints" in segment
 
+    def test_run_stage_clears_constraint_metadata_between_stages(self):
+        """Test that constraint metadata is cleared between optimization stages."""
+        segment = Segment(sequence="ATGCATGCATGCATGCATGC", sequence_type="dna", label="test")
+        construct = Construct([segment])
+
+        # Stage 1: uses gc-content constraint with label "gc_stage_1"
+        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen1.assign(segment)
+        constraint1 = ConstraintRegistry.create(
+            key="gc-content",
+            segments=[segment],
+            config_dict={"min_gc": 0, "max_gc": 100},
+            label="gc_stage_1",
+        )
+        opt1 = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen1],
+            constraints=[constraint1],
+            config=TopKOptimizerConfig(num_samples=2, k=2, batch_size=2),
+        )
+
+        # Stage 2: uses gc-content constraint with label "gc_stage_2"
+        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen2.assign(segment)
+        constraint2 = ConstraintRegistry.create(
+            key="gc-content",
+            segments=[segment],
+            config_dict={"min_gc": 0, "max_gc": 100},
+            label="gc_stage_2",
+        )
+        opt2 = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen2],
+            constraints=[constraint2],
+            config=TopKOptimizerConfig(num_samples=2, k=2, batch_size=2),
+        )
+
+        program = Program(optimizers=[opt1, opt2])
+
+        # Run stage 1
+        program.run_stage(0)
+
+        # Verify stage 1 constraint metadata is present
+        seq = segment.selected_sequences[0]
+        assert "gc_stage_1" in seq._metadata["constraints"]
+
+        # Run stage 2
+        program.run_stage(1)
+
+        # Verify stage 1 metadata is cleared and only stage 2 metadata exists
+        seq = segment.selected_sequences[0]
+        assert "gc_stage_1" not in seq._metadata["constraints"], \
+            "Stage 1 constraint metadata should be cleared"
+        assert "gc_stage_2" in seq._metadata["constraints"], \
+            "Stage 2 constraint metadata should be present"
+
     def test_get_stage_results_raises_for_unrun_stage(self):
         """Test that get_stage_results raises IndexError for unrun stages."""
         program = _create_simple_program(num_stages=2)

@@ -277,6 +277,10 @@ class Program:
 
         optimizer = self.optimizers[stage_index]
         optimizer._initialize_sequence_pools()
+
+        # Clear stale constraint metadata from previous stages
+        self._clear_sequence_metadata()
+
         optimizer.run()
 
         stage_result = self.extract_batch_results(optimizer.energy_scores)
@@ -291,6 +295,19 @@ class Program:
         if stage_index < 0 or stage_index >= len(self._stage_results):
             raise IndexError(f"Stage {stage_index} not available. Only {len(self._stage_results)} stage(s) run.")
         return self._stage_results[stage_index]
+
+    def _clear_sequence_metadata(self) -> None:
+        """Clear constraint metadata from all sequences in all segments.
+
+        Called at the start of each optimization stage to prevent stale metadata
+        from previous stages persisting into new stages.
+        """
+        for construct in self.constructs:
+            for segment in construct.segments:
+                for seq in segment.selected_sequences:
+                    seq._metadata["constraints"] = {}
+                for seq in segment.candidate_sequences:
+                    seq._metadata["constraints"] = {}
 
     def extract_batch_results(self, energy_scores: List[float]) -> Dict[str, Any]:
         """
@@ -453,6 +470,7 @@ class Program:
         format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
         style: Literal["wide", "long"] = "wide",
         path: Optional[Path] = None,
+        stage: Optional[int] = None,
     ) -> Path:
         """
         Export all constraint metadata for a specific segment.
@@ -465,13 +483,14 @@ class Program:
             style: "wide" (single row with constraint.metric columns) or
                    "long" (one row per constraint)
             path: Output path. Defaults to ./{segment}_{batch_idx}.{format}
+            stage: Optional optimization stage index. If None, uses current state.
 
         Returns:
             Path where file was saved
         """
         from proto_language.utils.export import flatten_segment_metadata, write_export
 
-        batch_results = self.extract_batch_results(self.energy_scores)
+        batch_results = self.get_stage_results(stage) if stage is not None else self.extract_batch_results(self.energy_scores)
         rows = flatten_segment_metadata(batch_results, construct, segment, batch_idx, style)
 
         if path is None:
@@ -489,6 +508,7 @@ class Program:
         format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
         style: Literal["wide", "long"] = "wide",
         path: Optional[Path] = None,
+        stage: Optional[int] = None,
     ) -> Path:
         """
         Export metadata for all segments in a construct.
@@ -500,13 +520,14 @@ class Program:
             style: "wide" (one row per segment) or
                    "long" (one row per segment × constraint)
             path: Output path. Defaults to ./{construct}_{batch_idx}.{format}
+            stage: Optional optimization stage index. If None, uses current state.
 
         Returns:
             Path where file was saved
         """
         from proto_language.utils.export import flatten_construct_metadata, write_export
 
-        batch_results = self.extract_batch_results(self.energy_scores)
+        batch_results = self.get_stage_results(stage) if stage is not None else self.extract_batch_results(self.energy_scores)
         rows = flatten_construct_metadata(batch_results, construct, batch_idx, style)
 
         if path is None:
@@ -522,6 +543,7 @@ class Program:
         format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
         style: Literal["wide", "long"] = "wide",
         path: Optional[Path] = None,
+        stage: Optional[int] = None,
     ) -> Path:
         """
         Export metadata for all segments across all batches.
@@ -529,15 +551,16 @@ class Program:
         Args:
             format: Output format - "csv", "tsv", "json", or "xlsx"
             style: "wide" (one row per batch) or
-                   "long" (one row per batch × construct × segment)
+                   "long" (one row per batch x construct x segment)
             path: Output path. Defaults to ./program_results.{format}
+            stage: Optional optimization stage index. If None, uses current state.
 
         Returns:
             Path where file was saved
         """
         from proto_language.utils.export import flatten_program_metadata, write_export
 
-        batch_results = self.extract_batch_results(self.energy_scores)
+        batch_results = self.get_stage_results(stage) if stage is not None else self.extract_batch_results(self.energy_scores)
         rows = flatten_program_metadata(batch_results, style)
 
         if path is None:
@@ -562,7 +585,7 @@ class Program:
             batch_idx: Batch index to track (default 0)
             format: Output format - "csv", "tsv", "json", or "xlsx"
             style: "wide" (one row per timepoint) or
-                   "long" (one row per timepoint × construct × segment)
+                   "long" (one row per timepoint x construct x segment)
             path: Output path. Defaults to ./batch_{batch_idx}_history.{format}
 
         Returns:

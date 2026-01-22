@@ -4,12 +4,15 @@ Shared helper utilities for proto-language.
 This module provides utilities for metadata management and structural/geometric
 calculations used across the proto-language framework.
 """
+
 from __future__ import annotations
-import numpy as np
+
+import math
 import random
 import subprocess
-import math
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
+
+import numpy as np
 
 # =============================================================================
 # CONSTRAINT SCORING UTILITIES
@@ -24,11 +27,13 @@ LOG_BASE = 2
 MIN_GC_CONTENT = 0.0
 MAX_GC_CONTENT = 100.0
 
+
 def filter_inf_nan_scores(score: float) -> float | None:
     """Convert inf/nan to None for JSON compatibility."""
     if math.isinf(score) or math.isnan(score):
         return None
     return score
+
 
 def validate_range(value: float, min_val: float, max_val: float, name: str) -> None:
     """
@@ -180,9 +185,7 @@ def inverse_sigmoid_score(
 # =============================================================================
 
 
-def mask_k(
-    sequence: str, k: int, mask_str: str = "_", fixed_indices: List[int] = None
-) -> str:
+def mask_k(sequence: str, k: int, mask_str: str = "_", fixed_indices: List[int] = None) -> str:
     """
     Mask k random positions of a sequence.
 
@@ -277,9 +280,7 @@ def mask_assigned_positions(
     return "".join(sequence_list)
 
 
-def run_subprocess_command(
-    cmd: List[str], tool_name: str
-) -> subprocess.CompletedProcess:
+def run_subprocess_command(cmd: List[str], tool_name: str) -> subprocess.CompletedProcess:
     """
     Run subprocess command with error handling.
 
@@ -301,6 +302,7 @@ def run_subprocess_command(
         )
     return proc
 
+
 def resolve_sequence_ids(sequences: List[str], ids: Optional[List[str]]) -> List[str]:
     """Resolve sequence identifiers, using provided IDs or generating defaults.
 
@@ -316,76 +318,8 @@ def resolve_sequence_ids(sequences: List[str], ids: Optional[List[str]]) -> List
     """
     if ids is not None:
         if len(ids) != len(sequences):
-            raise ValueError(f"sequence_ids length ({len(ids)}) must match sequences length ({len(sequences)})")
+            raise ValueError(
+                f"sequence_ids length ({len(ids)}) must match sequences length ({len(sequences)})"
+            )
         return ids
     return [f"seq_{i}" for i in range(len(sequences))]
-
-
-# =============================================================================
-# STRUCTURE PREDICTION UTILITIES
-# =============================================================================
-
-
-def predict_structures(
-    complexes: List,
-    tool_name: str,
-    tool_config: Dict[str, Any],
-):
-    """Dispatch structure prediction to the specified tool.
-
-    Dynamically imports tools to avoid circular dependencies. Used by
-    structure-related constraints and optimizers.
-
-    Args:
-        complexes: List of StructurePredictionComplex objects to predict.
-        tool_name: Name of the structure prediction tool. Supported values:
-            ``"esmfold"``, ``"alphafold3"``, ``"boltz"``, ``"chai"``.
-        tool_config: Tool-specific configuration dictionary.
-
-    Returns:
-        StructurePredictionOutput containing predicted structures and metrics.
-
-    Raises:
-        ValueError: If tool_name is not recognized.
-    """
-    if tool_name == "esmfold":
-        from proto_language.tools.structure_prediction.esmfold import (
-            run_esmfold,
-            ESMFoldInput,
-            ESMFoldConfig,
-        )
-        cfg = ESMFoldConfig(**tool_config)
-        return run_esmfold(ESMFoldInput(complexes=complexes), cfg)
-
-    elif tool_name == "alphafold3":
-        from proto_language.tools.structure_prediction.af3 import (
-            run_af3,
-            AlphaFold3Input,
-            AlphaFold3Config,
-        )
-        cfg = AlphaFold3Config(**tool_config)
-        return run_af3(AlphaFold3Input(complexes=complexes), cfg)
-
-    elif tool_name == "boltz":
-        from proto_language.tools.structure_prediction.boltz import (
-            run_boltz,
-            BoltzInput,
-            BoltzConfig,
-        )
-        cfg = BoltzConfig(**tool_config)
-        return run_boltz(BoltzInput(complexes=complexes), cfg)
-
-    elif tool_name == "chai":
-        from proto_language.tools.structure_prediction.chai import (
-            run_chai,
-            ChaiInput,
-            ChaiConfig,
-        )
-        cfg = ChaiConfig(**tool_config)
-        return run_chai(ChaiInput(complexes=complexes), cfg)
-
-    else:
-        raise ValueError(
-            f"Unknown structure prediction tool: '{tool_name}'. "
-            "Supported tools: esmfold, alphafold3, boltz, chai"
-        )

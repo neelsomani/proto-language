@@ -1,52 +1,45 @@
-# Helper utilities (constraint scoring, structure, and tools)
-from .helpers import (
-    # Constraint scoring
-    MIN_ENERGY,
-    MAX_ENERGY,
+# Helper utilities (constraint scoring, and tools)
+# Export utilities
+from .export import (
+    flatten_batch_over_time,
+    flatten_construct_metadata,
+    flatten_program_metadata,
+    flatten_segment_metadata,
+    to_csv,
+    to_json,
+    to_tsv,
+    to_xlsx,
+    write_export,
+)
+from .helpers import (  # Constraint scoring; Tool utilities
     LOG_BASE,
-    MIN_GC_CONTENT,
+    MAX_ENERGY,
     MAX_GC_CONTENT,
-    filter_inf_nan_scores,
-    validate_range,
-    calculate_range_deviation,
-    calculate_percentage_range_deviation,
+    MIN_ENERGY,
+    MIN_GC_CONTENT,
     calculate_normalized_deviation,
-    sigmoid_score,
+    calculate_percentage_range_deviation,
+    calculate_range_deviation,
+    filter_inf_nan_scores,
     inverse_sigmoid_score,
-    # Tool utilities
+    mask_assigned_positions,
     mask_k,
     mask_p,
-    mask_assigned_positions,
-    run_subprocess_command,
     resolve_sequence_ids,
-    # Structure prediction
-    predict_structures,
+    run_subprocess_command,
+    sigmoid_score,
+    validate_range,
 )
 
 # Infrastructure utilities (compute and file resolution)
-from .infra import (
-    # Compute
-    use_cloud_gpu,
+from .infra import (  # Compute; File resolution
+    VOLUME_PATH,
+    download_gcs_file,
+    get_cache_path,
     is_gpu_available,
-    # File resolution
     resolve_file,
     resolve_paths,
-    VOLUME_PATH,
-    get_cache_path,
-    download_gcs_file,
-)
-
-# Export utilities
-from .export import (
-    flatten_segment_metadata,
-    flatten_construct_metadata,
-    flatten_program_metadata,
-    flatten_batch_over_time,
-    to_csv,
-    to_tsv,
-    to_json,
-    to_xlsx,
-    write_export,
+    use_cloud_gpu,
 )
 
 __all__ = [
@@ -78,8 +71,6 @@ __all__ = [
     "mask_assigned_positions",
     "run_subprocess_command",
     "resolve_sequence_ids",
-    # Structure prediction
-    "predict_structures",
     # Export utilities
     "flatten_segment_metadata",
     "flatten_construct_metadata",

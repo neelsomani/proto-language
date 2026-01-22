@@ -20,25 +20,16 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from proto_language.language.core import (
-    Construct,
-    Segment,
-    Sequence,
-    Program,
-)
+from proto_language.language.core import Construct, Program, Segment, Sequence
 from proto_language.language.generator import (
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
 )
-from proto_language.language.optimizer import (
-    CyclingOptimizer,
-    CyclingOptimizerConfig,
-)
-from proto_language.tools.structure_prediction.schemas import (
+from proto_language.language.optimizer import CyclingOptimizer, CyclingOptimizerConfig
+from proto_language.tools.structure_prediction import (
     StructurePredictionComplex,
+    predict_structures,
 )
-from proto_language.utils.helpers import predict_structures
-
 
 # =============================================================================
 # Configuration

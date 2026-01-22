@@ -26,17 +26,16 @@ from proto_language.language.core import (
 )
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
-
 # =============================================================================
 # Predefined Pipelines
 # =============================================================================
 
 class ProteinHunterPipelineConfig(BaseConfig):
     """Configuration for the protein-hunter pipeline.
-    
+
     The protein-hunter pipeline implements iterative structure prediction -> inverse folding
     cycles for de novo protein design (hallucination).
-    
+
     Attributes:
         structure_tool: Structure prediction tool to use. Options: "boltz", "chai", "alphafold3".
     """
@@ -49,22 +48,24 @@ class ProteinHunterPipelineConfig(BaseConfig):
 def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> Callable:
     """
     Create protein hunter conditioning function (structure prediction -> inverse folding).
-    
+
     The Protein Hunter algorithm predicts 3D structures from current sequences,
     then uses those structures to condition inverse folding for the next iteration.
     """
-    from proto_language.tools.structure_prediction.schemas import StructurePredictionComplex
-    from proto_language.utils.helpers import predict_structures
-    
+    from proto_language.tools.structure_prediction import predict_structures
+    from proto_language.tools.structure_prediction.schemas import (
+        StructurePredictionComplex,
+    )
+
     structure_tool = config.protein_hunter.structure_tool if config.protein_hunter else "boltz"
-    
+
     def conditioning_fn(sequences: List[Sequence]) -> List:
         complexes = [
             StructurePredictionComplex(chains=[seq.sequence])
             for seq in sequences
         ]
         return predict_structures(complexes, structure_tool, {}).structures
-    
+
     return conditioning_fn
 
 
@@ -88,15 +89,15 @@ def _resolve_conditioning_fn(
 ) -> Callable:
     """
     Resolve the conditioning function from either direct parameter or pipeline config.
-    
+
     Args:
         config: Optimizer config containing optional pipeline specification
         generator: The generator to validate against pipeline requirements
         conditioning_fn: Optional directly-provided conditioning function
-        
+
     Returns:
         The resolved conditioning function
-        
+
     Raises:
         ValueError: If both or neither of conditioning_fn/pipeline are provided,
             or if generator doesn't match pipeline requirements
@@ -107,25 +108,25 @@ def _resolve_conditioning_fn(
             "Cannot specify both 'conditioning_fn' and 'pipeline'. "
             "Use 'pipeline' for API/JSON or 'conditioning_fn' for programmatic use."
         )
-    
+
     # Must have one or the other
     if config.pipeline is None and conditioning_fn is None:
         raise ValueError(
             f"Must specify either 'conditioning_fn' or 'pipeline'. "
             f"Available pipelines: {list(CYCLING_PIPELINES.keys())}"
         )
-    
+
     # If conditioning_fn provided directly, use it
     if conditioning_fn is not None:
         return conditioning_fn
-    
+
     # Validate pipeline exists
     if config.pipeline not in CYCLING_PIPELINES:
         raise ValueError(
             f"Unknown pipeline '{config.pipeline}'. "
             f"Available: {list(CYCLING_PIPELINES.keys())}"
         )
-    
+
     # Validate generator category matches pipeline requirements
     pipeline_spec = CYCLING_PIPELINES[config.pipeline]
     required_category = pipeline_spec.get("required_generator_category")
@@ -139,7 +140,7 @@ def _resolve_conditioning_fn(
                 f"but '{generator_key}' is {actual_category}. "
                 f"Use 'proteinmpnn' or 'ligandmpnn'."
             )
-    
+
     return pipeline_spec["factory"](config)
 
 
@@ -327,7 +328,7 @@ class CyclingOptimizer(Optimizer):
 
         Raises:
             ValueError: If generators list doesn't contain exactly one generator,
-                target_segment is not in constructs, constraints don't have thresholds set, 
+                target_segment is not in constructs, constraints don't have thresholds set,
                 both conditioning_fn and pipeline are provided, or neither is provided.
         """
         if len(generators) != 1:

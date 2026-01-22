@@ -8,24 +8,26 @@ supporting multiple structure prediction tools (ESMFold, AlphaFold3, Boltz, Chai
 from __future__ import annotations
 
 import os
-from pydantic import model_validator
+import re
 import shutil
 import subprocess
-import re
 import tempfile
-from typing import Optional, List, Dict, Any, Tuple, Literal
 from logging import getLogger
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
-from proto_language.language.core import Sequence
-from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import (
-    ConstraintRegistry,
+from pydantic import model_validator
+
+from proto_language.base_config import ConfigField
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+    StructureBasedConstraintConfig,
 )
+from proto_language.language.core import Sequence
+from proto_language.tools.structure_prediction import predict_structures
 from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionComplex,
 )
 from proto_language.utils import MAX_ENERGY, sigmoid_score
-from proto_language.utils.helpers import predict_structures
 
 logger = getLogger(__name__)
 
@@ -298,7 +300,7 @@ def _compute_usalign_score_from_pdb(
 # Configuration
 # ============================================================================
 
-class StructureConstraintBaseConfig(BaseConfig):
+class StructureSimilarityConfig(StructureBasedConstraintConfig):
     """Base configuration for structure similarity constraints.
 
     This configuration manages the setup for predicting protein structures from
@@ -310,6 +312,23 @@ class StructureConstraintBaseConfig(BaseConfig):
     - `target_chains`: A list of protein sequences to dynamically fold.
     - `target_pdb_file`: A path to a PDB file.
     - `target_pdb_content`: The raw string content of a PDB file.
+
+    Inherits tool selection and configuration from StructureBasedConstraintConfig:
+
+        structure_tool (Literal["esmfold", "alphafold3", "boltz", "chai"]):
+            The structure prediction tool to use for folding both the target (if provided
+            as a sequence) and the candidate sequences. Supported options:
+            - "esmfold": ESMFold (Meta AI)
+            - "alphafold3": AlphaFold 3 (Google DeepMind)
+            - "boltz": Boltz-1 (MIT)
+            - "chai": Chai-1 (Chai Discovery)
+            Default is "esmfold".
+
+        tool_config (Union[ESMFoldConfig, AlphaFold3Config, BoltzConfig, ChaiConfig, Dict]):
+            A dictionary of configuration parameters to pass directly to the underlying
+            structure prediction tool runner. Can be a typed config object or a dictionary.
+            Automatically validated and converted to the appropriate config type based on
+            structure_tool. Defaults to an empty dictionary.
 
     Attributes:
 
@@ -327,20 +346,6 @@ class StructureConstraintBaseConfig(BaseConfig):
             The raw string content of a PDB file serving as the reference structure.
             Useful when the PDB data is loaded in memory or passed via API.
             This is mutually exclusive with `target_chains` and `target_pdb_file`.
-
-        structure_tool (Literal["esmfold", "alphafold3", "boltz", "chai"]):
-            The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the candidate sequences. Supported options:
-            - "esmfold": ESMFold (Meta AI)
-            - "alphafold3": AlphaFold 3 (Google DeepMind)
-            - "boltz": Boltz-1 (MIT)
-            - "chai": Chai-1 (Chai Discovery)
-            Default is "esmfold".
-
-        tool_config (Dict[str, Any]):
-            A dictionary of configuration parameters to pass directly to the underlying
-            structure prediction tool runner.
-            Defaults to an empty dictionary.
 
         min_target_plddt (float):
             Only used if the target structure is provided via `target_chains`. This is
@@ -368,19 +373,6 @@ class StructureConstraintBaseConfig(BaseConfig):
         advanced=True,
     )
 
-    # Tool selection:
-    structure_tool: Literal["esmfold", "alphafold3", "boltz", "chai"] = ConfigField(
-        title="Structure Prediction Tool",
-        default="esmfold",
-        description="Tool to use for structure prediction.",
-    )
-    tool_config: Dict[str, Any] = ConfigField(
-        title="Tool Config",
-        default_factory=dict,
-        description="Dictionary of configuration parameters passed to the specific tool.",
-        advanced=True,
-    )
-
     min_target_plddt: float = ConfigField(
         title="Min Target pLDDT",
         default=0.6,
@@ -388,7 +380,7 @@ class StructureConstraintBaseConfig(BaseConfig):
     )
 
     @model_validator(mode="after")
-    def validate_target(self) -> StructureConstraintBaseConfig:
+    def validate_target(self) -> "StructureSimilarityConfig":
         """Ensure exactly one target source is provided."""
         sources = [self.target_chains, self.target_pdb_file, self.target_pdb_content]
         provided = sum(s is not None for s in sources)
@@ -400,11 +392,11 @@ class StructureConstraintBaseConfig(BaseConfig):
         return self
 
 
-class StructureRMSDConfig(StructureConstraintBaseConfig):
+class StructureRMSDConfig(StructureSimilarityConfig):
     """
     Configuration for RMSD-based structure similarity.
 
-    This configuration extends `StructureConstraintBaseConfig` to specific parameters
+    This configuration extends `StructureSimilarityConfig` with specific parameters
     for calculating the Root Mean Square Deviation (RMSD) between the target and
     candidate structures. The raw RMSD value is transformed into a 0-1 constraint
     score using a sigmoid function, where 0 represents a perfect match (low RMSD)
@@ -423,22 +415,41 @@ class StructureRMSDConfig(StructureConstraintBaseConfig):
             Default is 3.0.
 
         target_chains (Optional[Tuple[str]]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The amino acid sequences of the target protein chains. If provided,
+            these sequences will be folded using the specified `structure_tool`
+            to generate the reference structure. This is mutually exclusive
+            with `target_pdb_file` and `target_pdb_content`.
 
         target_pdb_file (Optional[str]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The local file path to a PDB file serving as the reference structure.
+            This is mutually exclusive with `target_chains` and `target_pdb_content`.
 
         target_pdb_content (Optional[str]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The raw string content of a PDB file serving as the reference structure.
+            Useful when the PDB data is loaded in memory or passed via API.
+            This is mutually exclusive with `target_chains` and `target_pdb_file`.
 
         structure_tool (Literal["esmfold", "alphafold3", "boltz", "chai"]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The structure prediction tool to use for folding both the target (if provided
+            as a sequence) and the candidate sequences. Supported options:
+            - "esmfold": ESMFold (Meta AI)
+            - "alphafold3": AlphaFold 3 (Google DeepMind)
+            - "boltz": Boltz-1 (MIT)
+            - "chai": Chai-1 (Chai Discovery)
+            Default is "esmfold".
 
-        tool_config (Dict[str, Any]):
-            Inherited from `StructureConstraintBaseConfig`.
+        tool_config (Union[ESMFoldConfig, AlphaFold3Config, BoltzConfig, ChaiConfig, Dict]):
+            A dictionary of configuration parameters to pass directly to the underlying
+            structure prediction tool runner. Can be a typed config object or a dictionary.
+            Automatically validated and converted to the appropriate config type based on
+            structure_tool. Defaults to an empty dictionary.
 
         min_target_plddt (float):
-            Inherited from `StructureConstraintBaseConfig`.
+            Only used if the target structure is provided via `target_chains`. This is
+            the minimum average pLDDT confidence score required for the folded target
+            structure. If the target is provided as a sequence and its predicted
+            structure has a confidence below this threshold, the constraint may return
+            a default/penalty score or log a warning. Default is 0.6.
     """
 
     inflection_point_angstroms: float = ConfigField(
@@ -453,11 +464,11 @@ class StructureRMSDConfig(StructureConstraintBaseConfig):
     )
 
 
-class StructureTMScoreConfig(StructureConstraintBaseConfig):
+class StructureTMScoreConfig(StructureSimilarityConfig):
     """
     Configuration for TM-score based structure similarity.
 
-    This configuration extends `StructureConstraintBaseConfig` for calculating the
+    This configuration extends `StructureSimilarityConfig` for calculating the
     Template Modeling score (TM-score) between the target and candidate structures.
     TM-score is a metric for assessing the topological similarity of protein structures
     and is less sensitive to local variations than RMSD.
@@ -483,22 +494,41 @@ class StructureTMScoreConfig(StructureConstraintBaseConfig):
             Default is "mean".
 
         target_chains (Optional[Tuple[str]]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The amino acid sequences of the target protein chains. If provided,
+            these sequences will be folded using the specified `structure_tool`
+            to generate the reference structure. This is mutually exclusive
+            with `target_pdb_file` and `target_pdb_content`.
 
         target_pdb_file (Optional[str]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The local file path to a PDB file serving as the reference structure.
+            This is mutually exclusive with `target_chains` and `target_pdb_content`.
 
         target_pdb_content (Optional[str]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The raw string content of a PDB file serving as the reference structure.
+            Useful when the PDB data is loaded in memory or passed via API.
+            This is mutually exclusive with `target_chains` and `target_pdb_file`.
 
         structure_tool (Literal["esmfold", "alphafold3", "boltz", "chai"]):
-            Inherited from `StructureConstraintBaseConfig`.
+            The structure prediction tool to use for folding both the target (if provided
+            as a sequence) and the candidate sequences. Supported options:
+            - "esmfold": ESMFold (Meta AI)
+            - "alphafold3": AlphaFold 3 (Google DeepMind)
+            - "boltz": Boltz-1 (MIT)
+            - "chai": Chai-1 (Chai Discovery)
+            Default is "esmfold".
 
-        tool_config (Dict[str, Any]):
-            Inherited from `StructureConstraintBaseConfig`.
+        tool_config (Union[ESMFoldConfig, AlphaFold3Config, BoltzConfig, ChaiConfig, Dict]):
+            A dictionary of configuration parameters to pass directly to the underlying
+            structure prediction tool runner. Can be a typed config object or a dictionary.
+            Automatically validated and converted to the appropriate config type based on
+            structure_tool. Defaults to an empty dictionary.
 
         min_target_plddt (float):
-            Inherited from `StructureConstraintBaseConfig`.
+            Only used if the target structure is provided via `target_chains`. This is
+            the minimum average pLDDT confidence score required for the folded target
+            structure. If the target is provided as a sequence and its predicted
+            structure has a confidence below this threshold, the constraint may return
+            a default/penalty score or log a warning. Default is 0.6.
     """
     plddt_threshold: Optional[float] = ConfigField(
         title="pLDDT Threshold",
@@ -531,7 +561,7 @@ class StructureTMScoreConfig(StructureConstraintBaseConfig):
 # Constraints
 # ============================================================================
 
-def _prepare_target_structure(config: StructureConstraintBaseConfig) -> Optional[str]:
+def _prepare_target_structure(config: StructureSimilarityConfig) -> Optional[str]:
     """
     Resolve the target structure to a PDB string.
     If target is a sequence, it folds it (as a monomer).

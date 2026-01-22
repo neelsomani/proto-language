@@ -16,18 +16,18 @@ Constraints:
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Any, Literal
 from logging import getLogger
+from typing import Dict, List, Tuple
 
-from proto_language.language.core import Sequence
-from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import (
-    ConstraintRegistry,
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+    StructureBasedConstraintConfig,
 )
+from proto_language.language.core import Sequence
+from proto_language.tools.structure_prediction.dispatch import predict_structures
 from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionComplex,
 )
-from proto_language.utils.helpers import predict_structures
 
 logger = getLogger(__name__)
 
@@ -46,56 +46,13 @@ PAE_MAXIMUM: float = 31.75 # Angstroms.
 
 
 # ============================================================================
-# Configuration
-# ============================================================================
-
-class StructureConfidenceConfig(BaseConfig):
-    """Configuration for structure prediction confidence constraints.
-
-    This class defines configuration parameters for evaluating protein structure
-    quality using various structure prediction tools. Supports monomeric and
-    multimeric complexes.
-
-    Attributes:
-        structure_tool (str): Structure prediction tool to use. Options are
-            ``"esmfold"``, ``"alphafold3"``, ``"boltz"``, or ``"chai"``.
-            Different tools provide different confidence metrics:
-
-            - **ESMFold**: ``avg_plddt``, ``ptm``, ``avg_pae``
-            - **AlphaFold3**: ``avg_plddt``, ``ptm``, ``iptm``, ``avg_pae``
-            - **Boltz**: ``avg_plddt``, ``ptm``, ``iptm``, ``avg_pae``
-            - **Chai**: ``avg_plddt``, ``ptm``, ``iptm``
-
-            Default: ``"esmfold"``.
-
-        tool_config (Dict[str, Any]): Tool-specific configuration parameters
-            passed directly to the underlying structure prediction tool. For
-            example, ESMFold accepts ``residue_idx_offset`` and ``chain_linker``,
-            while AlphaFold3 accepts ``seeds``, ``msa_mode``, etc. See individual
-            tool documentation for available options. Default: ``{}``.
-    """
-
-    structure_tool: Literal["esmfold", "alphafold3", "boltz", "chai"] = ConfigField(
-        title="Structure Prediction Tool",
-        default="esmfold",
-        description="Tool to use for structure prediction.",
-    )
-
-    tool_config: Dict[str, Any] = ConfigField(
-        title="Tool Configuration",
-        default_factory=dict,
-        description="Tool-specific configuration parameters",
-        advanced=True,
-    )
-
-
-# ============================================================================
 # Constraints
 # ============================================================================
 
+
 def _structure_confidence(
     candidates: List[Tuple[Sequence, ...]],
-    config: StructureConfidenceConfig,
+    config: StructureBasedConstraintConfig,
     target_metric: str,
 ) -> List[float]:
     """
@@ -167,7 +124,7 @@ def _structure_confidence(
 @ConstraintRegistry.register(
     key="structure-plddt",
     label="Structure pLDDT Score",
-    config=StructureConfidenceConfig,
+    config=StructureBasedConstraintConfig,
     description="Evaluate structure quality using predicted LDDT score",
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
@@ -219,7 +176,7 @@ def structure_plddt_constraint(
 @ConstraintRegistry.register(
     key="structure-ptm",
     label="Structure pTM Score",
-    config=StructureConfidenceConfig,
+    config=StructureBasedConstraintConfig,
     description="Evaluate structure quality using predicted TM score",
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
@@ -259,7 +216,7 @@ def structure_ptm_constraint(
 @ConstraintRegistry.register(
     key="structure-iptm",
     label="Structure ipTM Score",
-    config=StructureConfidenceConfig,
+    config=StructureBasedConstraintConfig,
     description="Evaluate interface quality using predicted interface TM score",
     gpu_required=True,
     tools_called=["alphafold3", "boltz", "chai"],
@@ -292,11 +249,11 @@ def structure_iptm_constraint(
         ...     function=structure_iptm_constraint,
         ...     function_config={
         ...         "structure_tool": "alphafold3",
-        ...         "tool_config": {"seeds": [0, 1], "msa_mode": "local"},
+        ...         "tool_config": {"seeds": [0, 1], "use_msa": True},
         ...     },
         ... )
 
-        Programming a protein-DNA binder with Boltz-2:
+        Programming a protein-DNA binder with Boltz:
 
         >>> from proto_language.language.core import Segment
         >>> protein = Segment(length=100, sequence_type="protein")
@@ -318,7 +275,7 @@ def structure_iptm_constraint(
 @ConstraintRegistry.register(
     key="structure-pae",
     label="Structure pAE Score",
-    config=StructureConfidenceConfig,
+    config=StructureBasedConstraintConfig,
     description="Evaluate structure quality using predicted aligned error",
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
@@ -349,12 +306,12 @@ def structure_pae_constraint(
         >>> from proto_language.language.core import Segment
         >>> target = Segment(length=200, sequence_type="protein")
         >>> binder = Segment(length=80, sequence_type="protein")
-        >>> af3_iptm = Constraint(
+        >>> af3_pae = Constraint(
         ...     inputs=[target, binder],
         ...     function=structure_pae_constraint,
         ...     function_config={
         ...         "structure_tool": "alphafold3",
-        ...         "tool_config": {"seeds": [0, 1], "msa_mode": "local"},
+        ...         "tool_config": {"seeds": [0, 1], "use_msa": True},
         ...     },
         ... )
     """

@@ -16,10 +16,7 @@ from proto_language.language.generator import (
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
 )
-from proto_language.language.optimizer import (
-    CyclingOptimizer,
-    CyclingOptimizerConfig,
-)
+from proto_language.language.optimizer import CyclingOptimizer, CyclingOptimizerConfig
 from proto_language.tools.inverse_folding.schemas import InverseFoldingStructureInput
 from proto_language.tools.structures import ProteinStructure
 
@@ -374,10 +371,10 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_full_cycle_with_ligandmpnn(self, pdb_structure):
         """Test complete optimization cycle with LigandMPNN."""
+        from proto_language.tools.structure_prediction import predict_structures
         from proto_language.tools.structure_prediction.schemas import (
             StructurePredictionComplex,
         )
-        from proto_language.utils.helpers import predict_structures
 
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)
@@ -428,10 +425,10 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_with_filter_constraint(self, pdb_structure):
         """Test with filter constraint using real models."""
+        from proto_language.tools.structure_prediction import predict_structures
         from proto_language.tools.structure_prediction.schemas import (
             StructurePredictionComplex,
         )
-        from proto_language.utils.helpers import predict_structures
 
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)
@@ -507,7 +504,7 @@ class TestCyclingOptimizerRestart:
         # Mock the generator.sample to track calls and modify sequences
         call_count = [0]
         # Valid 20-char protein sequences for each call
-        protein_seqs = ["MKTAYIAKQRQISFVKSHFS", "GPLAFVTNLTGLRSQNEEIR", 
+        protein_seqs = ["MKTAYIAKQRQISFVKSHFS", "GPLAFVTNLTGLRSQNEEIR",
                         "YWDEIKNPLGRAVTYDKWFP", "HCLQMNSGVEATRIDFWYKP"]
         def mock_sample(structure_inputs=None):
             call_count[0] += 1
@@ -535,7 +532,7 @@ class TestCyclingOptimizerRestart:
         optimizer.run()
         assert call_count[0] > first_run_calls
         second_run_seqs = [s.sequence for s in components["target_segment"].selected_sequences]
-        
+
         # Verify sequences were modified from original (mock changes them to valid protein seqs)
         original_seq = "ACDEFGHIKLMNPQRSTVWY"
         assert all(seq != original_seq for seq in first_run_seqs)
@@ -570,19 +567,19 @@ class TestCyclingOptimizerRestart:
         # Verify state was captured
         assert optimizer._initial_state is not None
         assert len(optimizer._initial_state['segments']) == 1
-        
+
         # Verify captured state contains actual sequence content (using index 0)
         captured_selected = optimizer._initial_state['segments'][0]['selected']
         captured_candidates = optimizer._initial_state['segments'][0]['candidates']
-        
+
         assert len(captured_selected) == len(original_selected)
         assert len(captured_candidates) == len(original_candidates)
-        
+
         # Verify sequences match
         for orig, captured in zip(original_selected, captured_selected):
             assert orig.sequence == captured['sequence']
             assert orig.sequence_type == captured['sequence_type']
-            
+
         for orig, captured in zip(original_candidates, captured_candidates):
             assert orig.sequence == captured['sequence']
             assert orig.sequence_type == captured['sequence_type']
@@ -601,14 +598,14 @@ class TestCyclingOptimizerPipelineResolution:
         target_segment = Segment(sequence="A" * 100, sequence_type="protein")
         construct = Construct([target_segment])
         generator = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(temperature=0.1))
-        
+
         config = CyclingOptimizerConfig(
             num_steps=2,
             num_candidates=2,
             conditioning_param_name="structure_inputs",
             pipeline="protein-hunter",
         )
-        
+
         with pytest.raises(ValueError, match="Cannot specify both"):
             CyclingOptimizer(
                 target_segment=target_segment,
@@ -624,14 +621,14 @@ class TestCyclingOptimizerPipelineResolution:
         target_segment = Segment(sequence="A" * 100, sequence_type="protein")
         construct = Construct([target_segment])
         generator = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(temperature=0.1))
-        
+
         config = CyclingOptimizerConfig(
             num_steps=2,
             num_candidates=2,
             conditioning_param_name="structure_inputs",
             # No pipeline specified
         )
-        
+
         with pytest.raises(ValueError, match="Must specify either"):
             CyclingOptimizer(
                 target_segment=target_segment,
@@ -647,7 +644,7 @@ class TestCyclingOptimizerPipelineResolution:
         target_segment = Segment(sequence="A" * 100, sequence_type="protein")
         construct = Construct([target_segment])
         generator = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(temperature=0.1))
-        
+
         # Manually set invalid pipeline (bypassing Literal validation)
         config = CyclingOptimizerConfig(
             num_steps=2,
@@ -655,7 +652,7 @@ class TestCyclingOptimizerPipelineResolution:
             conditioning_param_name="structure_inputs",
         )
         object.__setattr__(config, 'pipeline', 'nonexistent-pipeline')
-        
+
         with pytest.raises(ValueError, match="Unknown pipeline"):
             CyclingOptimizer(
                 target_segment=target_segment,
@@ -667,19 +664,22 @@ class TestCyclingOptimizerPipelineResolution:
 
     def test_protein_hunter_requires_inverse_folding_generator(self):
         """Test that protein-hunter pipeline requires inverse_folding generator."""
-        from proto_language.language.generator import ESM2Generator, ESM2GeneratorConfig
-        
+        from proto_language.language.generator import (
+            ESM2Generator,
+            ESM2GeneratorConfig,
+        )
+
         target_segment = Segment(sequence="A" * 20, sequence_type="protein")
         construct = Construct([target_segment])
         generator = ESM2Generator(ESM2GeneratorConfig(mask_positions=[[0]]))
-        
+
         config = CyclingOptimizerConfig(
             num_steps=2,
             num_candidates=2,
             conditioning_param_name="prompts",
             pipeline="protein-hunter",
         )
-        
+
         with pytest.raises(ValueError, match="requires inverse_folding generator"):
             CyclingOptimizer(
                 target_segment=target_segment,
@@ -694,14 +694,14 @@ class TestCyclingOptimizerPipelineResolution:
         target_segment = Segment(sequence="A" * 100, sequence_type="protein")
         construct = Construct([target_segment])
         generator = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(temperature=0.1))
-        
+
         config = CyclingOptimizerConfig(
             num_steps=2,
             num_candidates=2,
             conditioning_param_name="structure_inputs",
             pipeline="protein-hunter",
         )
-        
+
         # Should not raise
         optimizer = CyclingOptimizer(
             target_segment=target_segment,
@@ -717,14 +717,14 @@ class TestCyclingOptimizerPipelineResolution:
         target_segment = Segment(sequence="A" * 100, sequence_type="protein")
         construct = Construct([target_segment])
         generator = LigandMPNNGenerator(LigandMPNNGeneratorConfig(temperature=0.1))
-        
+
         config = CyclingOptimizerConfig(
             num_steps=2,
             num_candidates=2,
             conditioning_param_name="structure_inputs",
             pipeline="protein-hunter",
         )
-        
+
         # Should not raise
         optimizer = CyclingOptimizer(
             target_segment=target_segment,

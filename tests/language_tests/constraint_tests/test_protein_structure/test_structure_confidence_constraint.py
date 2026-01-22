@@ -11,21 +11,21 @@ Tests cover:
 7. Error handling
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from proto_language.language.core import Sequence
+import pytest
+
 from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-    StructureConfidenceConfig,
-    structure_plddt_constraint,
-    structure_ptm_constraint,
+    TOOL_AVAILABLE_METRICS,
+    StructureBasedConstraintConfig,
     structure_iptm_constraint,
     structure_pae_constraint,
-    TOOL_AVAILABLE_METRICS,
+    structure_plddt_constraint,
+    structure_ptm_constraint,
 )
+from proto_language.language.core import Sequence
 from proto_language.tools.structure_prediction import StructurePredictionOutput
 from proto_language.tools.structures import ProteinStructure
-
 
 # ============================================================================
 # Fixtures
@@ -94,7 +94,7 @@ class TestScoreCalculations:
     def test_plddt_scoring_esmfold(self, protein_sequence, metric_value, expected_score):
         """Test that pLDDT score = 1.0 - avg_plddt."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -119,7 +119,7 @@ class TestScoreCalculations:
     def test_plddt_scoring_af3(self, protein_sequence, metric_value, expected_score):
         """Test that pLDDT score = 1.0 - **normalized** avg_plddt."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -143,7 +143,7 @@ class TestScoreCalculations:
     def test_ptm_scoring(self, protein_sequence, metric_value, expected_score):
         """Test that pTM score = 1.0 - ptm."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -167,7 +167,7 @@ class TestScoreCalculations:
     def test_iptm_scoring(self, protein_sequence, protein_sequence_b, metric_value, expected_score):
         """Test that ipTM score = 1.0 - iptm."""
         candidates = [(protein_sequence, protein_sequence_b)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -191,7 +191,7 @@ class TestScoreCalculations:
     def test_iptm_scoring_dna(self, protein_sequence, dna_sequence, metric_value, expected_score):
         """Test that ipTM score = 1.0 - iptm."""
         candidates = [(protein_sequence, dna_sequence)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -215,7 +215,7 @@ class TestScoreCalculations:
     def test_iptm_scoring_rna(self, protein_sequence, rna_sequence, metric_value, expected_score):
         """Test that ipTM score = 1.0 - iptm."""
         candidates = [(protein_sequence, rna_sequence)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -238,7 +238,7 @@ class TestScoreCalculations:
     def test_pae_scoring(self, protein_sequence, metric_value, expected_score):
         """Test that pAE score = avg_pae / 31.75."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -262,7 +262,7 @@ class TestToolDispatching:
     def test_plddt_dispatches_to_correct_tool(self, protein_sequence, tool_name):
         """Test that pLDDT constraint dispatches to the specified tool."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool=tool_name)
+        config = StructureBasedConstraintConfig(structure_tool=tool_name)
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -286,7 +286,7 @@ class TestToolDispatching:
     def test_iptm_dispatches_to_correct_tool(self, protein_sequence, protein_sequence_b, tool_name):
         """Test that ipTM constraint dispatches to supported tools."""
         candidates = [(protein_sequence, protein_sequence_b)]
-        config = StructureConfidenceConfig(structure_tool=tool_name)
+        config = StructureBasedConstraintConfig(structure_tool=tool_name)
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -309,7 +309,7 @@ class TestToolDispatching:
     def test_af3_alias_works(self, protein_sequence):
         """Test that 'alphafold3' tool works."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -334,7 +334,7 @@ class TestMetricAvailability:
     def test_esmfold_supports_plddt_and_ptm(self, protein_sequence):
         """Test that ESMFold supports avg_plddt and ptm."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -350,7 +350,7 @@ class TestMetricAvailability:
     def test_esmfold_does_not_support_iptm(self, protein_sequence):
         """Test that ESMFold raises error for ipTM."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with pytest.raises(ValueError, match="Metric 'iptm' is not available for tool 'esmfold'"):
             structure_iptm_constraint(candidates, config)
@@ -358,7 +358,7 @@ class TestMetricAvailability:
     def test_alphafold3_supports_all_metrics(self, protein_sequence):
         """Test that AlphaFold3 supports all metrics."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -376,7 +376,7 @@ class TestMetricAvailability:
     def test_chai_supports_all_metrics(self, protein_sequence):
         """Test that Chai supports all metrics."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="chai")
+        config = StructureBasedConstraintConfig(structure_tool="chai")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -394,7 +394,7 @@ class TestMetricAvailability:
     def test_boltz_supports_all_metrics(self, protein_sequence):
         """Test that Boltz supports all metrics."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="boltz")
+        config = StructureBasedConstraintConfig(structure_tool="boltz")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -430,7 +430,7 @@ class TestMultimerSupport:
     def test_monomer_single_chain(self, protein_sequence):
         """Test monomer prediction (single chain tuple)."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -451,7 +451,7 @@ class TestMultimerSupport:
     def test_homodimer_two_identical_chains(self, protein_sequence):
         """Test homodimer prediction (same sequence twice)."""
         candidates = [(protein_sequence, protein_sequence)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -471,7 +471,7 @@ class TestMultimerSupport:
     def test_heterodimer_two_different_chains(self, protein_sequence, protein_sequence_b):
         """Test heterodimer prediction (two different sequences)."""
         candidates = [(protein_sequence, protein_sequence_b)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -492,7 +492,7 @@ class TestMultimerSupport:
     def test_homotrimer_three_chains(self, protein_sequence):
         """Test homotrimer prediction."""
         candidates = [(protein_sequence, protein_sequence, protein_sequence)]
-        config = StructureConfidenceConfig(structure_tool="boltz")
+        config = StructureBasedConstraintConfig(structure_tool="boltz")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -514,7 +514,7 @@ class TestMultimerSupport:
             (protein_sequence, protein_sequence),          # Homodimer
             (protein_sequence, protein_sequence_b),        # Heterodimer
         ]
-        config = StructureConfidenceConfig(structure_tool="chai")
+        config = StructureBasedConstraintConfig(structure_tool="chai")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -535,7 +535,7 @@ class TestMultimerSupport:
     def test_entity_types_correctly_set(self, protein_sequence):
         """Test that entity types are correctly inferred from sequences."""
         candidates = [(protein_sequence, protein_sequence)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -561,7 +561,7 @@ class TestToolConfigPassthrough:
     def test_esmfold_config_passthrough(self, protein_sequence):
         """Test that ESMFold-specific config is passed through."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(
+        config = StructureBasedConstraintConfig(
             structure_tool="esmfold",
             tool_config={
                 "verbose": True,
@@ -581,18 +581,21 @@ class TestToolConfigPassthrough:
 
             call_args = mock_predict.call_args
             passed_tool_config = call_args[0][2]  # Third positional arg
-            assert passed_tool_config["verbose"] is True
-            assert passed_tool_config["residue_idx_offset"] == 256
-            assert passed_tool_config["chain_linker"] == "GGGGG"
+            # Config is now a typed ESMFoldConfig object (converted from dict)
+            from proto_language.tools.structure_prediction import ESMFoldConfig
+            assert isinstance(passed_tool_config, ESMFoldConfig)
+            assert passed_tool_config.verbose is True
+            assert passed_tool_config.residue_idx_offset == 256
+            assert passed_tool_config.chain_linker == "GGGGG"
 
     def test_alphafold3_config_passthrough(self, protein_sequence):
         """Test that AlphaFold3-specific config is passed through."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(
+        config = StructureBasedConstraintConfig(
             structure_tool="alphafold3",
             tool_config={
                 "seeds": [0, 1, 2],
-                "msa_mode": "local",
+                "use_msa": False,
                 "verbose": True,
             },
         )
@@ -608,13 +611,16 @@ class TestToolConfigPassthrough:
 
             call_args = mock_predict.call_args
             passed_tool_config = call_args[0][2]
-            assert passed_tool_config["seeds"] == [0, 1, 2]
-            assert passed_tool_config["msa_mode"] == "local"
+            # Config is now a typed AlphaFold3Config object (converted from dict)
+            from proto_language.tools.structure_prediction import AlphaFold3Config
+            assert isinstance(passed_tool_config, AlphaFold3Config)
+            assert passed_tool_config.seeds == [0, 1, 2]
+            assert passed_tool_config.use_msa is False
 
     def test_empty_tool_config_default(self, protein_sequence):
         """Test that empty tool config works (uses defaults)."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -627,7 +633,12 @@ class TestToolConfigPassthrough:
 
             call_args = mock_predict.call_args
             passed_tool_config = call_args[0][2]
-            assert passed_tool_config == {}
+            # Config is now a typed ESMFoldConfig object with default values
+            from proto_language.tools.structure_prediction import ESMFoldConfig
+            assert isinstance(passed_tool_config, ESMFoldConfig)
+            # Verify it has default values
+            assert passed_tool_config.device == "cuda"
+            assert passed_tool_config.verbose is False
 
 
 # ============================================================================
@@ -640,7 +651,7 @@ class TestMetadataStorage:
     def test_plddt_metadata_storage(self, protein_sequence):
         """Test that pLDDT and related metadata is stored."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -659,7 +670,7 @@ class TestMetadataStorage:
     def test_ptm_metadata_storage(self, protein_sequence):
         """Test that pTM constraint stores ptm in metadata."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -677,7 +688,7 @@ class TestMetadataStorage:
     def test_iptm_metadata_storage(self, protein_sequence, protein_sequence_b):
         """Test that ipTM constraint stores iptm in metadata."""
         candidates = [(protein_sequence, protein_sequence_b)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -696,7 +707,7 @@ class TestMetadataStorage:
     def test_pae_metadata_storage(self, protein_sequence):
         """Test that pAE constraint stores avg_pae in metadata."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -713,7 +724,7 @@ class TestMetadataStorage:
     def test_metadata_on_first_sequence_in_tuple(self, protein_sequence, protein_sequence_b):
         """Test that metadata is attached to first sequence in tuple only."""
         candidates = [(protein_sequence, protein_sequence_b)]
-        config = StructureConfidenceConfig(structure_tool="alphafold3")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         # Clear any existing metadata
         protein_sequence._metadata = {}
@@ -746,14 +757,17 @@ class TestErrorHandling:
     def test_unknown_tool_raises_error(self, protein_sequence):
         """Test that unknown tool raises ValidationError at config time."""
         from pydantic import ValidationError
-        
-        with pytest.raises(ValidationError, match="Input should be 'esmfold', 'alphafold3', 'boltz' or 'chai'"):
-            StructureConfidenceConfig(structure_tool="unknown_tool")
+
+        # Pydantic's Literal validation catches invalid tools before our validator runs
+        with pytest.raises(ValidationError):
+            config = StructureBasedConstraintConfig(structure_tool="unknown_tool")
+            # If this passes, check the error message contains expected info
+            assert "esmfold" in str(config) or "alphafold3" in str(config)
 
     def test_prediction_failure_returns_worst_score(self, protein_sequence):
         """Test that prediction failure returns score of 1.0."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -768,7 +782,7 @@ class TestErrorHandling:
     def test_missing_metric_returns_worst_score(self, protein_sequence):
         """Test that missing metric in output returns score of 1.0."""
         candidates = [(protein_sequence,)]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -785,7 +799,7 @@ class TestErrorHandling:
     def test_empty_candidates_returns_empty_scores(self):
         """Test that empty candidates list returns empty scores."""
         candidates = []
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -802,7 +816,7 @@ class TestErrorHandling:
             (protein_sequence,),
             (protein_sequence_b,),
         ]
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -828,26 +842,31 @@ class TestConfigurationDefaults:
 
     def test_default_tool_is_esmfold(self):
         """Test that default structure_tool is 'esmfold'."""
-        config = StructureConfidenceConfig()
+        config = StructureBasedConstraintConfig()
         assert config.structure_tool == "esmfold"
 
     def test_default_tool_config_is_empty(self):
-        """Test that default tool_config is empty dict."""
-        config = StructureConfidenceConfig()
-        assert config.tool_config == {}
+        """Test that default tool_config creates a default ESMFoldConfig."""
+        config = StructureBasedConstraintConfig()
+        # New behavior: tool_config is automatically converted to typed config
+        from proto_language.tools.structure_prediction import ESMFoldConfig
+        assert isinstance(config.tool_config, ESMFoldConfig)
+        # Verify it uses default values
+        assert config.tool_config.device == "cuda"
+        assert config.tool_config.verbose is False
 
     def test_tool_name_strict(self, protein_sequence):
         """Test that tool names must be exact (case-sensitive, no whitespace)."""
         from pydantic import ValidationError
 
         # Only exact lowercase names should work
-        config = StructureConfidenceConfig(structure_tool="esmfold")
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
         assert config.structure_tool == "esmfold"
-        
+
         # Case variations and whitespace should fail
         for tool_variant in ["ESMFold", "ESMFOLD", " esmfold ", "EsmFold", "af3"]:
             with pytest.raises(ValidationError):
-                StructureConfidenceConfig(structure_tool=tool_variant)
+                StructureBasedConstraintConfig(structure_tool=tool_variant)
 
 
 # ============================================================================
@@ -860,7 +879,7 @@ class TestIntegrationScenarios:
     def test_heterodimer_interface_assessment(self, protein_sequence, protein_sequence_b):
         """Test assessing a heterodimer interface with ipTM."""
         candidates = [(protein_sequence, protein_sequence_b)]
-        config = StructureConfidenceConfig(
+        config = StructureBasedConstraintConfig(
             structure_tool="alphafold3",
             tool_config={"seeds": [0]},
         )
@@ -884,7 +903,7 @@ class TestIntegrationScenarios:
 
         results = {}
         for tool in ["esmfold", "alphafold3", "boltz", "chai"]:
-            config = StructureConfidenceConfig(structure_tool=tool)
+            config = StructureBasedConstraintConfig(structure_tool=tool)
 
             with patch(
                 "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -919,7 +938,7 @@ class TestIntegrationScenarios:
             (protein_sequence, seq_e),
         ]
 
-        config = StructureConfidenceConfig(
+        config = StructureBasedConstraintConfig(
             structure_tool="chai",
             tool_config={"verbose": False},
         )

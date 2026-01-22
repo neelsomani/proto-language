@@ -160,5 +160,5 @@ class TestKmerFrequencyConstraint:
         spec = ConstraintRegistry.get("kmer-frequency")
         assert spec.key == "kmer-frequency"
         assert spec.label == "K-mer Frequency"
-        assert spec.batched == True
-        assert spec.multi_input == False
+        assert "dna" in spec.supported_sequence_types
+        assert "protein" in spec.supported_sequence_types

@@ -4,7 +4,7 @@ Sequence length constraint for evaluating sequence length properties.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from pydantic import model_validator
 
@@ -89,13 +89,11 @@ class SequenceLengthConfig(BaseConfig):
     label="Sequence Length",
     config=SequenceLengthConfig,
     description="Evaluate sequence length against target value or acceptable range",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
 )
-def sequence_length_constraint(sequences: List[Sequence], config: SequenceLengthConfig) -> List[float]:
+def sequence_length_constraint(input_sequences: List[Tuple[Sequence, ...]], config: SequenceLengthConfig) -> List[float]:
     """Evaluate sequence length against target value or acceptable range.
     
     This constraint function evaluates whether sequences have appropriate lengths.
@@ -103,8 +101,8 @@ def sequence_length_constraint(sequences: List[Sequence], config: SequenceLength
     (exact length matching).
 
     Args:
-        sequences (List[Sequence]): List of sequences to evaluate. Can be DNA, RNA,
-            or protein.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one sequence (DNA, RNA, or protein).
 
         config (SequenceLengthConfig): Configuration object containing either
             (``min_length`` AND ``max_length``) for range mode OR ``target_length``
@@ -120,7 +118,7 @@ def sequence_length_constraint(sequences: List[Sequence], config: SequenceLength
               For example, 10% deviation from target yields score ~0.1.
 
     Raises:
-        ValueError: If the input sequence list is empty, or if configuration is
+        ValueError: If the input list is empty, or if configuration is
             invalid (neither mode specified, both modes specified, or min > max).
     
     Note:
@@ -140,22 +138,19 @@ def sequence_length_constraint(sequences: List[Sequence], config: SequenceLength
 
     Examples:
         Range mode (protein):
-        >>> seqs = [Sequence("MVLSP", "protein")]
+        >>> seqs = [(Sequence("MVLSP", "protein"),)]
         >>> cfg = SequenceLengthConfig(min_length=4, max_length=10)
         >>> scores = sequence_length_constraint(seqs, cfg)
         
         Target mode (DNA):
-        >>> seqs = [Sequence("ATCGATCG", "dna")]
+        >>> seqs = [(Sequence("ATCGATCG", "dna"),)]
         >>> cfg = SequenceLengthConfig(target_length=8)
         >>> scores = sequence_length_constraint(seqs, cfg)
     """
-    if not sequences:
-        raise ValueError("Input sequence list must not be empty")
-    
     scores = []
     use_range_mode = config.min_length is not None
     
-    for seq in sequences:
+    for (seq,) in input_sequences:
         actual_length = len(seq.sequence)
         seq._metadata["length"] = actual_length
         

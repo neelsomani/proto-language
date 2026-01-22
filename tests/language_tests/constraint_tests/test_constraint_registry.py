@@ -14,7 +14,7 @@ import pytest
 from pydantic import BaseModel, Field, ValidationError
 
 from proto_language.language.constraint import ConstraintRegistry
-from proto_language.language.core import Segment, Sequence, Constraint
+from proto_language.language.core import Segment, Constraint
 
 
 # ============================================================================
@@ -56,8 +56,8 @@ class TestRegistration:
             description="Temporary test constraint",
             supported_sequence_types=["dna", "protein"],
         )
-        def test_constraint(sequence: Sequence, config: TestConfig) -> float:
-            return 0.5
+        def test_constraint(input_sequences, config: TestConfig):
+            return [0.5 for _ in input_sequences]
 
         # Verify registration
         assert ConstraintRegistry.count() == initial_count + 1
@@ -68,44 +68,18 @@ class TestRegistration:
         assert spec.config_model == TestConfig
         assert spec.description == "Temporary test constraint"
         assert spec.function == test_constraint
-        assert spec.batched is False
-        assert spec.multi_input is False
 
         # Cleanup
         del ConstraintRegistry._registry["test-temp-constraint"]
-
-    def test_register_with_custom_flags(self):
-        """Test registration with custom batched/multi_input flags."""
-        class TestConfig(BaseModel):
-            value: int = 1
-
-        @ConstraintRegistry.register(
-            key="test-batched",
-            label="Test batched",
-            config=TestConfig,
-            description="batched constraint",
-            batched=True,
-            multi_input=True,
-            supported_sequence_types=["dna"],
-        )
-        def test_constraint(complexes, config):
-            return [0.0] * len(complexes)
-
-        spec = ConstraintRegistry.get("test-batched")
-        assert spec.batched is True
-        assert spec.multi_input is True
-
-        # Cleanup
-        del ConstraintRegistry._registry["test-batched"]
 
     def test_register_returns_original_function(self):
         """Test that register decorator returns the original function unchanged."""
         class TestConfig(BaseModel):
             pass
 
-        def original_func(sequence: Sequence, config: TestConfig) -> float:
+        def original_func(input_sequences, config: TestConfig):
             """Original docstring."""
-            return 0.5
+            return [0.5 for _ in input_sequences]
 
         registered_func = ConstraintRegistry.register(
             key="test-return",
@@ -176,8 +150,6 @@ class TestDiscovery:
             assert spec.key is not None
             assert spec.label is not None
             assert spec.description is not None
-            assert hasattr(spec, "batched")
-            assert hasattr(spec, "multi_input")
             assert hasattr(spec, "gpu_required")
             # Verify config_model is present and can generate JSON schema
             assert spec.config_model is not None
@@ -201,8 +173,6 @@ class TestDiscovery:
         assert spec.description is not None
         assert spec.config_model is not None
         assert spec.function is not None
-        assert isinstance(spec.batched, bool)
-        assert isinstance(spec.multi_input, bool)
 
     def test_get_raises_on_unknown_key(self):
         """Test that get raises ValueError for unknown constraint."""
@@ -317,24 +287,6 @@ class TestFactoryMethod:
         # Nested configs should be Pydantic models, not dicts
         assert hasattr(constraint.function_config, 'mmseqs_config')
         assert hasattr(constraint.function_config, 'mmseqs_db')
-
-    def test_create_preserves_batched_flag(self, dna_segment):
-        """Test that create preserves the batched flag."""
-        # All constraints are now batched
-        constraint = ConstraintRegistry.create(
-            key="gc-content",
-            segments=[dna_segment],
-            config_dict={"min_gc": 40.0, "max_gc": 60.0}
-        )
-        assert constraint.batched == True
-
-        # Verify another constraint is also batched
-        constraint2 = ConstraintRegistry.create(
-            key="sigma70-promoter",
-            segments=[dna_segment],
-            config_dict={}
-        )
-        assert constraint2.batched == True
 
     def test_create_with_label(self, dna_segment):
         """Test that create accepts and sets label."""

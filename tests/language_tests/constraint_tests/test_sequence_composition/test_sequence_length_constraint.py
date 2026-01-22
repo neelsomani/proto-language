@@ -36,21 +36,6 @@ class TestSequenceLengthConstraint:
         assert seg_match.candidate_sequences[0]._metadata["constraints"]["sequence_length_constraint"]["data"]["length"] == target_len
         assert seg_short.candidate_sequences[0]._metadata["constraints"]["sequence_length_constraint"]["data"]["length"] == target_len // 2
 
-    def test_single_input_constraint_rejects_multiple_segments(self):
-        """Tests that single-input constraints reject multiple segments."""
-        seg1 = Segment(sequence="A" * 10)
-        seg2 = Segment(sequence="T" * 10)
-
-        config = SequenceLengthConfig(target_length=20)
-        
-        # Single-input constraint should reject multiple segments
-        with pytest.raises(ValueError, match="single-input.*but received.*segments"):
-            Constraint(
-                inputs=[seg1, seg2],
-                function=sequence_length_constraint,
-                function_config=config,
-            )
-
     @pytest.mark.parametrize(
         "seq_str, target_len, expected_score",
         [

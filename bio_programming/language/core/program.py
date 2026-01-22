@@ -346,7 +346,6 @@ class Program:
                                     "score": 0.5,
                                     "weight": 1.0,
                                     "weighted_score": 0.5,
-                                    "multi_input": false,
                                     "data": {
                                         "gc_content": 50.0
                                     }

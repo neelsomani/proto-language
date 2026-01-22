@@ -5,7 +5,7 @@ Maximum homopolymer constraint for evaluating sequence homopolymer properties.
 from __future__ import annotations
 
 import itertools
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -51,13 +51,11 @@ class MaxHomopolymerConfig(BaseConfig):
     label="Homopolymer Length",
     config=MaxHomopolymerConfig,
     description="Penalize sequences containing homopolymers longer than specified maximum",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
 )
-def max_homopolymer_constraint(sequences: List[Sequence], config: MaxHomopolymerConfig) -> List[float]:
+def max_homopolymer_constraint(input_sequences: List[Tuple[Sequence, ...]], config: MaxHomopolymerConfig) -> List[float]:
     """Penalize sequences containing homopolymers longer than specified maximum
     
     This constraint function identifies the longest homopolymer (consecutive run
@@ -70,8 +68,8 @@ def max_homopolymer_constraint(sequences: List[Sequence], config: MaxHomopolymer
     extreme penalty values while still strongly discouraging very long homopolymers.
 
     Args:
-        sequences (List[Sequence]): List of DNA, RNA, or protein sequences to
-            evaluate. 
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one DNA, RNA, or protein sequence.
 
         config (MaxHomopolymerConfig): Configuration object containing ``max_length``
             (maximum allowed homopolymer length).
@@ -82,7 +80,7 @@ def max_homopolymer_constraint(sequences: List[Sequence], config: MaxHomopolymer
             longer homopolymers with logarithmic scaling.
 
     Raises:
-        ValueError: If the input sequence list is empty.
+        ValueError: If the input list is empty.
     
     Note:
         This function modifies the input sequences by adding metadata to each
@@ -98,15 +96,12 @@ def max_homopolymer_constraint(sequences: List[Sequence], config: MaxHomopolymer
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> seq = Sequence("ATCGATCGTAGC", "dna")
         >>> config = MaxHomopolymerConfig(max_length=4)
-        >>> scores = max_homopolymer_constraint([seq], config)
+        >>> scores = max_homopolymer_constraint([(seq,)], config)
         >>> print(scores[0])  # 0.0 (no runs >4)
         >>> print(seq._metadata["max_homopolymer_length"]) 
     """
-    if not sequences:
-        raise ValueError("Input sequence list must not be empty")
-    
     scores = []
-    for seq in sequences: 
+    for (seq,) in input_sequences: 
         if len(seq.sequence) <= 1:
             longest_homopolymer = len(seq.sequence)
         else:

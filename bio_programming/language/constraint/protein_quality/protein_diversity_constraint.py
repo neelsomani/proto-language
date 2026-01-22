@@ -4,7 +4,7 @@ Protein diversity constraint function.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 import numpy as np
 
 from proto_language.language.core import Sequence
@@ -49,13 +49,11 @@ class ProteinDiversityConfig(BaseConfig):
     label="Protein Diversity",
     config=ProteinDiversityConfig,
     description="Evaluate amino acid diversity in a protein sequence",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="protein quality",
     supported_sequence_types=["protein"],
 )
-def protein_diversity_constraint(sequences: List[Sequence], config: ProteinDiversityConfig) -> List[float]:
+def protein_diversity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinDiversityConfig) -> List[float]:
     """Evaluate amino acid diversity in protein sequences.
     
     This constraint function measures the diversity of amino acid types present
@@ -65,8 +63,8 @@ def protein_diversity_constraint(sequences: List[Sequence], config: ProteinDiver
     with the deficit below the minimum diversity threshold.
 
     Args:
-        sequences (List[Sequence]): List of protein sequences to evaluate. All
-            sequences must have ``sequence_type == "protein"``.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one protein sequence.
             
         config (ProteinDiversityConfig): Configuration object containing
             ``min_diversity`` (minimum acceptable amino acid diversity, default: 0.5).
@@ -99,13 +97,14 @@ def protein_diversity_constraint(sequences: List[Sequence], config: ProteinDiver
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinDiversityConfig(min_diversity=0.5)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_diversity_constraint([seq], config)
+        >>> scores = protein_diversity_constraint([(seq,)], config)
         >>> print(scores[0])  # 0.0 if diversity >= 0.5
         >>> print(seq._metadata["aa_diversity_score"])  # e.g., 0.65
         >>> print(seq._metadata["unique_amino_acid_count"])  # e.g., 13
         >>> print(seq._metadata["unique_amino_acids"])  # e.g., ['A', 'D', 'E', 'F', ...]
     """
-    seq_strings = [seq.sequence for seq in sequences]
+    # Extract sequence strings from tuples
+    seq_strings = [seq.sequence for (seq,) in input_sequences]
     seq_lengths = np.array([len(s) for s in seq_strings])
 
     # Calculate amino acid diversity score
@@ -124,7 +123,7 @@ def protein_diversity_constraint(sequences: List[Sequence], config: ProteinDiver
     )
 
     # Store metadata
-    for i, input_sequence in enumerate(sequences):
+    for i, (input_sequence,) in enumerate(input_sequences):
         input_sequence._metadata["aa_diversity_score"] = float(diversity_scores[i])
         input_sequence._metadata["unique_amino_acid_count"] = int(unique_aa_counts[i])
         input_sequence._metadata["unique_amino_acids"] = sorted(list(set(seq_strings[i])))

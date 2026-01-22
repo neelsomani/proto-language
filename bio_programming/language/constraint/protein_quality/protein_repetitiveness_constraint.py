@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections import Counter
 
 import numpy as np
-from typing import List
+from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
@@ -65,13 +65,11 @@ class ProteinRepetitivenessConfig(BaseConfig):
     label="Protein Repetitiveness",
     config=ProteinRepetitivenessConfig,
     description="Evaluate protein sequence repetitiveness based on k-mer analysis",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="protein quality",
     supported_sequence_types=["protein"],
 )
-def protein_repetitiveness_constraint(sequences: List[Sequence], config: ProteinRepetitivenessConfig) -> List[float]:
+def protein_repetitiveness_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinRepetitivenessConfig) -> List[float]:
     """Evaluate protein sequence repetitiveness based on k-mer frequency analysis.
     
     This constraint function analyzes protein sequences for repetitive content by
@@ -84,8 +82,8 @@ def protein_repetitiveness_constraint(sequences: List[Sequence], config: Protein
     (40% of sequence).
     
     Args:
-        sequences (List[Sequence]): List of protein sequences to evaluate. All
-            sequences must have ``sequence_type == "protein"``.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one protein sequence.
             
         config (ProteinRepetitivenessConfig): Configuration object containing
             ``max_repetitiveness`` (maximum acceptable repetitiveness fraction,
@@ -120,11 +118,12 @@ def protein_repetitiveness_constraint(sequences: List[Sequence], config: Protein
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinRepetitivenessConfig(max_repetitiveness=0.4, min_repeat_length=3)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_repetitiveness_constraint([seq], config)
+        >>> scores = protein_repetitiveness_constraint([(seq,)], config)
         >>> print(scores[0])  # 0.0 if repetitiveness < 40%
         >>> print(seq._metadata["repetitiveness_score"])  # e.g., 0.15
     """
-    seq_strings = [seq.sequence for seq in sequences]
+    # Extract sequence strings from tuples
+    seq_strings = [seq.sequence for (seq,) in input_sequences]
     repetitiveness_scores = np.array([
         _calculate_repetitiveness_score(s, config.min_repeat_length) 
         for s in seq_strings
@@ -136,7 +135,7 @@ def protein_repetitiveness_constraint(sequences: List[Sequence], config: Protein
         np.minimum(MAX_ENERGY, excess / (1.0 - config.max_repetitiveness))
     )
     
-    for i, input_sequence in enumerate(sequences):
+    for i, (input_sequence,) in enumerate(input_sequences):
         input_sequence._metadata["repetitiveness_score"] = float(repetitiveness_scores[i])
         input_sequence._metadata["max_repetitive_fraction"] = float(repetitiveness_scores[i])
     

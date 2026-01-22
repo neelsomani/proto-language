@@ -31,7 +31,7 @@ class TestRNAPropertySimilarityConstraint:
         """Identical sequences should have score near 0."""
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_property_similarity_constraint(
-            [Sequence(HAIRPIN_SEQ, "rna")],
+            [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
         assert score < EPSILON
@@ -40,7 +40,7 @@ class TestRNAPropertySimilarityConstraint:
         """Different sequences should have score > 0."""
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_property_similarity_constraint(
-            [Sequence(DIFFERENT_SEQ, "rna")],
+            [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
         assert score > 0.0
@@ -49,7 +49,7 @@ class TestRNAPropertySimilarityConstraint:
         """Similar hairpins should have low but non-zero score."""
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_property_similarity_constraint(
-            [Sequence(SIMILAR_HAIRPIN, "rna")],
+            [(Sequence(SIMILAR_HAIRPIN, "rna"),)],
             config,
         )[0]
         assert score < 0.5  # Should be fairly similar
@@ -62,7 +62,7 @@ class TestRNAMotifSimilarityConstraint:
         """Identical sequences should have score near 0."""
         config = RNAMotifSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_motif_similarity_constraint(
-            [Sequence(HAIRPIN_SEQ, "rna")],
+            [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
         assert score < EPSILON
@@ -71,7 +71,7 @@ class TestRNAMotifSimilarityConstraint:
         """Unstructured vs structured should have high score."""
         config = RNAMotifSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_motif_similarity_constraint(
-            [Sequence(DIFFERENT_SEQ, "rna")],
+            [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
         assert score > 0.5
@@ -84,7 +84,7 @@ class TestRNAFeatureSimilarityConstraint:
         """Identical sequences should have score near 0."""
         config = RNAFeatureSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_feature_similarity_constraint(
-            [Sequence(HAIRPIN_SEQ, "rna")],
+            [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
         assert score < EPSILON
@@ -93,7 +93,7 @@ class TestRNAFeatureSimilarityConstraint:
         """Different sequences should have score > 0."""
         config = RNAFeatureSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_feature_similarity_constraint(
-            [Sequence(DIFFERENT_SEQ, "rna")],
+            [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
         assert score > 0.0
@@ -106,7 +106,7 @@ class TestRNABasePairSimilarityConstraint:
         """Identical sequences should have score near 0."""
         config = RNABasePairSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_basepair_similarity_constraint(
-            [Sequence(HAIRPIN_SEQ, "rna")],
+            [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
         assert score < EPSILON
@@ -115,7 +115,7 @@ class TestRNABasePairSimilarityConstraint:
         """Unstructured vs structured should have score of 1."""
         config = RNABasePairSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         score = rna_basepair_similarity_constraint(
-            [Sequence(DIFFERENT_SEQ, "rna")],
+            [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
         assert score == 1.0
@@ -128,7 +128,7 @@ class TestRNABasePairSimilarityConstraint:
         )
         # LONG_HAIRPIN is much longer than HAIRPIN_SEQ
         score = rna_basepair_similarity_constraint(
-            [Sequence(LONG_HAIRPIN, "rna")],
+            [(Sequence(LONG_HAIRPIN, "rna"),)],
             config,
         )[0]
         assert score == 1.0
@@ -142,9 +142,9 @@ class TestBatchedConstraints:
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
         scores = rna_property_similarity_constraint(
             [
-                Sequence(HAIRPIN_SEQ, "rna"),
-                Sequence(SIMILAR_HAIRPIN, "rna"),
-                Sequence(DIFFERENT_SEQ, "rna"),
+                (Sequence(HAIRPIN_SEQ, "rna"),),
+                (Sequence(SIMILAR_HAIRPIN, "rna"),),
+                (Sequence(DIFFERENT_SEQ, "rna"),),
             ],
             config,
         )

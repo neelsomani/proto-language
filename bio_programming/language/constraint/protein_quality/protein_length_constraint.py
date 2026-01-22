@@ -4,7 +4,7 @@ Protein length constraint function.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
@@ -52,13 +52,11 @@ class ProteinLengthConfig(BaseConfig):
     label="Protein Length",
     config=ProteinLengthConfig,
     description="Evaluate whether protein length falls within acceptable range",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="protein quality",
     supported_sequence_types=["protein"],
 )
-def protein_length_constraint(sequences: List[Sequence], config: ProteinLengthConfig) -> List[float]:
+def protein_length_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinLengthConfig) -> List[float]:
     """Evaluate whether protein sequence lengths fall within an acceptable range.
     
     This constraint function checks if protein sequences have lengths within a
@@ -67,8 +65,8 @@ def protein_length_constraint(sequences: List[Sequence], config: ProteinLengthCo
     with the distance outside the acceptable range.
 
     Args:
-        sequences (List[Sequence]): List of protein sequences to evaluate. All
-            sequences must have ``sequence_type == "protein"``.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one protein sequence.
             
         config (ProteinLengthConfig): Configuration object containing ``min_length``
             (minimum acceptable length in amino acids) and ``max_length`` (maximum
@@ -96,13 +94,13 @@ def protein_length_constraint(sequences: List[Sequence], config: ProteinLengthCo
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinLengthConfig(min_length=10, max_length=500)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_length_constraint([seq], config)
+        >>> scores = protein_length_constraint([(seq,)], config)
         >>> print(scores[0])  # 0.0
         >>> print(seq._metadata["protein_length"])  # 37
     """
     scores = []
     
-    for seq in sequences:
+    for (seq,) in input_sequences:
         actual_length = len(seq)
         seq._metadata["protein_length"] = actual_length
         score = calculate_range_deviation(actual_length, config.min_length, config.max_length)

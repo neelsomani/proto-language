@@ -5,7 +5,7 @@ Protein symmetry ring constraint for symmetric multimeric structures.
 from __future__ import annotations
 
 from io import StringIO
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 import numpy as np
 from biotite.structure import get_chains
@@ -114,14 +114,12 @@ class ProteinSymmetryRingConfig(BaseConfig):
     label="Protein Symmetry Ring Structure",
     config=ProteinSymmetryRingConfig,
     description="Constrain protein to form symmetric ring-like multimeric structure",
-    batched=True,
-    multi_input=False,
     gpu_required=True,
     tools_called=["esmfold", "prodigal"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],
 )
-def protein_symmetry_ring_constraint(sequences: List[Sequence], config: ProteinSymmetryRingConfig) -> List[float]:
+def protein_symmetry_ring_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinSymmetryRingConfig) -> List[float]:
     """Constrain proteins to form symmetric ring-like multimeric structures using ESMFold.
     
     This constraint function uses ESMFold to predict multimeric protein
@@ -144,9 +142,10 @@ def protein_symmetry_ring_constraint(sequences: List[Sequence], config: ProteinS
     depending on length and hardware.
 
     Args:
-        sequences (List[Sequence]): List of protein or DNA sequences to evaluate.
-            All sequences in the list must be the same type (all DNA or all PROTEIN).
-            For DNA sequences, ORF prediction is performed automatically.
+        input_sequences (List[Tuple[Sequence, ...]]): List of single-sequence tuples to
+            evaluate. Each tuple contains one protein or DNA sequence. All sequences
+            must be the same type. For DNA sequences, ORF prediction is performed
+            automatically.
             
         config (ProteinSymmetryRingConfig): Configuration object containing
             ``n_replications`` (number of protomers in ring, default: 2),
@@ -161,10 +160,6 @@ def protein_symmetry_ring_constraint(sequences: List[Sequence], config: ProteinS
             (std of inter-protomer distances) / max_symmetry_std, capped at 1.0.
             For DNA sequences, the score is based on the best symmetry among all
             predicted proteins.
-
-    Raises:
-        AssertionError: If the number of chains in the predicted structure doesn't
-            match ``n_replications``.
     
     Note:
         This function modifies the input sequences by adding metadata to each
@@ -197,16 +192,18 @@ def protein_symmetry_ring_constraint(sequences: List[Sequence], config: ProteinS
         ...     n_replications=6,  # Hexamer
         ...     max_symmetry_std=10.0
         ... )
-        >>> scores = protein_symmetry_ring_constraint([seq], config)
+        >>> scores = protein_symmetry_ring_constraint([(seq,)], config)
         >>> print(scores[0])  # e.g., 0.35 (3.5 Å std / 10.0 Å max)
         >>> print(seq._metadata["symmetry_std_raw"])  # e.g., 3.5 Å
         >>> print(seq._metadata["symmetry_score_normalized"])  # 0.35
     """
+    # Extract sequences from tuples and separate by type
+    sequences = [seq for (seq,) in input_sequences]
     by_type = {"dna": [], "protein": []}
     for seq in sequences:
         by_type[seq.sequence_type].append(seq)
     
-    scores = [None] * len(sequences)
+    scores = [None] * len(input_sequences)
     
     if by_type["protein"]:
         protein_scores = _evaluate_protein_symmetry(by_type["protein"], config)

@@ -169,15 +169,13 @@ def _structure_confidence(
     label="Structure pLDDT Score",
     config=StructureConfidenceConfig,
     description="Evaluate structure quality using predicted LDDT score",
-    batched=True,
-    multi_input=True,
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_plddt_constraint(
-    complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
 ) -> List[float]:
     """Evaluate structure quality using predicted LDDT (pLDDT) score.
 
@@ -205,7 +203,7 @@ def structure_plddt_constraint(
         ...     function_config={"structure_tool": "esmfold"},
         ... )
     """
-    raw_metrics =  _structure_confidence(complexes, config, "avg_plddt")
+    raw_metrics =  _structure_confidence(input_sequences, config, "avg_plddt")
     scores = []
     for metric in raw_metrics:
         if metric is None:
@@ -223,15 +221,13 @@ def structure_plddt_constraint(
     label="Structure pTM Score",
     config=StructureConfidenceConfig,
     description="Evaluate structure quality using predicted TM score",
-    batched=True,
-    multi_input=True,
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_ptm_constraint(
-    complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
 ) -> List[float]:
     """Evaluate structure quality using predicted TM-score (pTM).
 
@@ -255,7 +251,7 @@ def structure_ptm_constraint(
         ...     function_config={"structure_tool": "esmfold"},
         ... )
     """
-    raw_metrics = _structure_confidence(complexes, config, "ptm")
+    raw_metrics = _structure_confidence(input_sequences, config, "ptm")
     # pTM is pretty standard, just return 1 minus the raw metric.
     return [ 1. - metric if metric is not None else 1. for metric in raw_metrics ]
 
@@ -265,15 +261,13 @@ def structure_ptm_constraint(
     label="Structure ipTM Score",
     config=StructureConfidenceConfig,
     description="Evaluate interface quality using predicted interface TM score",
-    batched=True,
-    multi_input=True,
     gpu_required=True,
     tools_called=["alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_iptm_constraint(
-    complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
 ) -> List[float]:
     """Evaluate interface quality using predicted interface TM-score (ipTM).
 
@@ -316,7 +310,7 @@ def structure_iptm_constraint(
         ...     },
         ... )
     """
-    raw_metrics = _structure_confidence(complexes, config, "iptm")
+    raw_metrics = _structure_confidence(input_sequences, config, "iptm")
     # ipTM is pretty standard, just return 1 minus the raw metric.
     return [ 1. - metric if metric is not None else 1. for metric in raw_metrics ]
 
@@ -326,15 +320,13 @@ def structure_iptm_constraint(
     label="Structure pAE Score",
     config=StructureConfidenceConfig,
     description="Evaluate structure quality using predicted aligned error",
-    batched=True,
-    multi_input=True,
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_pae_constraint(
-    complexes: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
 ) -> List[float]:
     """Evaluate structure quality using predicted aligned error (pAE).
 
@@ -366,7 +358,7 @@ def structure_pae_constraint(
         ...     },
         ... )
     """
-    raw_metrics =  _structure_confidence(complexes, config, "avg_pae")
+    raw_metrics =  _structure_confidence(input_sequences, config, "avg_pae")
     scores = [
         min(metric / PAE_MAXIMUM, 1.) if metric is not None else 1.
         for metric in raw_metrics

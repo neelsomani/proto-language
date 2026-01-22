@@ -35,9 +35,10 @@ def test_splice_transformer_tissue_specificity():
         splice_transformer_config=SpliceTransformerConfig(device="cpu"),
     )
 
-    score = splice_transformer_specificity(input_sequence, specificity_config)
+    scores = splice_transformer_specificity([(input_sequence,)], specificity_config)
 
-    assert 0. <= score <= 1., "Score must be between 0 and 1, inclusive"
+    assert len(scores) == 1
+    assert 0. <= scores[0] <= 1., "Score must be between 0 and 1, inclusive"
 
 
 @pytest.mark.uses_gpu
@@ -56,9 +57,10 @@ def test_splice_transformer_all_tissues():
         splice_transformer_config=SpliceTransformerConfig(device="cuda"),
     )
 
-    score = splice_transformer_specificity(input_sequence, specificity_config)
+    scores = splice_transformer_specificity([(input_sequence,)], specificity_config)
 
-    assert 0. <= score <= 1., "Score must be between 0 and 1, inclusive"
+    assert len(scores) == 1
+    assert 0. <= scores[0] <= 1., "Score must be between 0 and 1, inclusive"
 
 
 def test_splice_transformer_intron_boundary_cpu():
@@ -75,9 +77,10 @@ def test_splice_transformer_intron_boundary_cpu():
         splice_transformer_config=SpliceTransformerConfig(device="cpu"),
     )
 
-    score = splice_transformer_intron_boundary(input_sequence, boundary_config)
+    scores = splice_transformer_intron_boundary([(input_sequence,)], boundary_config)
 
-    assert 0. <= score <= 1., "Score must be between 0 and 1, inclusive"
+    assert len(scores) == 1
+    assert 0. <= scores[0] <= 1., "Score must be between 0 and 1, inclusive"
 
 
 @pytest.mark.uses_gpu
@@ -95,6 +98,7 @@ def test_splice_transformer_intron_boundary_gpu():
         splice_transformer_config=SpliceTransformerConfig(device="cuda"),
     )
 
-    score = splice_transformer_intron_boundary(input_sequence, boundary_config)
+    scores = splice_transformer_intron_boundary([(input_sequence,)], boundary_config)
 
-    assert 0. <= score <= 1., "Score must be between 0 and 1, inclusive"
+    assert len(scores) == 1
+    assert 0. <= scores[0] <= 1., "Score must be between 0 and 1, inclusive"

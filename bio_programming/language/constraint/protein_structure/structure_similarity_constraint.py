@@ -578,15 +578,13 @@ def _prepare_target_structure(config: StructureConstraintBaseConfig) -> Optional
     label="Structural RMSD Similarity",
     config=StructureRMSDConfig,
     description="Compare structure RMSD against a target (PDB or Sequence) using generic predictors.",
-    batched=True,
-    multi_input=True,
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai", "pymol"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_rmsd_constraint(
-    complexes: List[Tuple[Sequence, ...]], config: StructureRMSDConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureRMSDConfig
 ) -> List[float]:
     """
     Predicts structure of input candidates and compares RMSD against a target.
@@ -597,11 +595,11 @@ def structure_rmsd_constraint(
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
         logger.warning("Target preparation failed, returning worst score.")
-        return [1.0] * len(complexes)
+        return [1.0] * len(input_sequences)
 
     # Prepare candidates.
     structure_complexes = []
-    for candidate_tuple in complexes:
+    for candidate_tuple in input_sequences:
         # Extract sequences and types
         chain_seqs = [s.sequence for s in candidate_tuple]
         chain_types = [s.sequence_type for s in candidate_tuple]
@@ -615,11 +613,11 @@ def structure_rmsd_constraint(
         results = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
     except Exception as e:
         logger.error(f"Structure prediction failed: {e}")
-        return [MAX_ENERGY] * len(complexes)
+        return [MAX_ENERGY] * len(input_sequences)
 
     # Compute RMSD scores.
     scores = []
-    for candidate_structure, candidate_tuple in zip(results.structures, complexes):
+    for candidate_structure, candidate_tuple in zip(results.structures, input_sequences):
         rmsd_data = _compute_ce_aligned_rmsd(target_pdb, candidate_structure.structure_pdb)
         rmsd_val = rmsd_data['rmsd']
 
@@ -658,15 +656,13 @@ def _count_pdb_chains(pdb_text: str) -> int:
     label="Structural TM-score Similarity",
     config=StructureTMScoreConfig,
     description="Compare structure TM-score against a target. Returns 1 - TMscore.",
-    batched=True,
-    multi_input=True,
     gpu_required=True,
     tools_called=["esmfold", "alphafold3", "boltz", "chai", "tmalign", "usalign"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
 )
 def structure_tmscore_constraint(
-    complexes: List[Tuple[Sequence, ...]], config: StructureTMScoreConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureTMScoreConfig
 ) -> List[float]:
     """
     Predicts structure and compares TM-score. Returns (1.0 - TMscore).
@@ -686,13 +682,13 @@ def structure_tmscore_constraint(
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
         logger.warning("Target preparation failed, returning worst score.")
-        return [1.0] * len(complexes)
+        return [1.0] * len(input_sequences)
 
     n_target_chains = _count_pdb_chains(target_pdb)
 
     # Prepare candidates.
     structure_complexes = []
-    for candidate_tuple in complexes:
+    for candidate_tuple in input_sequences:
         chain_seqs = [s.sequence for s in candidate_tuple]
         chain_types = [s.sequence_type for s in candidate_tuple]
 
@@ -705,11 +701,11 @@ def structure_tmscore_constraint(
         results = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
     except Exception as e:
         logger.error(f"Structure prediction failed: {e}")
-        return [MAX_ENERGY] * len(complexes)
+        return [MAX_ENERGY] * len(input_sequences)
 
     # Compute TMscores.
     scores = []
-    for candidate_structure, candidate_tuple in zip(results.structures, complexes):
+    for candidate_structure, candidate_tuple in zip(results.structures, input_sequences):
         n_cand_chains = len(candidate_tuple)
 
         if n_target_chains == 1 and n_cand_chains == 1:

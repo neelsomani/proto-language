@@ -49,7 +49,7 @@ class TestConstraintEvaluation:
         segment = _make_segment_with_candidates(sequences, "dna")
         config = MockConstraintConfig()
 
-        # Test sequential (non-batched) mode
+        # Test with mock_single_input_scoring_function
         constraint_seq = Constraint(
             inputs=[segment],
             function=mock_single_input_scoring_function,
@@ -61,7 +61,7 @@ class TestConstraintEvaluation:
         # Reset segment for next test
         segment = _make_segment_with_candidates(sequences, "dna")
 
-        # Test batched mode
+        # Test with mock_multi_input_scoring_function
         constraint_batch = Constraint(
             inputs=[segment],
             function=mock_multi_input_scoring_function,
@@ -90,23 +90,6 @@ class TestConstraintEvaluation:
             assert "t_count" in constraints["mock_multi_input_scoring_function"]["data"]
             assert "total_length" in constraints["mock_multi_input_scoring_function"]["data"]
             assert "t_fraction" in constraints["mock_multi_input_scoring_function"]["data"]
-
-    def test_single_input_constraint_rejects_multiple_segments(self):
-        """Tests that single-input constraints reject multiple segments."""
-        sequences_a = ["ACTG", "TCTG", "TTTG", "TTTT"]
-        sequences_b = ["ACTG", "TCTG", "TTTG", "TTTT"]
-
-        seg_a = _make_segment_with_candidates(sequences_a, "dna")
-        seg_b = _make_segment_with_candidates(sequences_b, "dna")
-        config = MockConstraintConfig()
-
-        # Single-input constraint should reject multiple segments
-        with pytest.raises(ValueError, match="single-input.*but received.*segments"):
-            Constraint(
-                inputs=[seg_a, seg_b],
-                function=mock_multi_input_scoring_function,  # multi_input=False
-                function_config=config,
-            )
 
     def test_disjoint_mode(self):
         """Tests constraint evaluation in disjoint mode (separate sequences)."""
@@ -207,7 +190,7 @@ class TestConstraintValidation:
 
     def test_sequence_type_validation_checks_all_segments(self):
         """Test that validation checks sequence types for all input segments."""
-        # All segments should be validated regardless of multi_input flag
+        # All segments should be validated
         dna_seg = Segment(sequence="ATCGATCG", sequence_type="dna")
 
         # protein_only constraint with DNA segment should fail
@@ -320,10 +303,8 @@ class TestConstraintThreshold:
 
     def test_threshold_converts_scores_to_boolean(self):
         """Test that threshold converts float scores to boolean filters."""
-        def mock_scoring(sequences, config=None):
-            return [len(seq.sequence) / 10.0 for seq in sequences]
-        mock_scoring._constraint_batched = True
-        mock_scoring._constraint_multi_input = False
+        def mock_scoring(input_sequences, config=None):
+            return [len(seq_tuple[0].sequence) / 10.0 for seq_tuple in input_sequences]
         mock_scoring._constraint_config_class = MockConstraintConfig
         mock_scoring._constraint_supported_sequence_types = ["dna"]
 
@@ -344,10 +325,8 @@ class TestConstraintThreshold:
 
     def test_no_threshold_returns_float_scores(self):
         """Test that constraints without threshold return float scores."""
-        def mock_scoring(sequences, config=None):
+        def mock_scoring(input_sequences, config=None):
             return [0.4, 0.8]
-        mock_scoring._constraint_batched = True
-        mock_scoring._constraint_multi_input = False
         mock_scoring._constraint_config_class = MockConstraintConfig
         mock_scoring._constraint_supported_sequence_types = ["dna"]
 
@@ -385,10 +364,8 @@ class TestConstraintWeight:
 
     def test_weight_multiplies_scores(self):
         """Test that weight correctly multiplies raw scores."""
-        def mock_scoring(sequences, config=None):
+        def mock_scoring(input_sequences, config=None):
             return [0.2, 0.5]
-        mock_scoring._constraint_batched = True
-        mock_scoring._constraint_multi_input = False
         mock_scoring._constraint_config_class = MockConstraintConfig
         mock_scoring._constraint_supported_sequence_types = ["dna"]
 
@@ -440,20 +417,6 @@ class TestConstraintEdgeCases:
 
         assert len(scores) == 100
         assert all(0.0 <= s <= 1.0 for s in scores)
-
-    def test_single_input_constraint_rejects_three_plus_segments(self):
-        """Test that single-input constraints reject 3+ segments."""
-        seg1 = Segment(sequence="ATCG", sequence_type="dna")
-        seg2 = Segment(sequence="GGGG", sequence_type="dna")
-        seg3 = Segment(sequence="TTTT", sequence_type="dna")
-
-        # Single-input constraint should reject multiple segments
-        with pytest.raises(ValueError, match="single-input.*but received.*3 segments"):
-            Constraint(
-                inputs=[seg1, seg2, seg3],
-                function=mock_single_input_scoring_function,
-                function_config=MockConstraintConfig(),
-            )
 
     def test_empty_sequence_raises_error(self):
         """Test that empty sequence causes expected error (division by zero)."""

@@ -5,7 +5,7 @@ Protein globularity constraint for compact protein structures.
 from __future__ import annotations
 
 from io import StringIO
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -96,14 +96,12 @@ class ProteinGlobularityConfig(BaseConfig):
     label="Protein Globularity",
     config=ProteinGlobularityConfig,
     description="Encourage compact, globular protein structures",
-    batched=True,
-    multi_input=False,
     gpu_required=True,
     tools_called=["esmfold", "prodigal"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],
 )
-def protein_globularity_constraint(sequences: List[Sequence], config: ProteinGlobularityConfig) -> List[float]:
+def protein_globularity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinGlobularityConfig) -> List[float]:
     """Encourage compact, globular protein structures using ESMFold.
     
     This constraint function uses ESMFold to predict protein 3D structures
@@ -122,9 +120,10 @@ def protein_globularity_constraint(sequences: List[Sequence], config: ProteinGlo
     depending on length and hardware.
 
     Args:
-        sequences (List[Sequence]): List of protein or DNA sequences to evaluate.
-            All sequences in the list must be the same type (all DNA or all PROTEIN).
-            For DNA sequences, ORF prediction is performed automatically.
+        input_sequences (List[Tuple[Sequence, ...]]): List of single-sequence tuples to 
+            evaluate. Each tuple contains one protein or DNA sequence. All sequences
+            must be the same type. For DNA sequences, ORF prediction is performed
+            automatically.
             
         config (ProteinGlobularityConfig): Configuration object containing
             ``n_replications`` (oligomeric state, default: 1) and optional
@@ -137,10 +136,6 @@ def protein_globularity_constraint(sequences: List[Sequence], config: ProteinGlo
             sequences, returns normalized scores (0.0-1.0) where lower values
             indicate more compact structures. Scores are normalized by dividing
             by max_globulatrity (default 20.0 Å) and capped at 1.0.
-
-    Raises:
-        AssertionError: If any sequence in the input list is not a protein or DNA
-            sequence.
     
     Note:
         This function modifies the input sequences by adding metadata to each
@@ -171,7 +166,7 @@ def protein_globularity_constraint(sequences: List[Sequence], config: ProteinGlo
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
         >>> config = ProteinGlobularityConfig(n_replications=1)
-        >>> scores = protein_globularity_constraint([seq], config)
+        >>> scores = protein_globularity_constraint([(seq,)], config)
         >>> print(scores[0])  # e.g., 8.5 (Ångströms, lower = more compact)
         >>> print(seq._metadata["globularity_score"])  # e.g., 8.5
         >>> print(seq._metadata["avg_plddt"])  # e.g., 0.85 (also available)
@@ -180,20 +175,19 @@ def protein_globularity_constraint(sequences: List[Sequence], config: ProteinGlo
         
         >>> dna_seq = Sequence("ATGGTACTGAGCCCAGCG...", "dna")
         >>> config = ProteinGlobularityConfig(n_replications=1)
-        >>> scores = protein_globularity_constraint([dna_seq], config)
+        >>> scores = protein_globularity_constraint([(dna_seq,)], config)
         >>> print(scores[0])  # Normalized score (0.0-1.0)
         >>> print(dna_seq._metadata["prodigal_protein_count"])  # e.g., 2
         >>> print(dna_seq._metadata["esmfold_best_globularity"])  # e.g., 7.8 Å (best among predicted proteins)
         >>> print(dna_seq._metadata["esmfold_protein_globularities"])  # e.g., [9.2, 7.8]
     """
 
-    scores = []
+    # Extract sequences from tuples and delegate to type-specific handlers
+    sequences = [seq for (seq,) in input_sequences]
     if sequences[0].sequence_type == "protein":
-        scores = _evaluate_protein_globularity(sequences, config)
+        return _evaluate_protein_globularity(sequences, config)
     else:
-        scores = _evaluate_dna_globularity(sequences, config)
-
-    return scores
+        return _evaluate_dna_globularity(sequences, config)
 
 
 def _evaluate_protein_globularity(

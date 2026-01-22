@@ -43,14 +43,12 @@ def sample_batch_results():
                                         "score": 0.1,
                                         "weight": 1.0,
                                         "weighted_score": 0.1,
-                                        "multi_input": False,
                                         "data": {"gc_content": 50.0},
                                     },
                                     "length_constraint": {
                                         "score": 0.0,
                                         "weight": 1.0,
                                         "weighted_score": 0.0,
-                                        "multi_input": False,
                                         "data": {"length": 8},
                                     },
                                 },
@@ -63,7 +61,6 @@ def sample_batch_results():
                                         "score": 0.05,
                                         "weight": 1.0,
                                         "weighted_score": 0.05,
-                                        "multi_input": False,
                                         "data": {"gc_content": 52.0},
                                     },
                                 },
@@ -88,14 +85,12 @@ def sample_batch_results():
                                         "score": 0.2,
                                         "weight": 1.0,
                                         "weighted_score": 0.2,
-                                        "multi_input": False,
                                         "data": {"gc_content": 25.0},
                                     },
                                     "length_constraint": {
                                         "score": 0.0,
                                         "weight": 1.0,
                                         "weighted_score": 0.0,
-                                        "multi_input": False,
                                         "data": {"length": 8},
                                     },
                                 },
@@ -108,7 +103,6 @@ def sample_batch_results():
                                         "score": 0.01,
                                         "weight": 1.0,
                                         "weighted_score": 0.01,
-                                        "multi_input": False,
                                         "data": {"gc_content": 75.0},
                                     },
                                 },
@@ -144,7 +138,6 @@ def sample_history():
                                                 "score": 0.5,
                                                 "weight": 1.0,
                                                 "weighted_score": 0.5,
-                                                "multi_input": False,
                                                 "data": {"gc_content": 0.0},
                                             },
                                         },
@@ -158,7 +151,6 @@ def sample_history():
                                                 "score": 0.5,
                                                 "weight": 1.0,
                                                 "weighted_score": 0.5,
-                                                "multi_input": False,
                                                 "data": {"gc_content": 0.0},
                                             },
                                         },
@@ -188,7 +180,6 @@ def sample_history():
                                                 "score": 0.2,
                                                 "weight": 1.0,
                                                 "weighted_score": 0.2,
-                                                "multi_input": False,
                                                 "data": {"gc_content": 50.0},
                                             },
                                         },
@@ -202,7 +193,6 @@ def sample_history():
                                                 "score": 0.3,
                                                 "weight": 1.0,
                                                 "weighted_score": 0.3,
-                                                "multi_input": False,
                                                 "data": {"gc_content": 50.0},
                                             },
                                         },
@@ -527,7 +517,6 @@ class TestEdgeCases:
                                             "score": 0.1,
                                             "weight": 1.0,
                                             "weighted_score": 0.1,
-                                            "multi_input": False,
                                             "data": {"gc_content": 50.0},
                                         },
                                     },
@@ -540,7 +529,6 @@ class TestEdgeCases:
                                             "score": 0.0,
                                             "weight": 1.0,
                                             "weighted_score": 0.0,
-                                            "multi_input": False,
                                             "data": {"length": 4},
                                         },
                                     },
@@ -560,8 +548,8 @@ class TestEdgeCases:
         assert "gc_constraint.gc_content" in csv_output
         assert "length_constraint.length" in csv_output
 
-    def test_multi_input_constraint(self):
-        """Test handling multi-input constraints."""
+    def test_multi_segment_constraint(self):
+        """Test handling multi-segment constraints."""
         batch_results = {
             "batch_results": [
                 {
@@ -580,7 +568,6 @@ class TestEdgeCases:
                                             "score": 0.1,
                                             "weight": 1.0,
                                             "weighted_score": 0.1,
-                                            "multi_input": True,
                                             "input_segments": ["c0.protein_a", "c0.protein_b"],
                                             "position_in_inputs": 0,
                                             "data": {"binding_energy": -5.0},
@@ -595,7 +582,6 @@ class TestEdgeCases:
                                             "score": 0.1,
                                             "weight": 1.0,
                                             "weighted_score": 0.1,
-                                            "multi_input": True,
                                             "input_segments": ["c0.protein_a", "c0.protein_b"],
                                             "position_in_inputs": 1,
                                             "data": {"interface_contacts": 12},
@@ -616,4 +602,4 @@ class TestEdgeCases:
         # Both segments should have the interaction constraint columns
         csv_output = to_csv(rows)
         assert "interaction.score" in csv_output
-        assert "interaction.multi_input" in csv_output
+        assert "interaction.input_segments" in csv_output

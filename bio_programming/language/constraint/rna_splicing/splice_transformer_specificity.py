@@ -2,7 +2,7 @@
 Evaluate tissue-specific splicing with SpliceTransformer.
 """
 from __future__ import annotations
-from typing import List, Literal
+from typing import List, Literal, Tuple
 
 from pydantic import field_validator
 
@@ -112,21 +112,19 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     label="SpliceTransformer tissue specificity score",
     config=SpliceTransformerSpecificityConfig,
     description="Evaluate tissue-specific splicing with SpliceTransformer",
-    batched=False,
-    multi_input=False,
     gpu_required=True,
     tools_called=["splice_transformer"],
     category="rna splicing",
     supported_sequence_types=["dna"],
 )
 def splice_transformer_specificity(
-    sequence: Sequence,
+    input_sequences: List[Tuple[Sequence, ...]],
     config: SpliceTransformerSpecificityConfig,
-) -> float:
+) -> List[float]:
     """Evaluate tissue-specific splicing with SpliceTransformer.
     
     This constraint function uses SpliceTransformer to predict tissue-specific
-    splice site usage at specified positions in a DNA sequence. The model was
+    splice site usage at specified positions in DNA sequences. The model was
     trained on GTEx (Genotype-Tissue Expression) RNA-seq data from multiple human
     tissues and can predict how strongly a splice site will be used in different tissue
     contexts.
@@ -142,9 +140,10 @@ def splice_transformer_specificity(
     for a total analyzed region of 9000 bp.
 
     Args:
-        sequence (Sequence): DNA sequence to evaluate. Must be exactly
-            1000 bp in length. This is the central region containing the positions
-            to be evaluated for tissue-specific splicing.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one DNA sequence. Must be exactly 1000 bp in length.
+            This is the central region containing the positions to be evaluated for
+            tissue-specific splicing.
             
         config (SpliceTransformerSpecificityConfig): Configuration object containing
             ``left_context`` (4000 bp), ``right_context`` (4000 bp), ``splice_pos``
@@ -153,8 +152,8 @@ def splice_transformer_specificity(
             ``splice_transformer_config`` for advanced settings.
 
     Returns:
-        float: Constraint score ranging from 0.0 to 1.0. The interpretation depends
-            on the ``direction`` parameter:
+        List[float]: Constraint scores ranging from 0.0 to 1.0 for each sequence.
+            The interpretation depends on the ``direction`` parameter:
             
             - **direction="max"** (maximize splicing): Score = 1.0 - tissue_probability.
               Lower scores indicate stronger predicted splicing (0.0 = 100% probability,
@@ -202,8 +201,8 @@ def splice_transformer_specificity(
         ...     tissue="BRAIN",
         ...     direction="max"  # Maximize brain-specific splicing
         ... )
-        >>> score = splice_transformer_specificity(target_seq, config)
-        >>> print(score)  # e.g., 0.15 (85% brain-specific probability)
+        >>> scores = splice_transformer_specificity([(target_seq,)], config)
+        >>> print(scores[0])  # e.g., 0.15 (85% brain-specific probability)
         >>> print(target_seq._metadata["specificity_direction_BRAIN"])  # "max"
         >>> print(target_seq._metadata["specificity_score_BRAIN"])  # 0.15
     """
@@ -211,40 +210,44 @@ def splice_transformer_specificity(
     context_length = len(config.left_context)
     tissue = SpliceTransformerTissue[config.tissue]
 
-    splice_transformer_input = SpliceTransformerInput(
-        target_seqs=[sequence.sequence],
-        left_contexts=[config.left_context],
-        right_contexts=[config.right_context],
-    )
-    splice_transformer_config = config.splice_transformer_config.model_copy(
-        update={"context_length": context_length}
-    )
-
-    output = run_splice_transformer(
-        splice_transformer_input,
-        splice_transformer_config,
-    ).prediction
-
-    assert output.shape[1] == len(sequence.sequence)
-
-    if tissue == SpliceTransformerTissue.AVERAGE:
-        score = float(output[:, config.splice_pos, TISSUE_INDEX_OFFSET:].mean())
-    else:
-        score = float(output[:, config.splice_pos, TISSUE_INDEX_OFFSET + tissue.value].mean())
-
-    if config.direction == "max":
-        score = 1. - score
-    elif config.direction == "min":
-        pass
-    else:
-        raise ValueError(
-            f"Invalid SpliceTransformer specificity direction: {config.direction}, "
-            "must be either 'max' or 'min'."
+    scores = []
+    for (sequence,) in input_sequences:
+        splice_transformer_input = SpliceTransformerInput(
+            target_seqs=[sequence.sequence],
+            left_contexts=[config.left_context],
+            right_contexts=[config.right_context],
+        )
+        splice_transformer_config = config.splice_transformer_config.model_copy(
+            update={"context_length": context_length}
         )
 
-    sequence._metadata.update({
-        f"specificity_direction_{config.tissue}": config.direction,
-        f"specificity_score_{config.tissue}": score,
-    })
+        output = run_splice_transformer(
+            splice_transformer_input,
+            splice_transformer_config,
+        ).prediction
 
-    return score
+        assert output.shape[1] == len(sequence.sequence)
+
+        if tissue == SpliceTransformerTissue.AVERAGE:
+            score = float(output[:, config.splice_pos, TISSUE_INDEX_OFFSET:].mean())
+        else:
+            score = float(output[:, config.splice_pos, TISSUE_INDEX_OFFSET + tissue.value].mean())
+
+        if config.direction == "max":
+            score = 1. - score
+        elif config.direction == "min":
+            pass
+        else:
+            raise ValueError(
+                f"Invalid SpliceTransformer specificity direction: {config.direction}, "
+                "must be either 'max' or 'min'."
+            )
+
+        sequence._metadata.update({
+            f"specificity_direction_{config.tissue}": config.direction,
+            f"specificity_score_{config.tissue}": score,
+        })
+
+        scores.append(score)
+
+    return scores

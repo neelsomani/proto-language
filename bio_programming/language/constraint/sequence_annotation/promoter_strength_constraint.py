@@ -4,7 +4,7 @@ Promoter strength constraint using Salis Lab Promoter Calculator.
 
 from __future__ import annotations
 
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Tuple
 
 from promoter_calculator.wrapper import promoter_calculator
 
@@ -126,13 +126,11 @@ class PromoterStrengthConfig(BaseConfig):
     label="Promoter Strength",
     config=PromoterStrengthConfig,
     description="Evaluate promoter strength using Salis Lab Promoter Calculator",
-    batched=True,
-    multi_input=False,
     tools_called=["promoter_calculator"],
     category="sequence annotation",
     supported_sequence_types=["dna"],
 )
-def promoter_strength_constraint(sequences: List[Sequence], config: PromoterStrengthConfig) -> List[float]:
+def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], config: PromoterStrengthConfig) -> List[float]:
     """Evaluate bacterial promoter strength using Salis Lab Promoter Calculator.
     
     This constraint function uses the Salis Lab Promoter Calculator to predict
@@ -206,9 +204,9 @@ def promoter_strength_constraint(sequences: List[Sequence], config: PromoterStre
         >>> print(promoter_seq._metadata["promoter_strength"]["dG_rate"])  # e.g., -4.5
     """
 
-    # Clean all sequences
+    # Extract and clean sequences from tuples
     processed_sequences = []
-    for seq_obj in sequences:
+    for (seq_obj,) in input_sequences:
         s = seq_obj.sequence.upper().replace(" ", "").replace("\n", "")
         if config.add_context:
             s = ("A" * config.context_length) + s + ("A" * config.context_length)
@@ -255,7 +253,7 @@ def promoter_strength_constraint(sequences: List[Sequence], config: PromoterStre
                 all_results.append(res)
 
     # Process results for each sequence
-    for seq_obj, res in zip(sequences, all_results):
+    for (seq_obj,), res in zip(input_sequences, all_results):
         # Keep only + strand
         res = [r for r in res if getattr(r, "strand", "+") == "+"]
 

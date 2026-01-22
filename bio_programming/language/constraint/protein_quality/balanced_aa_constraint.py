@@ -5,7 +5,7 @@ Balanced amino acid constraint function.
 from __future__ import annotations
 
 from collections import Counter
-from typing import List
+from typing import List, Tuple
 import numpy as np
 
 from proto_language.language.core import Sequence, PROTEIN_AMINO_ACIDS
@@ -63,13 +63,11 @@ class BalancedAaConfig(BaseConfig):
     label="Balanced Amino Acid Representation",
     config=BalancedAaConfig,
     description="Evaluate the presence of underrepresented amino acids in a protein sequence",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="protein quality",
     supported_sequence_types=["protein"],
 )
-def balanced_aa_constraint(sequences: List[Sequence], config: BalancedAaConfig) -> List[float]:
+def balanced_aa_constraint(input_sequences: List[Tuple[Sequence, ...]], config: BalancedAaConfig) -> List[float]:
     """Evaluate the presence of underrepresented amino acids in protein sequences.
     
     This constraint function assesses whether protein sequences have balanced
@@ -84,8 +82,8 @@ def balanced_aa_constraint(sequences: List[Sequence], config: BalancedAaConfig) 
     of underrepresented amino acids exceeds the configured threshold.
     
     Args:
-        sequences (List[Sequence]): List of protein sequences to evaluate. All
-            sequences must have ``sequence_type == "protein"``.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one protein sequence.
             
         config (BalancedAaConfig): Configuration object containing ``min_aa_frequency``
             (minimum acceptable relative frequency, default: 0.02) and
@@ -121,18 +119,19 @@ def balanced_aa_constraint(sequences: List[Sequence], config: BalancedAaConfig) 
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = BalancedAaConfig(min_aa_frequency=0.05, max_underrepresented_count=2)
         >>> seq = Sequence("AAAAAACCCCCCDDDDDD", sequence_type="protein")
-        >>> scores = balanced_aa_constraint([seq], config)
+        >>> scores = balanced_aa_constraint([(seq,)], config)
         >>> # This sequence has only 3 amino acid types, so 17 are underrepresented
         >>> # This exceeds max_underrepresented_count=2, resulting in a penalty
         >>> print(scores[0])  # Will be > 0.0
         >>> print(seq._metadata["underrepresented_aa_count"])  # 17
     """
-    seq_strings = [seq.sequence for seq in sequences]
+    # Extract sequence strings from tuples
+    seq_strings = [seq.sequence for (seq,) in input_sequences]
     seq_lengths = np.array([len(s) for s in seq_strings])
     aa_alphabet = PROTEIN_AMINO_ACIDS
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
     
-    batch_size = len(sequences)
+    batch_size = len(input_sequences)
     aa_count_matrix = np.zeros((batch_size, 20), dtype=np.int32)
     
     for seq_idx, seq_str in enumerate(seq_strings):
@@ -188,7 +187,7 @@ def balanced_aa_constraint(sequences: List[Sequence], config: BalancedAaConfig) 
             0.0
         )
 
-    for seq_idx, input_sequence in enumerate(sequences):
+    for seq_idx, (input_sequence,) in enumerate(input_sequences):
         seq_str = seq_strings[seq_idx]
         aa_counts = {
             aa_alphabet[aa_idx]: int(aa_count_matrix[seq_idx, aa_idx])

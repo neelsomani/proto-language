@@ -5,7 +5,7 @@ K-mer frequency constraint for evaluating sequence k-mer properties with arbitra
 from __future__ import annotations
 
 import itertools
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Tuple
 import numpy as np
 
 from pydantic import model_validator, field_validator
@@ -148,13 +148,11 @@ class KmerFrequencyConfig(BaseConfig):
     label="K-mer Frequency",
     config=KmerFrequencyConfig,
     description="Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring mode",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
 )
-def kmer_frequency_constraint(sequences: List[Sequence], config: KmerFrequencyConfig) -> List[float]:
+def kmer_frequency_constraint(input_sequences: List[Tuple[Sequence, ...]], config: KmerFrequencyConfig) -> List[float]:
     """Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring modes
     
     This constraint function analyzes k-mer (subsequences of length k) composition
@@ -172,9 +170,10 @@ def kmer_frequency_constraint(sequences: List[Sequence], config: KmerFrequencyCo
     evaluated k-mers as the penalty score.
 
     Args:
-        sequences (List[Sequence]): List of DNA, RNA, or protein sequences to
-            evaluate. Sequences must be at least k nucleotides/amino acids long.
-            Sequences shorter than k receive maximum penalty.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one DNA, RNA, or protein sequence. Sequences must 
+            be at least k nucleotides/amino acids long. Sequences shorter than k 
+            receive maximum penalty.
 
         config (KmerFrequencyConfig): Configuration object containing ``k`` (k-mer
             length), ``scoring_mode`` (default: "frequency"), ``min_value``,
@@ -188,7 +187,7 @@ def kmer_frequency_constraint(sequences: List[Sequence], config: KmerFrequencyCo
             range, capped at 1.0.
 
     Raises:
-        ValueError: If the input sequence list is empty, or if a sequence is not
+        ValueError: If the input list is empty, or if a sequence is not
             DNA, RNA, or PROTEIN type.
     
     Note:
@@ -225,18 +224,15 @@ def kmer_frequency_constraint(sequences: List[Sequence], config: KmerFrequencyCo
         ...     min_value=0.5,  # Allow some underrepresentation
         ...     max_value=2.0   # Allow some overrepresentation
         ... )
-        >>> scores = kmer_frequency_constraint([coding_seq], config)
+        >>> scores = kmer_frequency_constraint([(coding_seq,)], config)
         >>> deviations = coding_seq._metadata["3mer_usage_deviations"]
         >>> for codon, ratio in sorted(deviations.items(), key=lambda x: x[1], reverse=True):
         ...     print(f"{codon}: {ratio:.2f}x expected")
        """ 
 
-    if not sequences:
-        raise ValueError("Input sequence list must not be empty")
-
     scores = []
 
-    for seq in sequences:
+    for (seq,) in input_sequences:
         # Handle sequences shorter than k
         if len(seq) < config.k:
             seq._metadata[f"{config.k}mer_data"] = {}

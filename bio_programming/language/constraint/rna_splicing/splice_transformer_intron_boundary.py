@@ -2,7 +2,7 @@
 Evaluate intron boundary prediction with SpliceTransformer.
 """
 from __future__ import annotations
-from typing import List
+from typing import List, Tuple
 
 from pydantic import field_validator
 
@@ -108,22 +108,20 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     label="SpliceTransformer intron boundary score",
     config=SpliceTransformerIntronBoundaryConfig,
     description="Evaluate intron boundary prediction with SpliceTransformer",
-    batched=False,
-    multi_input=False,
     gpu_required=True,
     tools_called=["splice_transformer"],
     category="rna splicing",
     supported_sequence_types=["dna"],
 )
 def splice_transformer_intron_boundary(
-    sequence: Sequence,
+    input_sequences: List[Tuple[Sequence, ...]],
     config: SpliceTransformerIntronBoundaryConfig,
-) -> float:
+) -> List[float]:
     """Evaluate intron boundary prediction with SpliceTransformer
     
     This constraint function uses SpliceTransformer, a deep learning model, to 
     predict the quality of donor and acceptor splice sites at specified positions
-    in a DNA sequence. The model analyzes the sequence in its genomic context 
+    in DNA sequences. The model analyzes the sequence in its genomic context 
     (with 4 kb flanking regions on each side) to assess whether the specified
     positions are likely to function as authentic splice sites during pre-mRNA
     processing.
@@ -138,9 +136,9 @@ def splice_transformer_intron_boundary(
     for a total analyzed region of 9000 bp.
 
     Args:
-        sequence (Sequence): DNA sequence to evaluate. Must be exactly
-            1000 bp in length. This is the central region containing the splice
-            sites to be evaluated.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one DNA sequence. Must be exactly 1000 bp in length.
+            This is the central region containing the splice sites to be evaluated.
             
         config (SpliceTransformerIntronBoundaryConfig): Configuration object
             containing ``left_context`` (4000 bp), ``right_context`` (4000 bp),
@@ -149,9 +147,9 @@ def splice_transformer_intron_boundary(
             ``splice_transformer_config`` for advanced settings.
 
     Returns:
-        float: Constraint score ranging from 0.0 (perfect splice sites, both
+        List[float]: Constraint scores ranging from 0.0 (perfect splice sites, both
             donor and acceptor probabilities = 1.0) to 1.0 (poor splice sites,
-            probabilities = 0.0). The score is calculated as:
+            probabilities = 0.0) for each sequence. The score is calculated as:
             1.0 - ((donor_probability + acceptor_probability) / 2).
             When multiple positions are specified, the score uses the mean
             probability across all donor and acceptor positions.
@@ -197,8 +195,8 @@ def splice_transformer_intron_boundary(
         ...     donor_pos=99,     # Position before GT
         ...     acceptor_pos=901  # Position after AG
         ... )
-        >>> score = splice_transformer_intron_boundary(target_seq, config)
-        >>> print(score)  # e.g., 0.15 (good splice sites, 85% probability)
+        >>> scores = splice_transformer_intron_boundary([(target_seq,)], config)
+        >>> print(scores[0])  # e.g., 0.15 (good splice sites, 85% probability)
         >>> print(target_seq._metadata["donor_score"])  # e.g., 0.12
         >>> print(target_seq._metadata["acceptor_score"])  # e.g., 0.18
     """
@@ -206,33 +204,36 @@ def splice_transformer_intron_boundary(
         f"Context lengths must be {SPLICE_TRANSFORMER_CONTEXT_LENGTH}"
     context_length = len(config.left_context)
 
+    scores = []
+    for (sequence,) in input_sequences:
+        splice_transformer_input = SpliceTransformerInput(
+            target_seqs=[sequence.sequence],
+            left_contexts=[config.left_context],
+            right_contexts=[config.right_context],
+        )
+        splice_transformer_config = config.splice_transformer_config.model_copy(
+            update={"context_length": context_length}
+        )
 
-    splice_transformer_input = SpliceTransformerInput(
-        target_seqs=[sequence.sequence],
-        left_contexts=[config.left_context],
-        right_contexts=[config.right_context],
-    )
-    splice_transformer_config = config.splice_transformer_config.model_copy(
-        update={"context_length": context_length}
-    )
+        output = run_splice_transformer(
+            splice_transformer_input,
+            splice_transformer_config,
+        ).prediction
 
-    output = run_splice_transformer(
-        splice_transformer_input,
-        splice_transformer_config,
-    ).prediction
+        assert output.shape[1] == len(sequence.sequence)
 
-    assert output.shape[1] == len(sequence.sequence)
+        donor_score = float(output[:, config.donor_pos, SpliceTransformerType.DONOR.value].mean())
+        acceptor_score = float(output[:, config.acceptor_pos, SpliceTransformerType.ACCEPTOR.value].mean())
+        score = 1. - ((donor_score + acceptor_score) / 2)
 
-    donor_score = float(output[:, config.donor_pos, SpliceTransformerType.DONOR.value].mean())
-    acceptor_score = float(output[:, config.acceptor_pos, SpliceTransformerType.ACCEPTOR.value].mean())
-    score = 1. - ((donor_score + acceptor_score) / 2)
+        sequence._metadata.update({
+            "donor_pos": config.donor_pos,
+            "acceptor_pos": config.acceptor_pos,
+            "donor_score": 1. - donor_score,
+            "acceptor_score": 1. - acceptor_score,
+            "total_splice_score": score,
+        })
 
-    sequence._metadata.update({
-        "donor_pos": config.donor_pos,
-        "acceptor_pos": config.acceptor_pos,
-        "donor_score": 1. - donor_score,
-        "acceptor_score": 1. - acceptor_score,
-        "total_splice_score": score,
-    })
+        scores.append(score)
 
-    return score
+    return scores

@@ -255,15 +255,13 @@ class BoltzBindingStrengthConfig(BaseConfig):
     label="Boltz Binding Strength",
     config=BoltzBindingStrengthConfig,
     description="Evaluate protein-protein/protein-ligand binding using Boltz2 structure prediction",
-    batched=True,
-    multi_input=True,
     gpu_required=True,
     tools_called=["boltz"],
     category="protein_structure",
     supported_sequence_types=["dna", "rna", "protein", "ligand"],
 )
 def boltz_binding_strength_constraint(
-    complexes: List[Tuple[Sequence, ...]], config: BoltzBindingStrengthConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: BoltzBindingStrengthConfig
 ) -> float | List[float]:
     """Evaluate binding strength and quality using Boltz structure prediction.
     
@@ -283,7 +281,7 @@ def boltz_binding_strength_constraint(
     depending on size and hardware.
 
     Args:
-        complexes (List[Tuple[Sequence, ...]]): List of complexes to evaluate,
+        input_sequences (List[Tuple[Sequence, ...]]): List of complexes to evaluate,
             where each complex is a tuple of Sequence objects representing the
             chains/molecules. Examples:
             - (protein_seq,): Single monomer
@@ -337,7 +335,7 @@ def boltz_binding_strength_constraint(
         ligands = Ligands(config.ligands)
 
     boltz_complexes = []
-    for sequence_tuple in complexes:
+    for sequence_tuple in input_sequences:
         # Pull chains and entity types from complex sequences
         chains = [s.sequence for s in sequence_tuple]
         entity_types = [s.sequence_type for s in sequence_tuple]
@@ -365,7 +363,7 @@ def boltz_binding_strength_constraint(
 
     # Scoring each complex
     penalties = []
-    for seq_obj_tuple, comp, structure in zip(complexes, inputs, outputs):
+    for seq_obj_tuple, comp, structure in zip(input_sequences, inputs, outputs):
 
         # Determine complex type
         n_chains = comp.num_chains()

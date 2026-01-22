@@ -498,15 +498,13 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
         "Generate conformational ensemble and compute RMSD against "
         "an experimental target structure using PyMOL alignment."
     ),
-    batched=True,
-    multi_input=False,
     gpu_required=True,
     tools_called=["bioemu", "pymol"],
     category="protein_structure",
     supported_sequence_types=["protein"],
 )
 def structure_ensemble_rmsd_constraint(
-    sequences: List[Sequence],
+    input_sequences: List[Tuple[Sequence, ...]],
     config: StructureEnsembleSimilarityConfig,
 ) -> List[float]:
     """
@@ -521,14 +519,15 @@ def structure_ensemble_rmsd_constraint(
     5. Converts the summarized RMSD to a 0-1 score using a sigmoid function.
 
     Args:
-        sequences: List of protein Sequence objects to evaluate.
+        input_sequences: List of single-sequence tuples. Each tuple contains one protein
+            Sequence object to evaluate.
         config: Configuration specifying target structure, ensemble prediction
                 parameters, and scoring settings.
 
     Returns:
         List of scores (0-1), where 0 is a perfect match and 1 is poor.
     """
-    # Prepare target structure.
+    # Prepare target structure
     target_pdb = _prepare_target_structure(
         target_structure=config.target_structure,
         target_pdb_file=config.target_pdb_file,
@@ -539,16 +538,16 @@ def structure_ensemble_rmsd_constraint(
 
     if target_pdb is None:
         logger.error("Target structure preparation failed.")
-        return [1.0] * len(sequences)
+        return [1.0] * len(input_sequences)
 
     if config.verbose:
         logger.info(f"Target structure prepared ({len(target_pdb)} characters)")
 
     scores = []
 
-    for seq_idx, seq in enumerate(sequences):
+    for seq_idx, (seq,) in enumerate(input_sequences):
         if config.verbose:
-            logger.info(f"Processing sequence {seq_idx + 1}/{len(sequences)}")
+            logger.info(f"Processing sequence {seq_idx + 1}/{len(input_sequences)}")
 
         try:
             # Extract candidate subsequence if range is specified.

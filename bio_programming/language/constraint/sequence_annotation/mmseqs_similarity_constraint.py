@@ -5,7 +5,7 @@ Supports DNA (with ORF prediction) and Protein sequences (direct search).
 
 from __future__ import annotations
 
-from typing import List, Literal
+from typing import List, Literal, Tuple
 
 import numpy as np
 from pydantic import model_validator
@@ -138,13 +138,11 @@ class MMseqsSimilarityConfig(BaseConfig):
     label="Gene/Protein Similarity",
     config=MMseqsSimilarityConfig,
     description="Evaluate similarity (percent identity) using MMseqs. For DNA: predicts ORFs first. For proteins: searches directly.",
-    batched=True,
-    multi_input=False,
     tools_called=["mmseqs", "prodigal", "orfipy"],
     category="sequence annotation",
     supported_sequence_types=["dna", "protein"],
 )
-def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimilarityConfig) -> List[float]:
+def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: MMseqsSimilarityConfig) -> List[float]:
     """Evaluate sequence similarity using MMseqs2 protein database search.
     
     This constraint function evaluates whether protein sequences (or proteins
@@ -244,9 +242,8 @@ def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimila
         ... )
         >>> scores = mmseqs_similarity_constraint([protein_seq], config)
     """
-    if not sequences:
-        return []
-
+    # Extract sequences from tuples
+    sequences = [seq for (seq,) in input_sequences]
     sequence_type = sequences[0].sequence_type
 
     # Validate all same type
@@ -261,7 +258,7 @@ def mmseqs_similarity_constraint(sequences: List[Sequence], config: MMseqsSimila
     if sequence_type == "dna":
         sequences_clean = [
             "".join(c for c in seq.sequence.upper() if c in DNA_NUCLEOTIDES)
-            for seq in sequences
+            for (seq,) in input_sequences
         ]
 
         if config.orf_predictor == "prodigal":

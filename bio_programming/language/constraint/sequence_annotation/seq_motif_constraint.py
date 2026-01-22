@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
-from typing import List, Literal, Optional, Dict
+from typing import List, Literal, Optional, Dict, Tuple
 
 import numpy as np
 from pydantic import field_validator
@@ -161,13 +161,11 @@ class SeqMotifConfig(BaseConfig):
     label="Sequence Motif Match",
     config=SeqMotifConfig,
     description="Score DNA sequences against motifs using MEME",
-    batched=True,
-    multi_input=False,
     tools_called=["meme"],
     category="sequence annotation",
     supported_sequence_types=["dna"],
 )
-def seq_motif_constraint(sequences: List[Sequence], config: SeqMotifConfig) -> List[float]:
+def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: SeqMotifConfig) -> List[float]:
     """Score DNA sequences against sequence motifs using MEME.
     
     This constraint function uses MEME Suite's Find Individual Motif
@@ -288,7 +286,7 @@ def seq_motif_constraint(sequences: List[Sequence], config: SeqMotifConfig) -> L
 
     penalties: List[float] = []
 
-    for seq_obj in sequences:
+    for (seq_obj,) in input_sequences:
         seq = seq_obj.sequence.upper().replace(" ", "").replace("\n", "")
 
         # Run MEME with FIMO

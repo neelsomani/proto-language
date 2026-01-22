@@ -5,7 +5,7 @@ sigma-70 promoter similarity constraint for evaluating promoter similarity.
 from __future__ import annotations
 
 import math
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -194,13 +194,11 @@ class Sigma70PromoterConfig(BaseConfig):
     label="Sigma70 Promoter Strength",
     config=Sigma70PromoterConfig,
     description="Evaluate sigma-70 promoter similarity for DNA sequences",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="sequence annotation",
     supported_sequence_types=["dna"],
 )
-def sigma70_promoter_constraint(sequences: List[Sequence], config: Sigma70PromoterConfig) -> List[float]:
+def sigma70_promoter_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Sigma70PromoterConfig) -> List[float]:
     """Evaluate E. coli sigma-70 promoter similarity using PWM-based scoring.
     
     This constraint function evaluates bacterial promoter similarity by scanning
@@ -326,7 +324,7 @@ def sigma70_promoter_constraint(sequences: List[Sequence], config: Sigma70Promot
 
     penalties: List[float] = []
 
-    for seq_obj in sequences:
+    for (seq_obj,) in input_sequences:
         seq = seq_obj.sequence.upper().replace(" ", "").replace("\n", "")
         seq_len = len(seq)
 

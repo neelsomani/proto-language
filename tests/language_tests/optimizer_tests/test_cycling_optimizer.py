@@ -74,11 +74,9 @@ def _setup_cycling_components(
     constraints = []
     if include_constraint:
 
-        def filter_func(seq, config=None):
-            return 0.0 if constraint_passes else 1.0
+        def filter_func(input_sequences, config=None):
+            return [0.0 if constraint_passes else 1.0 for _ in input_sequences]
 
-        filter_func._constraint_batched = False
-        filter_func._constraint_multi_input = False
         filter_func._constraint_config_class = EmptyConfig
         filter_func._constraint_supported_sequence_types = ["protein"]
         constraints.append(
@@ -188,11 +186,9 @@ class TestCyclingOptimizerValidation:
         """Test that constraints must have threshold set (filter mode)."""
         components = _setup_cycling_components()
 
-        def scoring_func(seq, config=None):
-            return 0.5
+        def scoring_func(input_sequences, config=None):
+            return [0.5 for _ in input_sequences]
 
-        scoring_func._constraint_batched = False
-        scoring_func._constraint_multi_input = False
         scoring_func._constraint_config_class = EmptyConfig
         scoring_func._constraint_supported_sequence_types = ["protein"]
 
@@ -308,11 +304,9 @@ class TestCyclingOptimizerRun:
         )
         generator.assign(target_segment)
 
-        def partial_filter(seq, config=None):
-            return 1.0 if "FAIL" in seq.sequence else 0.0
+        def partial_filter(input_sequences, config=None):
+            return [1.0 if "FAIL" in seq.sequence else 0.0 for (seq,) in input_sequences]
 
-        partial_filter._constraint_batched = False
-        partial_filter._constraint_multi_input = False
         partial_filter._constraint_config_class = EmptyConfig
         partial_filter._constraint_supported_sequence_types = ["protein"]
 
@@ -456,11 +450,9 @@ class TestCyclingOptimizerGPU:
         )
         generator.assign(target_segment)
 
-        def length_filter(seq, config=None):
-            return 0.0 if len(seq.sequence) > 10 else 1.0
+        def length_filter(input_sequences, config=None):
+            return [0.0 if len(seq.sequence) > 10 else 1.0 for (seq,) in input_sequences]
 
-        length_filter._constraint_batched = False
-        length_filter._constraint_multi_input = False
         length_filter._constraint_config_class = EmptyConfig
         length_filter._constraint_supported_sequence_types = ["protein"]
 

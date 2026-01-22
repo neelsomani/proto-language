@@ -46,7 +46,8 @@ def _flatten_constraints_wide(constraints: Dict[str, Dict], prefix: str = "") ->
                 "score": 0.1,
                 "weight": 1.0,
                 "weighted_score": 0.1,
-                "multi_input": False,
+                "input_segments": ["c0.seg1", "c0.seg2"],  # multi-segment only
+                "position_in_inputs": 0,  # multi-segment only
                 "data": {"gc_content": 52.3, ...}
             }
         }
@@ -55,8 +56,8 @@ def _flatten_constraints_wide(constraints: Dict[str, Dict], prefix: str = "") ->
     for constraint_label, constraint_data in constraints.items():
         base = f"{prefix}{constraint_label}" if prefix else constraint_label
         
-        # Add top-level fields (score, weight, etc.)
-        for key in ["score", "weight", "weighted_score", "multi_input"]:
+        # Add top-level fields (score, weight, multi-segment info)
+        for key in ["score", "weight", "weighted_score", "input_segments", "position_in_inputs"]:
             if key in constraint_data:
                 flat[f"{base}.{key}"] = constraint_data[key]
         
@@ -78,8 +79,8 @@ def _flatten_constraints_long(constraints: Dict[str, Dict]) -> List[Dict[str, An
     for constraint_label, constraint_data in constraints.items():
         row = {"constraint_label": constraint_label}
         
-        # Add top-level fields
-        for key in ["score", "weight", "weighted_score", "multi_input"]:
+        # Add top-level fields (score, weight, multi-segment info)
+        for key in ["score", "weight", "weighted_score", "input_segments", "position_in_inputs"]:
             if key in constraint_data:
                 row[key] = constraint_data[key]
         

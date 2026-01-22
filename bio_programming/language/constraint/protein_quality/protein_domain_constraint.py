@@ -5,7 +5,7 @@ Protein domain constraint function.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
@@ -110,13 +110,11 @@ class ProteinDomainConfig(BaseConfig):
     label="Protein Domain Match",
     config=ProteinDomainConfig,
     description="Evaluate whether sequences contains protein domains matching specified keywords",
-    batched=True,
-    multi_input=False,
     tools_called=["pyhmmer", "prodigal"],
     category="protein quality",
     supported_sequence_types=["dna", "protein"],
 )
-def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainConfig) -> List[float]:
+def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinDomainConfig) -> List[float]:
     """Evaluate whether sequences contain protein domains matching specified keywords.
     
     This constraint function searches for functional protein domains using HMMER's
@@ -131,9 +129,9 @@ def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainCo
     depending on configuration).
 
     Args:
-        sequences (List[Sequence]): List of DNA or protein sequences to evaluate.
-            DNA sequences are first processed through ORF prediction. All sequences
-            in the list must be the same type (all DNA or all PROTEIN).
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one DNA or protein sequence. DNA sequences are first
+            processed through ORF prediction.
             
         config (ProteinDomainConfig): Configuration object containing ``hmm_db``
             (path to HMM database), ``keywords`` (list of domain keywords to search),
@@ -148,7 +146,7 @@ def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainCo
 
     Raises:
         ValueError: If ``hmm_db`` path doesn't exist, ``keywords`` list is empty,
-            input sequence list is empty, or sequences are of mixed types (DNA and
+            input list is empty, or sequences are of mixed types (DNA and
             protein mixed).
         RuntimeError: If HMMER hmmscan execution fails or Prodigal ORF prediction
             fails for DNA sequences.
@@ -183,7 +181,7 @@ def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainCo
         ...     keywords=["kinase"],
         ...     evalue_threshold=0.001
         ... )
-        >>> scores = protein_domain_constraint([seq], config=cfg)
+        >>> scores = protein_domain_constraint([(seq,)], config=cfg)
         >>> print(scores[0])  # 0.0 if kinase domain found, 1.0 if not
         >>> print(seq._metadata["domain_keywords_found"])  # ['kinase'] if found
         
@@ -194,10 +192,12 @@ def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainCo
         ...     hmm_db="Pfam-A.hmm",
         ...     keywords=["helicase"]
         ... )
-        >>> scores = protein_domain_constraint([dna_seq], config=cfg)
+        >>> scores = protein_domain_constraint([(dna_seq,)], config=cfg)
         >>> print(dna_seq._metadata["prodigal_protein_count"])  # Number of predicted ORFs
         >>> print(dna_seq._metadata["domain_matching_proteins"])  # IDs of proteins with helicase domain
     """
+    # Extract sequences from tuples
+    sequences = [seq for (seq,) in input_sequences]
 
     hmm_db = Path(config.hmm_db)
     if not hmm_db.exists():
@@ -205,9 +205,6 @@ def protein_domain_constraint(sequences: List[Sequence], config: ProteinDomainCo
 
     if not config.keywords or not isinstance(config.keywords, list):
         raise ValueError("Keywords must be a non-empty list")
-
-    if not sequences:
-        raise ValueError("Input sequence list must not be empty")
     
     dna_sequences = []
     protein_sequences = []

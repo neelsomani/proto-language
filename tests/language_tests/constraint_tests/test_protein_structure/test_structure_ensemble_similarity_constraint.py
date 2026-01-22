@@ -126,7 +126,7 @@ class TestConstraintWithMocks:
         assert config.bioemu_config.num_samples == 3
 
         scores = structure_ensemble_rmsd_constraint(
-            [Sequence(TEST_SEQ, "protein")],
+            [(Sequence(TEST_SEQ, "protein"),)],
             config,
         )
 
@@ -141,7 +141,7 @@ class TestConstraintWithMocks:
         )
 
         seq = Sequence(TEST_SEQ, "protein")
-        structure_ensemble_rmsd_constraint([seq], config)
+        structure_ensemble_rmsd_constraint([(seq,)], config)
 
         # Check key metadata fields exist
         assert "ensemble_rmsd_min" in seq._metadata
@@ -164,7 +164,7 @@ class TestConstraintWithMocks:
         )
 
         structure_ensemble_rmsd_constraint(
-            [Sequence(TEST_SEQ, "protein")],
+            [(Sequence(TEST_SEQ, "protein"),)],
             config,
         )
 
@@ -200,7 +200,7 @@ class TestConstraintWithMocks:
                 )
 
                 scores = structure_ensemble_rmsd_constraint(
-                    [Sequence(TEST_SEQ, "protein")],
+                    [(Sequence(TEST_SEQ, "protein"),)],
                     config,
                 )
                 results[agg] = scores[0]
@@ -224,7 +224,7 @@ class TestConstraintIntegration:
         assert config.bioemu_config.num_samples == 10
 
         scores = structure_ensemble_rmsd_constraint(
-            [Sequence("AGAGAGAG", "protein")],  # Short sequence
+            [(Sequence("AGAGAGAG", "protein"),)],  # Short sequence
             config,
         )
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 from pydantic import model_validator
@@ -384,13 +384,11 @@ class OverallProteinQualityConfig(BaseConfig):
     label="Overall Protein Quality",
     config=OverallProteinQualityConfig,
     description="Evaluate overall protein quality using multiple sub-constraints",
-    batched=True,
-    multi_input=False,
     tools_called=["prodigal", "segmasker"],
     category="protein quality",
     supported_sequence_types=["dna", "protein"],
 )
-def overall_protein_quality_constraint(sequences: List[Sequence], config: OverallProteinQualityConfig) -> List[float]:
+def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...]], config: OverallProteinQualityConfig) -> List[float]:
     """Evaluate overall protein quality using multiple configurable sub-constraints.
     
     This constraint function provides a comprehensive assessment of protein quality
@@ -407,8 +405,8 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
     capped at 1.0.
     
     Args:
-        sequences (List[Sequence]): List of DNA or protein sequences to evaluate.
-            All sequences in the list must be the same type (all DNA or all PROTEIN).
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one DNA or protein sequence.
             For DNA sequences, ORF prediction is performed automatically using
             Prodigal before quality assessment.
             
@@ -540,7 +538,7 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
         ... )
         >>> overall_cfg = OverallProteinQualityConfig(protein_quality_config=quality_config)
         >>> protein_seq = Sequence("MKYIVAVAG...", "protein")
-        >>> scores = overall_protein_quality_constraint([protein_seq], overall_cfg)
+        >>> scores = overall_protein_quality_constraint([(protein_seq,)], overall_cfg)
     """
     # Extract config parameters
     protein_quality_config = config.protein_quality_config
@@ -551,8 +549,8 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
     balanced_config = protein_quality_config.get_balanced_config()
 
     # Separate DNA and protein sequences (validated by Constraint._validate_sequence_types)
-    dna_sequences = [seq for seq in sequences if seq.sequence_type == "dna"]
-    protein_sequences = [seq for seq in sequences if seq.sequence_type == "protein"]
+    dna_sequences = [seq for (seq,) in input_sequences if seq.sequence_type == "dna"]
+    protein_sequences = [seq for (seq,) in input_sequences if seq.sequence_type == "protein"]
 
     dna_scores = []
     protein_scores = []
@@ -586,32 +584,34 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
                 Sequence(orf.amino_acid_sequence, "protein")
                 for orf in proteins_list
             ]
+            # Convert to input_sequences format for sub-constraints
+            predicted_protein_input_seqs = [(seq,) for seq in predicted_protein_seqs]
 
             quality_scores = {}
 
             if length_config:
                 quality_scores["length"] = sequence_length_constraint(
-                    predicted_protein_seqs, config=length_config
+                    predicted_protein_input_seqs, config=length_config
                 )
 
             if complexity_config:
                 quality_scores["complexity"] = protein_complexity_constraint(
-                    predicted_protein_seqs, config=complexity_config
+                    predicted_protein_input_seqs, config=complexity_config
                 )
 
             if repetitiveness_config:
                 quality_scores["repetitiveness"] = protein_repetitiveness_constraint(
-                    predicted_protein_seqs, config=repetitiveness_config
+                    predicted_protein_input_seqs, config=repetitiveness_config
                 )
 
             if diversity_config:
                 quality_scores["diversity"] = protein_diversity_constraint(
-                    predicted_protein_seqs, config=diversity_config
+                    predicted_protein_input_seqs, config=diversity_config
                 )
 
             if balanced_config:
                 quality_scores["balanced_aas"] = balanced_aa_constraint(
-                    predicted_protein_seqs, config=balanced_config
+                    predicted_protein_input_seqs, config=balanced_config
                 )
 
             # batched averaging
@@ -660,31 +660,34 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
             dna_scores.append(score)
 
     if protein_sequences:
+        # Convert to input_sequences format for sub-constraints
+        protein_input_seqs = [(seq,) for seq in protein_sequences]
+        
         quality_scores = {}
 
         if length_config:
             quality_scores["length"] = sequence_length_constraint(
-                protein_sequences, config=length_config
+                protein_input_seqs, config=length_config
             )
 
         if complexity_config:
             quality_scores["complexity"] = protein_complexity_constraint(
-                protein_sequences, config=complexity_config
+                protein_input_seqs, config=complexity_config
             )
 
         if repetitiveness_config:
             quality_scores["repetitiveness"] = protein_repetitiveness_constraint(
-                protein_sequences, config=repetitiveness_config
+                protein_input_seqs, config=repetitiveness_config
             )
 
         if diversity_config:
             quality_scores["diversity"] = protein_diversity_constraint(
-                protein_sequences, config=diversity_config
+                protein_input_seqs, config=diversity_config
             )
 
         if balanced_config:
             quality_scores["balanced_aas"] = balanced_aa_constraint(
-                protein_sequences, config=balanced_config
+                protein_input_seqs, config=balanced_config
             )
 
         if quality_scores:
@@ -719,7 +722,7 @@ def overall_protein_quality_constraint(sequences: List[Sequence], config: Overal
     dna_idx = 0
     protein_idx = 0
 
-    for seq in sequences:
+    for (seq,) in input_sequences:
         if seq.sequence_type == "dna":
             final_scores.append(dna_scores[dna_idx])
             dna_idx += 1

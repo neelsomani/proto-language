@@ -15,7 +15,7 @@ from .sequence import (
 )
 from .segment import Segment
 from .construct import Construct
-from .constraint import Constraint
+from .constraint import Constraint, ConstraintFunction
 from .generator import Generator
 from .optimizer import Optimizer
 from .program import Program
@@ -38,6 +38,7 @@ __all__ = [
     "Segment",
     "Construct",
     "Constraint",
+    "ConstraintFunction",
     "Generator",
     "Optimizer",
     "Program",

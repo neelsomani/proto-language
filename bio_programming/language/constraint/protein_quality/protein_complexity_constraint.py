@@ -4,7 +4,7 @@ Protein complexity constraint function.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
@@ -66,13 +66,11 @@ class ProteinComplexityConfig(BaseConfig):
     label="Protein Complexity",
     config=ProteinComplexityConfig,
     description="Evaluate protein sequence complexity using segmasker to detect low-complexity regions",
-    batched=True,
-    multi_input=False,
     tools_called=["segmasker"],
     category="protein quality",
     supported_sequence_types=["protein"],
 )
-def protein_complexity_constraint(sequences: List[Sequence], config: ProteinComplexityConfig) -> List[float]:
+def protein_complexity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinComplexityConfig) -> List[float]:
     """Evaluate protein sequence complexity using segmasker to detect low-complexity regions.
     
     This constraint function uses NCBI's segmasker tool to identify low-complexity
@@ -87,8 +85,8 @@ def protein_complexity_constraint(sequences: List[Sequence], config: ProteinComp
     the constraint calculates the fraction of masked positions.
 
     Args:
-        sequences (List[Sequence]): List of protein sequences to evaluate. All
-            sequences must have ``sequence_type == "protein"``.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one protein sequence.
             
         config (ProteinComplexityConfig): Configuration object containing
             ``max_low_complexity`` (maximum acceptable low-complexity fraction,
@@ -124,12 +122,13 @@ def protein_complexity_constraint(sequences: List[Sequence], config: ProteinComp
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinComplexityConfig(max_low_complexity=0.3, segmasker_path="segmasker")
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_complexity_constraint([seq], config)
+        >>> scores = protein_complexity_constraint([(seq,)], config)
         >>> print(scores[0])  # 0.0 if low-complexity < 30%
         >>> print(seq._metadata["low_complexity_fraction"])  # e.g., 0.15
         >>> print(seq._metadata["segmasker_lowercase_count"])  # e.g., 5
     """
-    segmasker_inputs = SegmaskerInput(sequences=[seq.sequence for seq in sequences])
+    # Extract sequence strings from tuples
+    segmasker_inputs = SegmaskerInput(sequences=[seq.sequence for (seq,) in input_sequences])
     segmasker_config = SegmaskerConfig(segmasker_path=config.segmasker_path)
 
     result = run_segmasker(inputs=segmasker_inputs, config=segmasker_config)
@@ -139,7 +138,7 @@ def protein_complexity_constraint(sequences: List[Sequence], config: ProteinComp
         scores = []
         error_msg = result.errors[0] if result.errors else "Unknown segmasker error"
         
-        for seq in sequences:
+        for (seq,) in input_sequences:
             seq._metadata["low_complexity_fraction"] = 0.0
             seq._metadata["segmasker_lowercase_count"] = 0
             seq._metadata["segmasker_error"] = True
@@ -149,7 +148,7 @@ def protein_complexity_constraint(sequences: List[Sequence], config: ProteinComp
         raise ValueError(f"Segmasker analysis failed: {error_msg}")
 
     scores = []
-    for seq, low_complexity_fraction in zip(sequences, result.low_complexity_fractions):
+    for (seq,), low_complexity_fraction in zip(input_sequences, result.low_complexity_fractions):
         seq._metadata["low_complexity_fraction"] = low_complexity_fraction
         seq._metadata["segmasker_lowercase_count"] = int(
             low_complexity_fraction * len(seq)

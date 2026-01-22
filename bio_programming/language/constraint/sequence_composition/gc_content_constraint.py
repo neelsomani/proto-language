@@ -4,7 +4,7 @@ GC content constraint for evaluating sequence GC content properties.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
@@ -58,13 +58,11 @@ class GCContentConfig(BaseConfig):
     label="GC Content",
     config=GCContentConfig,
     description="Enforce GC content within specified range",
-    batched=True,
-    multi_input=False,
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna"],
 )
-def gc_content_constraint(sequences: List[Sequence], config: GCContentConfig) -> List[float]:
+def gc_content_constraint(input_sequences: List[Tuple[Sequence, ...]], config: GCContentConfig) -> List[float]:
     """Enforce GC content within specified range.
 
     This constraint function calculates the percentage of guanine (G) and cytosine
@@ -74,9 +72,9 @@ def gc_content_constraint(sequences: List[Sequence], config: GCContentConfig) ->
     and technical considerations like PCR amplification efficiency.
 
     Args:
-        sequences (List[Sequence]): List of DNA or RNA sequences to evaluate.
-            All sequences must be either "dna" or "rna".
-            Mixed types are not allowed. Empty sequences receive maximum penalty.
+        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
+            Each tuple contains one DNA or RNA sequence. Empty sequences receive 
+            maximum penalty.
 
         config (GCContentConfig): Configuration object containing ``min_gc``
             (minimum acceptable GC percentage) and ``max_gc`` (maximum acceptable
@@ -89,7 +87,7 @@ def gc_content_constraint(sequences: List[Sequence], config: GCContentConfig) ->
             penalties scaling linearly with the deviation distance.
 
     Raises:
-        ValueError: If the input sequence list is empty, if min_gc or max_gc are
+        ValueError: If the input list is empty, if min_gc or max_gc are
         outside the range [0, 100], or if a sequence is not DNA or RNA type.
 
     Examples:
@@ -97,18 +95,15 @@ def gc_content_constraint(sequences: List[Sequence], config: GCContentConfig) ->
 
         >>> seq = Sequence("ATCGATCG", "dna")
         >>> cfg = GCContentConfig(min_gc=40.0, max_gc=60.0)
-        >>> score = gc_content_constraint(seq, config=cfg)
-        >>> print(score)  # 0.0 (50% GC content is within acceptable range)
+        >>> score = gc_content_constraint([(seq,)], config=cfg)
+        >>> print(score[0])  # 0.0 (50% GC content is within acceptable range)
     """
-    if not sequences:
-        raise ValueError("Input sequence list must not be empty")
-    
     validate_range(config.min_gc, MIN_GC_CONTENT, MAX_GC_CONTENT, "min_gc")
     validate_range(config.max_gc, MIN_GC_CONTENT, MAX_GC_CONTENT, "max_gc")
    
     scores = []
    
-    for seq in sequences:
+    for (seq,) in input_sequences:
         if len(seq.sequence) == 0:
             seq._metadata["gc_content"] = 0.0
             scores.append(MAX_ENERGY)

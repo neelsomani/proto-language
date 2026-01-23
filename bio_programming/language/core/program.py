@@ -424,12 +424,13 @@ class Program:
 
         return {"segments": segment_states}
 
-    def restore_state(self, state: Dict) -> None:
+    def restore_state(self, state: Dict, stage_index: int = None) -> None:
         """
         Restore program state from serialized data.
 
         Args:
             state: Dictionary returned by serialize_state()
+            stage_index: Optional stage index to set current_stage to (for resuming from a specific stage)
 
         Raises:
             ValueError: If state doesn't match program structure
@@ -453,6 +454,10 @@ class Program:
                 )
                 for seq_data in segment_state["selected_sequences"]
             ]
+
+        # Update current_stage if specified (for resuming multi-stage optimization)
+        if stage_index is not None:
+            self.current_stage = stage_index
 
     def cleanup(self) -> None:
         """Clean up cached models to free GPU memory."""

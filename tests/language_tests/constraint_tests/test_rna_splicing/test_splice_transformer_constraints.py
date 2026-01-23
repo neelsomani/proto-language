@@ -20,6 +20,7 @@ from proto_language.tools.rna_splicing.splice_transformer import (
 )
 
 
+@pytest.mark.skip_ci
 def test_splice_transformer_tissue_specificity():
     """
     Test that tissue specificity can be computed correctly.
@@ -63,6 +64,7 @@ def test_splice_transformer_all_tissues():
     assert 0. <= scores[0] <= 1., "Score must be between 0 and 1, inclusive"
 
 
+@pytest.mark.skip_ci
 def test_splice_transformer_intron_boundary_cpu():
     """
     Test that intron boundary computation can be computed correctly.

@@ -2,16 +2,23 @@
 TopK Optimizer that runs multiple independent sampling rounds and returns the top-k best constructs.
 """
 from __future__ import annotations
-from typing import Callable, List, Optional, final
+
 import copy
 import heapq
 import logging
 import math
+from typing import Callable, List, Optional, final
 
 from pydantic import model_validator
 
-from proto_language.language.core import Optimizer, Construct, Generator, Constraint, Sequence
 from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.language.core import (
+    Constraint,
+    Construct,
+    Generator,
+    Optimizer,
+    Sequence,
+)
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 logger = logging.getLogger(__name__)
@@ -34,10 +41,10 @@ class TopKOptimizerConfig(BaseConfig):
       is reached (whichever comes first).
 
     Attributes:
-        num_samples (int): Number of samples to generate. In standard mode, the optimizer 
-            samples exactly this number of candidates. In threshold mode, the optimizer 
+        num_samples (int): Number of samples to generate. In standard mode, the optimizer
+            samples exactly this number of candidates. In threshold mode, the optimizer
             samples until the energy threshold is met or the number of samples is reached.
-            Must be at least ``k``. Will be rounded up to the nearest multiple of ``batch_size`` 
+            Must be at least ``k``. Will be rounded up to the nearest multiple of ``batch_size``
             if not evenly divisible.
 
         k (int): Number of top sequences to keep and return based on energy scores.
@@ -213,7 +220,7 @@ class TopKOptimizer(Optimizer):
 
     def _initialize_sequence_pools(self) -> None:
         """Initialize sequence pools for TopK optimizer.
-        
+
         Preserves indices from existing sequences when possible, padding with
         the first sequence if more candidates are needed. Leaves selected_sequences
         unchanged (TopK clears and populates it dynamically during run()).
@@ -326,7 +333,7 @@ class TopKOptimizer(Optimizer):
                     if worst_energy < self.energy_threshold:
                         threshold_met = True
                         if self.verbose:
-                            print(f"\nThreshold met! Worst in top-{self.k}: {worst_energy:.6f} < {self.energy_threshold:.6f}")
+                            logger.info(f"Threshold met! Worst in top-{self.k}: {worst_energy:.6f} < {self.energy_threshold:.6f}")
                         break
 
                 self._run_sampling_round(round_idx)
@@ -369,7 +376,7 @@ class TopKOptimizer(Optimizer):
                 # Show round progress relative to total
                 total_rounds = self.num_samples // self.batch_size
                 progress_pct = ((round_idx + 1) / total_rounds) * 100
-                print(f"  Round {round_idx+1}/{total_rounds} ({progress_pct:.0f}%): {num_selected}/{self.k} in top-k, best={best_energy:.4f}, worst={worst_energy:.4f}")
+                logger.info(f"Round {round_idx+1}/{total_rounds} ({progress_pct:.0f}%): {num_selected}/{self.k} in top-k, best={best_energy:.4f}, worst={worst_energy:.4f}")
 
         if self.custom_logging:
             self._sort_topk_by_energy()
@@ -383,32 +390,31 @@ class TopKOptimizer(Optimizer):
     ) -> None:
         """Log optimization statistics and results."""
         mode_str = "threshold" if threshold_mode else "standard"
-        print(f"\nOptimization complete ({mode_str} mode):")
-        print(f"  Total samples generated: {candidates_generated}")
-        print(f"  Batch size: {self.batch_size}")
-        print(f"  Top-k kept: {self.k}")
+        logger.debug(f"Optimization complete ({mode_str} mode):")
+        logger.debug(f"  Total samples generated: {candidates_generated}")
+        logger.debug(f"  Batch size: {self.batch_size}")
+        logger.debug(f"  Top-k kept: {self.k}")
 
         if threshold_mode:
-            print(f"\nThreshold mode:")
-            print(f"  Target threshold: {self.energy_threshold:.6f}")
-            print(f"  Num samples (max): {self.num_samples}")
+            logger.debug(f"Threshold mode:")
+            logger.debug(f"  Target threshold: {self.energy_threshold:.6f}")
+            logger.debug(f"  Num samples (max): {self.num_samples}")
             if threshold_met:
-                print("  Status: Threshold met (early stop)")
+                logger.debug("  Status: Threshold met (early stop)")
             else:
-                print("  Status: Num samples reached without meeting threshold")
+                logger.debug("  Status: Num samples reached without meeting threshold")
 
         if self.energy_scores:
             best_energy = self.energy_scores[0]
             worst_in_topk = self.energy_scores[-1]
 
-            print(f"\nTop-{self.k} statistics:")
-            print(f"  Best energy:  {best_energy:.6f}")
+            logger.debug(f"Top-{self.k} statistics:")
+            logger.debug(f"  Best energy:  {best_energy:.6f}")
             if len(self.energy_scores) > 1:
-                print(f"  Worst in top-k: {worst_in_topk:.6f}")
+                logger.debug(f"  Worst in top-k: {worst_in_topk:.6f}")
 
             if self.k <= 20:
-                print(f"\nTop-{self.k} constructs:")
+                logger.debug(f"Top-{self.k} constructs:")
                 for i, energy in enumerate(self.energy_scores):
-                    print(f"  Rank {i+1}: Energy={energy:.6f}")
-            print(f"\nTopK optimization complete. Returned {len(self.energy_scores)} best constructs.")
-
+                    logger.debug(f"  Rank {i+1}: Energy={energy:.6f}")
+            logger.debug(f"TopK optimization complete. Returned {len(self.energy_scores)} best constructs.")

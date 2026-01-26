@@ -7,13 +7,15 @@ performs beam search, accumulating KV cache state across beams.
 
 from __future__ import annotations
 
+import logging
 import math
-import sys
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Literal, Optional
 
 import numpy as np
 from pydantic import model_validator
+
+logger = logging.getLogger(__name__)
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import (
@@ -103,12 +105,12 @@ class BeamSearchOptimizerConfig(BaseConfig):
 
     # Required parameters
     prompt: str = ConfigField(
-        title="Prompt", 
+        title="Prompt",
         description="The prompt to start the beam search (e.g. ATCG)"
     )
     beam_width: int = ConfigField(
-        ge=1, 
-        title="Beam Width", 
+        ge=1,
+        title="Beam Width",
         description="Number of top sequences to maintain (K)."
     )
     candidates_per_beam: int = ConfigField(
@@ -391,7 +393,7 @@ class BeamSearchOptimizer(Optimizer):
             prepend_prompt_to_first_beam = self.prepend_prompt and beam_idx == 0
 
             if self.verbose:
-                print(f"\n--- Beam {beam_idx + 1}/{self.num_beams} ({beam_tokens} tokens) ---")
+                logger.info(f"Beam {beam_idx + 1}/{self.num_beams} ({beam_tokens} tokens)")
             # Generate and score candidates, resampling until all beams have valid candidates
             candidate_beams = self._generate_and_score_with_resampling(prepend_prompt_to_first_beam)
 
@@ -517,7 +519,7 @@ class BeamSearchOptimizer(Optimizer):
 
             if self.verbose:
                 counts = {b: len(beam_candidates[b]) for b in beams_to_resample}
-                print(f"  Resampling {len(beams_to_resample)} beams (attempt {attempt}): counts={counts}")
+                logger.info(f"Resampling {len(beams_to_resample)} beams (attempt {attempt}): counts={counts}")
 
             for beam_idx in beams_to_resample:
                 candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt)
@@ -574,9 +576,9 @@ class BeamSearchOptimizer(Optimizer):
         self.energy_scores = [score for _, score in sorted_candidates[:self.beam_width]]
 
         if self.verbose:
-            print(f"Selected top {self.beam_width} beams:")
+            logger.info(f"Selected top {self.beam_width} beams:")
             for i, (beam, score) in enumerate(sorted_candidates[:self.beam_width]):
-                print(f"  [{i}] score={score:.4f}, prompt_len={len(beam.running_sequence)}")
+                logger.info(f"  [{i}] score={score:.4f}, prompt_len={len(beam.running_sequence)}")
 
     def _get_aggregated_score(self, beam: BeamState) -> float:
         """Get aggregated score for a beam based on score_by setting."""
@@ -592,37 +594,36 @@ class BeamSearchOptimizer(Optimizer):
         """
         Log progress information for a beam during beam search.
         """
-        print(f"Completed beam {beam_idx + 1}/{self.num_beams}")
-        print(f"Top {self.beam_width} beams by {self.score_by} score:")
+        logger.debug(f"Completed beam {beam_idx + 1}/{self.num_beams}")
+        logger.debug(f"Top {self.beam_width} beams by {self.score_by} score:")
 
         for i, beam in enumerate(self.beams):
             agg_score = self._get_aggregated_score(beam)
             last_score = beam.beam_scores[-1] if beam.beam_scores else 0.0
-            print(f"  [{i}] agg={agg_score:.4f}, last={last_score:.4f}, len={len(beam.running_sequence)}: '{beam.running_sequence}'")
+            logger.debug(f"  [{i}] agg={agg_score:.4f}, last={last_score:.4f}, len={len(beam.running_sequence)}: '{beam.running_sequence}'")
 
         if self.custom_logging:
             self.custom_logging(beam_idx, self.segments)
-        sys.stdout.flush()
 
     def _log_beam_generation_start(self, beam_idx: int, beam: BeamState) -> None:
         """Log the start of candidate generation for a beam."""
-        print(f"\n[Beam {beam_idx}] Generating {self.candidates_per_beam} candidates")
-        print(f"  Prompt length: {len(beam.running_sequence)}")
+        logger.debug(f"[Beam {beam_idx}] Generating {self.candidates_per_beam} candidates")
+        logger.debug(f"  Prompt length: {len(beam.running_sequence)}")
         if self.batch_size:
-            print(f"  Batch size: {self.batch_size}")
+            logger.debug(f"  Batch size: {self.batch_size}")
 
     def _log_cache_state(self, kv_cache: Optional[Dict]) -> None:
         """Log KV cache state for debugging."""
         if kv_cache:
             kv = next(iter(kv_cache['mha'].key_value_memory_dict.values()))
-            print(f"  Cache: KV shape={kv.shape}, seqlen_offset={kv_cache['mha'].seqlen_offset}")
+            logger.debug(f"  Cache: KV shape={kv.shape}, seqlen_offset={kv_cache['mha'].seqlen_offset}")
         else:
-            print("  Cache: None (first beam, will build cache)")
+            logger.debug("  Cache: None (first beam, will build cache)")
 
     def _log_run_start(self) -> None:
         """Log beam search configuration at the start of run()."""
-        print(f"Processing segment with {self.num_beams} beams (beam_length={self.beam_length})")
-        print(f"Total tokens to generate: {self.target_segment.sequence_length}")
-        print(f"Beam width: {self.beam_width}, Candidates per beam: {self.candidates_per_beam}")
-        print(f"Score by: {self.score_by}")
-        print(f"KV caching: {'enabled' if self.use_kv_caching else 'disabled'}")
+        logger.debug(f"Processing segment with {self.num_beams} beams (beam_length={self.beam_length})")
+        logger.debug(f"Total tokens to generate: {self.target_segment.sequence_length}")
+        logger.debug(f"Beam width: {self.beam_width}, Candidates per beam: {self.candidates_per_beam}")
+        logger.debug(f"Score by: {self.score_by}")
+        logger.debug(f"KV caching: {'enabled' if self.use_kv_caching else 'disabled'}")

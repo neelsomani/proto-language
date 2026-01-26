@@ -2,18 +2,27 @@
 Metropolis-Hastings MCMC Optimizer that uses multiple sub-generators as proposal distributions and constraints to define the energy function.
 """
 from __future__ import annotations
-from typing import Callable, Dict, List, Optional, Tuple, final
-import math
+
 import copy
+import logging
+import math
 import random
-import sys
+from typing import Callable, Dict, List, Optional, Tuple, final
 
 import numpy as np
 from pydantic import model_validator
 
+logger = logging.getLogger(__name__)
 
-from proto_language.language.core import Optimizer, Construct, Generator, Constraint, Sequence
+
 from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.language.core import (
+    Constraint,
+    Construct,
+    Generator,
+    Optimizer,
+    Sequence,
+)
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 # Maximum safe exponent for np.exp() to prevent overflow
@@ -61,7 +70,7 @@ class MCMCOptimizerConfig(BaseConfig):
 
     Note:
         - When ``num_selected=1`` (default), behaves like standard single-chain MCMC.
-        - When ``num_selected > 1``, maintains ``num_selected`` sequence trajectories and 
+        - When ``num_selected > 1``, maintains ``num_selected`` sequence trajectories and
           generates ``mcmc_width`` (default: 1) proposals per trajectory each step.
         - Temperature annealing follows exponential decay:
           T(step) = T_max x (T_min / T_max)^(step / num_steps)
@@ -253,10 +262,9 @@ class MCMCOptimizer(Optimizer):
         self.energy_scores = self.energy_scores[:self.num_selected]
 
         if self.verbose:
-            print("MCMC initialization:")
-            print(f"  num_selected={self.num_selected}, mcmc_width={self.mcmc_width}")
-            print(f"  Initial energy: {self.energy_scores[0]:.4f}")
-            print()
+            logger.info("MCMC initialization:")
+            logger.info(f"  num_selected={self.num_selected}, mcmc_width={self.mcmc_width}")
+            logger.info(f"  Initial energy: {self.energy_scores[0]:.4f}")
 
         # Track initial state
         self._save_progress_snapshot(time_step=0)
@@ -414,13 +422,13 @@ class MCMCOptimizer(Optimizer):
 
         # Format output based on num_selected
         if self.num_selected == 1:
-            print(
+            logger.debug(
                 f"Iteration {step:4d} | "
                 f"energy: {best_energy:.6f}, "
                 f"T: {current_temp:.4f}"
             )
         else:
-            print(
+            logger.debug(
                 f"Iteration {step:4d} | "
                 f"best: {best_energy:.6f}, "
                 f"mean: {mean_energy:.6f}, "
@@ -431,4 +439,3 @@ class MCMCOptimizer(Optimizer):
 
         if self.custom_logging:
             self.custom_logging(step, self.segments)
-        sys.stdout.flush()

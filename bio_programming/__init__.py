@@ -70,6 +70,9 @@ from .language.optimizer import (  # Registry; Optimizers
     TopKOptimizer,
     TopKOptimizerConfig,
 )
+
+# Logging
+from .logging_config import get_logger, setup_logging
 from .tools import (  # Base classes and registry; Tool cache; BLAST tools; PyHMMER tools; MMseqs2 schema classes; MMseqs2 tools; ORF prediction tools - Orfipy; ORF prediction tools - Prodigal; LigandMPNN tools; Inverse folding schemas; Structure prediction tools; Sequence scoring tools
     BORZOI_CONTEXT,
     BORZOI_OUTPUT,
@@ -316,4 +319,7 @@ __all__ = [
     # Utilities
     "resolve_paths",
     "resolve_file",
+    # Logging
+    "setup_logging",
+    "get_logger",
 ]

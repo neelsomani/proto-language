@@ -4,15 +4,19 @@ Construct class for the biological programming language.
 Represents a full biological construct composed of multiple segments.
 """
 from __future__ import annotations
-from typing import List, Iterable, Optional
 
-from . import Sequence, Segment
+import logging
+from typing import Iterable, List, Optional
+
+from . import Segment, Sequence
+
+logger = logging.getLogger(__name__)
 from .sequence import create_concatenated_sequence
 
 
 class Construct:
     """
-    External class that represents a full biological construct. 
+    External class that represents a full biological construct.
     Consists of multiple Segment objects that are concatenated together.
 
     Examples:
@@ -40,6 +44,8 @@ class Construct:
             if segment.label is None:
                 segment.label = f"segment_{i}"
         self._validate_construct()
+        segment_labels = [s.label for s in self.segments]
+        logger.debug(f"Created Construct: label={label}, segments={segment_labels}")
 
     @property
     def sequence_type(self):

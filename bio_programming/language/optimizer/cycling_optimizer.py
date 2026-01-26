@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import copy
 import inspect
+import logging
 import math
 from typing import Any, Callable, Dict, List, Literal, Optional, final
 
 from pydantic import model_validator
+
+logger = logging.getLogger(__name__)
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import (
@@ -367,7 +370,7 @@ class CyclingOptimizer(Optimizer):
         self._prepare_run()
 
         if self.verbose:
-            print(f"CyclingOptimizer: {self.num_steps} steps, {self.num_candidates} candidates")
+            logger.info(f"CyclingOptimizer: {self.num_steps} steps, {self.num_candidates} candidates")
         self._save_progress_snapshot(time_step=0)
 
         for step in range(1, self.num_steps + 1):
@@ -450,8 +453,8 @@ class CyclingOptimizer(Optimizer):
         """Log step progress."""
         if self.verbose:
             seq = self.target_segment.selected_sequences[0].sequence
-            print(f"Step {step}/{self.num_steps}")
-            print(f"passed: {num_passed}/{self.num_candidates}")
-            print(f"seq: {seq}")
+            logger.info(f"Step {step}/{self.num_steps}")
+            logger.info(f"passed: {num_passed}/{self.num_candidates}")
+            logger.info(f"seq: {seq}")
         if self.custom_logging:
             self.custom_logging(step, self.segments)

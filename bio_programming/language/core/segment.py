@@ -7,9 +7,12 @@ Represents building blocks for biological constructs.
 from __future__ import annotations
 
 import copy
+import logging
 from typing import Any, Dict, Iterator, List, Optional, Set
 
 from .sequence import Sequence, SequenceType
+
+logger = logging.getLogger(__name__)
 
 
 class Segment:
@@ -89,6 +92,7 @@ class Segment:
 
         self.label: Optional[str] = label
         self.construct_label: Optional[str] = None  # Set by Program for metadata tracking
+        logger.debug(f"Created Segment: label={label}, type={sequence_type}, length={self.sequence_length}")
 
     @property
     def sequence_type(self) -> SequenceType:

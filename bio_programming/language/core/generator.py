@@ -6,12 +6,15 @@ Provides the abstract interface for sequence generation algorithms.
 
 from __future__ import annotations
 
+import logging
 import random
 import warnings
 from abc import ABC, abstractmethod
 from typing import Optional
 
 from .segment import Segment
+
+logger = logging.getLogger(__name__)
 
 
 class Generator(ABC):
@@ -36,10 +39,12 @@ class Generator(ABC):
     def _spec(self) -> "GeneratorSpec":
         """Lazy-load the generator spec from the registry."""
         if self.__spec is None:
-            from proto_language.language.generator.generator_registry import GeneratorRegistry
+            from proto_language.language.generator.generator_registry import (
+                GeneratorRegistry,
+            )
             self.__spec = GeneratorRegistry.get(GeneratorRegistry.get_key(self))
         return self.__spec
-        
+
 
     def assign(self, assigned_segment: Segment) -> None:
         """Assign a Segment to the generator.
@@ -61,6 +66,7 @@ class Generator(ABC):
             supported_types_str = ", ".join(supported_types)
             raise ValueError(f"Generator {self.__class__.__name__} does not support sequence type '{assigned_segment.sequence_type}'. Supported types: [{supported_types_str}]")
         self._assigned_segment = assigned_segment
+        logger.debug(f"Generator.assign: {self.__class__.__name__} -> segment={assigned_segment.label}")
 
 
     @abstractmethod
@@ -94,3 +100,5 @@ class Generator(ABC):
                 unknown_sequence = "X" * self._assigned_segment.sequence_length
                 for sequence in self._assigned_segment.candidate_sequences:
                     sequence.sequence = unknown_sequence
+
+        logger.debug(f"Generator validated: {self.__class__.__name__}, category={self._spec.category}")

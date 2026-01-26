@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from .optimizer import Optimizer
 from proto_language.utils.helpers import filter_inf_nan_scores
+
+from .optimizer import Optimizer
+
+logger = logging.getLogger(__name__)
 
 
 class Program:
@@ -94,6 +98,7 @@ class Program:
         self.current_stage = 0
         self._stage_results: List[Dict] = []
         self._validate_program()
+        logger.debug(f"Program initialized: optimizers={len(self.optimizers)}, constructs={len(self.constructs)}")
 
     @property
     def energy_scores(self) -> List[float]:
@@ -190,7 +195,7 @@ class Program:
             for opt_idx, optimizer in enumerate(self.optimizers):
                 for gen in optimizer.generators:
                     prev_idx = seen_generators.get(id(gen))
-                    if prev_idx is not None:                        
+                    if prev_idx is not None:
                         raise ValueError(
                             f"Generator '{gen.__class__.__name__}' reused across optimizer {prev_idx} and {opt_idx}. Each generator instance can only be used once."
                         )
@@ -204,16 +209,16 @@ class Program:
                         )
                     seen_constraints[id(con)] = opt_idx
 
-    def _print_stage_results(self, stage_index: int, batch_results: list) -> None:
-        """Print results for a completed optimization stage."""
-        print(f"\nFinal state for optimizer {stage_index + 1}:")
+    def _log_stage_results(self, stage_index: int, batch_results: list) -> None:
+        """Log results for a completed optimization stage."""
+        logger.debug(f"Final state for optimizer {stage_index + 1}:")
         for result in batch_results:
             energy = result['energy_score']
             energy_str = f"{energy:.4f}" if energy is not None else "None"
-            print(f"  [{result['batch_idx']}] energy={energy_str}")
+            logger.debug(f"  [{result['batch_idx']}] energy={energy_str}")
             for construct in result["constructs"]:
                 seqs = [seg["sequence"] for seg in construct["segments"]]
-                print(f"    {construct['label']}: {' | '.join(seqs)}")
+                logger.debug(f"    {construct['label']}: {' | '.join(seqs)}")
 
     def run(self) -> None:
         """
@@ -231,6 +236,7 @@ class Program:
             self.optimizers[0]._restore_initial_state()
 
         # Run all stages sequentially
+        logger.debug(f"Program.run: starting {len(self.optimizers)} optimization stages")
         for optimizer_stage_idx in range(len(self.optimizers)):
             self.run_stage(optimizer_stage_idx)
 
@@ -276,6 +282,7 @@ class Program:
                 opt._initial_state = None
 
         optimizer = self.optimizers[stage_index]
+        logger.debug(f"Program.run_stage: stage={stage_index}, optimizer={optimizer.__class__.__name__}")
         optimizer._initialize_sequence_pools()
 
         # Clear stale constraint metadata from previous stages
@@ -285,7 +292,7 @@ class Program:
 
         stage_result = self.extract_batch_results(optimizer.energy_scores)
         if self.verbose:
-            self._print_stage_results(stage_index, stage_result["batch_results"])
+            self._log_stage_results(stage_index, stage_result["batch_results"])
 
         self._stage_results.append(stage_result)
         self.current_stage = stage_index + 1
@@ -536,7 +543,10 @@ class Program:
         Returns:
             Path where file was saved
         """
-        from proto_language.utils.export import flatten_construct_metadata, write_export
+        from proto_language.utils.export import (
+            flatten_construct_metadata,
+            write_export,
+        )
 
         batch_results = self.get_stage_results(stage) if stage is not None else self.extract_batch_results(self.energy_scores)
         rows = flatten_construct_metadata(batch_results, construct, batch_idx, style)

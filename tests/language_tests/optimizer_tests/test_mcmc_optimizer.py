@@ -1,28 +1,27 @@
 from __future__ import annotations
-import pytest
+
 import copy
 from typing import Tuple
 
+import pytest
 from pydantic import BaseModel
-from proto_language.language.core import (
-    Construct,
-    Segment,
-    Constraint,
-)
+
 from proto_language.language.constraint import (
     gc_content_constraint,
     sequence_length_constraint,
 )
-from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
-from proto_language.language.constraint.sequence_composition.sequence_length_constraint import SequenceLengthConfig
+from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
+    GCContentConfig,
+)
+from proto_language.language.constraint.sequence_composition.sequence_length_constraint import (
+    SequenceLengthConfig,
+)
+from proto_language.language.core import Constraint, Construct, Segment
 from proto_language.language.generator import (
     UniformMutationGenerator,
     UniformMutationGeneratorConfig,
 )
-from proto_language.language.optimizer import (
-    MCMCOptimizer,
-    MCMCOptimizerConfig,
-)
+from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
 
 # Empty config for test constraints
@@ -590,10 +589,9 @@ class TestMCMCOptimizer:
         actual_steps = [call["step"] for call in log_calls]
         assert actual_steps == expected_steps
 
-    def test_verbose_output_formats(self):
+    def test_verbose_output_formats(self, caplog):
         """Test logging output for num_selected=1 vs >1."""
-        import io
-        import sys
+        import logging
 
         seq_length = 15
 
@@ -619,16 +617,14 @@ class TestMCMCOptimizer:
             ),
         )
 
-        captured_output1 = io.StringIO()
-        sys.stdout = captured_output1
-        try:
+        with caplog.at_level(logging.DEBUG):
             optimizer1.run()
-        finally:
-            sys.stdout = sys.__stdout__
 
-        output1 = captured_output1.getvalue()
+        output1 = caplog.text
         assert "energy:" in output1
         assert "best:" not in output1
+
+        caplog.clear()
 
         # Test num_selected>1 (should show "best:", "mean:", etc.)
         proposal_gen2 = UniformMutationGenerator(
@@ -652,14 +648,10 @@ class TestMCMCOptimizer:
             ),
         )
 
-        captured_output2 = io.StringIO()
-        sys.stdout = captured_output2
-        try:
+        with caplog.at_level(logging.DEBUG):
             optimizer2.run()
-        finally:
-            sys.stdout = sys.__stdout__
 
-        output2 = captured_output2.getvalue()
+        output2 = caplog.text
         assert "best:" in output2
         assert "mean:" in output2
 
@@ -777,12 +769,12 @@ class TestMCMCOptimizer:
         # Verify state was captured with correct content
         assert optimizer._initial_state is not None
         assert len(optimizer._initial_state['segments']) == 1
-        
+
         # Verify captured state contains original sequence
         captured_selected = optimizer._initial_state['segments'][0]['selected']
         assert len(captured_selected) == 1
         assert captured_selected[0]['sequence'] == original_seq
-        
+
         # Verify energy scores were captured (initial state captures full num_candidates before first run)
         assert 'energy_scores' in optimizer._initial_state
         assert len(optimizer._initial_state['energy_scores']) == optimizer.num_candidates
@@ -798,14 +790,14 @@ class TestMCMCOptimizer:
         # Verify sequences were restored (not all G's, optimization ran from restored state)
         # The restored state was "A" * 20, then mutations were applied
         assert second_run_final_seq != "G" * 20
-        
+
         # Both runs should have started from original state
         # History should be fresh (cleared on restart)
         assert len(optimizer.history) > 0
 
     def test_independent_trajectories_no_crossover(self):
         """Tests that each batch index is an independent trajectory with no crossover.
-        
+
         Each trajectory should only select from its own proposal pool, not mix with
         proposals from other trajectories.
         """
@@ -881,11 +873,11 @@ class TestMCMCOptimizer:
         # Now manually set up a scenario where crossover would be visible:
         # Give trajectory 1's candidates very good energies (better than trajectory 0's old energy)
         # If there's crossover, trajectory 0 would steal from trajectory 1's pool
-        
+
         # Make trajectory 1's first candidate have energy=0 (best possible)
         segment.candidate_sequences[4].sequence = "A" * seq_length  # energy=0
         optimizer.energy_scores[4] = 0.0
-        
+
         # Keep trajectory 0's candidates at their original (energy=0)
         # Keep trajectory 2's candidates at their original (energy=5)
 
@@ -897,7 +889,7 @@ class TestMCMCOptimizer:
         # - MH acceptance is applied: old_energy=10, new_energy=0, so alpha=1.0 (always accept improvement)
         # - Trajectory 1 should now have "AAAAAAAAAA"
         # - Trajectory 0 should NOT have stolen from trajectory 1's pool
-        
+
         # The key test: trajectory 1's selected sequence should now be "AAAAAAAAAA"
         assert segment.selected_sequences[1].sequence == "A" * seq_length, (
             f"Trajectory 1 should have selected from its own pool. "
@@ -975,7 +967,7 @@ class TestMCMCOptimizer:
 
     def test_best_first_then_mh_selection(self):
         """Tests that selection picks best proposal first, then applies single MH decision.
-        
+
         The new selection logic:
         1. Find the best proposal by energy (lowest)
         2. Apply MH acceptance to that single best proposal

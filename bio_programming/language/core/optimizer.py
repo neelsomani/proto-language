@@ -8,11 +8,14 @@ generators and constraints to search for optimal biological sequences.
 from __future__ import annotations
 
 import copy
+import logging
 import math
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Literal, Optional
 
 from proto_language.tools.tool_cache import ToolCache, _program_tool_cache
+
+logger = logging.getLogger(__name__)
 
 from .constraint import Constraint
 from .construct import Construct
@@ -92,6 +95,7 @@ class Optimizer(ABC):
 
         self._initialize_sequence_pools()
         self._validate_optimizer()
+        logger.debug(f"Optimizer initialized: {self.__class__.__name__}, candidates={num_candidates}, selected={num_selected}")
 
     @property
     def segments(self):
@@ -172,16 +176,15 @@ class Optimizer(ABC):
 
         if self.verbose:
             op = "Σ" if operation == "add" else "Π"
-            print(
-                f"\n{'='*60}\n"
-                f"Energy Scoring: {len(filters)} filters, {len(scorers)} scoring\n"
-                f"Formula: energy = {op}(weight_i x constraint_score_i)\n"
+            logger.info(
+                f"Energy Scoring: {len(filters)} filters, {len(scorers)} scoring | "
+                f"Formula: energy = {op}(weight_i x constraint_score_i)"
             )
 
         # Pass 1: Evaluate all filter constraints first to skip expensive scoring on rejected candidates
         for idx, constraint in enumerate(filters):
             if self.verbose:
-                print(f"Filter {idx+1}: {constraint.label}")
+                logger.info(f"Filter {idx+1}: {constraint.label}")
             results = constraint.evaluate(mask=passed, verbose=self.verbose)
             passed = [p and r for p, r in zip(passed, results)]
 
@@ -189,7 +192,7 @@ class Optimizer(ABC):
         all_scores = []
         for idx, constraint in enumerate(scorers):
             if self.verbose:
-                print(f"Constraint {idx+1}: {constraint.label}")
+                logger.info(f"Constraint {idx+1}: {constraint.label}")
             all_scores.append(constraint.evaluate(mask=passed, verbose=self.verbose))
 
         # Aggregate scores across all scoring constraints into a single energy score per candidate.
@@ -217,9 +220,9 @@ class Optimizer(ABC):
         ]
 
         if self.verbose:
-            print("Final Energy Scores:")
+            logger.info("Final Energy Scores:")
             for i, score in enumerate(self.energy_scores):
-                print(f"  Candidate {i}: {score:.4f}{' [REJECTED]' if not passed[i] else ''}")
+                logger.info(f"  Candidate {i}: {score:.4f}{' [REJECTED]' if not passed[i] else ''}")
 
         self._clear_tool_cache()
 

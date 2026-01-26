@@ -12,30 +12,33 @@ Key Features:
     - Threshold-based filtering (converts scores to boolean accept/reject)
 """
 from __future__ import annotations
+
 import logging
-from typing import Callable, List, Optional, Protocol, Tuple, Dict, Any
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
+
 from pydantic import BaseModel
 
-from .sequence import Sequence
-from .segment import Segment
 from proto_language.utils.helpers import filter_inf_nan_scores
+
+from .segment import Segment
+from .sequence import Sequence
 
 logger = logging.getLogger(__name__)
 
 
 class ConstraintFunction(Protocol):
     """Protocol defining the standardized constraint function signature.
-    
+
     All constraint functions must conform to this signature:
     - Accept a list of sequence tuples (one tuple per candidate to evaluate)
     - Accept a Pydantic config object
     - Return a list of float scores between 0.0 and 1.0
-    
+
     The input tuples allow multi-segment constraints where each candidate
     consists of multiple sequences evaluated together (e.g., protein-protein
     interactions). For single-segment constraints, each tuple contains one sequence.
-    
+
     Example:
         >>> def my_constraint(
         ...     input_sequences: List[Tuple[Sequence, ...]],
@@ -46,7 +49,7 @@ class ConstraintFunction(Protocol):
         ...         scores.append(compute_score(seq, config))
         ...     return scores
     """
-    
+
     def __call__(
         self,
         input_sequences: List[Tuple[Sequence, ...]],
@@ -206,6 +209,7 @@ class Constraint:
             - Scoring constraints: NaN for unevaluated candidates
         """
         num_candidates = self._inputs[0].num_candidates
+        logger.debug(f"Constraint.evaluate: {self.label}, candidates={num_candidates}, threshold={self._threshold}")
 
         # Default: evaluate all candidates
         if mask is None:
@@ -223,7 +227,7 @@ class Constraint:
         # Prepare sequences for batched evaluation
         # indexed_sequences stores (original_idx, tuple_for_metadata) pairs
         indexed_sequences = [(idx, self._preprocess_sequence_at_index(idx)) for idx in indices_to_evaluate]
-        
+
         # Pass List[Tuple[Sequence, ...]] to the constraint function
         input_sequences_to_evaluate = [seq_tuple for _, seq_tuple in indexed_sequences]
         raw_scores = self._function(input_sequences_to_evaluate, config=self._function_config)
@@ -262,13 +266,13 @@ class Constraint:
                     data_strs = [f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
                                  for k, v in custom_data.items()]
                     data_str = f" [{', '.join(data_strs)}]" if data_strs else ""
-                    
+
                     if self._threshold is None:
-                        print(f"  Candidate {i}: {final_scores[i]:.4f} = {raw_scores[j]:.4f} * {self._weight}. Data: {data_str}")
+                        logger.info(f"  Candidate {i}: {final_scores[i]:.4f} = {raw_scores[j]:.4f} * {self._weight}. Data: {data_str}")
                     else:
-                        print(f"  Candidate {i}: {'PASS' if final_scores[i] else 'FAIL'} ({raw_scores[j]:.4f}). Data: {data_str}")
+                        logger.info(f"  Candidate {i}: {'PASS' if final_scores[i] else 'FAIL'} ({raw_scores[j]:.4f}). Data: {data_str}")
                 else:
-                    print(f"  Candidate {i}: SKIPPED")
+                    logger.info(f"  Candidate {i}: SKIPPED")
 
         return final_scores
 
@@ -358,7 +362,7 @@ class Constraint:
                 "weighted_score": filter_inf_nan_scores(score * self._weight),
                 "data": custom_data if custom_data else {},
             }
-            
+
             # Add segment linking info for multi-segment constraints
             if len(self._inputs) > 1:
                 constraint_data["input_segments"] = [f"{s.construct_label}.{s.label}" for s in self._inputs]

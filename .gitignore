@@ -25,6 +25,7 @@ proto_language/tools/sequence_alignment/colabfold_search/databases/
 # Log files and directory
 *.log
 logs/
+tests/logs/
 
 # Documentation override file
 CLAUDE.md

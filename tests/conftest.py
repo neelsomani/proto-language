@@ -2,11 +2,15 @@
 Test configuration and fixtures for the proto-language test suite.
 """
 
+import logging
 import os
+from pathlib import Path
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
+
+from proto_language import setup_logging
 
 
 # Helper to create a mock generator spec for patching
@@ -99,6 +103,12 @@ def pytest_addoption(parser):
         default=False,
         help="Skip tests marked with skip_ci (mimics CI environment behavior)",
     )
+    parser.addoption(
+        "--no-log-console",
+        action="store_true",
+        default=False,
+        help="Disable console logging during tests",
+    )
 
 
 def pytest_configure(config):
@@ -106,9 +116,17 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "uses_gpu: mark test as requiring GPU")
     config.addinivalue_line("markers", "uses_cpu: mark test as CPU-only")
 
+    # Set environment variable to indicate we're in pytest
+    # This prevents setup_logging() from creating timestamped files during test imports
+    os.environ["PYTEST_RUNNING"] = "1"
+
     # Hide CUDA devices when --skip-ci is specified to simulate CI environment
     if config.getoption("--skip-ci"):
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+    # Note: We don't configure pytest's log file here. Instead, we rely on
+    # setup_logging() in the setup_test_logging fixture which already has
+    # the ProtoLanguageOnlyFilter applied
 
 
 def pytest_collection_modifyitems(config, items):
@@ -165,12 +183,54 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(scope="session", autouse=True)
+def setup_test_logging(request):
+    """Set up logging for the test session. Runs early to prevent timestamped log files."""
+    # Use same log directory as application logs (logs/ in project root)
+    project_root = Path(__file__).parent.parent
+    log_dir = os.environ.get(
+        "PROTO_LANGUAGE_LOG_DIR",
+        str(project_root / "logs")
+    )
+
+    # Get options from command line
+    no_log_console = request.config.getoption("--no-log-console")
+
+    # Clear any existing handlers first to prevent duplicate log files
+    bio_prog_logger = logging.getLogger("proto_language")
+    bio_prog_logger.handlers.clear()
+
+    # Configure logging (use pytest's --log-cli-level for level control)
+    setup_logging(
+        level=logging.INFO,
+        log_dir=log_dir,
+        log_filename="pytest.log",
+        log_to_file=True,
+        log_to_console=not no_log_console,
+    )
+
+    # Suppress noisy third-party loggers that aren't suppressed by setup_logging
+    # (setup_logging only suppresses proto_language's child loggers)
+    noisy_test_loggers = [
+        "httpcore",
+        "httpx",
+        "LiteLLM",
+        "openai",
+        "asyncio",
+        "urllib3",
+        "requests",
+    ]
+    for logger_name in noisy_test_loggers:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+    yield
+
+
+@pytest.fixture(scope="session", autouse=True)
 def setup_cloud_environment():
     """Ensure cloud can find credentials in pytest context."""
-    # Read cloud credentials from ~/.cloud.toml and set as environment variables
-    from pathlib import Path
-
     import toml
+
+    logger = logging.getLogger(__name__)
 
     cloud_config_path = Path.home() / ".cloud.toml"
     if cloud_config_path.exists():
@@ -181,7 +241,7 @@ def setup_cloud_environment():
             os.environ["CLOUD_TOKEN_ID"] = config["proto-language"]["token_id"]
             os.environ["CLOUD_TOKEN_SECRET"] = config["proto-language"]["token_secret"]
             os.environ["CLOUD_ENVIRONMENT"] = "main"
-            print("✓ Loaded cloud credentials for proto-language workspace")
+            logger.info("Loaded cloud credentials for proto-language workspace")
 
     yield
 

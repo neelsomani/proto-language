@@ -569,14 +569,16 @@ class TestBeamSearchOptimizer:
         assert len(segment.selected_sequences) == 3
 
     # --- Verbose ---
-    def test_verbose_output(self, capsys):
+    def test_verbose_output(self, caplog):
+        import logging
+
         optimizer, _, _, _ = _setup_beam_search(
             segment_length=40, beam_length=20, beam_width=2
         )
         optimizer.verbose = True
-        optimizer.run()
-        captured = capsys.readouterr()
-        assert "Processing segment" in captured.out
+        with caplog.at_level(logging.DEBUG):
+            optimizer.run()
+        assert "Processing segment" in caplog.text
 
 
 @pytest.mark.uses_gpu
@@ -817,16 +819,16 @@ class TestBeamSearchOptimizerRestart:
         first_run_beams = [b.running_sequence for b in optimizer.beams]
         # Verify beams grew beyond prompt
         assert all(len(b) > len(prompt) for b in first_run_beams)
-        
+
         # Verify captured state contains original sequences (using index 0)
         assert len(optimizer._initial_state['segments']) == 1
         captured_selected = optimizer._initial_state['segments'][0]['selected']
-        
+
         # Verify captured sequences match originals
         assert len(captured_selected) == len(original_selected)
         for orig, captured in zip(original_selected, captured_selected):
             assert orig.sequence == captured['sequence']
-            
+
         # Manually modify sequences to invalid values to verify restore
         segment.selected_sequences[0].sequence = "G" * 44  # prompt (4) + segment_length (40)
         segment.candidate_sequences[0].sequence = "G" * 44
@@ -836,10 +838,10 @@ class TestBeamSearchOptimizerRestart:
         second_run_beams = [b.running_sequence for b in optimizer.beams]
         # Verify beams grew again (optimization ran)
         assert all(len(b) > len(prompt) for b in second_run_beams)
-        
+
         # Verify sequences were restored (not all G's - restoration happened)
         assert any(seq.sequence != "G" * 44 for seq in segment.selected_sequences)
-        
+
         # History should be fresh (cleared on restart)
         assert len(optimizer.history) == 1  # Only final snapshot
 
@@ -863,7 +865,7 @@ class TestBeamSearchOptimizerRestart:
         # Capture modified beams
         modified_beams = [b.running_sequence for b in optimizer.beams]
         assert all(len(b) > len(prompt) for b in modified_beams)
-        
+
         # Manually modify sequences to invalid values
         for seq in segment.selected_sequences:
             seq.sequence = "G" * 48  # prompt (8) + segment_length (40)
@@ -877,7 +879,7 @@ class TestBeamSearchOptimizerRestart:
             assert beam.running_sequence == prompt
             assert beam.kv_cache is None
             assert beam.beam_scores == []
-            
+
         # Sequences should be restored to original state
         restored_sequences = [s.sequence for s in segment.selected_sequences]
         assert len(restored_sequences) == len(original_selected)

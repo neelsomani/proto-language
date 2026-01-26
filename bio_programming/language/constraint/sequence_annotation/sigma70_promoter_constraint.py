@@ -197,6 +197,7 @@ class Sigma70PromoterConfig(BaseConfig):
     tools_called=[],
     category="sequence annotation",
     supported_sequence_types=["dna"],
+    num_input_sequences_per_tuple=1,
 )
 def sigma70_promoter_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Sigma70PromoterConfig) -> List[float]:
     """Evaluate E. coli sigma-70 promoter similarity using PWM-based scoring.

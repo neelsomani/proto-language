@@ -151,6 +151,7 @@ class KmerFrequencyConfig(BaseConfig):
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
+    num_input_sequences_per_tuple=1,
 )
 def kmer_frequency_constraint(input_sequences: List[Tuple[Sequence, ...]], config: KmerFrequencyConfig) -> List[float]:
     """Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring modes

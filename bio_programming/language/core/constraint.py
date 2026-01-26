@@ -14,7 +14,7 @@ Key Features:
 from __future__ import annotations
 import logging
 from typing import Callable, List, Optional, Protocol, Tuple, Dict, Any
-
+import warnings
 from pydantic import BaseModel
 
 from .sequence import Sequence
@@ -375,6 +375,7 @@ class Constraint:
             2. Consistent candidates: All segments must have the same number of candidates.
             3. Supported types: Constraint function must declare supported sequence types.
             4. Type compatibility: Each segment's sequence type must be supported by the constraint.
+            5. Input count: Number of input segments must match num_input_sequences_per_tuple if specified.
 
         Raises:
             ValueError: If any validation check fails.
@@ -390,12 +391,18 @@ class Constraint:
         # Check sequence types are supported
         supported_types = getattr(self._function, '_constraint_supported_sequence_types', None)
         if supported_types is None:
-            raise ValueError(f"Constraint function '{self._function.__name__}' missing supported_sequence_types attribute")
-        
-        for seg in self._inputs:
-            if seg.sequence_type not in supported_types:
-                raise ValueError(
-                    f"Constraint '{self.label}' does not support sequence type '{seg.sequence_type}'. "
-                    f"Supported types: [{', '.join(supported_types)}]"
-                )
+            warnings.warn(f"Constraint function '{self._function.__name__}' missing supported_sequence_types attribute. Allowing all sequence types as input to constraint.")
+        else:
+            for seg in self._inputs:
+                if seg.sequence_type not in supported_types:
+                    raise TypeError(f"Constraint '{self.label}' does not support sequence type '{seg.sequence_type}'. "
+                                  f"Supported types: [{', '.join(supported_types)}]")
 
+        # Check number of input sequences per tuple matches requirement
+        num_input_sequences_per_tuple = getattr(self._function, '_constraint_num_input_sequences_per_tuple', None)
+        if num_input_sequences_per_tuple is None:
+            warnings.warn(f"Constraint '{self.label}' does not specify required number of input sequences per tuple. Using {len(self._inputs)} input segment(s).")
+        else:
+            num_inputs = len(self._inputs)
+            if num_inputs != num_input_sequences_per_tuple:
+                raise ValueError(f"Constraint '{self.label}' requires exactly {num_input_sequences_per_tuple} input sequence(s) per tuple, but {num_inputs} segment(s) were provided.")

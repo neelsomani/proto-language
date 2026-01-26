@@ -92,6 +92,7 @@ class SequenceLengthConfig(BaseConfig):
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
+    num_input_sequences_per_tuple=1,
 )
 def sequence_length_constraint(input_sequences: List[Tuple[Sequence, ...]], config: SequenceLengthConfig) -> List[float]:
     """Evaluate sequence length against target value or acceptable range.

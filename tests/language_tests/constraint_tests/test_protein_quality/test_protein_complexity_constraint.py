@@ -96,11 +96,11 @@ class TestProteinComplexityConstraint:
                 constraint.evaluate()
 
     def test_wrong_sequence_type(self):
-        """Test that DNA/RNA sequences raise ValueError at construction (centralized validation)."""
+        """Test that DNA/RNA sequences raise TypeError at construction (centralized validation)."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         config = ProteinComplexityConfig(max_low_complexity=0.3)
 
-        with pytest.raises(ValueError, match="does not support sequence type 'dna'"):
+        with pytest.raises(TypeError, match="does not support sequence type 'dna'"):
             Constraint(
                 inputs=[segment],
                 function=protein_complexity_constraint,

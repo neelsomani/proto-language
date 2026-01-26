@@ -165,11 +165,11 @@ class TestConstraintValidation:
         assert len(constraint.inputs) == 2
 
     def test_unsupported_sequence_type_raises_error(self):
-        """Test that unsupported sequence type raises ValueError."""
+        """Test that unsupported sequence type raises TypeError."""
         # Create a protein segment and try to use it with DNA-only constraint
         protein_seg = Segment(sequence="MVLSPADKTN", sequence_type="protein")
 
-        with pytest.raises(ValueError, match="does not support sequence type 'protein'"):
+        with pytest.raises(TypeError, match="does not support sequence type 'protein'"):
             Constraint(
                 inputs=[protein_seg],
                 function=mock_dna_only_scoring_function,
@@ -194,7 +194,7 @@ class TestConstraintValidation:
         dna_seg = Segment(sequence="ATCGATCG", sequence_type="dna")
 
         # protein_only constraint with DNA segment should fail
-        with pytest.raises(ValueError, match="does not support sequence type 'dna'"):
+        with pytest.raises(TypeError, match="does not support sequence type 'dna'"):
             Constraint(
                 inputs=[dna_seg],
                 function=mock_protein_only_scoring_function,

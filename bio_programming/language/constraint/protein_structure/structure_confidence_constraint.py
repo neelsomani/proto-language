@@ -130,6 +130,7 @@ def _structure_confidence(
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
+    num_input_sequences_per_tuple=None,
 )
 def structure_plddt_constraint(
     input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
@@ -182,6 +183,7 @@ def structure_plddt_constraint(
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
+    num_input_sequences_per_tuple=None,
 )
 def structure_ptm_constraint(
     input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
@@ -222,6 +224,7 @@ def structure_ptm_constraint(
     tools_called=["alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
+    num_input_sequences_per_tuple=None,
 )
 def structure_iptm_constraint(
     input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
@@ -281,6 +284,7 @@ def structure_iptm_constraint(
     tools_called=["esmfold", "alphafold3", "boltz", "chai"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
+    num_input_sequences_per_tuple=None,
 )
 def structure_pae_constraint(
     input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig

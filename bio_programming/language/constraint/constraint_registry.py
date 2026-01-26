@@ -20,6 +20,7 @@ class ConstraintSpec(BaseSpec):
     tools_called: List[str] = Field(description="List of tool keys this constraint calls (e.g., ['esmfold', 'prodigal']). Helps agent find relevant tool documentation.")
     category: Optional[str] = Field(default=None, description="Optional category for organization (e.g., 'protein_structure', 'sequence_composition'). Not required for custom constraints.")
     supported_sequence_types: List[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Must be non-empty.")
+    num_input_sequences_per_tuple: Optional[int] = Field(default=None, description="Number of Sequence objects required in each tuple of input_sequences. If None, any number is allowed.")
 
     # Private field - excluded from serialization
     function: SkipJsonSchema[Callable] = Field(exclude=True)
@@ -92,6 +93,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         tools_called: List[str] = [],
         category: Optional[str] = None,
         supported_sequence_types: List[str] = [],
+        num_input_sequences_per_tuple: Optional[int] = None,
     ):
         """
         Decorator to register a constraint function.
@@ -108,6 +110,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             tools_called: List of tool keys this constraint calls (helps agent find relevant documentation).
             category: Optional category for organization (e.g., 'protein_structure', 'sequence_composition').
             supported_sequence_types: List of supported sequence types (e.g., ["dna", "protein"]).
+            num_input_sequences_per_tuple: Number of Sequence objects required in each tuple of input_sequences. If None, any number is allowed.
 
         Returns:
             Decorator that registers the function and returns it unchanged
@@ -138,6 +141,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             # Store metadata as function attributes for Constraint class to use
             func._constraint_config_class = config
             func._constraint_supported_sequence_types = supported_sequence_types
+            func._constraint_num_input_sequences_per_tuple = num_input_sequences_per_tuple
             
             cls._registry[key] = ConstraintSpec(
                 key=key,
@@ -149,6 +153,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 tools_called=tools_called,
                 category=category,
                 supported_sequence_types=supported_sequence_types,
+                num_input_sequences_per_tuple=num_input_sequences_per_tuple,
             )
             return func
         return decorator

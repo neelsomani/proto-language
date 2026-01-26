@@ -116,6 +116,7 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     tools_called=["splice_transformer"],
     category="rna splicing",
     supported_sequence_types=["dna"],
+    num_input_sequences_per_tuple=1,
 )
 def splice_transformer_specificity(
     input_sequences: List[Tuple[Sequence, ...]],

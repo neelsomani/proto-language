@@ -612,6 +612,7 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> Optional[str
     tools_called=["esmfold", "alphafold3", "boltz", "chai", "pymol"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
+    num_input_sequences_per_tuple=None,
 )
 def structure_rmsd_constraint(
     input_sequences: List[Tuple[Sequence, ...]], config: StructureRMSDConfig
@@ -690,6 +691,7 @@ def _count_pdb_chains(pdb_text: str) -> int:
     tools_called=["esmfold", "alphafold3", "boltz", "chai", "tmalign", "usalign"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
+    num_input_sequences_per_tuple=None,
 )
 def structure_tmscore_constraint(
     input_sequences: List[Tuple[Sequence, ...]], config: StructureTMScoreConfig

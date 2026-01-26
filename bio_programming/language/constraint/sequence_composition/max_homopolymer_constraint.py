@@ -54,6 +54,7 @@ class MaxHomopolymerConfig(BaseConfig):
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
+    num_input_sequences_per_tuple=1,
 )
 def max_homopolymer_constraint(input_sequences: List[Tuple[Sequence, ...]], config: MaxHomopolymerConfig) -> List[float]:
     """Penalize sequences containing homopolymers longer than specified maximum

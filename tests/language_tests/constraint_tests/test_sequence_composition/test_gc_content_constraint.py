@@ -52,10 +52,10 @@ class TestGCContentConstraint:
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9
 
     def test_wrong_sequence_type(self):
-        """Test that protein sequences raise ValueError at construction (centralized validation)."""
+        """Test that protein sequences raise TypeError at construction (centralized validation)."""
         segment = Segment(sequence="MVLSPADKTNVK", sequence_type="protein")
         config = GCContentConfig(min_gc=40, max_gc=60)
-        with pytest.raises(ValueError, match="does not support sequence type 'protein'"):
+        with pytest.raises(TypeError, match="does not support sequence type 'protein'"):
             Constraint(
                 inputs=[segment],
                 function=gc_content_constraint,

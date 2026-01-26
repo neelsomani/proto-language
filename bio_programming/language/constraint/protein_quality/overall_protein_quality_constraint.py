@@ -387,6 +387,7 @@ class OverallProteinQualityConfig(BaseConfig):
     tools_called=["prodigal", "segmasker"],
     category="protein quality",
     supported_sequence_types=["dna", "protein"],
+    num_input_sequences_per_tuple=1,
 )
 def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...]], config: OverallProteinQualityConfig) -> List[float]:
     """Evaluate overall protein quality using multiple configurable sub-constraints.

@@ -302,7 +302,7 @@ class TestFactoryMethod:
     def test_create_validates_sequence_type(self, dna_segment, protein_segment):
         """Test that create validates sequence type compatibility."""
         # gc-content only supports dna and rna, not protein
-        with pytest.raises(ValueError, match="does not support sequence type"):
+        with pytest.raises(TypeError, match="does not support sequence type"):
             ConstraintRegistry.create(
                 key="gc-content",
                 segments=[protein_segment],
@@ -310,7 +310,7 @@ class TestFactoryMethod:
             )
 
         # protein-length only supports protein, not dna
-        with pytest.raises(ValueError, match="does not support sequence type"):
+        with pytest.raises(TypeError, match="does not support sequence type"):
             ConstraintRegistry.create(
                 key="protein-length",
                 segments=[dna_segment],

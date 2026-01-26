@@ -100,6 +100,7 @@ class ProteinGlobularityConfig(BaseConfig):
     tools_called=["esmfold", "prodigal"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],
+    num_input_sequences_per_tuple=1,
 )
 def protein_globularity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinGlobularityConfig) -> List[float]:
     """Encourage compact, globular protein structures using ESMFold.

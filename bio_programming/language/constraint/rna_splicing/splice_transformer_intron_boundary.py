@@ -112,6 +112,7 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     tools_called=["splice_transformer"],
     category="rna splicing",
     supported_sequence_types=["dna"],
+    num_input_sequences_per_tuple=1,
 )
 def splice_transformer_intron_boundary(
     input_sequences: List[Tuple[Sequence, ...]],

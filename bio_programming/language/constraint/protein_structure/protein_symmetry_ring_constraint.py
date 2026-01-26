@@ -118,6 +118,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
     tools_called=["esmfold", "prodigal"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],
+    num_input_sequences_per_tuple=1,
 )
 def protein_symmetry_ring_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinSymmetryRingConfig) -> List[float]:
     """Constrain proteins to form symmetric ring-like multimeric structures using ESMFold.

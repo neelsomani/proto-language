@@ -333,10 +333,11 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     Attributes:
 
         target_chains (Optional[Tuple[str]]):
-            The amino acid sequences of the target protein chains. If provided,
-            these sequences will be folded using the specified `structure_tool`
-            to generate the reference structure. This is mutually exclusive
-            with `target_pdb_file` and `target_pdb_content`.
+            The sequences of the target chains (protein, DNA, RNA, or ligand).
+            If provided, these sequences will be folded using the specified
+            `structure_tool` to generate the reference structure. Entity types
+            are automatically detected from the sequence content. This is mutually
+            exclusive with `target_pdb_file` and `target_pdb_content`.
 
         target_pdb_file (Optional[str]):
             The local file path to a PDB file serving as the reference structure.
@@ -359,7 +360,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     target_chains: Optional[Tuple[str, ...]] = ConfigField(
         title="Target Chains",
         default=None,
-        description="Amino acid sequences of the target. Will be folded using the selected tool.",
+        description="Sequences of the target chains. Entity types are auto-detected.",
     )
     target_pdb_file: Optional[str] = ConfigField(
         title="Target PDB File",
@@ -575,20 +576,21 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> Optional[str
         with open(config.target_pdb_file, 'r') as f:
             return f.read()
 
-    # The user provided a list of protein sequences.
+    # The user provided a list of sequences (can be protein, DNA, RNA, or ligand).
     if config.target_chains:
+        # Auto-detect entity types from sequences
+        from proto_language.language.core import detect_sequence_type
+
+        entity_types = [detect_sequence_type(seq) for seq in config.target_chains]
+
         complexes = [
             StructurePredictionComplex(
                 chains=config.target_chains,
-                entity_types=["protein"] * len(config.target_chains),
+                entity_types=entity_types,
             )
         ]
 
-        try:
-            output = predict_structures(complexes, config.structure_tool, config.tool_config)
-        except Exception as e:
-            logger.error(f"Failed to fold target sequence: {e}")
-            return None
+        output = predict_structures(complexes, config.structure_tool, config.tool_config)
 
         # Check confidence.
         if output.structures[0].avg_plddt < config.min_target_plddt:

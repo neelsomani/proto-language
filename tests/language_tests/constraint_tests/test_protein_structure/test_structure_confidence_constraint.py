@@ -764,8 +764,8 @@ class TestErrorHandling:
             # If this passes, check the error message contains expected info
             assert "esmfold" in str(config) or "alphafold3" in str(config)
 
-    def test_prediction_failure_returns_worst_score(self, protein_sequence):
-        """Test that prediction failure returns score of 1.0."""
+    def test_prediction_failure_raises_error(self, protein_sequence):
+        """Test that prediction failure raises an error."""
         candidates = [(protein_sequence,)]
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
@@ -774,10 +774,8 @@ class TestErrorHandling:
         ) as mock_predict:
             mock_predict.side_effect = RuntimeError("GPU out of memory")
 
-            scores = structure_plddt_constraint(candidates, config)
-
-            assert len(scores) == 1
-            assert scores[0] == 1.0
+            with pytest.raises(RuntimeError, match="GPU out of memory"):
+                structure_plddt_constraint(candidates, config)
 
     def test_missing_metric_returns_worst_score(self, protein_sequence):
         """Test that missing metric in output returns score of 1.0."""

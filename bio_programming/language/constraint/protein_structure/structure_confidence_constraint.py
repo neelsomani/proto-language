@@ -88,12 +88,7 @@ def _structure_confidence(
         )
 
     # Run structure prediction.
-    try:
-        output = predict_structures(complexes, config.structure_tool, config.tool_config)
-    except Exception as e:
-        logger.error(f"Structure prediction failed: {e}")
-        # Return worst possible scores
-        return [None] * len(candidates)
+    output = predict_structures(complexes, config.structure_tool, config.tool_config)
 
     # Extract and return raw requested metric.
     raw_metrics = []
@@ -133,7 +128,7 @@ def _structure_confidence(
     num_input_sequences_per_tuple=None,
 )
 def structure_plddt_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> List[float]:
     """Evaluate structure quality using predicted LDDT (pLDDT) score.
 
@@ -186,7 +181,7 @@ def structure_plddt_constraint(
     num_input_sequences_per_tuple=None,
 )
 def structure_ptm_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> List[float]:
     """Evaluate structure quality using predicted TM-score (pTM).
 
@@ -227,7 +222,7 @@ def structure_ptm_constraint(
     num_input_sequences_per_tuple=None,
 )
 def structure_iptm_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> List[float]:
     """Evaluate interface quality using predicted interface TM-score (ipTM).
 
@@ -287,7 +282,7 @@ def structure_iptm_constraint(
     num_input_sequences_per_tuple=None,
 )
 def structure_pae_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureConfidenceConfig
+    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> List[float]:
     """Evaluate structure quality using predicted aligned error (pAE).
 

@@ -54,6 +54,7 @@ tools = [
     "ViennaRNA",
     # Structure visualization
     "py3Dmol>=2.0.0",
+    "matplotlib",
     # File Parsing/Indexing
     "pyfaidx",
 ]

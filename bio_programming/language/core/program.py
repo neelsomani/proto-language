@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
@@ -18,6 +19,32 @@ class Program:
     This class supports sequential execution of multiple optimizers, where each
     optimizer builds on the results of the previous one. All optimizers must
     share the same construct objects to ensure state persistence.
+
+    Optimizer Handoff Contract:
+        When running multiple optimizers sequentially, the Program ensures proper
+        state transfer between stages:
+
+        **After each optimizer completes:**
+
+        1. Program sorts ``selected_sequences`` by ``energy_scores`` (best/lowest first)
+        2. Sorting is skipped with a warning if all scores are inf (e.g., CyclingOptimizer
+           without constraints) - sequences remain in their original order
+
+        **Before the next optimizer runs:**
+
+        1. ``_initialize_sequence_pools()`` reads from sorted ``selected_sequences``
+           (or ``original_sequence`` if first optimizer)
+        2. Both ``selected_sequences`` and ``candidate_sequences`` are initialized by
+           cycling through source to preserve diversity when pool sizes differ
+           (e.g., source=[A,B,C], num_selected=5 -> [A,B,C,A,B])
+
+        **Optimizer-specific behavior:**
+
+        - **TopK**: Clears ``selected_sequences`` and repopulates dynamically during run
+        - **MCMC**: Uses ``selected_sequences`` as parallel trajectories, overwrites
+          ``candidate_sequences`` each step via ``_populate_candidate_sequences()``
+        - **CyclingOptimizer**: Works directly on ``candidate_sequences``
+        - **BeamSearch**: Ignores previous state entirely, starts fresh from configured prompt
 
     Examples:
         Sequential optimization with TopK followed by MCMC:
@@ -220,6 +247,24 @@ class Program:
                 seqs = [seg["sequence"] for seg in construct["segments"]]
                 logger.debug(f"    {construct['label']}: {' | '.join(seqs)}")
 
+    def _sort_sequences_by_energy(self, optimizer: Optimizer) -> None:
+        """Sort selected_sequences by energy_scores (best/lowest first). NaN/inf sort to end."""
+        if all(math.isinf(s) or math.isnan(s) for s in optimizer.energy_scores):
+            logger.warning(f"Skipping sort for {optimizer.__class__.__name__}: all energy_scores are inf/NaN")
+            return
+
+        # Sort indices by energy (lowest/best first), NaN/inf sort to end
+        def sort_key(i):
+            e = optimizer.energy_scores[i]
+            return (math.isnan(e) or math.isinf(e), e)
+
+        indices = sorted(range(optimizer.num_selected), key=sort_key)
+        for segment in optimizer.segments:
+            segment.selected_sequences = [segment.selected_sequences[i] for i in indices]
+        optimizer.energy_scores = [optimizer.energy_scores[i] for i in indices]
+
+        logger.debug(f"Sorted {optimizer.__class__.__name__} results: best={optimizer.energy_scores[0]:.4f}, worst={optimizer.energy_scores[-1]:.4f}")
+
     def run(self) -> None:
         """
         Execute the sequence optimization process for all optimizers sequentially.
@@ -289,6 +334,9 @@ class Program:
         self._clear_sequence_metadata()
 
         optimizer.run()
+
+        # Sort results by energy (best first) for consistent handoff to next optimizer
+        self._sort_sequences_by_energy(optimizer)
 
         stage_result = self.extract_batch_results(optimizer.energy_scores)
         if self.verbose:

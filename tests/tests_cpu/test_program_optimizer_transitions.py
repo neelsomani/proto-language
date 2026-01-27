@@ -1,0 +1,562 @@
+"""
+test_program_optimizer_transitions.py
+
+Tests for all 16 optimizer transition permutations.
+
+Transition Matrix:
+    From / To        | TopK | MCMC | BeamSearch | CyclingOptimizer
+    -----------------|------|------|------------|------------------
+    TopK             |  1   |  2   |     3      |        4
+    MCMC             |  5   |  6   |     7      |        8
+    BeamSearch       |  9   |  10  |    11      |       12
+    CyclingOptimizer | 13   |  14  |    15      |       16
+
+Note: BeamSearch ignores previous state by design (always starts from prompt).
+"""
+
+import random
+from typing import Dict, List, Optional
+from unittest.mock import Mock
+
+from proto_language.language.core import Program, Construct, Segment, Constraint, Sequence, Generator
+from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
+from proto_language.language.optimizer import (
+    TopKOptimizer, TopKOptimizerConfig,
+    MCMCOptimizer, MCMCOptimizerConfig,
+    BeamSearchOptimizer, BeamSearchOptimizerConfig,
+    CyclingOptimizer, CyclingOptimizerConfig,
+)
+from proto_language.language.constraint import gc_content_constraint
+
+
+# =============================================================================
+# Mock Generators
+# =============================================================================
+
+class MockAutoregressiveGenerator(Generator):
+    """Mock autoregressive generator for BeamSearch testing without GPU."""
+
+    def __init__(self, use_kv_caching: bool = True):
+        super().__init__()
+        self.use_kv_caching = use_kv_caching
+        self.kv_caches: List[Dict] = []
+        self.num_tokens = 20
+
+    def assign(self, assigned_segment: Segment) -> None:
+        self._assigned_segment = assigned_segment
+
+    def sample(
+        self,
+        prompts: Optional[List[str]] = None,
+        prepend_prompt: Optional[bool] = None,
+        old_kv_cache: Optional[Dict] = None,
+    ) -> None:
+        if prompts is None:
+            prompts = [""]
+        sequences = []
+        for prompt in prompts:
+            new_seq = "".join(random.choice("ATCG") for _ in range(self.num_tokens))
+            sequences.append(prompt + new_seq if prepend_prompt else new_seq)
+        self._assigned_segment.candidate_sequences = [
+            Sequence(sequence=seq, sequence_type="dna") for seq in sequences
+        ]
+        if self.use_kv_caching:
+            mock_mha = Mock()
+            mock_mha.key_value_memory_dict = {0: Mock(shape=(1, 2, 3))}
+            mock_mha.seqlen_offset = 10
+            self.kv_caches = [{"mha": mock_mha, "hcl": Mock()} for _ in range(len(prompts))]
+        else:
+            self.kv_caches = []
+
+    def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
+        return cache
+
+
+class MockCyclingGenerator(Generator):
+    """Mock generator for CyclingOptimizer testing."""
+
+    def __init__(self):
+        super().__init__()
+
+    def assign(self, assigned_segment: Segment) -> None:
+        self._assigned_segment = assigned_segment
+
+    def sample(self, structure_inputs=None) -> None:
+        # Mutate each candidate sequence slightly
+        for seq in self._assigned_segment.candidate_sequences:
+            chars = list(seq.sequence)
+            if chars:
+                idx = random.randint(0, len(chars) - 1)
+                chars[idx] = random.choice("ACGT")
+                seq.sequence = "".join(chars)
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+def create_topk_optimizer(construct, segment, num_samples=20, k=3, batch_size=5, num_mutations=3):
+    """Create a TopK optimizer."""
+    gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=num_mutations))
+    gen.assign(segment)
+    constraint = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config={"min_gc": 0, "max_gc": 100},
+    )
+    return TopKOptimizer(
+        constructs=[construct],
+        generators=[gen],
+        constraints=[constraint],
+        config=TopKOptimizerConfig(num_samples=num_samples, k=k, batch_size=batch_size),
+    )
+
+
+def create_mcmc_optimizer(construct, segment, num_selected=3, num_steps=10, num_mutations=2):
+    """Create an MCMC optimizer."""
+    gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=num_mutations))
+    gen.assign(segment)
+    constraint = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config={"min_gc": 0, "max_gc": 100},
+    )
+    return MCMCOptimizer(
+        constructs=[construct],
+        generators=[gen],
+        constraints=[constraint],
+        config=MCMCOptimizerConfig(num_selected=num_selected, num_steps=num_steps, track_step_size=num_steps),
+    )
+
+
+def create_beamsearch_optimizer(construct, segment, beam_width=3, beam_length=10, prompt="ATCG"):
+    """Create a BeamSearch optimizer with mock generator."""
+    generator = MockAutoregressiveGenerator(use_kv_caching=True)
+    generator._assigned_segment = segment
+    constraint = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config={"min_gc": 0, "max_gc": 100},
+    )
+    return BeamSearchOptimizer(
+        constructs=[construct],
+        generators=[generator],
+        constraints=[constraint],
+        config=BeamSearchOptimizerConfig(
+            prompt=prompt,
+            beam_length=beam_length,
+            beam_width=beam_width,
+            candidates_per_beam=3,
+            use_kv_caching=True,
+        ),
+        target_segment=segment,
+    )
+
+
+def create_cycling_optimizer(construct, segment, num_candidates=3, num_steps=5):
+    """Create a CyclingOptimizer with mock generator."""
+    generator = MockCyclingGenerator()
+    generator.assign(segment)
+
+    def mock_conditioning_fn(sequences):
+        return [{"mock": True} for _ in sequences]
+
+    constraint = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config={"min_gc": 0, "max_gc": 100},
+        threshold=1.0,  # Filter constraint for CyclingOptimizer
+    )
+    return CyclingOptimizer(
+        target_segment=segment,
+        constructs=[construct],
+        generators=[generator],
+        constraints=[constraint],
+        config=CyclingOptimizerConfig(
+            num_steps=num_steps,
+            num_candidates=num_candidates,
+            conditioning_param_name="structure_inputs",
+        ),
+        conditioning_fn=mock_conditioning_fn,
+    )
+
+
+# =============================================================================
+# Test Classes for All 16 Permutations
+# =============================================================================
+
+class TestTopKTransitions:
+    """Tests 1-4: Transitions FROM TopK."""
+
+    def test_1_topk_to_topk(self):
+        """TopK -> TopK: Second optimizer uses sorted results from first."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_topk_optimizer(construct, segment, num_samples=15, k=3, batch_size=5)
+        opt2 = create_topk_optimizer(construct, segment, num_samples=10, k=2, batch_size=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        opt1_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(opt1_seqs) == 3
+        assert opt1.energy_scores == sorted(opt1.energy_scores), "Should be sorted"
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+        assert opt2.energy_scores == sorted(opt2.energy_scores)
+
+    def test_2_topk_to_mcmc(self):
+        """TopK -> MCMC: MCMC inherits sorted sequences from TopK."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_topk_optimizer(construct, segment, num_samples=15, k=3, batch_size=5)
+        opt2 = create_mcmc_optimizer(construct, segment, num_selected=2, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        assert opt1.energy_scores == sorted(opt1.energy_scores)
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+
+    def test_3_topk_to_beamsearch(self):
+        """TopK -> BeamSearch: BeamSearch IGNORES TopK results, starts from prompt."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_topk_optimizer(construct, segment, num_samples=10, k=3, batch_size=5)
+        opt2 = create_beamsearch_optimizer(construct, segment, beam_width=2, beam_length=10, prompt="GGGG")
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+
+        program.run_stage(1)
+        beam_seqs = [s.sequence for s in segment.selected_sequences]
+
+        # BeamSearch starts fresh from prompt, doesn't use TopK results
+        assert len(beam_seqs) == 2
+        # All beam sequences should start with the prompt
+        assert all(s.startswith("GGGG") for s in beam_seqs), "BeamSearch should start from prompt"
+
+    def test_4_topk_to_cycling(self):
+        """TopK -> CyclingOptimizer: Cycling inherits sorted sequences."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_topk_optimizer(construct, segment, num_samples=10, k=3, batch_size=5)
+        opt2 = create_cycling_optimizer(construct, segment, num_candidates=2, num_steps=3)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        topk_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(topk_seqs) == 3
+
+        program.run_stage(1)
+        # CyclingOptimizer should have run with 2 candidates
+        assert len(segment.selected_sequences) == 2
+
+
+class TestMCMCTransitions:
+    """Tests 5-8: Transitions FROM MCMC."""
+
+    def test_5_mcmc_to_topk(self):
+        """MCMC -> TopK: TopK uses MCMC's sorted results."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_mcmc_optimizer(construct, segment, num_selected=3, num_steps=10)
+        opt2 = create_topk_optimizer(construct, segment, num_samples=10, k=2, batch_size=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        assert opt1.energy_scores == sorted(opt1.energy_scores), "MCMC results sorted by Program"
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+        assert opt2.energy_scores == sorted(opt2.energy_scores)
+
+    def test_6_mcmc_to_mcmc(self):
+        """MCMC -> MCMC: Second MCMC inherits and continues optimization."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_mcmc_optimizer(construct, segment, num_selected=3, num_steps=10)
+        opt2 = create_mcmc_optimizer(construct, segment, num_selected=2, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        mcmc1_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(mcmc1_seqs) == 3
+
+        program.run_stage(1)
+        mcmc2_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(mcmc2_seqs) == 2
+
+    def test_7_mcmc_to_beamsearch(self):
+        """MCMC -> BeamSearch: BeamSearch IGNORES MCMC results."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_mcmc_optimizer(construct, segment, num_selected=3, num_steps=10)
+        opt2 = create_beamsearch_optimizer(construct, segment, beam_width=2, beam_length=10, prompt="CCCC")
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        program.run_stage(1)
+
+        beam_seqs = [s.sequence for s in segment.selected_sequences]
+        assert all(s.startswith("CCCC") for s in beam_seqs), "BeamSearch ignores previous state"
+
+    def test_8_mcmc_to_cycling(self):
+        """MCMC -> CyclingOptimizer: Cycling inherits MCMC's sorted results."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_mcmc_optimizer(construct, segment, num_selected=3, num_steps=10)
+        opt2 = create_cycling_optimizer(construct, segment, num_candidates=2, num_steps=3)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        mcmc_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(mcmc_seqs) == 3
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+
+
+class TestBeamSearchTransitions:
+    """Tests 9-12: Transitions FROM BeamSearch."""
+
+    def test_9_beamsearch_to_topk(self):
+        """BeamSearch -> TopK: TopK uses BeamSearch's results."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_beamsearch_optimizer(construct, segment, beam_width=3, beam_length=10, prompt="AAAA")
+        opt2 = create_topk_optimizer(construct, segment, num_samples=10, k=2, batch_size=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        beam_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(beam_seqs) == 3
+        assert all(s.startswith("AAAA") for s in beam_seqs)
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+
+    def test_10_beamsearch_to_mcmc(self):
+        """BeamSearch -> MCMC: MCMC refines BeamSearch results."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_beamsearch_optimizer(construct, segment, beam_width=3, beam_length=10, prompt="TTTT")
+        opt2 = create_mcmc_optimizer(construct, segment, num_selected=2, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        beam_seqs = [s.sequence for s in segment.selected_sequences]
+        assert all(s.startswith("TTTT") for s in beam_seqs)
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+
+    def test_11_beamsearch_to_beamsearch(self):
+        """BeamSearch -> BeamSearch: Second ignores first, starts from its own prompt."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_beamsearch_optimizer(construct, segment, beam_width=2, beam_length=10, prompt="AAAA")
+        opt2 = create_beamsearch_optimizer(construct, segment, beam_width=2, beam_length=10, prompt="TTTT")
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        beam1_seqs = [s.sequence for s in segment.selected_sequences]
+        assert all(s.startswith("AAAA") for s in beam1_seqs)
+
+        program.run_stage(1)
+        beam2_seqs = [s.sequence for s in segment.selected_sequences]
+        # Second BeamSearch uses its own prompt, ignores first
+        assert all(s.startswith("TTTT") for s in beam2_seqs)
+
+    def test_12_beamsearch_to_cycling(self):
+        """BeamSearch -> CyclingOptimizer: Cycling uses BeamSearch results."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_beamsearch_optimizer(construct, segment, beam_width=3, beam_length=10, prompt="GGGG")
+        opt2 = create_cycling_optimizer(construct, segment, num_candidates=2, num_steps=3)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        beam_seqs = [s.sequence for s in segment.selected_sequences]
+        assert all(s.startswith("GGGG") for s in beam_seqs)
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+
+
+class TestCyclingOptimizerTransitions:
+    """Tests 13-16: Transitions FROM CyclingOptimizer."""
+
+    def test_13_cycling_to_topk(self):
+        """CyclingOptimizer -> TopK: TopK uses Cycling's results."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_cycling_optimizer(construct, segment, num_candidates=3, num_steps=5)
+        opt2 = create_topk_optimizer(construct, segment, num_samples=10, k=2, batch_size=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        cycling_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(cycling_seqs) == 3
+
+        program.run_stage(1)
+        assert len(segment.selected_sequences) == 2
+
+    def test_14_cycling_to_mcmc(self):
+        """CyclingOptimizer -> MCMC: MCMC refines Cycling's results."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_cycling_optimizer(construct, segment, num_candidates=3, num_steps=5)
+        opt2 = create_mcmc_optimizer(construct, segment, num_selected=2, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        program.run_stage(1)
+
+        assert len(segment.selected_sequences) == 2
+
+    def test_15_cycling_to_beamsearch(self):
+        """CyclingOptimizer -> BeamSearch: BeamSearch IGNORES Cycling's results."""
+        segment = Segment(length=50, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_cycling_optimizer(construct, segment, num_candidates=3, num_steps=3)
+        opt2 = create_beamsearch_optimizer(construct, segment, beam_width=2, beam_length=10, prompt="ACGT")
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        program.run_stage(1)
+
+        beam_seqs = [s.sequence for s in segment.selected_sequences]
+        assert all(s.startswith("ACGT") for s in beam_seqs), "BeamSearch ignores previous state"
+
+    def test_16_cycling_to_cycling(self):
+        """CyclingOptimizer -> CyclingOptimizer: Second continues from first."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_cycling_optimizer(construct, segment, num_candidates=3, num_steps=3)
+        opt2 = create_cycling_optimizer(construct, segment, num_candidates=2, num_steps=3)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        cycling1_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(cycling1_seqs) == 3
+
+        program.run_stage(1)
+        cycling2_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(cycling2_seqs) == 2
+
+
+# =============================================================================
+# Content Verification Tests
+# =============================================================================
+
+class TestSortingContent:
+    """Verify sorting reorders sequences to match energy scores."""
+
+    def test_best_sequence_at_index_0(self):
+        """After sorting, index 0 should have the minimum energy."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_mcmc_optimizer(construct, segment, num_selected=5, num_steps=20)
+        program = Program(optimizers=[opt1])
+        program.run_stage(0)
+
+        assert opt1.energy_scores[0] == min(opt1.energy_scores)
+
+    def test_energies_ascending_after_sort(self):
+        """Energy scores should be in ascending order after sort."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_topk_optimizer(construct, segment, num_samples=30, k=5, batch_size=10)
+        program = Program(optimizers=[opt1])
+        program.run_stage(0)
+
+        assert opt1.energy_scores == sorted(opt1.energy_scores)
+
+
+class TestCyclingContent:
+    """Verify cycling produces expected sequence patterns."""
+
+    def test_cycling_preserves_source_sequences(self):
+        """Cycling should repeat source sequences in order."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_topk_optimizer(construct, segment, num_samples=10, k=2, batch_size=5)
+        opt2 = create_mcmc_optimizer(construct, segment, num_selected=5, num_steps=1)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        source_seqs = [s.sequence for s in segment.selected_sequences]
+        assert len(source_seqs) == 2
+
+        # Manually call _initialize_sequence_pools to check pattern before MCMC runs
+        opt2._initialize_sequence_pools()
+        initialized = [s.sequence for s in segment.selected_sequences]
+
+        # Pattern: [0, 1, 0, 1, 0]
+        assert initialized[0] == source_seqs[0]
+        assert initialized[1] == source_seqs[1]
+        assert initialized[2] == source_seqs[0]
+        assert initialized[3] == source_seqs[1]
+        assert initialized[4] == source_seqs[0]
+
+
+class TestTruncationContent:
+    """Verify truncation keeps best sequences."""
+
+    def test_truncation_keeps_best(self):
+        """When num_selected decreases, best sequences are kept."""
+        segment = Segment(length=30, sequence_type="dna")
+        construct = Construct([segment])
+
+        opt1 = create_mcmc_optimizer(construct, segment, num_selected=5, num_steps=15)
+        opt2 = create_mcmc_optimizer(construct, segment, num_selected=2, num_steps=1)
+
+        program = Program(optimizers=[opt1, opt2])
+
+        program.run_stage(0)
+        sorted_seqs = [s.sequence for s in segment.selected_sequences]
+        best_two = sorted_seqs[:2]
+
+        opt2._initialize_sequence_pools()
+        truncated = [s.sequence for s in segment.selected_sequences]
+
+        assert truncated[0] == best_two[0]
+        assert truncated[1] == best_two[1]

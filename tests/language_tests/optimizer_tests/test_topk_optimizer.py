@@ -237,20 +237,21 @@ class TestTopKOptimizerStandardMode:
             config=config,
         )
 
-        # Capture original state
+        # Capture original state (base class initializes selected_sequences to num_selected by cycling)
         original_seq = segment.selected_sequences[0].sequence
         assert original_seq == "ATCGATCG"
+        assert len(segment.selected_sequences) == 3  # Cycled from single source
 
         # First run
         optimizer.run()
         assert len(segment.selected_sequences) == 3
         assert optimizer._initial_state is not None
         
-        # Verify captured state contains original sequence
+        # Verify captured state contains cycled original sequences
         assert len(optimizer._initial_state['segments']) == 1
         captured_selected = optimizer._initial_state['segments'][0]['selected']
-        assert len(captured_selected) == 1
-        assert captured_selected[0]['sequence'] == original_seq
+        assert len(captured_selected) == 3  # Cycled to num_selected
+        assert all(s['sequence'] == original_seq for s in captured_selected)
         
         # Verify energy scores captured
         assert 'energy_scores' in optimizer._initial_state

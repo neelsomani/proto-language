@@ -320,17 +320,17 @@ class TestSequencePoolInitialization:
         )
         assert optimizer.constructs == [construct]
 
-        # Uses existing selected sequences
+        # Selected sequences padded by cycling: [AAAA, TTTT, AAAA]
+        assert len(segment.selected_sequences) == 3
         assert segment.selected_sequences[0].sequence == "AAAA"
         assert segment.selected_sequences[1].sequence == "TTTT"
+        assert segment.selected_sequences[2].sequence == "AAAA"  # Cycles back
 
-        # Pads with copies of best sequence
-        assert len(segment.selected_sequences) == 3
-        assert segment.selected_sequences[2].sequence == "AAAA"
-
-        # Candidates initialized from best sequence
+        # Candidates also initialized by cycling: [AAAA, TTTT, AAAA, TTTT, AAAA]
         assert len(segment.candidate_sequences) == 5
-        assert all(s.sequence == "AAAA" for s in segment.candidate_sequences)
+        expected = ["AAAA", "TTTT", "AAAA", "TTTT", "AAAA"]
+        for i, seq in enumerate(segment.candidate_sequences):
+            assert seq.sequence == expected[i], f"candidate[{i}] expected {expected[i]}, got {seq.sequence}"
 
 
 class TestScoreEnergy:

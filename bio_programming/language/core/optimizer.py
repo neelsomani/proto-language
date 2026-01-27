@@ -33,6 +33,12 @@ class Optimizer(ABC):
     by coordinating generators, evaluating constraints, and making decisions
     about which sequences to keep.
 
+    Pool Initialization:
+        ``_initialize_sequence_pools()`` is called during ``__init__()`` and by
+        ``Program.run_stage()`` before each subsequent optimizer. It reads from
+        ``selected_sequences`` (sorted by Program) or ``original_sequence`` and
+        initializes both pools by cycling through source to preserve diversity.
+
     Filter Constraints:
         Constraints with a threshold parameter act as binary filters that accept or reject
         candidates before scoring. Rejected candidates receive infinite penalty scores
@@ -114,30 +120,6 @@ class Optimizer(ABC):
         Implementations should modify generator outputs in-place.
         """
         raise NotImplementedError("Subclasses must implement the run method.")
-
-    def _save_progress_snapshot(self, time_step: int) -> None:
-        """
-        Save current optimization state to history.
-
-        Default implementation saves time_step, energy_scores, and constructs.
-        Subclasses can override to add optimizer-specific metadata.
-
-        Args:
-            time_step: Current step/round/segment index
-
-        Raises:
-            RuntimeError: If energy_scores length doesn't match num_selected.
-        """
-        if len(self.energy_scores) != self.num_selected:
-            raise RuntimeError(
-                f"energy_scores has length {len(self.energy_scores)}, expected {self.num_selected}. "
-                f"Ensure energy_scores is truncated to num_selected after selection."
-            )
-        self.history.append({
-            "time_step": time_step,
-            "energy_scores": self.energy_scores.copy(),
-            "constructs": [c.to_dict() for c in self.constructs],  # Optimization: serialize instead of deepcopy
-        })
 
     def score_energy(
         self,
@@ -345,29 +327,31 @@ class Optimizer(ABC):
                     )
 
     def _initialize_sequence_pools(self) -> None:
-        """Initialize sequence pools from previous optimizer or original sequence.
+        """Initialize sequence pools from previous optimizer's results or original sequence.
 
-        Behavior:
-        - Uses previous optimizer's selected_sequences if available (sorted best-first)
-        - Falls back to candidate_sequences, then original_sequence
-        - Pads with copies of best sequence if fewer than num_selected available
-        - Candidates are all initialized from best sequence (will be mutated by generators)
+        Source priority:
+        1. ``segment.selected_sequences`` (if populated) - from previous optimizer, sorted by Program
+        2. ``[segment.original_sequence]`` (if first optimizer) - falls back to original
+        
+        Both ``selected_sequences`` and ``candidate_sequences`` are initialized by cycling 
+        through source to preserve diversity when pool sizes differ.
+        
+        Example: source=[A,B,C], num_selected=5 → [A,B,C,A,B]
         """
         for segment in self.segments:
             # Source: previous optimizer's results or original sequence
-            # TODO: The best sequence logic here is incorrect. Should we move initialize_sequence_pools to the program level?
-            source = segment.selected_sequences or segment.candidate_sequences or [segment.original_sequence]
-            best_seq = source[0]
+            source = segment.selected_sequences or [segment.original_sequence]
 
-            # Selected pool: up to num_selected from source, pad with best
+            # Selected pool: cycle through source to preserve diversity
             segment.selected_sequences = [
-                copy.deepcopy(source[i] if i < len(source) else best_seq)
+                copy.deepcopy(source[i % len(source)])
                 for i in range(self.num_selected)
             ]
 
-            # Candidate pool: all copies of best (will be mutated by generators)
+            # Candidate pool: cycle through source to preserve diversity
             segment.candidate_sequences = [
-                copy.deepcopy(best_seq) for _ in range(self.num_candidates)
+                copy.deepcopy(source[i % len(source)])
+                for i in range(self.num_candidates)
             ]
 
     def _prepare_run(self) -> None:
@@ -398,3 +382,21 @@ class Optimizer(ABC):
             seg.candidate_sequences = [Sequence.from_dict(s) for s in state['candidates']]
         self.energy_scores = self._initial_state['energy_scores'].copy()
         self.history = []
+
+    def _save_progress_snapshot(self, time_step: int) -> None:
+        """Save current optimization state to history.
+
+        Validates that ``selected_sequences`` and ``energy_scores`` have length
+        ``num_selected``, then appends a snapshot to ``self.history``.
+        """
+        for segment in self.segments:
+            if len(segment.selected_sequences) != self.num_selected:
+                raise RuntimeError(f"selected_sequences has length {len(segment.selected_sequences)} for segment {segment.label or 'unlabeled'}', expected {self.num_selected}")
+        if len(self.energy_scores) != self.num_selected:
+            raise RuntimeError(f"energy_scores has length {len(self.energy_scores)}, expected {self.num_selected}")
+
+        self.history.append({
+            "time_step": time_step,
+            "energy_scores": self.energy_scores.copy(),
+            "constructs": [c.to_dict() for c in self.constructs],  # Optimization: serialize instead of deepcopy
+        })

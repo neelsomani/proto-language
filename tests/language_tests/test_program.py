@@ -122,9 +122,9 @@ class TestProgramRestart:
         captured_selected = captured_state['selected']
         captured_candidates = captured_state['candidates']
         
-        # Verify captured sequences match original (now serialized as dicts)
-        assert len(captured_selected) == 1
-        assert captured_selected[0]['sequence'] == original_seq
+        # Verify captured sequences match original (cycled to num_selected=2)
+        assert len(captured_selected) == 2  # Cycled from single source to k=2
+        assert all(s['sequence'] == original_seq for s in captured_selected)
         assert len(captured_candidates) > 0
         assert all(c['sequence'] == original_seq for c in captured_candidates)
 

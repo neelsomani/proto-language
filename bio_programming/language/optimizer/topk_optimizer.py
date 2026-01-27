@@ -218,20 +218,6 @@ class TopKOptimizer(Optimizer):
         # heap_idx corresponds to position in selected_sequences
         self._energy_heap: List[tuple] = []
 
-    def _initialize_sequence_pools(self) -> None:
-        """Initialize sequence pools for TopK optimizer.
-
-        Preserves indices from existing sequences when possible, padding with
-        the first sequence if more candidates are needed. Leaves selected_sequences
-        unchanged (TopK clears and populates it dynamically during run()).
-        """
-        for segment in self.segments:
-            source = segment.candidate_sequences or segment.selected_sequences or [segment.original_sequence]
-            segment.candidate_sequences = [
-                copy.deepcopy(source[i] if i < len(source) else source[0])
-                for i in range(self.num_candidates)
-            ]
-
     def _run_sampling_round(self, round_idx: int) -> None:
         """
         Execute a single sampling round.

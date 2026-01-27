@@ -34,8 +34,10 @@ CLAUDE.md
 .pytest_cache/
 proto_language.egg-info/
 build/
+.coverage
 
 # AI tools
 .cursor/
 .cursorignore
 .claude/
+

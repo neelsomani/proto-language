@@ -23,6 +23,7 @@ from proto_language.language.constraint.protein_structure.structure_constraint_c
     StructureBasedConstraintConfig,
 )
 from proto_language.language.core import Sequence
+from proto_language.storage import FileType, store_file
 from proto_language.tools.structure_prediction import predict_structures
 from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionComplex,
@@ -663,7 +664,7 @@ def structure_rmsd_constraint(
             candidate_tuple[0]._metadata.update({
                 "rmsd_val": rmsd_val,
                 "rmsd_score": score,
-                "pdb_output": candidate_structure.structure_pdb
+                "pdb_output": store_file(candidate_structure.structure_pdb, FileType.PDB),
             })
 
         scores.append(score)
@@ -778,7 +779,7 @@ def structure_tmscore_constraint(
             candidate_tuple[0]._metadata.update({
                 "tm_score_raw": tm_val,
                 "tm_score_inverted": score,
-                "pdb_output": candidate_structure.structure_pdb
+                "pdb_output": store_file(candidate_structure.structure_pdb, FileType.PDB),
             })
 
         scores.append(score)

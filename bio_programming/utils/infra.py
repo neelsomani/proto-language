@@ -299,3 +299,41 @@ def resolve_paths(value: Any) -> Any:
         return [resolve_paths(item) for item in value]
     else:
         return value
+
+
+def upload_to_gcs(content: bytes, bucket_name: str, blob_path: str) -> str:
+    """
+    Upload content to Google Cloud Storage.
+
+    Args:
+        content: The content to upload as bytes.
+        bucket_name: Name of the GCS bucket.
+        blob_path: Path within the bucket where the content will be stored.
+
+    Returns:
+        The gs:// URL of the uploaded blob.
+
+    Raises:
+        RuntimeError: If upload fails.
+    """
+    logger.info("Uploading to GCS: gs://%s/%s", bucket_name, blob_path)
+
+    try:
+        client = storage.Client()
+    except Exception:
+        raise RuntimeError(
+            "Failed to initialize GCS client. Ensure you have valid credentials."
+        )
+
+    try:
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(content)
+
+        gcs_url = f"gs://{bucket_name}/{blob_path}"
+        size_kb = len(content) / 1024
+        logger.info("Successfully uploaded %.2f KB to %s", size_kb, gcs_url)
+        return gcs_url
+    except Exception as e:
+        logger.error("Failed to upload to GCS: %s", e)
+        raise RuntimeError(f"Failed to upload to gs://{bucket_name}/{blob_path}: {e}") from e

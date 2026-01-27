@@ -24,6 +24,7 @@ from proto_language.language.constraint.protein_structure.structure_confidence_c
     structure_ptm_constraint,
 )
 from proto_language.language.core import Sequence
+from proto_language.storage import get_file_content, is_file_reference
 from proto_language.tools.structure_prediction import StructurePredictionOutput
 from proto_language.tools.structures import ProteinStructure
 
@@ -664,7 +665,9 @@ class TestMetadataStorage:
 
             metadata = protein_sequence._metadata
             assert metadata["avg_plddt"] == 0.92
-            assert metadata["pdb_output"] == MOCK_PDB
+            # pdb_output is now a file reference
+            assert is_file_reference(metadata["pdb_output"])
+            assert get_file_content(metadata["pdb_output"]) == MOCK_PDB
             assert metadata["structure_tool"] == "esmfold"
 
     def test_ptm_metadata_storage(self, protein_sequence):

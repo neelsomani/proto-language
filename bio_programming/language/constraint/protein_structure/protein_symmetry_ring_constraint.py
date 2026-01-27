@@ -13,6 +13,7 @@ from biotite.structure import get_chains
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.storage import FileType, store_file
 from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionComplex,
 )
@@ -247,7 +248,7 @@ def _evaluate_protein_symmetry(
             {
                 "avg_plddt": structure.avg_plddt,
                 "ptm": structure.ptm,
-                "pdb_output": structure.structure_pdb,
+                "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
                 "esmfolded_sequence": ":".join([seq.sequence] * config.n_replications),
             }
         )

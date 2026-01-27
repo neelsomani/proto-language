@@ -24,6 +24,7 @@ from proto_language.language.constraint.protein_structure.structure_constraint_c
     StructureBasedConstraintConfig,
 )
 from proto_language.language.core import Sequence
+from proto_language.storage import FileType, store_file
 from proto_language.tools.structure_prediction.dispatch import predict_structures
 from proto_language.tools.structure_prediction.schemas import (
     StructurePredictionComplex,
@@ -107,7 +108,7 @@ def _structure_confidence(
         if candidate_tuple:
             candidate_tuple[0]._metadata.update({
                 target_metric: metric_value,
-                "pdb_output": structure.structure_pdb,
+                "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
                 "structure_tool": config.structure_tool,
             })
 

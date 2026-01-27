@@ -40,6 +40,7 @@ from .infra import (  # Compute; File resolution
     is_gpu_available,
     resolve_file,
     resolve_paths,
+    upload_to_gcs,
     use_cloud_gpu,
 )
 
@@ -67,6 +68,7 @@ __all__ = [
     "VOLUME_PATH",
     "get_cache_path",
     "download_gcs_file",
+    "upload_to_gcs",
     # Tool utilities
     "mask_k",
     "mask_p",

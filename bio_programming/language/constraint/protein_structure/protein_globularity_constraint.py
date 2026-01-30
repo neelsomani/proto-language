@@ -134,11 +134,10 @@ def protein_globularity_constraint(input_sequences: List[Tuple[Sequence, ...]], 
 
     Returns:
         List[float]: Constraint scores for each sequence based on structural
-            compactness. For protein sequences, returns the raw standard deviation
-            of backbone-to-centroid distances (in Ångströms, unbounded). For DNA
-            sequences, returns normalized scores (0.0-1.0) where lower values
-            indicate more compact structures. Scores are normalized by dividing
-            by max_globulatrity (default 20.0 Å) and capped at 1.0.
+            compactness. Returns normalized scores (0.0-1.0) for both protein
+            and DNA sequences, where lower values indicate more compact structures.
+            Scores are normalized by dividing by max_globularity (default 20.0 Å)
+            and capped at 1.0.
 
     Note:
         This function modifies the input sequences by adding metadata to each
@@ -150,8 +149,10 @@ def protein_globularity_constraint(input_sequences: List[Tuple[Sequence, ...]], 
         - ``ptm``: Float predicted TM-score for structure accuracy (0.0-1.0)
         - ``pdb_output``: String PDB format structure file content
         - ``esmfolded_sequence``: List of sequences used for structure prediction
-        - ``globularity_score``: Float standard deviation of backbone-to-centroid
+        - ``raw_globularity``: Float standard deviation of backbone-to-centroid
           distances in Ångströms (lower = more compact)
+        - ``normalized_globularity``: Float normalized globularity score (0.0-1.0,
+          capped by max_globularity)
 
         **For DNA sequences:**
         - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal
@@ -170,8 +171,9 @@ def protein_globularity_constraint(input_sequences: List[Tuple[Sequence, ...]], 
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
         >>> config = ProteinGlobularityConfig(n_replications=1)
         >>> scores = protein_globularity_constraint([(seq,)], config)
-        >>> print(scores[0])  # e.g., 8.5 (Ångströms, lower = more compact)
-        >>> print(seq._metadata["globularity_score"])  # e.g., 8.5
+        >>> print(scores[0])  # e.g., 0.425 (normalized score, lower = more compact)
+        >>> print(seq._metadata["raw_globularity"])  # e.g., 8.5 (raw Ångströms)
+        >>> print(seq._metadata["normalized_globularity"])  # e.g., 0.425
         >>> print(seq._metadata["avg_plddt"])  # e.g., 0.85 (also available)
 
         Evaluating DNA sequence (with automatic ORF prediction):
@@ -230,11 +232,13 @@ def _evaluate_protein_globularity(
         # Calculate globularity from structure
         atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
         backbone = get_backbone_atoms(atom_array).coord
-        globularity_score = float(np.std(distances_to_centroid(backbone)))
+        raw_globularity = float(np.std(distances_to_centroid(backbone)))
+        normalized_globularity = min(1.0, raw_globularity / config.max_globularity)
 
-        # Update the globularity score in the metadata
-        protein_seq._metadata["globularity_score"] = globularity_score
-        scores.append(globularity_score)
+        # Update the globularity score in the metadata (keep raw value for users who need physical measurement)
+        protein_seq._metadata["raw_globularity"] = raw_globularity
+        protein_seq._metadata["normalized_globularity"] = normalized_globularity
+        scores.append(normalized_globularity)
 
     return scores
 

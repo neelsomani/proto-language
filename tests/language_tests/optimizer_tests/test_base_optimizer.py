@@ -243,6 +243,103 @@ class TestOptimizerValidation:
         with pytest.raises(RuntimeError, match="no populated sequence and no generator assigned"):
             ConcreteOptimizer([construct], [generator], [constraint], 4, 2)
 
+    # 7. Homo-oligomer constraints (same segment repeated in inputs)
+    def test_homo_oligomer_constraint_same_segment_multiple_times(self):
+        """Tests that constraints with same segment repeated don't accumulate _1 suffixes.
+
+        This is a regression test for a bug where homo-oligomer constraints (e.g., trimers)
+        that have the same segment multiple times in inputs would have their labels
+        incorrectly renamed on each iteration through the inputs list.
+        """
+        construct, generator, _, segment = _setup_optimizer_components()
+
+        # Homo-trimer constraint: same segment appears 3 times (common for structure prediction)
+        trimer_constraint = MagicMock(spec=Constraint)
+        trimer_constraint.inputs = [segment, segment, segment]  # Same segment 3x
+        trimer_constraint.label = "structure_plddt_constraint"
+        trimer_constraint.threshold = None
+        trimer_constraint.weight = 1.0
+
+        ConcreteOptimizer([construct], [generator], [trimer_constraint], 4, 2)
+
+        # Label should NOT have _1 suffix - it's the same segment, not a collision
+        assert trimer_constraint.label == "structure_plddt_constraint"
+
+    def test_label_deduplication_is_idempotent(self):
+        """Tests that calling _validate_optimizer multiple times doesn't accumulate suffixes.
+
+        This is a regression test for a bug where score_energy() called _validate_optimizer(),
+        causing constraint labels to accumulate _1_1_1... suffixes on each iteration.
+        """
+        construct, generator, _, segment = _setup_optimizer_components()
+
+        # Two constraints with same label on same segment (collision case)
+        constraint1 = MagicMock(spec=Constraint)
+        constraint1.inputs = [segment]
+        constraint1.label = "my_constraint"
+        constraint1.threshold = None
+        constraint1.weight = 1.0
+        constraint1.evaluate.return_value = [1.0, 1.0, 1.0, 1.0]
+
+        constraint2 = MagicMock(spec=Constraint)
+        constraint2.inputs = [segment]
+        constraint2.label = "my_constraint"  # Same label - will be renamed to _1
+        constraint2.threshold = None
+        constraint2.weight = 1.0
+        constraint2.evaluate.return_value = [1.0, 1.0, 1.0, 1.0]
+
+        optimizer = ConcreteOptimizer([construct], [generator], [constraint1, constraint2], 4, 2)
+
+        # After __init__, labels should be deduplicated
+        assert constraint1.label == "my_constraint"
+        assert constraint2.label == "my_constraint_1"
+
+        # Call score_energy multiple times (simulating optimization iterations)
+        for _ in range(5):
+            optimizer.score_energy()
+
+        # Labels should NOT accumulate more suffixes
+        assert constraint1.label == "my_constraint"
+        assert constraint2.label == "my_constraint_1"  # Still _1, not _1_1_1_1_1
+
+    def test_homo_oligomer_with_multiple_constraints_same_label(self):
+        """Tests combination of homo-oligomer and duplicate label handling.
+
+        When multiple constraints with the same label each have the same segment
+        repeated, the deduplication should only apply between different constraints,
+        not within a single constraint's inputs.
+        """
+        construct, generator, _, segment = _setup_optimizer_components()
+
+        # Two homo-trimer constraints with same base label
+        constraint1 = MagicMock(spec=Constraint)
+        constraint1.inputs = [segment, segment, segment]  # Trimer
+        constraint1.label = "structure_constraint"
+        constraint1.threshold = None
+        constraint1.weight = 1.0
+        constraint1.evaluate.return_value = [1.0, 1.0, 1.0, 1.0]
+
+        constraint2 = MagicMock(spec=Constraint)
+        constraint2.inputs = [segment, segment, segment]  # Also trimer, same label
+        constraint2.label = "structure_constraint"
+        constraint2.threshold = None
+        constraint2.weight = 1.0
+        constraint2.evaluate.return_value = [1.0, 1.0, 1.0, 1.0]
+
+        optimizer = ConcreteOptimizer([construct], [generator], [constraint1, constraint2], 4, 2)
+
+        # First constraint keeps original label
+        assert constraint1.label == "structure_constraint"
+        # Second constraint gets _1 suffix (collision between constraints)
+        assert constraint2.label == "structure_constraint_1"
+
+        # Multiple score_energy calls shouldn't change anything
+        for _ in range(3):
+            optimizer.score_energy()
+
+        assert constraint1.label == "structure_constraint"
+        assert constraint2.label == "structure_constraint_1"
+
 
 class TestOptimizerInitialization:
     """Tests for optimizer initialization behavior."""

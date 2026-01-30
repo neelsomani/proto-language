@@ -91,6 +91,7 @@ class Optimizer(ABC):
         self.energy_scores: List[float] = [float("inf")] * num_candidates  # Initialized to inf (unscored)
         self.history: List[Dict[str, Any]] = []
         self._initial_state: Optional[Dict] = None  # Captured on first run() for restart
+        self._labels_deduplicated: bool = False
 
         # Default value for progress tracking (can be overridden by subclasses)
         self.num_steps: int = 1
@@ -304,17 +305,26 @@ class Optimizer(ABC):
             seen_con_ids.add(id(con))
 
         # 5. Ensure unique constraint labels per segment (required for metadata namespacing)
-        # Instead of raising on collision, auto-rename with incrementing suffix
-        segment_label_counts: Dict[tuple, int] = {}  # (base_label, segment_id) -> count
-        for constraint in self.constraints:
-            for segment in constraint.inputs:
-                key = (constraint.label, id(segment))
-                if key in segment_label_counts:
-                    # Collision detected, append counter to this constraint label
-                    segment_label_counts[key] += 1
-                    constraint.label = f"{constraint.label}_{segment_label_counts[key]}"
-                else:
-                    segment_label_counts[key] = 0
+        # Only run deduplication once to prevent label accumulation on repeated validation calls (e.g. constraint_1_1_1...)
+        if not self._labels_deduplicated:
+            segment_label_counts: Dict[tuple, int] = {}  # (base_label, segment_id) -> count
+            for constraint in self.constraints:
+                # Track unique segments for this constraint to handle same segment appearing multiple times in inputs (e.g. symmetric proteins)
+                seen_segments_for_constraint: set[int] = set()
+                for segment in constraint.inputs:
+                    seg_id = id(segment)
+                    if seg_id in seen_segments_for_constraint:
+                        continue  # Skip duplicate segments within same constraint
+                    seen_segments_for_constraint.add(seg_id)
+
+                    key = (constraint.label, seg_id)
+                    if key in segment_label_counts:
+                        # Collision detected, append counter to this constraint label
+                        segment_label_counts[key] += 1
+                        constraint.label = f"{constraint.label}_{segment_label_counts[key]}"
+                    else:
+                        segment_label_counts[key] = 0
+            self._labels_deduplicated = True
 
         # 6. Valid constraint inputs
         # Constraints can only reference segments that have sequences or a generator assigned.

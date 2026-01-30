@@ -22,6 +22,7 @@ from proto_language.language.generator import (
     UniformMutationGeneratorConfig,
 )
 from proto_language.language.core import Program
+from proto_language.storage import get_file_content
 
 
 MONOMER_LENGTH = 50
@@ -95,13 +96,13 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
     constraints = output_sequence._metadata["constraints"]
     
     # Get pLDDT from structure_plddt_constraint
-    plddt = constraints["structure_plddt_constraint"]["data"].get("avg_plddt", "N/A")
+    plddt = constraints["structure_plddt_constraint"]["data"]["avg_plddt"]
     
     # Get pTM from structure_ptm_constraint
-    ptm = constraints["structure_ptm_constraint"]["data"].get("ptm", "N/A")
+    ptm = constraints["structure_ptm_constraint"]["data"]["ptm"]
     
     # Get esmfolded_sequence from symmetry constraint
-    folded_sequence = constraints.get("protein_symmetry_ring_constraint", {}).get("data", {}).get("esmfolded_sequence", output_sequence._sequence)
+    folded_sequence = constraints["protein_symmetry_ring_constraint"]["data"]["esmfolded_sequence"]
     
     print(
         f"Iteration {step} | \n"
@@ -144,13 +145,10 @@ program = Program(
 program.run()
 
 with open("design.pdb", "w") as f:
-    # Outputs
-    final_construct: Construct = program.constructs[0]
-    final_sequence_batch: Tuple[Sequence, ...] = final_construct.joined_sequences
-    final_sequence: Sequence = final_sequence_batch[0]
+    # Get sequence from the protomer segment (where constraint metadata is stored)
+    protomer_sequence: Sequence = protomer.selected_sequences[0]
     
-    # Get pdb_output from symmetry constraint
-    pdb_output = final_sequence._metadata["constraints"].get("protein_symmetry_ring_constraint", {}).get("data", {}).get("pdb_output")
-    
-    if pdb_output:
-        f.write(pdb_output + "\n")
+    # Get pdb_output from symmetry constraint (stored as file reference, need to retrieve content)
+    pdb_ref = protomer_sequence._metadata["constraints"]["protein_symmetry_ring_constraint"]["data"]["pdb_output"]
+    pdb_content = get_file_content(pdb_ref)
+    f.write(pdb_content)

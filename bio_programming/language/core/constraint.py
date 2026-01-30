@@ -348,8 +348,16 @@ class Constraint:
                 "data": {"interface_residues": 12}
             }
         """
+        # Skip duplicate segments within the same constraint to avoid overwriting metadata with empty data
+        # (e.g., inputs=[protomer, protomer, protomer] for symmetric proteins)
+        processed_original_ids = set()
+        
         for seg_idx, (segment, scored_seq) in enumerate(zip(self._inputs, scored_sequence)):
             original_seq = segment.candidate_sequences[sequence_idx]
+            original_id = id(original_seq)
+            if original_id in processed_original_ids:
+                continue
+            processed_original_ids.add(original_id)
 
             # Extract custom data from scoring function (nested under "data")
             custom_data = {k: v for k, v in scored_seq._metadata.items()

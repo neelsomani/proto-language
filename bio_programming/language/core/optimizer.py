@@ -354,13 +354,17 @@ class Optimizer(ABC):
         # Log truncation or expansion with optimizer name for context
         optimizer_name = self.__class__.__name__
         if source_len > self.num_selected:
-            logger.info(f"Handoff to {optimizer_name}: Truncating {source_len} -> {self.num_selected} sequences (keeping best {self.num_selected} by energy score)")
+            logger.info(
+                f"Handoff to {optimizer_name}: Truncating {source_len} sequences from result of previous optimizer to {self.num_selected} " 
+                f"sequences as starting sequences for current optimizer (keeping best {self.num_selected} by energy score)"
+            )
         elif source_len < self.num_selected:
-            duplication_factor = self.num_selected / source_len
-            if duplication_factor >= 2:
-                logger.warning(f"Handoff to {optimizer_name}: Only {source_len} unique sequences available for {self.num_selected} slots ({duplication_factor:.1f}x duplication)")
-            else:
-                logger.info(f"Handoff to {optimizer_name}: Expanding {source_len} -> {self.num_selected} sequences (cycling through {source_len} unique sequences)")
+            logger.info(
+                f"Handoff to {optimizer_name}: Expanding sequences from {source_len} sequences from previous optimizer to {self.num_selected} "
+                f"sequences by cycling through the existing {source_len} sequences and duplicating until {self.num_selected} starting sequences for this optimizer are populated."
+            )
+        else:
+            logger.info(f"Handoff to {optimizer_name}: Starting sequences for current optimizer are populated by {source_len} sequences from previous optimizer.")
 
         for segment in self.segments:
             # Source: previous optimizer's results or original sequence

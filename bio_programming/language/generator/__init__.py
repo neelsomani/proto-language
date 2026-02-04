@@ -1,5 +1,5 @@
 # Registry and base infrastructure
-from .generator_registry import GeneratorRegistry, GeneratorSpec
+from .generator_registry import GeneratorRegistry, GeneratorSpec, generator
 
 # Simple mutation generators
 from .uniform_mutation_generator import (
@@ -43,6 +43,7 @@ __all__ = [
     # Registry
     "GeneratorRegistry",
     "GeneratorSpec",
+    "generator",
     # Mutation generators
     "UniformMutationGenerator",
     "UniformMutationGeneratorConfig",

@@ -1,5 +1,5 @@
 # Base infrastructure
-from .constraint_registry import ConstraintRegistry, ConstraintSpec
+from .constraint_registry import ConstraintRegistry, ConstraintSpec, constraint
 
 # Sequence composition constraints
 from .sequence_composition import (
@@ -60,6 +60,7 @@ __all__ = [
     # Base infrastructure
     "ConstraintRegistry",
     "ConstraintSpec",
+    "constraint",
     # Sequence composition
     "sequence_length_constraint",
     "gc_content_constraint",

@@ -100,7 +100,7 @@ class Constraint:
         ... )
 
     API/Client Usage (Registry for discovery):
-        >>> from proto_language.language.constraint import ConstraintRegistry
+        >>> from proto_language.language.constraint import constraint
         >>>
         >>> # List available constraints
         >>> all_constraints = ConstraintRegistry.list_all()

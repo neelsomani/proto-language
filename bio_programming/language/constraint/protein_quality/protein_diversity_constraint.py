@@ -9,7 +9,7 @@ import numpy as np
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.utils import MIN_ENERGY, MAX_ENERGY
 
 
@@ -44,7 +44,7 @@ class ProteinDiversityConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="protein-diversity",
     label="Protein Diversity",
     config=ProteinDiversityConfig,

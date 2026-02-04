@@ -10,7 +10,7 @@ from typing import List, Tuple
 import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.storage import FileType, store_file
 from proto_language.language.core import Sequence
 from proto_language.tools.orf_prediction.prodigal import (
@@ -93,7 +93,7 @@ class ProteinGlobularityConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="protein-globularity",
     label="Protein Globularity",
     config=ProteinGlobularityConfig,

@@ -10,7 +10,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
-from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import generator
 from proto_language.tools.inverse_folding.proteinmpnn import run_proteinmpnn_sample
 from proto_language.tools.inverse_folding.schemas import (
     InverseFoldingConfig,
@@ -196,7 +196,7 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
         return result
 
 
-@GeneratorRegistry.register(
+@generator(
     key="proteinmpnn",
     label="ProteinMPNN Inverse Folding",
     config=ProteinMPNNGeneratorConfig,

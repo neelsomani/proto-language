@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from pydantic import model_validator
 
 from proto_language.base_config import ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.protein_structure.structure_constraint_config import (
     StructureBasedConstraintConfig,
 )
@@ -603,7 +603,7 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> Optional[str
     return None
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="structure-rmsd",
     label="Structural RMSD Similarity",
     config=StructureRMSDConfig,
@@ -681,7 +681,7 @@ def _count_pdb_chains(pdb_text: str) -> int:
     return len(chains) if chains else 1
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="structure-tmscore",
     label="Structural TM-score Similarity",
     config=StructureTMScoreConfig,

@@ -10,7 +10,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, Segment
-from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import generator
 from proto_language.tools.language_models.progen2 import (
     ProGen2SampleConfig,
     ProGen2SampleInput,
@@ -166,7 +166,7 @@ class ProGen2GeneratorConfig(BaseConfig):
         return [v] if isinstance(v, str) else v
 
 
-@GeneratorRegistry.register(
+@generator(
     key="progen2",
     label="ProGen2 Protein Language Model",
     config=ProGen2GeneratorConfig,

@@ -11,7 +11,7 @@ import numpy as np
 from biotite.structure import get_chains
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
 from proto_language.storage import FileType, store_file
 from proto_language.tools.orf_prediction.prodigal import (
@@ -110,7 +110,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="protein-symmetry-ring",
     label="Protein Symmetry Ring Structure",
     config=ProteinSymmetryRingConfig,

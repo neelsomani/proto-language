@@ -3,6 +3,7 @@ from .optimizer_registry import (
     OptimizerRegistry,
     OptimizerSpec,
     OPTIMIZERS_WITH_TARGET_SEGMENT,
+    optimizer,
 )
 
 # Optimizers
@@ -29,6 +30,7 @@ __all__ = [
     "OptimizerRegistry",
     "OptimizerSpec",
     "OPTIMIZERS_WITH_TARGET_SEGMENT",
+    "optimizer",
     # MCMC Optimizer
     "MCMCOptimizer",
     "MCMCOptimizerConfig",

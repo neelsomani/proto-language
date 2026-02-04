@@ -9,7 +9,7 @@ from pydantic import model_validator
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.tools.orf_prediction.prodigal import (
     run_prodigal_prediction,
     ProdigalInput,
@@ -379,7 +379,7 @@ class OverallProteinQualityConfig(BaseConfig):
         return self
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="overall-protein-quality",
     label="Overall Protein Quality",
     config=OverallProteinQualityConfig,

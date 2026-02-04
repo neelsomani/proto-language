@@ -11,7 +11,7 @@ from pydantic import ConfigDict, field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, Segment
-from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import generator
 from proto_language.tools.sequence_alignment.msas import MSA
 
 
@@ -76,7 +76,7 @@ class MSAGeneratorConfig(BaseConfig):
         )
 
 
-@GeneratorRegistry.register(
+@generator(
     key="msa",
     label="MSA Generator",
     config=MSAGeneratorConfig,

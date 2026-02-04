@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from numpy import clip
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
 from proto_language.tools.structure_prediction.boltz import (
     BoltzConfig,
@@ -225,7 +225,7 @@ class BoltzBindingStrengthConfig(BaseConfig):
         self.tol_lower = {**DEFAULT_TOL_LOWER, **self.tol_lower}
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="boltz-binding-strength",
     label="Boltz Binding Strength",
     config=BoltzBindingStrengthConfig,

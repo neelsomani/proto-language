@@ -11,7 +11,7 @@ import numpy as np
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 
 
 class Sigma70PromoterConfig(BaseConfig):
@@ -189,7 +189,7 @@ class Sigma70PromoterConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="sigma70-promoter",
     label="Sigma70 Promoter Strength",
     config=Sigma70PromoterConfig,

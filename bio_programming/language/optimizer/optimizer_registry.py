@@ -42,7 +42,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
 
     Examples:
         Registration (in optimizer files):
-        >>> @OptimizerRegistry.register(
+        >>> @optimizer(
         ...     key="mcmc",
         ...     config=MCMCOptimizerConfig,
         ...     description="Metropolis-Hastings MCMC optimization",
@@ -103,7 +103,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
             Decorator that registers the class and returns it unchanged
 
         Examples:
-            >>> @OptimizerRegistry.register(
+            >>> @optimizer(
             ...     key="mcmc",
             ...     label="MCMC Optimizer",
             ...     config=MCMCOptimizerConfig,
@@ -141,3 +141,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
     def list_all(cls) -> List[OptimizerSpec]:
         """List all registered optimizers as Pydantic models."""
         return list(cls._registry.values())
+
+
+# Alias for simpler decorator syntax: @optimizer(...) instead of @optimizer(...)
+optimizer = OptimizerRegistry.register

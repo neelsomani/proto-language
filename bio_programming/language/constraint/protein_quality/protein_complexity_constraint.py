@@ -8,7 +8,7 @@ from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.utils import MIN_ENERGY, MAX_ENERGY
 from proto_language.tools.sequence_scoring.segmasker import (
     run_segmasker,
@@ -61,7 +61,7 @@ class ProteinComplexityConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="protein-complexity",
     label="Protein Complexity",
     config=ProteinComplexityConfig,

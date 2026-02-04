@@ -8,7 +8,7 @@ from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.utils import (
     MIN_GC_CONTENT,
     MAX_GC_CONTENT,
@@ -53,7 +53,7 @@ class GCContentConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="gc-content",
     label="GC Content",
     config=GCContentConfig,

@@ -23,7 +23,7 @@ from proto_language.language.core import (
     Optimizer,
     Sequence,
 )
-from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
+from proto_language.language.optimizer.optimizer_registry import optimizer
 
 # Maximum safe exponent for np.exp() to prevent overflow
 MAX_EXP_ARG = 700.0
@@ -131,7 +131,7 @@ class MCMCOptimizerConfig(BaseConfig):
         return self
 
 
-@OptimizerRegistry.register(
+@optimizer(
     key="mcmc",
     label="MCMC Optimizer",
     config=MCMCOptimizerConfig,

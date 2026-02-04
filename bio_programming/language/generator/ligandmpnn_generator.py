@@ -14,7 +14,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
-from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import generator
 from proto_language.tools.inverse_folding.ligandmpnn import (
     LigandMPNNConfig,
     run_ligandmpnn_sample,
@@ -205,7 +205,7 @@ class LigandMPNNGeneratorConfig(BaseConfig):
         return result
 
 
-@GeneratorRegistry.register(
+@generator(
     key="ligandmpnn",
     label="LigandMPNN Inverse Folding",
     config=LigandMPNNGeneratorConfig,

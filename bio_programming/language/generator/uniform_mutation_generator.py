@@ -12,7 +12,7 @@ from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, Segment
-from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import generator
 
 
 class MutationWindow(BaseConfig):
@@ -122,7 +122,7 @@ class UniformMutationGeneratorConfig(BaseConfig):
         return v
 
 
-@GeneratorRegistry.register(
+@generator(
     key="uniform-mutation",
     label="Uniform Mutation Generator",
     config=UniformMutationGeneratorConfig,

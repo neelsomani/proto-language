@@ -43,7 +43,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
 
     Examples:
         Registration (in constraint files):
-        >>> @ConstraintRegistry.register(
+        >>> @constraint(
         ...     key="gc-content",
         ...     label="GC Content",
         ...     config=GCContentConfig,
@@ -116,7 +116,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             Decorator that registers the function and returns it unchanged
 
         Examples:
-            >>> @ConstraintRegistry.register(
+            >>> @constraint(
             ...     key="gc-content",
             ...     label="GC Content Range",
             ...     config=GCContentConfig,
@@ -239,3 +239,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     def list_all(cls) -> List[ConstraintSpec]:
         """List all registered constraints as Pydantic models."""
         return list(cls._registry.values())
+
+
+# Alias for simpler decorator syntax: @constraint(...) instead of @constraint(...)
+constraint = ConstraintRegistry.register

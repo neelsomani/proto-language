@@ -8,7 +8,7 @@ from typing import Literal, Optional, final
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
-from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import generator
 from proto_language.tools.language_models.esm2.esm2 import (
     ESM2SampleConfig,
     LanguageModelInput,
@@ -98,7 +98,7 @@ class ESM2GeneratorConfig(BaseConfig):
     )
 
 
-@GeneratorRegistry.register(
+@generator(
     key="esm2",
     label="ESM2 Protein Language Model",
     config=ESM2GeneratorConfig,

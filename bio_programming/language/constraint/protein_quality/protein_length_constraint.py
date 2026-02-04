@@ -8,7 +8,7 @@ from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.utils import calculate_range_deviation
 
 
@@ -47,7 +47,7 @@ class ProteinLengthConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="protein-length",
     label="Protein Length",
     config=ProteinLengthConfig,

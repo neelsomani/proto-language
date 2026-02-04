@@ -10,7 +10,7 @@ from pydantic import model_validator
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.utils import calculate_range_deviation, calculate_normalized_deviation
 
 
@@ -84,7 +84,7 @@ class SequenceLengthConfig(BaseConfig):
         return self
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="sequence-length",
     label="Sequence Length",
     config=SequenceLengthConfig,

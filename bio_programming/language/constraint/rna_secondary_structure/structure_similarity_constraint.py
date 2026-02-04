@@ -15,9 +15,7 @@ import numpy as np
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import (
-    ConstraintRegistry,
-)
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.tools.structure_prediction import (
     run_viennarna,
     ViennaRNAInput,
@@ -353,7 +351,7 @@ class RNABasePairSimilarityConfig(RNAStructureConstraintBaseConfig):
 # Constraint 1: Structural Property Similarity
 # =============================================================================
 
-@ConstraintRegistry.register(
+@constraint(
     key="rna-property-similarity",
     label="RNA Structural Property Similarity",
     config=RNAPropertySimilarityConfig,
@@ -426,7 +424,7 @@ def rna_property_similarity_constraint(
 # Constraint 2: Structural Motif Similarity
 # =============================================================================
 
-@ConstraintRegistry.register(
+@constraint(
     key="rna-motif-similarity",
     label="RNA Structural Motif Similarity",
     config=RNAMotifSimilarityConfig,
@@ -493,7 +491,7 @@ def rna_motif_similarity_constraint(
 # Constraint 3: Feature Vector Similarity
 # =============================================================================
 
-@ConstraintRegistry.register(
+@constraint(
     key="rna-feature-similarity",
     label="RNA Feature Vector Similarity",
     config=RNAFeatureSimilarityConfig,
@@ -559,7 +557,7 @@ def rna_feature_similarity_constraint(
 # Constraint 4: Base Pair Similarity
 # =============================================================================
 
-@ConstraintRegistry.register(
+@constraint(
     key="rna-basepair-similarity",
     label="RNA Base Pair Similarity",
     config=RNABasePairSimilarityConfig,

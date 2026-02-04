@@ -10,7 +10,7 @@ import numpy as np
 
 from proto_language.language.core import Sequence, PROTEIN_AMINO_ACIDS
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 
 
 class BalancedAaConfig(BaseConfig):
@@ -58,7 +58,7 @@ class BalancedAaConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="balanced-aa",
     label="Balanced Amino Acid Representation",
     config=BalancedAaConfig,

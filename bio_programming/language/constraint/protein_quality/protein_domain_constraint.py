@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.tools.orf_prediction.prodigal import (
     run_prodigal_prediction,
     ProdigalInput,
@@ -105,7 +105,7 @@ class ProteinDomainConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="protein-domain",
     label="Protein Domain Match",
     config=ProteinDomainConfig,

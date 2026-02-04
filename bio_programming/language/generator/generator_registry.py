@@ -46,7 +46,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     
     Examples:
         Registration (in generator files):
-        >>> @GeneratorRegistry.register(
+        >>> @generator(
         ...     key="uniform-mutation",
         ...     config=UniformMutationConfig,
         ...     description="Random point mutations",
@@ -113,7 +113,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             Decorator that registers the class and returns it unchanged
 
         Examples:
-            >>> @GeneratorRegistry.register(
+            >>> @generator(
             ...     key="uniform-mutation",
             ...     label="Uniform Mutation",
             ...     config=UniformMutationConfig,
@@ -199,3 +199,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     def list_all(cls) -> List[GeneratorSpec]:
         """List all registered generators as Pydantic models."""
         return list(cls._registry.values())
+
+
+# Alias for simpler decorator syntax: @generator(...) instead of @generator(...)
+generator = GeneratorRegistry.register

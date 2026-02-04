@@ -12,7 +12,7 @@ from pydantic import model_validator, field_validator
 
 from proto_language.language.core import Sequence, DNA_NUCLEOTIDES, RNA_NUCLEOTIDES, PROTEIN_AMINO_ACIDS
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
 
 
@@ -143,7 +143,7 @@ class KmerFrequencyConfig(BaseConfig):
         return self
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="kmer-frequency",
     label="K-mer Frequency",
     config=KmerFrequencyConfig,

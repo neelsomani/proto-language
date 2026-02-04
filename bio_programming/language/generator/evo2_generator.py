@@ -10,7 +10,7 @@ from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, Segment
-from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.generator.generator_registry import generator
 from proto_language.tools.language_models.evo2 import (
     Evo2SampleConfig,
     Evo2SampleInput,
@@ -204,7 +204,7 @@ class Evo2GeneratorConfig(BaseConfig):
         return self
 
 
-@GeneratorRegistry.register(
+@generator(
     key="evo2",
     label="Evo2 DNA Language Model",
     config=Evo2GeneratorConfig,

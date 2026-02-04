@@ -19,7 +19,7 @@ from proto_language.language.core import (
     Optimizer,
     Sequence,
 )
-from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
+from proto_language.language.optimizer.optimizer_registry import optimizer
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ class TopKOptimizerConfig(BaseConfig):
         return self
 
 
-@OptimizerRegistry.register(
+@optimizer(
     key="topk",
     label="TopK Optimizer",
     config=TopKOptimizerConfig,

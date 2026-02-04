@@ -27,7 +27,7 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
-from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
+from proto_language.language.optimizer.optimizer_registry import optimizer
 
 # =============================================================================
 # Predefined Pipelines
@@ -242,7 +242,7 @@ class CyclingOptimizerConfig(BaseConfig):
             self.protein_hunter = ProteinHunterPipelineConfig()
         return self
 
-@OptimizerRegistry.register(
+@optimizer(
     key="cycling",
     label="Cycling Optimizer",
     config=CyclingOptimizerConfig,

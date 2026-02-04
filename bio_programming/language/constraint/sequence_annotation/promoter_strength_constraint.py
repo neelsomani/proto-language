@@ -11,7 +11,7 @@ from promoter_calculator.wrapper import promoter_calculator
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 
 
 class PromoterStrengthConfig(BaseConfig):
@@ -121,7 +121,7 @@ class PromoterStrengthConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="promoter-strength",
     label="Promoter Strength",
     config=PromoterStrengthConfig,

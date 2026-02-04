@@ -27,7 +27,7 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.generator.generator_registry import GeneratorRegistry
-from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
+from proto_language.language.optimizer.optimizer_registry import optimizer
 
 
 @dataclass
@@ -173,7 +173,7 @@ class BeamSearchOptimizerConfig(BaseConfig):
         return self
 
 
-@OptimizerRegistry.register(
+@optimizer(
     key="beam-search",
     label="Beam Search Optimizer",
     config=BeamSearchOptimizerConfig,

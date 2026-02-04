@@ -1,6 +1,7 @@
 from .language.constraint import (  # Registry; Sequence composition; Protein structure; Protein quality; Sequence annotation
     ConstraintRegistry,
     ConstraintSpec,
+    constraint,
     balanced_aa_constraint,
     boltz_binding_strength_constraint,
     gc_content_constraint,
@@ -48,6 +49,7 @@ from .language.generator import (  # Registry; Mutation generators; Language mod
     Evo2GeneratorConfig,
     GeneratorRegistry,
     GeneratorSpec,
+    generator,
     LigandMPNNGenerator,
     LigandMPNNGeneratorConfig,
     ProGen2Generator,
@@ -67,6 +69,7 @@ from .language.optimizer import (  # Registry; Optimizers
     MCMCOptimizerConfig,
     OptimizerRegistry,
     OptimizerSpec,
+    optimizer,
     TopKOptimizer,
     TopKOptimizerConfig,
 )
@@ -121,6 +124,7 @@ from .tools import (  # Base classes and registry; Tool cache; BLAST tools; PyHM
     ProdigalOutput,
     ToolRegistry,
     ToolSpec,
+    tool,
     clear_cache,
     clear_tool_cache,
     create_alphagenome_client,
@@ -168,6 +172,7 @@ __all__ = [
     # Constraint registry
     "ConstraintRegistry",
     "ConstraintSpec",
+    "constraint",
     # Sequence composition constraints
     "sequence_length_constraint",
     "gc_content_constraint",
@@ -199,6 +204,7 @@ __all__ = [
     # Generator registry
     "GeneratorRegistry",
     "GeneratorSpec",
+    "generator",
     # Mutation generators
     "UniformMutationGenerator",
     "UniformMutationGeneratorConfig",
@@ -219,6 +225,7 @@ __all__ = [
     # Optimizer registry
     "OptimizerRegistry",
     "OptimizerSpec",
+    "optimizer",
     # Optimizers
     "MCMCOptimizer",
     "MCMCOptimizerConfig",
@@ -233,6 +240,7 @@ __all__ = [
     "BaseToolOutput",
     "ToolRegistry",
     "ToolSpec",
+    "tool",
     "tool_cache",
     "clear_cache",
     "clear_tool_cache",

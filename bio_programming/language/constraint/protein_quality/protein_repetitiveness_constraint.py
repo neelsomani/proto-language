@@ -11,7 +11,7 @@ from typing import List, Tuple
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.utils import MIN_ENERGY, MAX_ENERGY
 
 
@@ -60,7 +60,7 @@ class ProteinRepetitivenessConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="protein-repetitiveness",
     label="Protein Repetitiveness",
     config=ProteinRepetitivenessConfig,

@@ -13,7 +13,7 @@ import copy
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
-from proto_language.language.constraint import ConstraintRegistry
+from proto_language.language.constraint import ConstraintRegistry, constraint
 from proto_language.language.core import Segment, Constraint
 
 
@@ -49,7 +49,7 @@ class TestRegistration:
             threshold: float = Field(default=0.5, description="Test threshold")
 
         # Register a test constraint
-        @ConstraintRegistry.register(
+        @constraint(
             key="test-temp-constraint",
             label="Test Temp Constraint",
             config=TestConfig,
@@ -102,7 +102,7 @@ class TestRegistration:
             value: int = 1
 
         # First registration should work
-        @ConstraintRegistry.register(
+        @constraint(
             key="test-duplicate-check",
             label="Test Duplicate Check",
             config=TestConfig,
@@ -117,7 +117,7 @@ class TestRegistration:
 
         # Second registration with same key should raise ValueError
         with pytest.raises(ValueError, match="already registered"):
-            @ConstraintRegistry.register(
+            @constraint(
                 key="test-duplicate-check",  # Same key!
                 label="Test Duplicate Check 2",
                 config=TestConfig,

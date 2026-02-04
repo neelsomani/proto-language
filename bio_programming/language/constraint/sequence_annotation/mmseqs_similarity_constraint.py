@@ -12,7 +12,7 @@ from pydantic import model_validator
 
 from proto_language.language.core import Sequence, DNA_NUCLEOTIDES
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.tools.orf_prediction.orfipy import OrfipyConfig, OrfipyInput, run_orfipy_prediction
 from proto_language.tools.orf_prediction.prodigal import ProdigalConfig, ProdigalInput, run_prodigal_prediction
 from proto_language.tools.gene_annotation.mmseqs import (
@@ -133,7 +133,7 @@ class MMseqsSimilarityConfig(BaseConfig):
         return self
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="mmseqs-gene-similarity",
     label="Gene/Protein Similarity",
     config=MMseqsSimilarityConfig,

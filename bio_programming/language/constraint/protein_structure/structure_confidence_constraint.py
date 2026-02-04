@@ -19,7 +19,7 @@ from __future__ import annotations
 from logging import getLogger
 from typing import Dict, List, Tuple
 
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.protein_structure.structure_constraint_config import (
     StructureBasedConstraintConfig,
 )
@@ -117,7 +117,7 @@ def _structure_confidence(
     return raw_metrics
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="structure-plddt",
     label="Structure pLDDT Score",
     config=StructureBasedConstraintConfig,
@@ -170,7 +170,7 @@ def structure_plddt_constraint(
     return scores
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="structure-ptm",
     label="Structure pTM Score",
     config=StructureBasedConstraintConfig,
@@ -211,7 +211,7 @@ def structure_ptm_constraint(
     return [ 1. - metric if metric is not None else 1. for metric in raw_metrics ]
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="structure-iptm",
     label="Structure ipTM Score",
     config=StructureBasedConstraintConfig,
@@ -271,7 +271,7 @@ def structure_iptm_constraint(
     return [ 1. - metric if metric is not None else 1. for metric in raw_metrics ]
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="structure-pae",
     label="Structure pAE Score",
     config=StructureBasedConstraintConfig,

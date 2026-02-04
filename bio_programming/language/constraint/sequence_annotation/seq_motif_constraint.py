@@ -14,7 +14,7 @@ from pydantic import field_validator
 
 from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import constraint
 
 
 class SeqMotifConfig(BaseConfig):
@@ -156,7 +156,7 @@ class SeqMotifConfig(BaseConfig):
     )
 
 
-@ConstraintRegistry.register(
+@constraint(
     key="seq-motif",
     label="Sequence Motif Match",
     config=SeqMotifConfig,

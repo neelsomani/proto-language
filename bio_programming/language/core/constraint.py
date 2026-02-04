@@ -66,7 +66,7 @@ class Constraint:
     All constraint functions use a standardized signature:
         (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
 
-    Examples (Library Usage):
+    Examples (Library Usage - with registered constraints):
         >>> from proto_language.language.core import Constraint
         >>> from proto_language.language.constraint import gc_content_constraint, GCContentConfig
         >>>
@@ -87,7 +87,19 @@ class Constraint:
         ... )
         >>> passed = filter_constraint.evaluate()  # [True, False, True, ...]
 
-        API/Client Usage (Registry for discovery):
+    Examples (Library Usage - without registry, custom functions):
+        >>> # Define your own constraint function (no decorator needed)
+        >>> def my_custom_constraint(input_sequences, config) -> List[float]:
+        ...     return [0.0 if config["value"] > 0.5 else 1.0 for _ in input_sequences]
+        >>>
+        >>> # Just pass a dict - no Pydantic model needed
+        >>> constraint = Constraint(
+        ...     inputs=[segment],
+        ...     function=my_custom_constraint,
+        ...     function_config={"value": 0.5}
+        ... )
+
+    API/Client Usage (Registry for discovery):
         >>> from proto_language.language.constraint import ConstraintRegistry
         >>>
         >>> # List available constraints
@@ -148,10 +160,10 @@ class Constraint:
         self._threshold = threshold
         self._weight = 1.0 if weight is None else weight
 
-        # Convert dict configs to Pydantic models for validation
-        if isinstance(function_config, dict):
-            config_class = function._constraint_config_class
-            self._function_config = config_class(**function_config)
+        # Validate dict config with Pydantic if registered (has config class from decorator)
+        config_cls = getattr(function, '_constraint_config_class', None)
+        if isinstance(function_config, dict) and config_cls:
+            self._function_config = config_cls(**function_config)
         else:
             self._function_config = function_config
 

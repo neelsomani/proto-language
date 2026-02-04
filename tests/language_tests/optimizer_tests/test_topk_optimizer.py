@@ -4,6 +4,8 @@ Tests for TopKOptimizer functionality.
 Minimal tests verifying core behavior of the TopKOptimizer.
 """
 
+import math
+
 import pytest
 import logging
 import heapq
@@ -593,7 +595,7 @@ class TestTopKOptimizerInternals:
         assert segment2.selected_sequences[3].sequence == "GCTG"  # energy 8.0
 
     def test_sort_topk_by_energy_empty_heap(self):
-        """Test _sort_topk_by_energy handles empty heap correctly."""
+        """Test _sort_topk_by_energy handles empty heap by padding with inf energies."""
         segment = Segment(sequence="ATCG", sequence_type="dna")
         construct = Construct([segment])
 
@@ -614,12 +616,110 @@ class TestTopKOptimizerInternals:
             config=config,
         )
 
+        # Capture initial state
+        optimizer._capture_initial_state()
+
         # Empty heap
         optimizer._energy_heap = []
         segment.selected_sequences = []
 
-        # Should handle gracefully
+        # Should handle gracefully by padding to k entries
         optimizer._sort_topk_by_energy()
 
-        assert optimizer.energy_scores == []
-        assert segment.selected_sequences == []
+        # Pads with inf energies and empty placeholder sequences
+        assert len(optimizer.energy_scores) == 3
+        assert all(math.isinf(e) for e in optimizer.energy_scores)
+        assert len(segment.selected_sequences) == 3
+        # All padded sequences should be empty placeholders
+        assert all(seq.sequence == "" for seq in segment.selected_sequences)
+
+    def test_all_candidates_rejected_by_filter(self):
+        """Test TopK optimizer handles case where all candidates are rejected by filter.
+
+        This is a regression test for a bug where the optimizer would crash with
+        RuntimeError when all candidates had inf/nan energies.
+        """
+        from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+
+        segment = Segment(sequence="AAAAAAAAAA", sequence_type="dna")  # 0% GC
+        construct = Construct([segment])
+
+        gen = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(num_mutations=1)  # Only 1 mutation, unlikely to reach 99% GC
+        )
+        gen.assign(segment)
+
+        # Extremely strict filter - requires 99-100% GC content (effectively impossible)
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=99.0, max_gc=100.0),
+            threshold=0.0,  # Filter mode - rejected candidates get inf energy
+        )
+
+        config = TopKOptimizerConfig(
+            num_samples=20,
+            k=5,
+            batch_size=5,
+            verbose=False
+        )
+
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+
+        # Should not crash - should handle gracefully by padding with inf energies
+        optimizer.run()
+
+        # Verify the optimizer completed and has k results
+        assert len(optimizer.energy_scores) == 5
+        assert len(segment.selected_sequences) == 5
+
+        # All energies should be inf since no valid candidates were found
+        assert all(math.isinf(e) for e in optimizer.energy_scores)
+
+        # All sequences should be empty placeholders
+        assert all(seq.sequence == "" for seq in segment.selected_sequences)
+
+    def test_partial_candidates_rejected_by_filter(self):
+        """Test TopK optimizer handles case where some but not all candidates pass filter."""
+        from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+
+        segment = Segment(sequence="ATCGATCGAT", sequence_type="dna")  # 40% GC
+        construct = Construct([segment])
+
+        gen = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(num_mutations=2)
+        )
+        gen.assign(segment)
+
+        # Moderate filter - requires 30-70% GC (some will pass, some won't)
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=30.0, max_gc=70.0),
+            threshold=0.0,  # Filter mode
+        )
+
+        config = TopKOptimizerConfig(
+            num_samples=50,
+            k=10,
+            batch_size=5,
+            verbose=False
+        )
+
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+
+        optimizer.run()
+
+        # Should have k results
+        assert len(optimizer.energy_scores) == 10
+        assert len(segment.selected_sequences) == 10

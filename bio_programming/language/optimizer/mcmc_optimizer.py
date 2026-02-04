@@ -405,6 +405,11 @@ class MCMCOptimizer(Optimizer):
         Note:
         - Always accepts improvements (proposed_energy < current_energy)
         - Accepts worse proposals with probability exp(-(ΔE / T)) where ΔE = proposed - current
+
+        Important: When mcmc_width > 1, this is applied to the BEST proposal from the pool,
+        not a randomly selected one. This "best-of-N then MH" strategy is a heuristic that
+        accelerates convergence but does not satisfy detailed balance for the true Boltzmann
+        distribution. For mathematically rigorous MCMC sampling, use mcmc_width=1.
         """
         temperature = self._compute_temperature(step)
         log_acceptance_ratio = -(proposed_energy - current_energy) / temperature

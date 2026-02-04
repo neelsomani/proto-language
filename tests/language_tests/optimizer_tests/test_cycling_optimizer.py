@@ -349,6 +349,66 @@ class TestCyclingOptimizerRun:
         assert target_segment.candidate_sequences[1].sequence == original_seqs[1]
         assert target_segment.candidate_sequences[2].sequence == original_seqs[2]
 
+    def test_conditioning_fn_wrong_length_raises(self):
+        """Test that conditioning_fn returning wrong number of items raises ValueError.
+
+        This is a regression test for a bug where a mismatched conditioning_fn return
+        length could cause silent failures or unexpected behavior in the generator.
+        """
+        components = _setup_cycling_components(num_steps=1, num_candidates=3)
+
+        # Create a conditioning function that returns wrong number of items
+        def wrong_length_conditioning_fn(sequences: List[Sequence]):
+            # Returns only 1 item instead of num_candidates (3)
+            return [make_mock_structure()]
+
+        # Mock the generator.sample to not actually run
+        def mock_sample(structure_inputs=None):
+            for c in components["target_segment"].candidate_sequences:
+                c.sequence = "MKTAYIAKQRQISFVKSHFS"
+
+        components["generator"].sample = mock_sample
+
+        optimizer = CyclingOptimizer(
+            target_segment=components["target_segment"],
+            constructs=[components["construct"]],
+            generators=[components["generator"]],
+            constraints=[],
+            config=components["config"],
+            conditioning_fn=wrong_length_conditioning_fn,
+        )
+
+        # Should raise ValueError with informative message
+        with pytest.raises(ValueError, match="conditioning_fn returned 1 items, expected 3"):
+            optimizer.run()
+
+    def test_conditioning_fn_too_many_items_raises(self):
+        """Test that conditioning_fn returning too many items also raises ValueError."""
+        components = _setup_cycling_components(num_steps=1, num_candidates=2)
+
+        # Create a conditioning function that returns too many items
+        def too_many_conditioning_fn(sequences: List[Sequence]):
+            # Returns 5 items instead of num_candidates (2)
+            return [make_mock_structure() for _ in range(5)]
+
+        def mock_sample(structure_inputs=None):
+            for c in components["target_segment"].candidate_sequences:
+                c.sequence = "MKTAYIAKQRQISFVKSHFS"
+
+        components["generator"].sample = mock_sample
+
+        optimizer = CyclingOptimizer(
+            target_segment=components["target_segment"],
+            constructs=[components["construct"]],
+            generators=[components["generator"]],
+            constraints=[],
+            config=components["config"],
+            conditioning_fn=too_many_conditioning_fn,
+        )
+
+        with pytest.raises(ValueError, match="conditioning_fn returned 5 items, expected 2"):
+            optimizer.run()
+
 
 # =============================================================================
 # GPU Integration Tests

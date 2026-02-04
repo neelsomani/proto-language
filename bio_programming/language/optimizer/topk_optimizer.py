@@ -27,41 +27,31 @@ logger = logging.getLogger(__name__)
 class TopKOptimizerConfig(BaseConfig):
     """Configuration object for TopKOptimizer.
 
-    This class defines configuration parameters for the TopK optimizer, which
-    generates many candidate sequences and retains only the best K by lowest energy
-    score.
-
-    The optimizer runs in one of two modes based on whether ``energy_threshold`` is set:
-
-    - **Standard mode** (``energy_threshold=None``): Generate exactly ``num_samples``
-      candidates and keep the top ``k``.
-
-    - **Threshold mode** (``energy_threshold`` set): Generate candidates until the
-      worst energy in top-k is below ``energy_threshold``, or until ``num_samples``
-      is reached (whichever comes first).
+    The TopK optimizer generates many candidate sequences and keeps only the best
+    ``k`` by lowest energy score. It samples in batches for efficiency and maintains
+    a heap to track the top candidates.
 
     Attributes:
-        num_samples (int): Number of samples to generate. In standard mode, the optimizer
-            samples exactly this number of candidates. In threshold mode, the optimizer
-            samples until the energy threshold is met or the number of samples is reached.
-            Must be at least ``k``. Will be rounded up to the nearest multiple of ``batch_size``
-            if not evenly divisible.
+        num_samples (int): Maximum number of samples to generate. Rounded up to the
+            nearest multiple of ``batch_size``. Must be at least ``k``.
 
-        k (int): Number of top sequences to keep and return based on energy scores.
-            The optimizer maintains a max-heap of size ``k`` to efficiently track
-            the best candidates. Must be at least 1.
+        k (int): Number of top sequences to keep and return (lowest energy scores).
+            Must be at least 1.
 
-        batch_size (int): Number of samples to generate per round. Enables batching
-            for efficient parallel generation with generators that support batched
-            inference (e.g., language models). Must be at least 1. Default: ``1``.
+        batch_size (int): Number of samples to generate per round. Higher values
+            enable more efficient batched inference. Default: ``1``.
 
-        energy_threshold (Optional[float]): Target energy threshold for early stopping.
-            When set, enables threshold mode where sampling stops when the worst
-            (highest) energy in the top-k heap falls below this value. Must be at
-            least 0 if set. Default: ``None`` (standard mode).
+        energy_threshold (Optional[float]): If set, enables early stopping. The
+            optimizer stops before reaching ``num_samples`` if all ``k`` best
+            candidates have energy below this threshold. Default: ``None`` (no
+            early stopping).
 
-        verbose (bool): Whether to print detailed progress information including
-            round statistics, energy values, and stopping conditions. Default: ``False``.
+        verbose (bool): Print progress information. Default: ``False``.
+
+    Note:
+        If filter constraints reject many candidates (returning inf/nan energies),
+        the optimizer may return fewer than ``k`` valid results. The remaining
+        slots are filled with empty placeholder sequences and inf energy scores.
 
     """
     # Required parameters
@@ -116,29 +106,32 @@ class TopKOptimizerConfig(BaseConfig):
 class TopKOptimizer(Optimizer):
     """TopK optimizer for sequence optimization through extensive sampling.
 
-    This optimizer generates many candidate sequences through multiple sampling
-    rounds and maintains only the top-K sequences by energy score. Unlike iterative
-    optimizers (MCMC, beam search), it does not maintain state between rounds—each
-    round starts fresh from original sequences.
+    Generates many candidate sequences and keeps only the top ``k`` by lowest
+    energy score. Unlike iterative optimizers (MCMC, beam search), each sampling
+    round starts fresh from the original sequences—there is no state carried
+    between rounds.
 
-    In each round, the optimizer generates ``batch_size`` candidates, applies all
-    generators sequentially to them, evaluates them with constraints, and updates
-    the top-K list if any candidates are better than the current worst in top-K.
+    Each round:
+    1. Resets candidates to the original sequence
+    2. Applies all generators sequentially
+    3. Evaluates candidates with constraints
+    4. Updates the top-k heap if any candidates are better than the current worst
 
-    The mode is determined by whether ``energy_threshold`` is set:
-
-    - **Standard mode** (no threshold): Generate ``num_samples`` candidates.
-    - **Threshold mode** (threshold set): Stop early when threshold is met.
+    If ``energy_threshold`` is set, the optimizer stops early once all ``k`` best
+    candidates have energy below the threshold.
 
     Attributes:
-        num_samples (int): Number of samples (rounded up to batch_size multiple).
+        num_samples (int): Maximum samples to generate (rounded up to batch_size multiple).
         k (int): Number of top sequences to keep.
-        batch_size (int): Samples per round (enables batching).
-        energy_threshold (Optional[float]): Target threshold (enables threshold mode).
+        batch_size (int): Samples per round.
+        energy_threshold (Optional[float]): Early stopping threshold.
+
+    Note:
+        If filter constraints reject many candidates, the optimizer may have fewer
+        than ``k`` valid results. Remaining slots are padded with empty sequences
+        and inf energy scores.
 
     Example:
-        Standard mode - generate 100 samples:
-
         >>> config = TopKOptimizerConfig(num_samples=100, k=10, batch_size=10)
         >>> optimizer = TopKOptimizer(
         ...     constructs=constructs,
@@ -147,15 +140,15 @@ class TopKOptimizer(Optimizer):
         ...     config=config
         ... )
         >>> optimizer.run()
-        >>> best_constructs = optimizer.constructs  # Top 10 sequences
+        >>> best_sequences = optimizer.constructs[0].segments[0].selected_sequences
 
-        Threshold mode - stop early when threshold met:
+        With early stopping:
 
         >>> config = TopKOptimizerConfig(
         ...     num_samples=1000,
-        ...     energy_threshold=0.5,
         ...     k=10,
-        ...     batch_size=10
+        ...     batch_size=10,
+        ...     energy_threshold=0.5  # Stop when all top-10 have energy < 0.5
         ... )
     """
     # Class attribute required by OptimizerRegistry
@@ -324,6 +317,10 @@ class TopKOptimizer(Optimizer):
 
                 self._run_sampling_round(round_idx)
                 candidates_generated += self.batch_size
+
+            # Log warning if heap never filled to k (filter constraints too strict)
+            if not threshold_met and len(self._energy_heap) < self.k:
+                logger.warning(f"TopK optimizer completed with only {len(self._energy_heap)}/{self.k} valid candidates. Filter constraints may be too restrictive. Results will be padded with inf energies.")
         else:
             # Standard mode: Generate exactly num_samples
             for round_idx in range(num_sampling_rounds):
@@ -341,7 +338,12 @@ class TopKOptimizer(Optimizer):
             self._log_optimization_summary(threshold_mode, threshold_met, candidates_generated)
 
     def _sort_topk_by_energy(self) -> None:
-        """Sort selected_sequences and energy_scores by energy (best first)."""
+        """Sort selected_sequences and energy_scores by energy (best first).
+
+        If fewer than k valid candidates were found, pads with inf energies and
+        empty placeholder sequences to ensure len(energy_scores) == k and
+        len(selected_sequences) == k.
+        """
         if self._energy_heap:
             idx_to_energy = {idx: -neg_energy for neg_energy, idx in self._energy_heap}
             sorted_indices = sorted(idx_to_energy.keys(), key=lambda i: idx_to_energy[i])
@@ -350,6 +352,21 @@ class TopKOptimizer(Optimizer):
                 segment.selected_sequences = [segment.selected_sequences[i] for i in sorted_indices]
         else:
             self.energy_scores = []
+
+        # Pad to k if heap was underfilled or empty (candidates had inf/nan energies)
+        if len(self.energy_scores) < self.k:
+            num_to_pad = self.k - len(self.energy_scores)
+            self.energy_scores.extend([float('inf')] * num_to_pad)
+            for segment in self.segments:
+                for _ in range(num_to_pad):
+                    # Use empty placeholder sequence to clearly indicate invalid result
+                    segment.selected_sequences.append(
+                        Sequence(
+                            sequence="",
+                            sequence_type=segment.sequence_type,
+                            valid_chars=segment.valid_chars
+                        )
+                    )
 
     def _log_round_progress(self, round_idx: int) -> None:
         """Log round progress."""

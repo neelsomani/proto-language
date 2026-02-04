@@ -446,10 +446,10 @@ class TestBeamSearchOptimizer:
         beam = BeamState(running_sequence="ATCG", beam_scores=[0.1, 0.2, 0.3])
         assert abs(optimizer._get_aggregated_score(beam) - 0.3) < 1e-6
 
-    def test_empty_scores_returns_zero(self):
+    def test_empty_scores_returns_inf(self):
         optimizer, _, _, _ = _setup_beam_search()
         beam = BeamState(running_sequence="ATCG", beam_scores=[])
-        assert optimizer._get_aggregated_score(beam) == 0.0
+        assert optimizer._get_aggregated_score(beam) == float('inf')
 
     # --- Run ---
     def test_run_generates_correct_sequence_length(self):

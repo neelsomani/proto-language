@@ -583,7 +583,7 @@ class BeamSearchOptimizer(Optimizer):
     def _get_aggregated_score(self, beam: BeamState) -> float:
         """Get aggregated score for a beam based on score_by setting."""
         if not beam.beam_scores:
-            return 0.0
+            return float('inf')
         return float(np.mean(beam.beam_scores)) if self.score_by == "mean" else beam.beam_scores[-1]
 
     ###########

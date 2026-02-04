@@ -385,6 +385,10 @@ class CyclingOptimizer(Optimizer):
             current_sequences = list(self.target_segment.candidate_sequences)
             conditioning_data = self.conditioning_fn(current_sequences)
 
+            # Validate conditioning_fn returned the correct number of items
+            if len(conditioning_data) != self.num_candidates:
+                raise ValueError(f"conditioning_fn returned {len(conditioning_data)} items, expected {self.num_candidates}. The conditioning function must return one conditioning item per candidate.")
+
             # 3. Generate sequences conditioned on the conditioning data
             self.generator.sample(**{self.conditioning_param_name: conditioning_data})
 

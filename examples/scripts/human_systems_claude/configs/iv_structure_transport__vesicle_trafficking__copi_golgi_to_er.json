@@ -1,0 +1,46 @@
+{
+  "row_index": 32,
+  "category": "IV. Structure & Transport",
+  "pathway": "Vesicle Trafficking",
+  "component": "COPI (Golgi to ER)",
+  "filename_base": "iv_structure_transport__vesicle_trafficking__copi_golgi_to_er",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::COPI_coatomer",
+      "complex_type": "COMPLEX",
+      "complex_name": "COPI_coatomer",
+      "gene_ids": [
+        "COPA",
+        "COPB1",
+        "COPB2",
+        "COPG1",
+        "ARCN1",
+        "COPE",
+        "COPZ1"
+      ],
+      "stoichiometry": {
+        "COPA": 1,
+        "COPB1": 1,
+        "COPB2": 1,
+        "COPG1": 1,
+        "ARCN1": 1,
+        "COPE": 1,
+        "COPZ1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5A1V"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "COPA",
+    "COPB1",
+    "COPB2",
+    "COPG1",
+    "ARCN1",
+    "COPE",
+    "COPZ1"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,60 @@
+{
+  "row_index": 65,
+  "category": "VI. Signaling Pathways",
+  "pathway": "TGF-beta / BMP",
+  "component": "Receptors",
+  "filename_base": "vi_signaling_pathways__tgf_beta_bmp__receptors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::TGFB_receptor",
+      "complex_type": "COMPLEX",
+      "complex_name": "TGFB_receptor",
+      "gene_ids": [
+        "TGFBR1",
+        "TGFBR2"
+      ],
+      "stoichiometry": {
+        "TGFBR1": 1,
+        "TGFBR2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3TZM"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::BMP_receptor",
+      "complex_type": "COMPLEX",
+      "complex_name": "BMP_receptor",
+      "gene_ids": [
+        "BMPR1A",
+        "BMPR1B",
+        "BMPR2",
+        "ACVR1",
+        "ACVR2A",
+        "ACVR2B"
+      ],
+      "stoichiometry": {
+        "BMPR1A": 1,
+        "BMPR1B": 1,
+        "BMPR2": 1,
+        "ACVR1": 1,
+        "ACVR2A": 1,
+        "ACVR2B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "TGFBR1",
+    "TGFBR2",
+    "BMPR1A",
+    "BMPR1B",
+    "BMPR2",
+    "ACVR1",
+    "ACVR2A",
+    "ACVR2B"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,68 @@
+{
+  "row_index": 63,
+  "category": "VI. Signaling Pathways",
+  "pathway": "MHC Presentation",
+  "component": "MHC Class I",
+  "filename_base": "vi_signaling_pathways__mhc_presentation__mhc_class_i",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::MHC_I",
+      "complex_type": "COMPLEX",
+      "complex_name": "MHC_I",
+      "gene_ids": [
+        "HLA-A",
+        "HLA-B",
+        "HLA-C",
+        "B2M"
+      ],
+      "stoichiometry": {
+        "HLA-A": 1,
+        "HLA-B": 1,
+        "HLA-C": 1,
+        "B2M": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1HHI"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Peptide_loading_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "Peptide_loading_complex",
+      "gene_ids": [
+        "TAP1",
+        "TAP2",
+        "TAPBP",
+        "CALR",
+        "PDIA3",
+        "CANX"
+      ],
+      "stoichiometry": {
+        "TAP1": 1,
+        "TAP2": 1,
+        "TAPBP": 1,
+        "CALR": 1,
+        "PDIA3": 1,
+        "CANX": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6ENY"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "HLA-A",
+    "HLA-B",
+    "HLA-C",
+    "B2M",
+    "TAP1",
+    "TAP2",
+    "TAPBP",
+    "CALR",
+    "PDIA3",
+    "CANX"
+  ],
+  "n_steps_per_generator": 3
+}

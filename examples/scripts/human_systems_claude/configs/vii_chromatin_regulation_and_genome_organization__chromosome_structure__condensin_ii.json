@@ -1,0 +1,49 @@
+{
+  "row_index": 81,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Chromosome Structure",
+  "component": "Condensin II",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__chromosome_structure__condensin_ii",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Condensin_I_NonSMC",
+      "complex_type": "COMPLEX",
+      "complex_name": "Condensin_I_NonSMC",
+      "gene_ids": [
+        "NCAPD2",
+        "NCAPG",
+        "NCAPH"
+      ],
+      "stoichiometry": {
+        "NCAPD2": 1,
+        "NCAPG": 1,
+        "NCAPH": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::SMC_Heterodimer",
+      "complex_type": "COMPLEX",
+      "complex_name": "SMC_Heterodimer",
+      "gene_ids": [
+        "SMC2",
+        "SMC4"
+      ],
+      "stoichiometry": {
+        "SMC2": 1,
+        "SMC4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "NCAPD2",
+    "NCAPG",
+    "NCAPH",
+    "SMC2",
+    "SMC4"
+  ],
+  "n_steps_per_generator": 15
+}

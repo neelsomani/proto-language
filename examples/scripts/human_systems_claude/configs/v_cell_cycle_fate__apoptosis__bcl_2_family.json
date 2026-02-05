@@ -1,0 +1,67 @@
+{
+  "row_index": 48,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Apoptosis",
+  "component": "Bcl-2 Family",
+  "filename_base": "v_cell_cycle_fate__apoptosis__bcl_2_family",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::BCL2_BAX",
+      "complex_type": "COMPLEX",
+      "complex_name": "BCL2_BAX",
+      "gene_ids": [
+        "BCL2",
+        "BAX"
+      ],
+      "stoichiometry": {
+        "BCL2": 1,
+        "BAX": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "2XA0"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::BCL2L1_BAK1",
+      "complex_type": "COMPLEX",
+      "complex_name": "BCL2L1_BAK1",
+      "gene_ids": [
+        "BCL2L1",
+        "BAK1"
+      ],
+      "stoichiometry": {
+        "BCL2L1": 1,
+        "BAK1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1BXL"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::BCL2L1_BAX",
+      "complex_type": "COMPLEX",
+      "complex_name": "BCL2L1_BAX",
+      "gene_ids": [
+        "BCL2L1",
+        "BAX"
+      ],
+      "stoichiometry": {
+        "BCL2L1": 1,
+        "BAX": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3PL7"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "BCL2",
+    "BAX",
+    "BCL2L1",
+    "BAK1"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,46 @@
+{
+  "row_index": 60,
+  "category": "VI. Signaling Pathways",
+  "pathway": "T Cell Receptor",
+  "component": "TCR-CD3 Complex",
+  "filename_base": "vi_signaling_pathways__t_cell_receptor__tcr_cd3_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::TCR_CD3",
+      "complex_type": "COMPLEX",
+      "complex_name": "TCR_CD3",
+      "gene_ids": [
+        "TRAC",
+        "TRBC1",
+        "TRBC2",
+        "CD3D",
+        "CD3E",
+        "CD3G",
+        "CD247"
+      ],
+      "stoichiometry": {
+        "TRAC": 1,
+        "TRBC1": 1,
+        "TRBC2": 1,
+        "CD3D": 1,
+        "CD3E": 2,
+        "CD3G": 1,
+        "CD247": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6JXR"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "TRAC",
+    "TRBC1",
+    "TRBC2",
+    "CD3D",
+    "CD3E",
+    "CD3G",
+    "CD247"
+  ],
+  "n_steps_per_generator": 3
+}

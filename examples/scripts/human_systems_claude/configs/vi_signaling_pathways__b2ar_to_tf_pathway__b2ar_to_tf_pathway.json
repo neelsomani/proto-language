@@ -1,0 +1,121 @@
+{
+  "row_index": 71,
+  "category": "VI. Signaling Pathways",
+  "pathway": "b2AR to TF Pathway",
+  "component": "b2AR to TF Pathway",
+  "filename_base": "vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway",
+  "complexes": [
+    {
+      "complex_id": "MONOMER::GPCR",
+      "complex_type": "MONOMER",
+      "complex_name": "GPCR",
+      "gene_ids": [
+        "ADRB2"
+      ],
+      "stoichiometry": {
+        "ADRB2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4LDO"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::GPCR_Gs",
+      "complex_type": "COMPLEX",
+      "complex_name": "GPCR_Gs",
+      "gene_ids": [
+        "ADRB2",
+        "GNAS",
+        "GNB1",
+        "GNG2"
+      ],
+      "stoichiometry": {
+        "ADRB2": 1,
+        "GNAS": 1,
+        "GNB1": 1,
+        "GNG2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3SN6"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Galpha_AC",
+      "complex_type": "COMPLEX",
+      "complex_name": "Galpha_AC",
+      "gene_ids": [
+        "GNAS",
+        "ADCY9"
+      ],
+      "stoichiometry": {
+        "GNAS": 1,
+        "ADCY9": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6R3Q"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::Adenylyl_cyclase",
+      "complex_type": "MONOMER",
+      "complex_name": "Adenylyl_cyclase",
+      "gene_ids": [
+        "ADCY9"
+      ],
+      "stoichiometry": {
+        "ADCY9": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4USW"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::PKA_RIa_Holoenzyme",
+      "complex_type": "COMPLEX",
+      "complex_name": "PKA_RIa_Holoenzyme",
+      "gene_ids": [
+        "PRKACA",
+        "PRKAR1A"
+      ],
+      "stoichiometry": {
+        "PRKACA": 2,
+        "PRKAR1A": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6NO7"
+      ]
+    },
+    {
+      "complex_id": "HOMOMER::CREB_dimer",
+      "complex_type": "HOMOMER",
+      "complex_name": "CREB_dimer",
+      "gene_ids": [
+        "CREB1"
+      ],
+      "stoichiometry": {
+        "CREB1": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "1DH3",
+        "1KDX"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "ADRB2",
+    "GNAS",
+    "GNB1",
+    "GNG2",
+    "ADCY9",
+    "PRKACA",
+    "PRKAR1A",
+    "CREB1"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,46 @@
+{
+  "row_index": 55,
+  "category": "VI. Signaling Pathways",
+  "pathway": "JAK / STAT",
+  "component": "Transcription Factors",
+  "filename_base": "vi_signaling_pathways__jak_stat__transcription_factors",
+  "complexes": [
+    {
+      "complex_id": "HETERO_FAMILY::STAT_dimers",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "STAT_dimers",
+      "gene_ids": [
+        "STAT1",
+        "STAT2",
+        "STAT3",
+        "STAT4",
+        "STAT5A",
+        "STAT5B",
+        "STAT6"
+      ],
+      "stoichiometry": {
+        "STAT1": 1,
+        "STAT2": 1,
+        "STAT3": 1,
+        "STAT4": 1,
+        "STAT5A": 1,
+        "STAT5B": 1,
+        "STAT6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1BF5"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "STAT1",
+    "STAT2",
+    "STAT3",
+    "STAT4",
+    "STAT5A",
+    "STAT5B",
+    "STAT6"
+  ],
+  "n_steps_per_generator": 3
+}

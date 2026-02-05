@@ -1,0 +1,61 @@
+{
+  "row_index": 4,
+  "category": "I. Genetic Info Processing",
+  "pathway": "Transcription",
+  "component": "RNA Polymerase II",
+  "filename_base": "i_genetic_info_processing__transcription__rna_polymerase_ii",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::RNAPII_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "RNAPII_core",
+      "gene_ids": [
+        "POLR2A",
+        "POLR2B",
+        "POLR2C",
+        "POLR2D",
+        "POLR2E",
+        "POLR2F",
+        "POLR2G",
+        "POLR2H",
+        "POLR2I",
+        "POLR2J",
+        "POLR2K",
+        "POLR2L"
+      ],
+      "stoichiometry": {
+        "POLR2A": 1,
+        "POLR2B": 1,
+        "POLR2C": 1,
+        "POLR2D": 1,
+        "POLR2E": 1,
+        "POLR2F": 1,
+        "POLR2G": 1,
+        "POLR2H": 1,
+        "POLR2I": 1,
+        "POLR2J": 1,
+        "POLR2K": 1,
+        "POLR2L": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "9EHZ"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "POLR2A",
+    "POLR2B",
+    "POLR2C",
+    "POLR2D",
+    "POLR2E",
+    "POLR2F",
+    "POLR2G",
+    "POLR2H",
+    "POLR2I",
+    "POLR2J",
+    "POLR2K",
+    "POLR2L"
+  ],
+  "n_steps_per_generator": 3
+}

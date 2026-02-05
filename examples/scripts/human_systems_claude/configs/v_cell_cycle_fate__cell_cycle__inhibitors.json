@@ -1,0 +1,32 @@
+{
+  "row_index": 44,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Cell Cycle",
+  "component": "Inhibitors",
+  "filename_base": "v_cell_cycle_fate__cell_cycle__inhibitors",
+  "complexes": [
+    {
+      "complex_id": "MONOMER::CDK_inhibitors",
+      "complex_type": "MONOMER",
+      "complex_name": "CDK_inhibitors",
+      "gene_ids": [
+        "CDKN1A",
+        "CDKN1B",
+        "CDKN2A"
+      ],
+      "stoichiometry": {
+        "CDKN1A": 1,
+        "CDKN1B": 1,
+        "CDKN2A": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CDKN1A",
+    "CDKN1B",
+    "CDKN2A"
+  ],
+  "n_steps_per_generator": 3
+}

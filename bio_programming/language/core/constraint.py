@@ -363,7 +363,7 @@ class Constraint:
         # Skip duplicate segments within the same constraint to avoid overwriting metadata with empty data
         # (e.g., inputs=[protomer, protomer, protomer] for symmetric proteins)
         processed_original_ids = set()
-        
+
         for seg_idx, (segment, scored_seq) in enumerate(zip(self._inputs, scored_sequence)):
             original_seq = segment.candidate_sequences[sequence_idx]
             original_id = id(original_seq)

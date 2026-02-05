@@ -1,0 +1,32 @@
+{
+  "row_index": 46,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Apoptosis",
+  "component": "Effectors",
+  "filename_base": "v_cell_cycle_fate__apoptosis__effectors",
+  "complexes": [
+    {
+      "complex_id": "HOMO_FAMILY::Executioner_caspase_dimers",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Executioner_caspase_dimers",
+      "gene_ids": [
+        "CASP3",
+        "CASP6",
+        "CASP7"
+      ],
+      "stoichiometry": {
+        "CASP3": 1,
+        "CASP6": 1,
+        "CASP7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CASP3",
+    "CASP6",
+    "CASP7"
+  ],
+  "n_steps_per_generator": 3
+}

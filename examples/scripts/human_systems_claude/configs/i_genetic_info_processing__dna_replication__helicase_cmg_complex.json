@@ -1,0 +1,71 @@
+{
+  "row_index": 1,
+  "category": "I. Genetic Info Processing",
+  "pathway": "DNA Replication",
+  "component": "Helicase (CMG Complex)",
+  "filename_base": "i_genetic_info_processing__dna_replication__helicase_cmg_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::MCM_hexamer",
+      "complex_type": "COMPLEX",
+      "complex_name": "MCM_hexamer",
+      "gene_ids": [
+        "MCM2",
+        "MCM3",
+        "MCM4",
+        "MCM5",
+        "MCM6",
+        "MCM7"
+      ],
+      "stoichiometry": {
+        "MCM2": 1,
+        "MCM3": 1,
+        "MCM4": 1,
+        "MCM5": 1,
+        "MCM6": 1,
+        "MCM7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6XTX"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::GINS_Cdc45",
+      "complex_type": "COMPLEX",
+      "complex_name": "GINS_Cdc45",
+      "gene_ids": [
+        "GINS1",
+        "GINS2",
+        "GINS3",
+        "GINS4",
+        "CDC45"
+      ],
+      "stoichiometry": {
+        "GINS1": 1,
+        "GINS2": 1,
+        "GINS3": 1,
+        "GINS4": 1,
+        "CDC45": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6XTX"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "MCM2",
+    "MCM3",
+    "MCM4",
+    "MCM5",
+    "MCM6",
+    "MCM7",
+    "GINS1",
+    "GINS2",
+    "GINS3",
+    "GINS4",
+    "CDC45"
+  ],
+  "n_steps_per_generator": 3
+}

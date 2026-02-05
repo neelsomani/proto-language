@@ -1,0 +1,117 @@
+{
+  "row_index": 7,
+  "category": "I. Genetic Info Processing",
+  "pathway": "RNA Processing",
+  "component": "Specific snRNPs",
+  "filename_base": "i_genetic_info_processing__rna_processing__specific_snrnps",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::U1_snRNP_specific",
+      "complex_type": "COMPLEX",
+      "complex_name": "U1_snRNP_specific",
+      "gene_ids": [
+        "SNRPA",
+        "SNRPC",
+        "SNRNP70"
+      ],
+      "stoichiometry": {
+        "SNRPA": 1,
+        "SNRPC": 1,
+        "SNRNP70": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3PGW"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::U2_snRNP_specific",
+      "complex_type": "COMPLEX",
+      "complex_name": "U2_snRNP_specific",
+      "gene_ids": [
+        "SNRPA1",
+        "SNRPB2",
+        "SNRPB",
+        "SNRPD1",
+        "SNRPD2",
+        "SNRPD3",
+        "SNRPE",
+        "SNRPF",
+        "SNRPG",
+        "SF3A1",
+        "SF3A2",
+        "SF3A3"
+      ],
+      "stoichiometry": {
+        "SNRPA1": 1,
+        "SNRPB2": 1,
+        "SNRPB": 1,
+        "SNRPD1": 1,
+        "SNRPD2": 1,
+        "SNRPD3": 1,
+        "SNRPE": 1,
+        "SNRPF": 1,
+        "SNRPG": 1,
+        "SF3A1": 1,
+        "SF3A2": 1,
+        "SF3A3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6Y5Q"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::LSM2_8_ring",
+      "complex_type": "COMPLEX",
+      "complex_name": "LSM2_8_ring",
+      "gene_ids": [
+        "LSM2",
+        "LSM3",
+        "LSM4",
+        "LSM5",
+        "LSM6",
+        "LSM7",
+        "LSM8"
+      ],
+      "stoichiometry": {
+        "LSM2": 1,
+        "LSM3": 1,
+        "LSM4": 1,
+        "LSM5": 1,
+        "LSM6": 1,
+        "LSM7": 1,
+        "LSM8": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4M7D"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "SNRPA",
+    "SNRPC",
+    "SNRNP70",
+    "SNRPA1",
+    "SNRPB2",
+    "SNRPB",
+    "SNRPD1",
+    "SNRPD2",
+    "SNRPD3",
+    "SNRPE",
+    "SNRPF",
+    "SNRPG",
+    "SF3A1",
+    "SF3A2",
+    "SF3A3",
+    "LSM2",
+    "LSM3",
+    "LSM4",
+    "LSM5",
+    "LSM6",
+    "LSM7",
+    "LSM8"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,52 @@
+{
+  "row_index": 13,
+  "category": "I. Genetic Info Processing",
+  "pathway": "Mediator Complex",
+  "component": "Head Module",
+  "filename_base": "i_genetic_info_processing__mediator_complex__head_module",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Mediator_head",
+      "complex_type": "COMPLEX",
+      "complex_name": "Mediator_head",
+      "gene_ids": [
+        "MED6",
+        "MED8",
+        "MED11",
+        "MED17",
+        "MED18",
+        "MED20",
+        "MED22",
+        "MED28",
+        "MED30"
+      ],
+      "stoichiometry": {
+        "MED6": 1,
+        "MED8": 1,
+        "MED11": 1,
+        "MED17": 1,
+        "MED18": 1,
+        "MED20": 1,
+        "MED22": 1,
+        "MED28": 1,
+        "MED30": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8TRH"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "MED6",
+    "MED8",
+    "MED11",
+    "MED17",
+    "MED18",
+    "MED20",
+    "MED22",
+    "MED28",
+    "MED30"
+  ],
+  "n_steps_per_generator": 3
+}

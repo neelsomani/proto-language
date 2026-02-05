@@ -1,0 +1,178 @@
+{
+  "row_index": 67,
+  "category": "VI. Signaling Pathways",
+  "pathway": "Notch Pathway",
+  "component": "Receptors & Ligands",
+  "filename_base": "vi_signaling_pathways__notch_pathway__receptors_ligands",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Notch1_DLL4",
+      "complex_type": "COMPLEX",
+      "complex_name": "Notch1_DLL4",
+      "gene_ids": [
+        "NOTCH1",
+        "DLL4"
+      ],
+      "stoichiometry": {
+        "NOTCH1": 1,
+        "DLL4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4XL1"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Notch1_JAG1",
+      "complex_type": "COMPLEX",
+      "complex_name": "Notch1_JAG1",
+      "gene_ids": [
+        "NOTCH1",
+        "JAG1"
+      ],
+      "stoichiometry": {
+        "NOTCH1": 1,
+        "JAG1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5UK5"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::NOTCH1",
+      "complex_type": "MONOMER",
+      "complex_name": "NOTCH1",
+      "gene_ids": [
+        "NOTCH1"
+      ],
+      "stoichiometry": {
+        "NOTCH1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::NOTCH2",
+      "complex_type": "MONOMER",
+      "complex_name": "NOTCH2",
+      "gene_ids": [
+        "NOTCH2"
+      ],
+      "stoichiometry": {
+        "NOTCH2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::NOTCH3",
+      "complex_type": "MONOMER",
+      "complex_name": "NOTCH3",
+      "gene_ids": [
+        "NOTCH3"
+      ],
+      "stoichiometry": {
+        "NOTCH3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::NOTCH4",
+      "complex_type": "MONOMER",
+      "complex_name": "NOTCH4",
+      "gene_ids": [
+        "NOTCH4"
+      ],
+      "stoichiometry": {
+        "NOTCH4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::DLL1",
+      "complex_type": "MONOMER",
+      "complex_name": "DLL1",
+      "gene_ids": [
+        "DLL1"
+      ],
+      "stoichiometry": {
+        "DLL1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4XBM"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::DLL3",
+      "complex_type": "MONOMER",
+      "complex_name": "DLL3",
+      "gene_ids": [
+        "DLL3"
+      ],
+      "stoichiometry": {
+        "DLL3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::DLL4",
+      "complex_type": "MONOMER",
+      "complex_name": "DLL4",
+      "gene_ids": [
+        "DLL4"
+      ],
+      "stoichiometry": {
+        "DLL4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5MVX"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::JAG1",
+      "complex_type": "MONOMER",
+      "complex_name": "JAG1",
+      "gene_ids": [
+        "JAG1"
+      ],
+      "stoichiometry": {
+        "JAG1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "2VJ2"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::JAG2",
+      "complex_type": "MONOMER",
+      "complex_name": "JAG2",
+      "gene_ids": [
+        "JAG2"
+      ],
+      "stoichiometry": {
+        "JAG2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "NOTCH1",
+    "DLL4",
+    "JAG1",
+    "NOTCH2",
+    "NOTCH3",
+    "NOTCH4",
+    "DLL1",
+    "DLL3",
+    "JAG2"
+  ],
+  "n_steps_per_generator": 3
+}

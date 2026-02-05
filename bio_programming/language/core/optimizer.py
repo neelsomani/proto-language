@@ -342,10 +342,10 @@ class Optimizer(ABC):
         Source priority:
         1. ``segment.selected_sequences`` (if populated) - from previous optimizer, sorted by Program
         2. ``[segment.original_sequence]`` (if first optimizer) - falls back to original
-        
-        Both ``selected_sequences`` and ``candidate_sequences`` are initialized by cycling 
+
+        Both ``selected_sequences`` and ``candidate_sequences`` are initialized by cycling
         through source to preserve diversity when pool sizes differ.
-        
+
         Example: source=[A,B,C], num_selected=5 → [A,B,C,A,B]
         """
         # Determine source length from first segment (all segments have same length after sorting)

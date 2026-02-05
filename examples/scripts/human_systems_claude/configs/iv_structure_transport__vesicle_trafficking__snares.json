@@ -1,0 +1,85 @@
+{
+  "row_index": 34,
+  "category": "IV. Structure & Transport",
+  "pathway": "Vesicle Trafficking",
+  "component": "SNAREs",
+  "filename_base": "iv_structure_transport__vesicle_trafficking__snares",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Synaptic_like_SNARE_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "Synaptic_like_SNARE_core",
+      "gene_ids": [
+        "VAMP2",
+        "STX1A",
+        "SNAP25"
+      ],
+      "stoichiometry": {
+        "VAMP2": 1,
+        "STX1A": 1,
+        "SNAP25": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3HD7"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Plasma_membrane_SNARE_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "Plasma_membrane_SNARE_core",
+      "gene_ids": [
+        "VAMP3",
+        "STX4",
+        "SNAP23"
+      ],
+      "stoichiometry": {
+        "VAMP3": 1,
+        "STX4": 1,
+        "SNAP23": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::ER_Golgi_SNARE_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "ER_Golgi_SNARE_core",
+      "gene_ids": [
+        "STX5",
+        "SEC22B"
+      ],
+      "stoichiometry": {
+        "STX5": 1,
+        "SEC22B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::VAMP8_endolysosomal_v_SNARE",
+      "complex_type": "MONOMER",
+      "complex_name": "VAMP8_endolysosomal_v_SNARE",
+      "gene_ids": [
+        "VAMP8"
+      ],
+      "stoichiometry": {
+        "VAMP8": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "VAMP2",
+    "STX1A",
+    "SNAP25",
+    "VAMP3",
+    "STX4",
+    "SNAP23",
+    "STX5",
+    "SEC22B",
+    "VAMP8"
+  ],
+  "n_steps_per_generator": 3
+}

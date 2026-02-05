@@ -1,0 +1,57 @@
+{
+  "row_index": 75,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Chromatin Remodeling",
+  "component": "INO80 Complex",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__ino80_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::INO80_Core",
+      "complex_type": "COMPLEX",
+      "complex_name": "INO80_Core",
+      "gene_ids": [
+        "INO80",
+        "RUVBL1",
+        "RUVBL2"
+      ],
+      "stoichiometry": {
+        "INO80": 1,
+        "RUVBL1": 3,
+        "RUVBL2": 3
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6HTS"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::INO80_Arp_Module",
+      "complex_type": "COMPLEX",
+      "complex_name": "INO80_Arp_Module",
+      "gene_ids": [
+        "ACTR5",
+        "ACTR8",
+        "INO80B",
+        "INO80C"
+      ],
+      "stoichiometry": {
+        "ACTR5": 1,
+        "ACTR8": 1,
+        "INO80B": 1,
+        "INO80C": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "INO80",
+    "RUVBL1",
+    "RUVBL2",
+    "ACTR5",
+    "ACTR8",
+    "INO80B",
+    "INO80C"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,53 @@
+{
+  "row_index": 31,
+  "category": "IV. Structure & Transport",
+  "pathway": "Vesicle Trafficking",
+  "component": "COPII (ER to Golgi)",
+  "filename_base": "iv_structure_transport__vesicle_trafficking__copii_er_to_golgi",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::COPII_inner_coat",
+      "complex_type": "COMPLEX",
+      "complex_name": "COPII_inner_coat",
+      "gene_ids": [
+        "SAR1A",
+        "SEC23A",
+        "SEC24A"
+      ],
+      "stoichiometry": {
+        "SAR1A": 1,
+        "SEC23A": 1,
+        "SEC24A": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8BSH"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::COPII_outer_coat",
+      "complex_type": "COMPLEX",
+      "complex_name": "COPII_outer_coat",
+      "gene_ids": [
+        "SEC13",
+        "SEC31A"
+      ],
+      "stoichiometry": {
+        "SEC13": 2,
+        "SEC31A": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "2PM6"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "SAR1A",
+    "SEC23A",
+    "SEC24A",
+    "SEC13",
+    "SEC31A"
+  ],
+  "n_steps_per_generator": 3
+}

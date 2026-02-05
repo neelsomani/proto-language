@@ -1,0 +1,55 @@
+{
+  "row_index": 61,
+  "category": "VI. Signaling Pathways",
+  "pathway": "T Cell Receptor",
+  "component": "Co-receptors & Signaling",
+  "filename_base": "vi_signaling_pathways__t_cell_receptor__co_receptors_signaling",
+  "complexes": [
+    {
+      "complex_id": "MONOMER::TCR_coreceptors",
+      "complex_type": "MONOMER",
+      "complex_name": "TCR_coreceptors",
+      "gene_ids": [
+        "CD4",
+        "CD8A",
+        "CD8B"
+      ],
+      "stoichiometry": {
+        "CD4": 1,
+        "CD8A": 1,
+        "CD8B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::TCR_signaling",
+      "complex_type": "COMPLEX",
+      "complex_name": "TCR_signaling",
+      "gene_ids": [
+        "LCK",
+        "ZAP70",
+        "LAT",
+        "LCP2"
+      ],
+      "stoichiometry": {
+        "LCK": 1,
+        "ZAP70": 1,
+        "LAT": 1,
+        "LCP2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CD4",
+    "CD8A",
+    "CD8B",
+    "LCK",
+    "ZAP70",
+    "LAT",
+    "LCP2"
+  ],
+  "n_steps_per_generator": 3
+}

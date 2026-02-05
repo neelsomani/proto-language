@@ -1,0 +1,37 @@
+{
+  "row_index": 28,
+  "category": "IV. Structure & Transport",
+  "pathway": "Cytoskeleton",
+  "component": "Microtubules",
+  "filename_base": "iv_structure_transport__cytoskeleton__microtubules",
+  "complexes": [
+    {
+      "complex_id": "HETERO_FAMILY::Alpha_Beta_tubulin_heterodimer",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "Alpha_Beta_tubulin_heterodimer",
+      "gene_ids": [
+        "TUBA1A",
+        "TUBA1B",
+        "TUBB",
+        "TUBB4B"
+      ],
+      "stoichiometry": {
+        "TUBA1A": 1,
+        "TUBA1B": 1,
+        "TUBB": 1,
+        "TUBB4B": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "8SH7"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "TUBA1A",
+    "TUBA1B",
+    "TUBB",
+    "TUBB4B"
+  ],
+  "n_steps_per_generator": 3
+}

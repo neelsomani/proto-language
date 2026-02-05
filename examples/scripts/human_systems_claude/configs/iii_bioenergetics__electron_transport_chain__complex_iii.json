@@ -1,0 +1,55 @@
+{
+  "row_index": 25,
+  "category": "III. Bioenergetics",
+  "pathway": "Electron Transport Chain",
+  "component": "Complex III",
+  "filename_base": "iii_bioenergetics__electron_transport_chain__complex_iii",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Complex_III_cytochrome_bc1",
+      "complex_type": "COMPLEX",
+      "complex_name": "Complex_III_cytochrome_bc1",
+      "gene_ids": [
+        "MT-CYB",
+        "UQCRC1",
+        "UQCRC2",
+        "UQCRFS1",
+        "UQCRB",
+        "UQCRH",
+        "UQCRQ",
+        "UQCR10",
+        "UQCR11",
+        "CYC1"
+      ],
+      "stoichiometry": {
+        "MT-CYB": 2,
+        "UQCRC1": 2,
+        "UQCRC2": 2,
+        "UQCRFS1": 2,
+        "UQCRB": 2,
+        "UQCRH": 2,
+        "UQCRQ": 2,
+        "UQCR10": 2,
+        "UQCR11": 2,
+        "CYC1": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "5XTE"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "MT-CYB",
+    "UQCRC1",
+    "UQCRC2",
+    "UQCRFS1",
+    "UQCRB",
+    "UQCRH",
+    "UQCRQ",
+    "UQCR10",
+    "UQCR11",
+    "CYC1"
+  ],
+  "n_steps_per_generator": 3
+}

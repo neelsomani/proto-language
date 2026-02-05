@@ -1,0 +1,76 @@
+{
+  "row_index": 3,
+  "category": "I. Genetic Info Processing",
+  "pathway": "DNA Replication",
+  "component": "Accessory Factors",
+  "filename_base": "i_genetic_info_processing__dna_replication__accessory_factors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::RPA_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "RPA_complex",
+      "gene_ids": [
+        "RPA1",
+        "RPA2",
+        "RPA3"
+      ],
+      "stoichiometry": {
+        "RPA1": 1,
+        "RPA2": 1,
+        "RPA3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8RK2"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::DNA_primase",
+      "complex_type": "COMPLEX",
+      "complex_name": "DNA_primase",
+      "gene_ids": [
+        "PRIM1",
+        "PRIM2"
+      ],
+      "stoichiometry": {
+        "PRIM1": 1,
+        "PRIM2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5EXR"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::Other_replication_accessory_factors",
+      "complex_type": "MONOMER",
+      "complex_name": "Other_replication_accessory_factors",
+      "gene_ids": [
+        "FEN1",
+        "LIG1",
+        "TOP1",
+        "TOP2A"
+      ],
+      "stoichiometry": {
+        "FEN1": 1,
+        "LIG1": 1,
+        "TOP1": 1,
+        "TOP2A": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "RPA1",
+    "RPA2",
+    "RPA3",
+    "PRIM1",
+    "PRIM2",
+    "FEN1",
+    "LIG1",
+    "TOP1",
+    "TOP2A"
+  ],
+  "n_steps_per_generator": 3
+}

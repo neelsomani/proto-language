@@ -1,0 +1,117 @@
+{
+  "row_index": 5,
+  "category": "I. Genetic Info Processing",
+  "pathway": "Transcription",
+  "component": "Basal Transcription Factors",
+  "filename_base": "i_genetic_info_processing__transcription__basal_transcription_factors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::TFIIA",
+      "complex_type": "COMPLEX",
+      "complex_name": "TFIIA",
+      "gene_ids": [
+        "GTF2A1",
+        "TBP"
+      ],
+      "stoichiometry": {
+        "GTF2A1": 1,
+        "TBP": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1NVP"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::TFIIB",
+      "complex_type": "COMPLEX",
+      "complex_name": "TFIIB",
+      "gene_ids": [
+        "GTF2B",
+        "TBP"
+      ],
+      "stoichiometry": {
+        "GTF2B": 1,
+        "TBP": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1VOL"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::TFIIE",
+      "complex_type": "COMPLEX",
+      "complex_name": "TFIIE",
+      "gene_ids": [
+        "GTF2E1",
+        "GTF2E2"
+      ],
+      "stoichiometry": {
+        "GTF2E1": 1,
+        "GTF2E2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::TFIIF",
+      "complex_type": "COMPLEX",
+      "complex_name": "TFIIF",
+      "gene_ids": [
+        "GTF2F1",
+        "GTF2F2"
+      ],
+      "stoichiometry": {
+        "GTF2F1": 1,
+        "GTF2F2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::TFIIH_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "TFIIH_core",
+      "gene_ids": [
+        "GTF2H1",
+        "GTF2H2",
+        "GTF2H3",
+        "GTF2H4",
+        "GTF2H5",
+        "ERCC2",
+        "ERCC3"
+      ],
+      "stoichiometry": {
+        "GTF2H1": 1,
+        "GTF2H2": 1,
+        "GTF2H3": 1,
+        "GTF2H4": 1,
+        "GTF2H5": 1,
+        "ERCC2": 1,
+        "ERCC3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6NMI"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "GTF2A1",
+    "TBP",
+    "GTF2B",
+    "GTF2E1",
+    "GTF2E2",
+    "GTF2F1",
+    "GTF2F2",
+    "GTF2H1",
+    "GTF2H2",
+    "GTF2H3",
+    "GTF2H4",
+    "GTF2H5",
+    "ERCC2",
+    "ERCC3"
+  ],
+  "n_steps_per_generator": 3
+}

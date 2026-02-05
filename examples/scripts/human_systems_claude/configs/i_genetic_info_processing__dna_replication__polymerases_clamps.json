@@ -1,0 +1,106 @@
+{
+  "row_index": 2,
+  "category": "I. Genetic Info Processing",
+  "pathway": "DNA Replication",
+  "component": "Polymerases & Clamps",
+  "filename_base": "i_genetic_info_processing__dna_replication__polymerases_clamps",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Pol_delta",
+      "complex_type": "COMPLEX",
+      "complex_name": "Pol_delta",
+      "gene_ids": [
+        "POLD1",
+        "POLD2",
+        "POLD3",
+        "POLD4"
+      ],
+      "stoichiometry": {
+        "POLD1": 1,
+        "POLD2": 1,
+        "POLD3": 1,
+        "POLD4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6TNY"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Pol_epsilon",
+      "complex_type": "COMPLEX",
+      "complex_name": "Pol_epsilon",
+      "gene_ids": [
+        "POLE",
+        "POLE2",
+        "POLE3",
+        "POLE4"
+      ],
+      "stoichiometry": {
+        "POLE": 1,
+        "POLE2": 1,
+        "POLE3": 1,
+        "POLE4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "9B8S"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::RFC_clamp_loader",
+      "complex_type": "COMPLEX",
+      "complex_name": "RFC_clamp_loader",
+      "gene_ids": [
+        "RFC1",
+        "RFC2",
+        "RFC3",
+        "RFC4",
+        "RFC5"
+      ],
+      "stoichiometry": {
+        "RFC1": 1,
+        "RFC2": 1,
+        "RFC3": 1,
+        "RFC4": 1,
+        "RFC5": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6VVO"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::PCNA_trimer",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "PCNA_trimer",
+      "gene_ids": [
+        "PCNA"
+      ],
+      "stoichiometry": {
+        "PCNA": 3
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1AXC"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "POLD1",
+    "POLD2",
+    "POLD3",
+    "POLD4",
+    "POLE",
+    "POLE2",
+    "POLE3",
+    "POLE4",
+    "RFC1",
+    "RFC2",
+    "RFC3",
+    "RFC4",
+    "RFC5",
+    "PCNA"
+  ],
+  "n_steps_per_generator": 3
+}

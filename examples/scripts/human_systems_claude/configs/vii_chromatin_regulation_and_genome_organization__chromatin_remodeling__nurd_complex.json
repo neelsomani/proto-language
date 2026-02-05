@@ -1,0 +1,41 @@
+{
+  "row_index": 74,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Chromatin Remodeling",
+  "component": "NuRD Complex",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__nurd_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::NuRD_Core",
+      "complex_type": "COMPLEX",
+      "complex_name": "NuRD_Core",
+      "gene_ids": [
+        "CHD4",
+        "HDAC1",
+        "HDAC2",
+        "MTA1",
+        "RBBP4",
+        "RBBP7"
+      ],
+      "stoichiometry": {
+        "CHD4": 1,
+        "HDAC1": 1,
+        "HDAC2": 1,
+        "MTA1": 1,
+        "RBBP4": 1,
+        "RBBP7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CHD4",
+    "HDAC1",
+    "HDAC2",
+    "MTA1",
+    "RBBP4",
+    "RBBP7"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,57 @@
+{
+  "row_index": 84,
+  "category": "VIII. DNA Repair",
+  "pathway": "Homologous Recombination",
+  "component": "BRCA2-PALB2-RAD51",
+  "filename_base": "viii_dna_repair__homologous_recombination__brca2_palb2_rad51",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::BRCA2_DSS1",
+      "complex_type": "COMPLEX",
+      "complex_name": "BRCA2_DSS1",
+      "gene_ids": [
+        "BRCA2",
+        "DSS1"
+      ],
+      "stoichiometry": {
+        "BRCA2": 1,
+        "DSS1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1IYJ"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::RAD51_paralog_complexes",
+      "complex_type": "COMPLEX",
+      "complex_name": "RAD51_paralog_complexes",
+      "gene_ids": [
+        "RAD51B",
+        "RAD51C",
+        "RAD51D",
+        "XRCC2",
+        "XRCC3"
+      ],
+      "stoichiometry": {
+        "RAD51B": 1,
+        "RAD51C": 1,
+        "RAD51D": 1,
+        "XRCC2": 1,
+        "XRCC3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "BRCA2",
+    "DSS1",
+    "RAD51B",
+    "RAD51C",
+    "RAD51D",
+    "XRCC2",
+    "XRCC3"
+  ],
+  "n_steps_per_generator": 3
+}

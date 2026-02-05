@@ -1,0 +1,71 @@
+{
+  "row_index": 41,
+  "category": "IV. Structure & Transport",
+  "pathway": "ATP-dependent Transporters",
+  "component": "V-ATPase",
+  "filename_base": "iv_structure_transport__atp_dependent_transporters__v_atpase",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::V_ATPase_V1",
+      "complex_type": "COMPLEX",
+      "complex_name": "V_ATPase_V1",
+      "gene_ids": [
+        "ATP6V1A",
+        "ATP6V1B2",
+        "ATP6V1C1",
+        "ATP6V1D",
+        "ATP6V1E1",
+        "ATP6V1F",
+        "ATP6V1G1",
+        "ATP6V1H"
+      ],
+      "stoichiometry": {
+        "ATP6V1A": 3,
+        "ATP6V1B2": 3,
+        "ATP6V1C1": 1,
+        "ATP6V1D": 1,
+        "ATP6V1E1": 2,
+        "ATP6V1F": 1,
+        "ATP6V1G1": 2,
+        "ATP6V1H": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6WM2"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::V_ATPase_V0",
+      "complex_type": "COMPLEX",
+      "complex_name": "V_ATPase_V0",
+      "gene_ids": [
+        "ATP6V0A1",
+        "ATP6V0C",
+        "ATP6V0D1"
+      ],
+      "stoichiometry": {
+        "ATP6V0A1": 1,
+        "ATP6V0C": 10,
+        "ATP6V0D1": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6WM2"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "ATP6V1A",
+    "ATP6V1B2",
+    "ATP6V1C1",
+    "ATP6V1D",
+    "ATP6V1E1",
+    "ATP6V1F",
+    "ATP6V1G1",
+    "ATP6V1H",
+    "ATP6V0A1",
+    "ATP6V0C",
+    "ATP6V0D1"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,65 @@
+{
+  "row_index": 64,
+  "category": "VI. Signaling Pathways",
+  "pathway": "MHC Presentation",
+  "component": "MHC Class II",
+  "filename_base": "vi_signaling_pathways__mhc_presentation__mhc_class_ii",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::MHC_II_DR",
+      "complex_type": "COMPLEX",
+      "complex_name": "MHC_II_DR",
+      "gene_ids": [
+        "HLA-DRA",
+        "HLA-DRB1"
+      ],
+      "stoichiometry": {
+        "HLA-DRA": 1,
+        "HLA-DRB1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1DLH"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::MHC_II_DP",
+      "complex_type": "COMPLEX",
+      "complex_name": "MHC_II_DP",
+      "gene_ids": [
+        "HLA-DPA1",
+        "HLA-DPB1"
+      ],
+      "stoichiometry": {
+        "HLA-DPA1": 1,
+        "HLA-DPB1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::MHC_II_DQ",
+      "complex_type": "COMPLEX",
+      "complex_name": "MHC_II_DQ",
+      "gene_ids": [
+        "HLA-DQA1",
+        "HLA-DQB1"
+      ],
+      "stoichiometry": {
+        "HLA-DQA1": 1,
+        "HLA-DQB1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "HLA-DRA",
+    "HLA-DRB1",
+    "HLA-DPA1",
+    "HLA-DPB1",
+    "HLA-DQA1",
+    "HLA-DQB1"
+  ],
+  "n_steps_per_generator": 3
+}

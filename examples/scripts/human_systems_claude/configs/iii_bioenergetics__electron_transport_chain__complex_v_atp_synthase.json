@@ -1,0 +1,58 @@
+{
+  "row_index": 27,
+  "category": "III. Bioenergetics",
+  "pathway": "Electron Transport Chain",
+  "component": "Complex V (ATP Synthase)",
+  "filename_base": "iii_bioenergetics__electron_transport_chain__complex_v_atp_synthase",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::ATP_synthase_F1F0",
+      "complex_type": "COMPLEX",
+      "complex_name": "ATP_synthase_F1F0",
+      "gene_ids": [
+        "ATP5F1A",
+        "ATP5F1B",
+        "ATP5F1C",
+        "ATP5F1D",
+        "ATP5F1E",
+        "ATP5MC1",
+        "ATP5MJ",
+        "ATP5PB",
+        "ATP5PD",
+        "ATP5PF",
+        "ATP5PO"
+      ],
+      "stoichiometry": {
+        "ATP5F1A": 3,
+        "ATP5F1B": 3,
+        "ATP5F1C": 1,
+        "ATP5F1D": 1,
+        "ATP5F1E": 1,
+        "ATP5MC1": 8,
+        "ATP5MJ": 1,
+        "ATP5PB": 1,
+        "ATP5PD": 1,
+        "ATP5PF": 1,
+        "ATP5PO": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "8H9V"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "ATP5F1A",
+    "ATP5F1B",
+    "ATP5F1C",
+    "ATP5F1D",
+    "ATP5F1E",
+    "ATP5MC1",
+    "ATP5MJ",
+    "ATP5PB",
+    "ATP5PD",
+    "ATP5PF",
+    "ATP5PO"
+  ],
+  "n_steps_per_generator": 3
+}

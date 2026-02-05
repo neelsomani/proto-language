@@ -1,0 +1,80 @@
+{
+  "row_index": 42,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Cell Cycle",
+  "component": "Cyclins",
+  "filename_base": "v_cell_cycle_fate__cell_cycle__cyclins",
+  "complexes": [
+    {
+      "complex_id": "HOMO_FAMILY::Cyclin_D_family_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Cyclin_D_family_monomeric",
+      "gene_ids": [
+        "CCND1",
+        "CCND2",
+        "CCND3"
+      ],
+      "stoichiometry": {
+        "CCND1": 1,
+        "CCND2": 1,
+        "CCND3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Cyclin_E_family_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Cyclin_E_family_monomeric",
+      "gene_ids": [
+        "CCNE1",
+        "CCNE2"
+      ],
+      "stoichiometry": {
+        "CCNE1": 1,
+        "CCNE2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Cyclin_A_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Cyclin_A_monomeric",
+      "gene_ids": [
+        "CCNA2"
+      ],
+      "stoichiometry": {
+        "CCNA2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Cyclin_B_family_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Cyclin_B_family_monomeric",
+      "gene_ids": [
+        "CCNB1",
+        "CCNB2"
+      ],
+      "stoichiometry": {
+        "CCNB1": 1,
+        "CCNB2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CCND1",
+    "CCND2",
+    "CCND3",
+    "CCNE1",
+    "CCNE2",
+    "CCNA2",
+    "CCNB1",
+    "CCNB2"
+  ],
+  "n_steps_per_generator": 3
+}

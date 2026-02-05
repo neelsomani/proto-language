@@ -1,0 +1,72 @@
+{
+  "row_index": 20,
+  "category": "II. Protein Homeostasis",
+  "pathway": "ER & Folding",
+  "component": "Translocon",
+  "filename_base": "ii_protein_homeostasis__er_folding__translocon",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Sec61_translocon",
+      "complex_type": "COMPLEX",
+      "complex_name": "Sec61_translocon",
+      "gene_ids": [
+        "SEC61A1",
+        "SEC61B",
+        "SEC61G"
+      ],
+      "stoichiometry": {
+        "SEC61A1": 1,
+        "SEC61B": 1,
+        "SEC61G": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8B5L"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::SRP_Alu_domain",
+      "complex_type": "COMPLEX",
+      "complex_name": "SRP_Alu_domain",
+      "gene_ids": [
+        "SRP9",
+        "SRP14"
+      ],
+      "stoichiometry": {
+        "SRP9": 1,
+        "SRP14": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1E8O"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::SRP_SR_GTPase_heterodimer",
+      "complex_type": "COMPLEX",
+      "complex_name": "SRP_SR_GTPase_heterodimer",
+      "gene_ids": [
+        "SRP54",
+        "SRPRA"
+      ],
+      "stoichiometry": {
+        "SRP54": 1,
+        "SRPRA": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5L3Q"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "SEC61A1",
+    "SEC61B",
+    "SEC61G",
+    "SRP9",
+    "SRP14",
+    "SRP54",
+    "SRPRA"
+  ],
+  "n_steps_per_generator": 3
+}

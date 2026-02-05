@@ -1,0 +1,81 @@
+{
+  "row_index": 68,
+  "category": "VI. Signaling Pathways",
+  "pathway": "Notch Pathway",
+  "component": "Effectors",
+  "filename_base": "vi_signaling_pathways__notch_pathway__effectors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Notch_transcription_MAML1",
+      "complex_type": "COMPLEX",
+      "complex_name": "Notch_transcription_MAML1",
+      "gene_ids": [
+        "RBPJ",
+        "NOTCH1",
+        "MAML1"
+      ],
+      "stoichiometry": {
+        "RBPJ": 1,
+        "NOTCH1": 1,
+        "MAML1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3V79"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::gamma_secretase_PSEN1_APH1A",
+      "complex_type": "COMPLEX",
+      "complex_name": "gamma_secretase_PSEN1_APH1A",
+      "gene_ids": [
+        "PSEN1",
+        "NCSTN",
+        "APH1A",
+        "PSENEN"
+      ],
+      "stoichiometry": {
+        "PSEN1": 1,
+        "NCSTN": 1,
+        "APH1A": 1,
+        "PSENEN": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6IDF"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::gamma_secretase_PSEN1_APH1B",
+      "complex_type": "COMPLEX",
+      "complex_name": "gamma_secretase_PSEN1_APH1B",
+      "gene_ids": [
+        "PSEN1",
+        "NCSTN",
+        "APH1B",
+        "PSENEN"
+      ],
+      "stoichiometry": {
+        "PSEN1": 1,
+        "NCSTN": 1,
+        "APH1B": 1,
+        "PSENEN": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8OQY"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "RBPJ",
+    "NOTCH1",
+    "MAML1",
+    "PSEN1",
+    "NCSTN",
+    "APH1A",
+    "PSENEN",
+    "APH1B"
+  ],
+  "n_steps_per_generator": 3
+}

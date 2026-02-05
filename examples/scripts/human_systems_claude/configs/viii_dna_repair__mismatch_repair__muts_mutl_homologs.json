@@ -1,0 +1,82 @@
+{
+  "row_index": 87,
+  "category": "VIII. DNA Repair",
+  "pathway": "Mismatch Repair",
+  "component": "MutS & MutL Homologs",
+  "filename_base": "viii_dna_repair__mismatch_repair__muts_mutl_homologs",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::MutSalpha",
+      "complex_type": "COMPLEX",
+      "complex_name": "MutSalpha",
+      "gene_ids": [
+        "MSH2",
+        "MSH6"
+      ],
+      "stoichiometry": {
+        "MSH2": 1,
+        "MSH6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "2O8B"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::MutSbeta",
+      "complex_type": "COMPLEX",
+      "complex_name": "MutSbeta",
+      "gene_ids": [
+        "MSH2",
+        "MSH3"
+      ],
+      "stoichiometry": {
+        "MSH2": 1,
+        "MSH3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::MutLalpha",
+      "complex_type": "COMPLEX",
+      "complex_name": "MutLalpha",
+      "gene_ids": [
+        "MLH1",
+        "PMS2"
+      ],
+      "stoichiometry": {
+        "MLH1": 1,
+        "PMS2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4E4W"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::MutLbeta",
+      "complex_type": "COMPLEX",
+      "complex_name": "MutLbeta",
+      "gene_ids": [
+        "MLH1",
+        "PMS1"
+      ],
+      "stoichiometry": {
+        "MLH1": 1,
+        "PMS1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "MSH2",
+    "MSH6",
+    "MSH3",
+    "MLH1",
+    "PMS2",
+    "PMS1"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,140 @@
+{
+  "row_index": 38,
+  "category": "IV. Structure & Transport",
+  "pathway": "Ligand-gated Channels",
+  "component": "Glutamate Receptors",
+  "filename_base": "iv_structure_transport__ligand_gated_channels__glutamate_receptors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::AMPAR_GluA1_GluA2",
+      "complex_type": "COMPLEX",
+      "complex_name": "AMPAR_GluA1_GluA2",
+      "gene_ids": [
+        "GRIA1",
+        "GRIA2"
+      ],
+      "stoichiometry": {
+        "GRIA1": 2,
+        "GRIA2": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7LDD"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::AMPAR_GluA2_GluA3",
+      "complex_type": "COMPLEX",
+      "complex_name": "AMPAR_GluA2_GluA3",
+      "gene_ids": [
+        "GRIA2",
+        "GRIA3"
+      ],
+      "stoichiometry": {
+        "GRIA2": 2,
+        "GRIA3": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "5IDE"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::AMPAR_GluA1_GluA4",
+      "complex_type": "COMPLEX",
+      "complex_name": "AMPAR_GluA1_GluA4",
+      "gene_ids": [
+        "GRIA1",
+        "GRIA4"
+      ],
+      "stoichiometry": {
+        "GRIA1": 2,
+        "GRIA4": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "9NR8"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::NMDAR_GluN1_GluN2A",
+      "complex_type": "COMPLEX",
+      "complex_name": "NMDAR_GluN1_GluN2A",
+      "gene_ids": [
+        "GRIN1",
+        "GRIN2A"
+      ],
+      "stoichiometry": {
+        "GRIN1": 2,
+        "GRIN2A": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7EU7"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::NMDAR_GluN1_GluN2B",
+      "complex_type": "COMPLEX",
+      "complex_name": "NMDAR_GluN1_GluN2B",
+      "gene_ids": [
+        "GRIN1",
+        "GRIN2B"
+      ],
+      "stoichiometry": {
+        "GRIN1": 2,
+        "GRIN2B": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7EU8"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::NMDAR_GluN1_GluN2C",
+      "complex_type": "COMPLEX",
+      "complex_name": "NMDAR_GluN1_GluN2C",
+      "gene_ids": [
+        "GRIN1",
+        "GRIN2C"
+      ],
+      "stoichiometry": {
+        "GRIN1": 2,
+        "GRIN2C": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7YFG"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::NMDAR_GluN1_GluN2D",
+      "complex_type": "COMPLEX",
+      "complex_name": "NMDAR_GluN1_GluN2D",
+      "gene_ids": [
+        "GRIN1",
+        "GRIN2D"
+      ],
+      "stoichiometry": {
+        "GRIN1": 2,
+        "GRIN2D": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7YFM"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "GRIA1",
+    "GRIA2",
+    "GRIA3",
+    "GRIA4",
+    "GRIN1",
+    "GRIN2A",
+    "GRIN2B",
+    "GRIN2C",
+    "GRIN2D"
+  ],
+  "n_steps_per_generator": 3
+}

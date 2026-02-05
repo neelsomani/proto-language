@@ -1,0 +1,107 @@
+{
+  "row_index": 50,
+  "category": "VI. Signaling Pathways",
+  "pathway": "MAPK / ERK",
+  "component": "Upstream & Core",
+  "filename_base": "vi_signaling_pathways__mapk_erk__upstream_core",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::EGFR_GRB2_SOS1",
+      "complex_type": "COMPLEX",
+      "complex_name": "EGFR_GRB2_SOS1",
+      "gene_ids": [
+        "EGFR",
+        "GRB2",
+        "SOS1"
+      ],
+      "stoichiometry": {
+        "EGFR": 1,
+        "GRB2": 1,
+        "SOS1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1JYQ",
+        "1AZE"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::RAS_RAF_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "RAS_RAF_complex",
+      "gene_ids": [
+        "KRAS",
+        "NRAS",
+        "HRAS",
+        "BRAF",
+        "RAF1"
+      ],
+      "stoichiometry": {
+        "KRAS": 1,
+        "NRAS": 1,
+        "HRAS": 1,
+        "BRAF": 1,
+        "RAF1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6XHB"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::RAF_MEK_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "RAF_MEK_complex",
+      "gene_ids": [
+        "BRAF",
+        "RAF1",
+        "MAP2K1",
+        "MAP2K2"
+      ],
+      "stoichiometry": {
+        "BRAF": 1,
+        "RAF1": 1,
+        "MAP2K1": 1,
+        "MAP2K2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6V2W"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::MEK_ERK_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "MEK_ERK_complex",
+      "gene_ids": [
+        "MAP2K1",
+        "MAP2K2",
+        "MAPK1",
+        "MAPK3"
+      ],
+      "stoichiometry": {
+        "MAP2K1": 1,
+        "MAP2K2": 1,
+        "MAPK1": 1,
+        "MAPK3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "EGFR",
+    "GRB2",
+    "SOS1",
+    "KRAS",
+    "NRAS",
+    "HRAS",
+    "BRAF",
+    "RAF1",
+    "MAP2K1",
+    "MAP2K2",
+    "MAPK1",
+    "MAPK3"
+  ],
+  "n_steps_per_generator": 3
+}

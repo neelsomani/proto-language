@@ -1,0 +1,58 @@
+{
+  "row_index": 37,
+  "category": "IV. Structure & Transport",
+  "pathway": "Voltage-gated Channels",
+  "component": "Calcium Channels",
+  "filename_base": "iv_structure_transport__voltage_gated_channels__calcium_channels",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Cav1.1_channel",
+      "complex_type": "COMPLEX",
+      "complex_name": "Cav1.1_channel",
+      "gene_ids": [
+        "CACNA1S",
+        "CACNB1",
+        "CACNA2D1",
+        "CACNG1"
+      ],
+      "stoichiometry": {
+        "CACNA1S": 1,
+        "CACNB1": 1,
+        "CACNA2D1": 1,
+        "CACNG1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5GJV"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Cav1.2_channel",
+      "complex_type": "COMPLEX",
+      "complex_name": "Cav1.2_channel",
+      "gene_ids": [
+        "CACNA1C",
+        "CACNB2",
+        "CACNA2D1",
+        "CACNG1"
+      ],
+      "stoichiometry": {
+        "CACNA1C": 1,
+        "CACNB2": 1,
+        "CACNA2D1": 1,
+        "CACNG1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CACNA1S",
+    "CACNB1",
+    "CACNA2D1",
+    "CACNG1",
+    "CACNA1C",
+    "CACNB2"
+  ],
+  "n_steps_per_generator": 3
+}

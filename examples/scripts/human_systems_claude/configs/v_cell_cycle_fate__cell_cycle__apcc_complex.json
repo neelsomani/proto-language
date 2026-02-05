@@ -1,0 +1,99 @@
+{
+  "row_index": 45,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Cell Cycle",
+  "component": "APC/C Complex",
+  "filename_base": "v_cell_cycle_fate__cell_cycle__apcc_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::APC_Platform",
+      "complex_type": "COMPLEX",
+      "complex_name": "APC_Platform",
+      "gene_ids": [
+        "ANAPC1",
+        "ANAPC4",
+        "ANAPC5",
+        "ANAPC15"
+      ],
+      "stoichiometry": {
+        "ANAPC1": 1,
+        "ANAPC4": 1,
+        "ANAPC5": 1,
+        "ANAPC15": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "9GAW"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::APC_TPR_lobe",
+      "complex_type": "COMPLEX",
+      "complex_name": "APC_TPR_lobe",
+      "gene_ids": [
+        "CDC27",
+        "CDC16",
+        "CDC23",
+        "ANAPC7"
+      ],
+      "stoichiometry": {
+        "CDC27": 2,
+        "CDC16": 2,
+        "CDC23": 2,
+        "ANAPC7": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "9GAW"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::APC_Catalytic",
+      "complex_type": "COMPLEX",
+      "complex_name": "APC_Catalytic",
+      "gene_ids": [
+        "ANAPC2",
+        "ANAPC11",
+        "ANAPC10"
+      ],
+      "stoichiometry": {
+        "ANAPC2": 1,
+        "ANAPC11": 1,
+        "ANAPC10": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HETERO_FAMILY::APC_C_coactivators",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "APC_C_coactivators",
+      "gene_ids": [
+        "CDC20",
+        "FZR1"
+      ],
+      "stoichiometry": {
+        "CDC20": 1,
+        "FZR1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "ANAPC1",
+    "ANAPC4",
+    "ANAPC5",
+    "ANAPC15",
+    "CDC27",
+    "CDC16",
+    "CDC23",
+    "ANAPC7",
+    "ANAPC2",
+    "ANAPC11",
+    "ANAPC10",
+    "CDC20",
+    "FZR1"
+  ],
+  "n_steps_per_generator": 3
+}

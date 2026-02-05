@@ -1,0 +1,68 @@
+{
+  "row_index": 86,
+  "category": "VIII. DNA Repair",
+  "pathway": "Non-Homologous End Joining",
+  "component": "Ku & DNA-PKcs",
+  "filename_base": "viii_dna_repair__non_homologous_end_joining__ku_dna_pkcs",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Ku70_80_heterodimer",
+      "complex_type": "COMPLEX",
+      "complex_name": "Ku70_80_heterodimer",
+      "gene_ids": [
+        "XRCC5",
+        "XRCC6"
+      ],
+      "stoichiometry": {
+        "XRCC5": 1,
+        "XRCC6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1JEY"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::DNA_PK_holoenzyme",
+      "complex_type": "COMPLEX",
+      "complex_name": "DNA_PK_holoenzyme",
+      "gene_ids": [
+        "XRCC5",
+        "XRCC6",
+        "PRKDC"
+      ],
+      "stoichiometry": {
+        "XRCC5": 1,
+        "XRCC6": 1,
+        "PRKDC": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "7K11"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Ligase_IV_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "Ligase_IV_complex",
+      "gene_ids": [
+        "LIG4",
+        "XRCC4"
+      ],
+      "stoichiometry": {
+        "LIG4": 1,
+        "XRCC4": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "XRCC5",
+    "XRCC6",
+    "PRKDC",
+    "LIG4",
+    "XRCC4"
+  ],
+  "n_steps_per_generator": 3
+}

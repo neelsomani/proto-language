@@ -1,0 +1,84 @@
+{
+  "row_index": 70,
+  "category": "VI. Signaling Pathways",
+  "pathway": "Hippo Pathway",
+  "component": "Kinase Cascade",
+  "filename_base": "vi_signaling_pathways__hippo_pathway__kinase_cascade",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::MST_SAV",
+      "complex_type": "COMPLEX",
+      "complex_name": "MST_SAV",
+      "gene_ids": [
+        "STK3",
+        "STK4",
+        "SAV1"
+      ],
+      "stoichiometry": {
+        "STK3": 1,
+        "STK4": 1,
+        "SAV1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::LATS_MOB",
+      "complex_type": "COMPLEX",
+      "complex_name": "LATS_MOB",
+      "gene_ids": [
+        "LATS1",
+        "LATS2",
+        "MOB1A",
+        "MOB1B"
+      ],
+      "stoichiometry": {
+        "LATS1": 1,
+        "LATS2": 1,
+        "MOB1A": 1,
+        "MOB1B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::YAP_TAZ_TEAD",
+      "complex_type": "COMPLEX",
+      "complex_name": "YAP_TAZ_TEAD",
+      "gene_ids": [
+        "YAP1",
+        "WWTR1",
+        "TEAD1",
+        "TEAD2",
+        "TEAD3",
+        "TEAD4"
+      ],
+      "stoichiometry": {
+        "YAP1": 1,
+        "WWTR1": 1,
+        "TEAD1": 1,
+        "TEAD2": 1,
+        "TEAD3": 1,
+        "TEAD4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "STK3",
+    "STK4",
+    "SAV1",
+    "LATS1",
+    "LATS2",
+    "MOB1A",
+    "MOB1B",
+    "YAP1",
+    "WWTR1",
+    "TEAD1",
+    "TEAD2",
+    "TEAD3",
+    "TEAD4"
+  ],
+  "n_steps_per_generator": 3
+}

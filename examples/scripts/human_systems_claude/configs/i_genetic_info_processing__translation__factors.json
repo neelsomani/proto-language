@@ -1,0 +1,55 @@
+{
+  "row_index": 12,
+  "category": "I. Genetic Info Processing",
+  "pathway": "Translation",
+  "component": "Factors",
+  "filename_base": "i_genetic_info_processing__translation__factors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::eIF4F_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "eIF4F_complex",
+      "gene_ids": [
+        "EIF4E",
+        "EIF4G1",
+        "EIF4A1"
+      ],
+      "stoichiometry": {
+        "EIF4E": 1,
+        "EIF4G1": 1,
+        "EIF4A1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5T48",
+        "8OZ0"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::Elongation_and_termination_factors",
+      "complex_type": "MONOMER",
+      "complex_name": "Elongation_and_termination_factors",
+      "gene_ids": [
+        "EEF1A1",
+        "EEF2",
+        "ETF1"
+      ],
+      "stoichiometry": {
+        "EEF1A1": 1,
+        "EEF2": 1,
+        "ETF1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "EIF4E",
+    "EIF4G1",
+    "EIF4A1",
+    "EEF1A1",
+    "EEF2",
+    "ETF1"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,69 @@
+{
+  "row_index": 66,
+  "category": "VI. Signaling Pathways",
+  "pathway": "TGF-beta / BMP",
+  "component": "SMADs",
+  "filename_base": "vi_signaling_pathways__tgf_beta_bmp__smads",
+  "complexes": [
+    {
+      "complex_id": "HETERO_FAMILY::R_SMADs",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "R_SMADs",
+      "gene_ids": [
+        "SMAD1",
+        "SMAD2",
+        "SMAD3",
+        "SMAD5",
+        "SMAD9"
+      ],
+      "stoichiometry": {
+        "SMAD1": 1,
+        "SMAD2": 1,
+        "SMAD3": 1,
+        "SMAD5": 1,
+        "SMAD9": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::Co_SMAD",
+      "complex_type": "MONOMER",
+      "complex_name": "Co_SMAD",
+      "gene_ids": [
+        "SMAD4"
+      ],
+      "stoichiometry": {
+        "SMAD4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HETERO_FAMILY::I_SMADs",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "I_SMADs",
+      "gene_ids": [
+        "SMAD6",
+        "SMAD7"
+      ],
+      "stoichiometry": {
+        "SMAD6": 1,
+        "SMAD7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "SMAD1",
+    "SMAD2",
+    "SMAD3",
+    "SMAD5",
+    "SMAD9",
+    "SMAD4",
+    "SMAD6",
+    "SMAD7"
+  ],
+  "n_steps_per_generator": 3
+}

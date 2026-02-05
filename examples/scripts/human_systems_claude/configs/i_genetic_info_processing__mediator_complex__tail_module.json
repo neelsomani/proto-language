@@ -1,0 +1,37 @@
+{
+  "row_index": 15,
+  "category": "I. Genetic Info Processing",
+  "pathway": "Mediator Complex",
+  "component": "Tail Module",
+  "filename_base": "i_genetic_info_processing__mediator_complex__tail_module",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Mediator_Tail_Core",
+      "complex_type": "COMPLEX",
+      "complex_name": "Mediator_Tail_Core",
+      "gene_ids": [
+        "MED15",
+        "MED16",
+        "MED23",
+        "MED24"
+      ],
+      "stoichiometry": {
+        "MED15": 1,
+        "MED16": 1,
+        "MED23": 1,
+        "MED24": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8TRH"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "MED15",
+    "MED16",
+    "MED23",
+    "MED24"
+  ],
+  "n_steps_per_generator": 3
+}

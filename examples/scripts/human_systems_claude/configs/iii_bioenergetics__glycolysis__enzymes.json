@@ -1,0 +1,184 @@
+{
+  "row_index": 22,
+  "category": "III. Bioenergetics",
+  "pathway": "Glycolysis",
+  "component": "Enzymes",
+  "filename_base": "iii_bioenergetics__glycolysis__enzymes",
+  "complexes": [
+    {
+      "complex_id": "HOMO_FAMILY::Hexokinase_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Hexokinase_monomeric",
+      "gene_ids": [
+        "HK1",
+        "HK2"
+      ],
+      "stoichiometry": {
+        "HK1": 1,
+        "HK2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HETERO_FAMILY::PFK_tetramer",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "PFK_tetramer",
+      "gene_ids": [
+        "PFKM",
+        "PFKL",
+        "PFKP"
+      ],
+      "stoichiometry": {
+        "PFKM": 2,
+        "PFKL": 1,
+        "PFKP": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "4XYK"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Aldolase_tetramer",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Aldolase_tetramer",
+      "gene_ids": [
+        "ALDOA",
+        "ALDOB"
+      ],
+      "stoichiometry": {
+        "ALDOA": 1,
+        "ALDOB": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1ALD"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Enolase_dimer",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Enolase_dimer",
+      "gene_ids": [
+        "ENO1",
+        "ENO2"
+      ],
+      "stoichiometry": {
+        "ENO1": 1,
+        "ENO2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3B97"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::PKM_tetramer",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "PKM_tetramer",
+      "gene_ids": [
+        "PKM"
+      ],
+      "stoichiometry": {
+        "PKM": 4
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1T5A"
+      ]
+    },
+    {
+      "complex_id": "HETERO_FAMILY::LDH_tetramer",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "LDH_tetramer",
+      "gene_ids": [
+        "LDHA",
+        "LDHB"
+      ],
+      "stoichiometry": {
+        "LDHA": 2,
+        "LDHB": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "1I10"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::GPI_dimeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "GPI_dimeric",
+      "gene_ids": [
+        "GPI"
+      ],
+      "stoichiometry": {
+        "GPI": 2
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1JLH"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::GAPDH_tetrameric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "GAPDH_tetrameric",
+      "gene_ids": [
+        "GAPDH"
+      ],
+      "stoichiometry": {
+        "GAPDH": 4
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1U8F"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::PGK1_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "PGK1_monomeric",
+      "gene_ids": [
+        "PGK1"
+      ],
+      "stoichiometry": {
+        "PGK1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMO_FAMILY::PGAM1_dimeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "PGAM1_dimeric",
+      "gene_ids": [
+        "PGAM1"
+      ],
+      "stoichiometry": {
+        "PGAM1": 2
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "HK1",
+    "HK2",
+    "PFKM",
+    "PFKL",
+    "PFKP",
+    "ALDOA",
+    "ALDOB",
+    "ENO1",
+    "ENO2",
+    "PKM",
+    "LDHA",
+    "LDHB",
+    "GPI",
+    "GAPDH",
+    "PGK1",
+    "PGAM1"
+  ],
+  "n_steps_per_generator": 3
+}

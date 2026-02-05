@@ -1,0 +1,171 @@
+{
+  "row_index": 23,
+  "category": "III. Bioenergetics",
+  "pathway": "TCA Cycle",
+  "component": "Enzymes",
+  "filename_base": "iii_bioenergetics__tca_cycle__enzymes",
+  "complexes": [
+    {
+      "complex_id": "HOMO_FAMILY::Citrate_synthase_dimeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Citrate_synthase_dimeric",
+      "gene_ids": [
+        "CS"
+      ],
+      "stoichiometry": {
+        "CS": 2
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5UZQ"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Aconitase2_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Aconitase2_monomeric",
+      "gene_ids": [
+        "ACO2"
+      ],
+      "stoichiometry": {
+        "ACO2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMO_FAMILY::IDH_NADP_dimeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "IDH_NADP_dimeric",
+      "gene_ids": [
+        "IDH2"
+      ],
+      "stoichiometry": {
+        "IDH2": 2
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::IDH3_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "IDH3_complex",
+      "gene_ids": [
+        "IDH3A",
+        "IDH3B",
+        "IDH3G"
+      ],
+      "stoichiometry": {
+        "IDH3A": 2,
+        "IDH3B": 1,
+        "IDH3G": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7CE3"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::OGDH_complex_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "OGDH_complex_core",
+      "gene_ids": [
+        "OGDH",
+        "DLST"
+      ],
+      "stoichiometry": {
+        "OGDH": 1,
+        "DLST": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::Succinyl_CoA_synthetase",
+      "complex_type": "COMPLEX",
+      "complex_name": "Succinyl_CoA_synthetase",
+      "gene_ids": [
+        "SUCLG1",
+        "SUCLG2"
+      ],
+      "stoichiometry": {
+        "SUCLG1": 2,
+        "SUCLG2": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6G4Q"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Complex_II_SDH",
+      "complex_type": "COMPLEX",
+      "complex_name": "Complex_II_SDH",
+      "gene_ids": [
+        "SDHA",
+        "SDHB",
+        "SDHC",
+        "SDHD"
+      ],
+      "stoichiometry": {
+        "SDHA": 1,
+        "SDHB": 1,
+        "SDHC": 1,
+        "SDHD": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8GS8"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Fumarase_tetrameric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Fumarase_tetrameric",
+      "gene_ids": [
+        "FH"
+      ],
+      "stoichiometry": {
+        "FH": 4
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5D6B"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Malate_dehydrogenase_dimeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Malate_dehydrogenase_dimeric",
+      "gene_ids": [
+        "MDH2"
+      ],
+      "stoichiometry": {
+        "MDH2": 2
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "2DFD"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "CS",
+    "ACO2",
+    "IDH2",
+    "IDH3A",
+    "IDH3B",
+    "IDH3G",
+    "OGDH",
+    "DLST",
+    "SUCLG1",
+    "SUCLG2",
+    "SDHA",
+    "SDHB",
+    "SDHC",
+    "SDHD",
+    "FH",
+    "MDH2"
+  ],
+  "n_steps_per_generator": 3
+}

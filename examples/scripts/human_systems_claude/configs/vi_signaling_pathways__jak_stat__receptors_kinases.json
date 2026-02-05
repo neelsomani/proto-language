@@ -1,0 +1,81 @@
+{
+  "row_index": 54,
+  "category": "VI. Signaling Pathways",
+  "pathway": "JAK / STAT",
+  "component": "Receptors & Kinases",
+  "filename_base": "vi_signaling_pathways__jak_stat__receptors_kinases",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::IFNAR1_JAK_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "IFNAR1_JAK_complex",
+      "gene_ids": [
+        "IFNAR1",
+        "IFNAR2",
+        "JAK1",
+        "TYK2"
+      ],
+      "stoichiometry": {
+        "IFNAR1": 1,
+        "IFNAR2": 1,
+        "JAK1": 1,
+        "TYK2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3SE3"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::IL6R_associated_JAKs",
+      "complex_type": "COMPLEX",
+      "complex_name": "IL6R_associated_JAKs",
+      "gene_ids": [
+        "IL6R",
+        "IL6ST",
+        "JAK1",
+        "JAK2"
+      ],
+      "stoichiometry": {
+        "IL6R": 1,
+        "IL6ST": 1,
+        "JAK1": 1,
+        "JAK2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1P9M"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::JAK_kinase_family_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "JAK_kinase_family_monomeric",
+      "gene_ids": [
+        "JAK1",
+        "JAK2",
+        "JAK3",
+        "TYK2"
+      ],
+      "stoichiometry": {
+        "JAK1": 1,
+        "JAK2": 1,
+        "JAK3": 1,
+        "TYK2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "IFNAR1",
+    "IFNAR2",
+    "JAK1",
+    "TYK2",
+    "IL6R",
+    "IL6ST",
+    "JAK2",
+    "JAK3"
+  ],
+  "n_steps_per_generator": 3
+}

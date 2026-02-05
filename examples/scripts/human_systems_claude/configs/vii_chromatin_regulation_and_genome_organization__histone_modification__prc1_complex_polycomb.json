@@ -1,0 +1,86 @@
+{
+  "row_index": 77,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Histone Modification",
+  "component": "PRC1 Complex (Polycomb)",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__prc1_complex_polycomb",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::PRC1_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "PRC1_core",
+      "gene_ids": [
+        "RING1",
+        "RNF2"
+      ],
+      "stoichiometry": {
+        "RING1": 1,
+        "RNF2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4R8P"
+      ]
+    },
+    {
+      "complex_id": "HETERO_FAMILY::PCGF_family",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "PCGF_family",
+      "gene_ids": [
+        "BMI1",
+        "PCGF1",
+        "PCGF2",
+        "PCGF3",
+        "PCGF5",
+        "PCGF6"
+      ],
+      "stoichiometry": {
+        "BMI1": 1,
+        "PCGF1": 1,
+        "PCGF2": 1,
+        "PCGF3": 1,
+        "PCGF5": 1,
+        "PCGF6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HETERO_FAMILY::CBX_family",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "CBX_family",
+      "gene_ids": [
+        "CBX2",
+        "CBX4",
+        "CBX6",
+        "CBX7",
+        "CBX8"
+      ],
+      "stoichiometry": {
+        "CBX2": 1,
+        "CBX4": 1,
+        "CBX6": 1,
+        "CBX7": 1,
+        "CBX8": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "RING1",
+    "RNF2",
+    "BMI1",
+    "PCGF1",
+    "PCGF2",
+    "PCGF3",
+    "PCGF5",
+    "PCGF6",
+    "CBX2",
+    "CBX4",
+    "CBX6",
+    "CBX7",
+    "CBX8"
+  ],
+  "n_steps_per_generator": 3
+}

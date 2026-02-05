@@ -1,0 +1,107 @@
+{
+  "row_index": 52,
+  "category": "VI. Signaling Pathways",
+  "pathway": "PI3K / mTOR",
+  "component": "Effectors & mTOR",
+  "filename_base": "vi_signaling_pathways__pi3k_mtor__effectors_mtor",
+  "complexes": [
+    {
+      "complex_id": "MONOMER::PTEN_monomeric_phosphatase",
+      "complex_type": "MONOMER",
+      "complex_name": "PTEN_monomeric_phosphatase",
+      "gene_ids": [
+        "PTEN"
+      ],
+      "stoichiometry": {
+        "PTEN": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMO_FAMILY::AKT_isoforms_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "AKT_isoforms_monomeric",
+      "gene_ids": [
+        "AKT1",
+        "AKT2",
+        "AKT3"
+      ],
+      "stoichiometry": {
+        "AKT1": 1,
+        "AKT2": 1,
+        "AKT3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::TSC_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "TSC_complex",
+      "gene_ids": [
+        "TSC1",
+        "TSC2"
+      ],
+      "stoichiometry": {
+        "TSC1": 1,
+        "TSC2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "7DL2"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::mTORC1_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "mTORC1_core",
+      "gene_ids": [
+        "MTOR",
+        "RPTOR",
+        "MLST8"
+      ],
+      "stoichiometry": {
+        "MTOR": 1,
+        "RPTOR": 1,
+        "MLST8": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "5H64"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::mTORC2_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "mTORC2_core",
+      "gene_ids": [
+        "MTOR",
+        "RICTOR",
+        "MLST8"
+      ],
+      "stoichiometry": {
+        "MTOR": 1,
+        "RICTOR": 1,
+        "MLST8": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6ZWM"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "PTEN",
+    "AKT1",
+    "AKT2",
+    "AKT3",
+    "TSC1",
+    "TSC2",
+    "MTOR",
+    "RPTOR",
+    "MLST8",
+    "RICTOR"
+  ],
+  "n_steps_per_generator": 3
+}

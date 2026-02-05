@@ -1,0 +1,63 @@
+{
+  "row_index": 29,
+  "category": "IV. Structure & Transport",
+  "pathway": "Cytoskeleton",
+  "component": "Actin & Nucleators",
+  "filename_base": "iv_structure_transport__cytoskeleton__actin_nucleators",
+  "complexes": [
+    {
+      "complex_id": "HOMO_FAMILY::Actin_isoforms_polymeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Actin_isoforms_polymeric",
+      "gene_ids": [
+        "ACTB",
+        "ACTG1"
+      ],
+      "stoichiometry": {
+        "ACTB": 1,
+        "ACTG1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::Arp2_3_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "Arp2_3_core",
+      "gene_ids": [
+        "ACTR2",
+        "ACTR3",
+        "ARPC1B",
+        "ARPC2",
+        "ARPC3",
+        "ARPC4",
+        "ARPC5"
+      ],
+      "stoichiometry": {
+        "ACTR2": 1,
+        "ACTR3": 1,
+        "ARPC1B": 1,
+        "ARPC2": 1,
+        "ARPC3": 1,
+        "ARPC4": 1,
+        "ARPC5": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6UHC"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "ACTB",
+    "ACTG1",
+    "ACTR2",
+    "ACTR3",
+    "ARPC1B",
+    "ARPC2",
+    "ARPC3",
+    "ARPC4",
+    "ARPC5"
+  ],
+  "n_steps_per_generator": 3
+}

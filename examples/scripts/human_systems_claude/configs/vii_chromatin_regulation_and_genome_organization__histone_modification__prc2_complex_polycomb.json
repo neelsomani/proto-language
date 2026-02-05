@@ -1,0 +1,69 @@
+{
+  "row_index": 76,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Histone Modification",
+  "component": "PRC2 Complex (Polycomb)",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__prc2_complex_polycomb",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::PRC2_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "PRC2_core",
+      "gene_ids": [
+        "EZH2",
+        "EZH1",
+        "EED",
+        "SUZ12",
+        "RBBP4",
+        "RBBP7"
+      ],
+      "stoichiometry": {
+        "EZH2": 1,
+        "EZH1": 1,
+        "EED": 1,
+        "SUZ12": 1,
+        "RBBP4": 1,
+        "RBBP7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6WKR"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::PRC2_accessory",
+      "complex_type": "COMPLEX",
+      "complex_name": "PRC2_accessory",
+      "gene_ids": [
+        "AEBP2",
+        "JARID2",
+        "PHF1",
+        "MTF2",
+        "PHF19"
+      ],
+      "stoichiometry": {
+        "AEBP2": 1,
+        "JARID2": 1,
+        "PHF1": 1,
+        "MTF2": 1,
+        "PHF19": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "EZH2",
+    "EZH1",
+    "EED",
+    "SUZ12",
+    "RBBP4",
+    "RBBP7",
+    "AEBP2",
+    "JARID2",
+    "PHF1",
+    "MTF2",
+    "PHF19"
+  ],
+  "n_steps_per_generator": 3
+}

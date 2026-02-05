@@ -1,0 +1,47 @@
+{
+  "row_index": 0,
+  "category": "I. Genetic Info Processing",
+  "pathway": "DNA Replication",
+  "component": "Origin Recognition",
+  "filename_base": "i_genetic_info_processing__dna_replication__origin_recognition",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::ORC_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "ORC_core",
+      "gene_ids": [
+        "ORC1",
+        "ORC2",
+        "ORC3",
+        "ORC4",
+        "ORC5",
+        "ORC6",
+        "CDC6"
+      ],
+      "stoichiometry": {
+        "ORC1": 1,
+        "ORC2": 1,
+        "ORC3": 1,
+        "ORC4": 1,
+        "ORC5": 1,
+        "ORC6": 1,
+        "CDC6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5UJM",
+        "7JPS"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "ORC1",
+    "ORC2",
+    "ORC3",
+    "ORC4",
+    "ORC5",
+    "ORC6",
+    "CDC6"
+  ],
+  "n_steps_per_generator": 3
+}

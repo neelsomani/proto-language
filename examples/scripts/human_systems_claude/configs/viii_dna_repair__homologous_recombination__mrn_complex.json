@@ -1,0 +1,35 @@
+{
+  "row_index": 85,
+  "category": "VIII. DNA Repair",
+  "pathway": "Homologous Recombination",
+  "component": "MRN Complex",
+  "filename_base": "viii_dna_repair__homologous_recombination__mrn_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::MRN_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "MRN_complex",
+      "gene_ids": [
+        "MRE11",
+        "RAD50",
+        "NBN"
+      ],
+      "stoichiometry": {
+        "MRE11": 2,
+        "RAD50": 2,
+        "NBN": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "4FBK",
+        "5GOX"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "MRE11",
+    "RAD50",
+    "NBN"
+  ],
+  "n_steps_per_generator": 3
+}

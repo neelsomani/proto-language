@@ -1,0 +1,52 @@
+{
+  "row_index": 14,
+  "category": "I. Genetic Info Processing",
+  "pathway": "Mediator Complex",
+  "component": "Middle Module",
+  "filename_base": "i_genetic_info_processing__mediator_complex__middle_module",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Mediator_middle",
+      "complex_type": "COMPLEX",
+      "complex_name": "Mediator_middle",
+      "gene_ids": [
+        "MED1",
+        "MED4",
+        "MED7",
+        "MED9",
+        "MED10",
+        "MED19",
+        "MED21",
+        "MED26",
+        "MED31"
+      ],
+      "stoichiometry": {
+        "MED1": 1,
+        "MED4": 1,
+        "MED7": 1,
+        "MED9": 1,
+        "MED10": 1,
+        "MED19": 1,
+        "MED21": 1,
+        "MED26": 1,
+        "MED31": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8TRH"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "MED1",
+    "MED4",
+    "MED7",
+    "MED9",
+    "MED10",
+    "MED19",
+    "MED21",
+    "MED26",
+    "MED31"
+  ],
+  "n_steps_per_generator": 3
+}

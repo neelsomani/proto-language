@@ -1,0 +1,29 @@
+{
+  "row_index": 49,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Apoptosis",
+  "component": "Mitochondrial",
+  "filename_base": "v_cell_cycle_fate__apoptosis__mitochondrial",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Apoptosome_monomer_unit",
+      "complex_type": "COMPLEX",
+      "complex_name": "Apoptosome_monomer_unit",
+      "gene_ids": [
+        "APAF1",
+        "CYCS"
+      ],
+      "stoichiometry": {
+        "APAF1": 1,
+        "CYCS": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "APAF1",
+    "CYCS"
+  ],
+  "n_steps_per_generator": 3
+}

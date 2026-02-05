@@ -1,0 +1,46 @@
+{
+  "row_index": 43,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Cell Cycle",
+  "component": "CDKs",
+  "filename_base": "v_cell_cycle_fate__cell_cycle__cdks",
+  "complexes": [
+    {
+      "complex_id": "HOMO_FAMILY::G1_CDKs_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "G1_CDKs_monomeric",
+      "gene_ids": [
+        "CDK4",
+        "CDK6"
+      ],
+      "stoichiometry": {
+        "CDK4": 1,
+        "CDK6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMO_FAMILY::Core_CDKs_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Core_CDKs_monomeric",
+      "gene_ids": [
+        "CDK2",
+        "CDK1"
+      ],
+      "stoichiometry": {
+        "CDK2": 1,
+        "CDK1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CDK4",
+    "CDK6",
+    "CDK2",
+    "CDK1"
+  ],
+  "n_steps_per_generator": 3
+}

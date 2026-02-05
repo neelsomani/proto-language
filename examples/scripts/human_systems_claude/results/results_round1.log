@@ -1,0 +1,190 @@
+Loading data...
+Processing (PDB Scan: True)...
+Saved summary to af3_analysis_summary.tsv
+
+================================================================================
+ANALYSIS REPORT
+================================================================================
+
+1. OOM ANALYSIS
+Total Runs: 382
+OOM Failures: 23 (6.0%)
+
+  OOM Failures (Sorted by Total Residues):
+                       complex_id  n_subunits  total_residues
+             COMPLEX::Nav_channel          12           16666
+             COMPLEX::Nav_channel          12           16666
+      COMPLEX::NLRP3_inflammasome          20           13380
+      COMPLEX::NLRP3_inflammasome          20           13380
+           COMPLEX::PBAF_Full_Rep          10            9864
+           COMPLEX::PBAF_Full_Rep          10            9864
+   HETERO_FAMILY::Notch_receptors           4            9350
+   HETERO_FAMILY::Notch_receptors           4            9350
+             COMPLEX::mTORC2_core           6            9166
+           COMPLEX::NMDA_receptor           7            8857
+           COMPLEX::NMDA_receptor           7            8857
+             COMPLEX::mTORC1_core           6            8420
+            COMPLEX::BAF_Full_Rep           9            8285
+            COMPLEX::BAF_Full_Rep           9            8285
+   COMPLEX::Clathrin_coat_partial           7            6204
+HETERO_FAMILY::Frizzled_receptors          10            6146
+HETERO_FAMILY::Frizzled_receptors          10            6146
+        HOMO_FAMILY::ClassII_HDAC           6            6112
+        HOMO_FAMILY::ClassII_HDAC           6            6112
+       COMPLEX::ATP_synthase_F1F0          26            5971
+       COMPLEX::ATP_synthase_F1F0          26            5971
+       COMPLEX::U5_tri_snRNP_core           4            5800
+       COMPLEX::U5_tri_snRNP_core           4            5800
+
+2. CHAIN LIMIT ANALYSIS (>26 Chains)
+Failures: 2 (0.5%)
+
+  Chain Limit Failures (Sorted by Subunit Count):
+                    complex_id  n_subunits  total_residues
+COMPLEX::40S_ribosomal_subunit          33            5496
+COMPLEX::40S_ribosomal_subunit          33            5496
+
+================================================================================
+3. STRUCTURAL ACCURACY (TM < 0.5)
+Count: 61
+                               complex_id  tm_score     rmsd                                                                                          description
+                      COMPLEX::GINS_Cdc45   0.12513 4.089983                                                                                   GINS-Cdc45 complex
+                      COMPLEX::GINS_Cdc45   0.12594 4.118629                                                                                   GINS-Cdc45 complex
+                COMPLEX::COPII_inner_coat   0.15097 2.931813                                                                               Yeast COPII inner coat
+                COMPLEX::COPII_inner_coat   0.15297 2.284999                                                                               Yeast COPII inner coat
+                      COMPLEX::TFIIH_core   0.17019 3.412482                                        Human TFIIH core complex (CAK is separate in many depictions)
+                      COMPLEX::TFIIH_core   0.17784 5.537621                                        Human TFIIH core complex (CAK is separate in many depictions)
+                 COMPLEX::Gamma_secretase   0.18056 3.090995                                                                           Human Î³-secretase complex
+                 COMPLEX::Gamma_secretase   0.20442 3.569179                                                                           Human Î³-secretase complex
+                           HOMOMER::Kv1.2   0.21205 4.864955                                                                   Kv1.2 channel (Rat/Human homology)
+                           COMPLEX::TFIIA   0.21405 6.551968                                                                      Human TFIIAâ€“TBPâ€“DNA complex
+          COMPLEX::Complex_I_Membrane_Arm   0.22317 1.213248                                                         Human mitochondrial Complex I (membrane arm)
+                COMPLEX::COPII_outer_coat   0.22392 2.246735                                                               Sec13/Sec31 outer coat element (yeast)
+          COMPLEX::Complex_I_Membrane_Arm   0.22766 5.663740                                                         Human mitochondrial Complex I (membrane arm)
+                        COMPLEX::ORC_core   0.23117 3.397892                                                                                 Human ORC (1-5) core
+                COMPLEX::COPII_outer_coat   0.23859 1.993807                                                               Sec13/Sec31 outer coat element (yeast)
+                        COMPLEX::ORC_core   0.23901 3.102595                                                                                 Human ORC (1-5) core
+                COMPLEX::RFC_clamp_loader   0.24036 1.586724                                                                Human RFCâ€“PCNA clamp-loader complex
+                COMPLEX::RFC_clamp_loader   0.24931 1.150626                                                                Human RFCâ€“PCNA clamp-loader complex
+  HETERO_FAMILY::ClassIA_PI3K_heterodimer   0.26024 3.132783                                                            Full-length human PI3KÎ± (p110Î±â€“p85Î±)
+               COMPLEX::U2_snRNP_specific   0.26287 0.625305                                      Human U2 snRNP (contains SF3 modules in spliceosome assemblies)
+                     COMPLEX::V_ATPase_V1   0.26482 3.979593                                                                                   V-ATPase V1 domain
+                           HOMOMER::Kv1.2   0.27053 5.094375                                                                   Kv1.2 channel (Rat/Human homology)
+                 COMPLEX::BRCA1_A_complex   0.27103 5.620284                                                                 Human BRCA1-A deubiquitinase complex
+                      COMPLEX::BRCA2_DSS1   0.27428 2.581216                                                                 Human BRCA2 OB-fold domain with DSS1
+                     COMPLEX::V_ATPase_V1   0.27844 8.047886                                                                                   V-ATPase V1 domain
+               COMPLEX::U2_snRNP_specific   0.28165 0.464711                                      Human U2 snRNP (contains SF3 modules in spliceosome assemblies)
+                   COMPLEX::Sm_core_snRNP   0.28242 2.884805                                  Human U1 snRNP structure includes the Sm ring (â€œSm coreâ€_x009d_)
+                   COMPLEX::Sm_core_snRNP   0.28896 2.367382                                  Human U1 snRNP structure includes the Sm ring (â€œSm coreâ€_x009d_)
+  HETERO_FAMILY::ClassIA_PI3K_heterodimer   0.29986 2.805242                                                            Full-length human PI3KÎ± (p110Î±â€“p85Î±)
+         COMPLEX::Peptide_loading_complex   0.30533 3.597563                                                                        Human peptide loading complex
+                 COMPLEX::SF3B_subcomplex   0.30669 4.833345                              SF3-containing spliceosomal assemblies (not always isolated SF3B alone)
+                           COMPLEX::TFIIA   0.30783 5.996322                                                                      Human TFIIAâ€“TBPâ€“DNA complex
+                 COMPLEX::BRCA1_A_complex   0.31320 3.405768                                                                 Human BRCA1-A deubiquitinase complex
+                 COMPLEX::SF3B_subcomplex   0.31365 3.947363                              SF3-containing spliceosomal assemblies (not always isolated SF3B alone)
+         COMPLEX::Peptide_loading_complex   0.31795 3.110855                                                                        Human peptide loading complex
+                      COMPLEX::BRCA2_DSS1   0.32518 4.344644                                                                 Human BRCA2 OB-fold domain with DSS1
+                      COMPLEX::INO80_Core   0.32580 2.896992                                                                             INO80 Core ATPase module
+                      COMPLEX::INO80_Core   0.32952 2.577111                                                                             INO80 Core ATPase module
+                     COMPLEX::V_ATPase_V0   0.32955 3.819803                                                                          V-ATPase V0 membrane domain
+                       COMPLEX::PRC2_core   0.33157 2.934525                                                                Human PRC2-AEBP2-JARID2 on nucleosome
+                  COMPLEX::EGFR_GRB2_SOS1   0.34287 7.470742 No single full ternary; these capture GRB2â€“(EGFR pY peptide) and GRB2â€“(SOS peptide) interactions
+                     COMPLEX::V_ATPase_V0   0.34475 1.965502                                                                          V-ATPase V0 membrane domain
+                  COMPLEX::EGFR_GRB2_SOS1   0.34817 7.296388 No single full ternary; these capture GRB2â€“(EGFR pY peptide) and GRB2â€“(SOS peptide) interactions
+                   COMPLEX::COPI_coatomer   0.35202 4.921303                                                                           COPI coatomer architecture
+                   COMPLEX::COPI_coatomer   0.35205 4.112096                                                                           COPI coatomer architecture
+                       COMPLEX::PRC1_core   0.36202 4.653618                                                                 PRC1 RING1B-BMI1 bound to nucleosome
+                       COMPLEX::PRC1_core   0.36206 4.601928                                                                 PRC1 RING1B-BMI1 bound to nucleosome
+               COMPLEX::OGDH_complex_core   0.38876 5.711897                                                         Native OGDH complex (rat tissue; multimeric)
+               COMPLEX::OGDH_complex_core   0.38919 5.794349                                                         Native OGDH complex (rat tissue; multimeric)
+                       COMPLEX::PRC2_core   0.38978 1.753380                                                                Human PRC2-AEBP2-JARID2 on nucleosome
+      COMPLEX::Complex_III_cytochrome_bc1   0.39846 1.148572                                                                                    Human Complex III
+      COMPLEX::Complex_III_cytochrome_bc1   0.39934 1.138515                                                                                    Human Complex III
+COMPLEX::Beta_catenin_destruction_complex   0.41437 1.789161           Partial destruction-complex interactions (GSK3â€“Axinâ€“beta-cat peptide; beta-catâ€“Axin)
+                COMPLEX::BAF_Core_SMARCA4   0.42308 2.833162                                                                               Human BAF core complex
+                COMPLEX::BAF_Core_SMARCA4   0.42566 2.867748                                                                               Human BAF core complex
+                     COMPLEX::RNAPII_core   0.43366 1.735615                                           Human Pol II in a multimeric transcription complex context
+     COMPLEX::Calnexin_calreticulin_cycle   0.44775 4.327732                       Multimeric ER chaperone module including calreticulin + ERp57 (in PLC context)
+     COMPLEX::Calnexin_calreticulin_cycle   0.45591 5.751996                       Multimeric ER chaperone module including calreticulin + ERp57 (in PLC context)
+                     COMPLEX::TSC_complex   0.45795 7.192430                                                    Human TSC complex (TSC1/TSC2/TBC1D7) architecture
+COMPLEX::Beta_catenin_destruction_complex   0.46820 1.655400           Partial destruction-complex interactions (GSK3â€“Axinâ€“beta-cat peptide; beta-catâ€“Axin)
+                     COMPLEX::RNAPII_core   0.47013 2.499060                                           Human Pol II in a multimeric transcription complex context
+
+================================================================================
+4. MISSING NUCLEIC ACIDS ANALYSIS
+[Method: Checking Reference PDB Files]
+CONFIRMED: 20 complexes have DNA/RNA in PDB but failed/scored low.
+Listing Reference Nucleic Acid Sequences found in PDB:
+--------------------------------------------------------------------------------
+Complex: COMPLEX::GINS_Cdc45 (Ref: 6XTX, TM: 0.12593999999999994)
+  DNA Sequences: {'M': 'TTTTTTTTTTT'}
+----------------------------------------
+Complex: COMPLEX::GINS_Cdc45 (Ref: 6XTX, TM: 0.12512999999999996)
+  DNA Sequences: {'M': 'TTTTTTTTTTT'}
+----------------------------------------
+Complex: COMPLEX::Sm_core_snRNP (Ref: 3PGW, TM: 0.28896)
+  DNA Sequences: {'D': 'GGTAAGTA', 'M': 'GGTAAGTA'}
+  RNA Sequences: {'R': 'UACUUACCUGGCAGGGGAGAUACCAUGAUCACGAAGGUGGUUUUCCCAGGGCGAGGCUUAUCCAUUGCACUCCGGAUGUGCUGACCCCUGCGAUUUCCCCAAAUGUGGGAAACUCGACUGCAUAAUUUGUGGUAGUGGGGGACUGCGUUCGCGCUUUCCCCUG', 'N': 'UACUUACCUGGCAGGGGAGAUACCAUGAUCACGAAGGUGGUUUUCCCAGGGCGAGGCUUAUCCAUUGCACUCCGGAUGUGCUGACCCCUGCGAUUUCCCCAAAUGUGGGAAACUCGACUGCAUAAUUUGUGGUAGUGGGGGACUGCGUUCGCGCUUUCCCCUG'}
+----------------------------------------
+Complex: COMPLEX::Sm_core_snRNP (Ref: 3PGW, TM: 0.28242)
+  DNA Sequences: {'D': 'GGTAAGTA', 'M': 'GGTAAGTA'}
+  RNA Sequences: {'R': 'UACUUACCUGGCAGGGGAGAUACCAUGAUCACGAAGGUGGUUUUCCCAGGGCGAGGCUUAUCCAUUGCACUCCGGAUGUGCUGACCCCUGCGAUUUCCCCAAAUGUGGGAAACUCGACUGCAUAAUUUGUGGUAGUGGGGGACUGCGUUCGCGCUUUCCCCUG', 'N': 'UACUUACCUGGCAGGGGAGAUACCAUGAUCACGAAGGUGGUUUUCCCAGGGCGAGGCUUAUCCAUUGCACUCCGGAUGUGCUGACCCCUGCGAUUUCCCCAAAUGUGGGAAACUCGACUGCAUAAUUUGUGGUAGUGGGGGACUGCGUUCGCGCUUUCCCCUG'}
+----------------------------------------
+Complex: COMPLEX::U2_snRNP_specific (Ref: 6Y5Q, TM: 0.28164999999999996)
+  RNA Sequences: {'2': 'GCCGGCUAAGAUCAAGUGUAGUAUCUGUUCUUAUCAGUUUAAUAUCUGAUUCCUCGAGGAGGAUUUUUGGAGCAGGGAGAUGGAAUAGGAGCUUGCUCCGUCCACUCCACGCAUCGACCUGGUAUUGCAGUACCUCCAGGAACGGUGC'}
+----------------------------------------
+Complex: COMPLEX::U2_snRNP_specific (Ref: 6Y5Q, TM: 0.26286999999999994)
+  RNA Sequences: {'2': 'GCCGGCUAAGAUCAAGUGUAGUAUCUGUUCUUAUCAGUUUAAUAUCUGAUUCCUCGAGGAGGAUUUUUGGAGCAGGGAGAUGGAAUAGGAGCUUGCUCCGUCCACUCCACGCAUCGACCUGGUAUUGCAGUACCUCCAGGAACGGUGC'}
+----------------------------------------
+Complex: COMPLEX::SF3B_subcomplex (Ref: 6Y5Q, TM: 0.31365)
+  RNA Sequences: {'2': 'GCCGGCUAAGAUCAAGUGUAGUAUCUGUUCUUAUCAGUUUAAUAUCUGAUUCCUCGAGGAGGAUUUUUGGAGCAGGGAGAUGGAAUAGGAGCUUGCUCCGUCCACUCCACGCAUCGACCUGGUAUUGCAGUACCUCCAGGAACGGUGC'}
+----------------------------------------
+Complex: COMPLEX::SF3B_subcomplex (Ref: 6Y5Q, TM: 0.30669)
+  RNA Sequences: {'2': 'GCCGGCUAAGAUCAAGUGUAGUAUCUGUUCUUAUCAGUUUAAUAUCUGAUUCCUCGAGGAGGAUUUUUGGAGCAGGGAGAUGGAAUAGGAGCUUGCUCCGUCCACUCCACGCAUCGACCUGGUAUUGCAGUACCUCCAGGAACGGUGC'}
+----------------------------------------
+Complex: COMPLEX::TFIIA (Ref: 1NVP, TM: 0.30783000000000005)
+  DNA Sequences: {'E': 'GGGGGGGCTATAAAAGG', 'F': 'CCTTTTATAGCCCCCCC'}
+----------------------------------------
+Complex: COMPLEX::TFIIA (Ref: 1NVP, TM: 0.21404999999999996)
+  DNA Sequences: {'E': 'GGGGGGGCTATAAAAGG', 'F': 'CCTTTTATAGCCCCCCC'}
+----------------------------------------
+Complex: COMPLEX::RNAPII_core (Ref: 9EHZ, TM: 0.43365999999999993)
+  DNA Sequences: {'N': 'TGAAAGTACTTGAG', 'T': 'TCAAGTACTTACGCCTGGTCAT'}
+  RNA Sequences: {'P': 'AAGACCAGGC'}
+----------------------------------------
+Complex: COMPLEX::RNAPII_core (Ref: 9EHZ, TM: 0.47012999999999994)
+  DNA Sequences: {'N': 'TGAAAGTACTTGAG', 'T': 'TCAAGTACTTACGCCTGGTCAT'}
+  RNA Sequences: {'P': 'AAGACCAGGC'}
+----------------------------------------
+Complex: COMPLEX::BAF_Core_SMARCA4 (Ref: 6LTJ, TM: 0.42308)
+  DNA Sequences: {'X': 'TGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTTAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTGTCAGA', 'Y': 'TCTGACACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTAAAACGCGGGGGACAGCGCGTACGTGCGTTTAAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTCGGCA'}
+----------------------------------------
+Complex: COMPLEX::BAF_Core_SMARCA4 (Ref: 6LTJ, TM: 0.4256599999999999)
+  DNA Sequences: {'X': 'TGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTTAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTGTCAGA', 'Y': 'TCTGACACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTAAAACGCGGGGGACAGCGCGTACGTGCGTTTAAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTCGGCA'}
+----------------------------------------
+Complex: COMPLEX::INO80_Core (Ref: 6HTS, TM: 0.32952000000000004)
+  DNA Sequences: {'X': 'CCGAGTACATGCACAGGATGTATATATCTGACACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTAAAACGCGGGGGACAGCGCGTACGTGCGTTTAAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTCGGCACCGGG', 'Y': 'CCCGGTGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTTAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTGTCAGATATATACATCCTGTGCATGTACTCGG'}
+----------------------------------------
+Complex: COMPLEX::INO80_Core (Ref: 6HTS, TM: 0.3258)
+  DNA Sequences: {'X': 'CCGAGTACATGCACAGGATGTATATATCTGACACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTAAAACGCGGGGGACAGCGCGTACGTGCGTTTAAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTCGGCACCGGG', 'Y': 'CCCGGTGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTTAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTGTCAGATATATACATCCTGTGCATGTACTCGG'}
+----------------------------------------
+Complex: COMPLEX::PRC1_core (Ref: 4R8P, TM: 0.36202)
+  DNA Sequences: {'I': 'CGAGAATCCCGGTGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTTAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTGTCAGATATATACATCCGA', 'J': 'TCGGATGTATATATCTGACACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTAAAACGCGGGGGACAGCGCGTACGTGCGTTTAAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTCGGCACCGGGATTCTCGA'}
+----------------------------------------
+Complex: COMPLEX::PRC1_core (Ref: 4R8P, TM: 0.36206000000000005)
+  DNA Sequences: {'I': 'CGAGAATCCCGGTGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTTAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTGTCAGATATATACATCCGA', 'J': 'TCGGATGTATATATCTGACACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTAAAACGCGGGGGACAGCGCGTACGTGCGTTTAAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTCGGCACCGGGATTCTCGA'}
+----------------------------------------
+Complex: COMPLEX::PRC2_core (Ref: 6WKR, TM: 0.3315699999999999)
+  DNA Sequences: {'H': 'CAGGATGTATATATCTGAGACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTTAAACGCGGGGGACAGCGCGTACGTGCGTTTTAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTGGGCACCGGGATTCTCCAGCCGCCGGCAGCGCTGCCGGCGGCTGGAGAATCCCGGTGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTAAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTCTCAGATATATACATCCTG'}
+----------------------------------------
+Complex: COMPLEX::PRC2_core (Ref: 6WKR, TM: 0.38978)
+  DNA Sequences: {'H': 'CAGGATGTATATATCTGAGACGTGCCTGGAGACTAGGGAGTAATCCCCTTGGCGGTTTAAACGCGGGGGACAGCGCGTACGTGCGTTTTAGCGGTGCTAGAGCTGTCTACGACCAATTGAGCGGCCTGGGCACCGGGATTCTCCAGCCGCCGGCAGCGCTGCCGGCGGCTGGAGAATCCCGGTGCCGAGGCCGCTCAATTGGTCGTAGACAGCTCTAGCACCGCTTAAACGCACGTACGCGCTGTCCCCCGCGTTTAAACCGCCAAGGGGATTACTCCCTAGTCTCCAGGCACGTCTCAGATATATACATCCTG'}
+----------------------------------------
+
+[Method: Description Keyword Search (Supplementary)]
+Found 4 additional candidates based on text description:
+            complex_id                            description
+ COMPLEX::BAF_Full_Rep  Human BAF complex bound to nucleosome
+ COMPLEX::BAF_Full_Rep  Human BAF complex bound to nucleosome
+COMPLEX::PBAF_Full_Rep Human PBAF complex bound to nucleosome
+COMPLEX::PBAF_Full_Rep Human PBAF complex bound to nucleosome

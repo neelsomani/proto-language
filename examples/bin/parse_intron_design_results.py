@@ -14,9 +14,9 @@ def parse_fname_evo2(fname: str) -> List[Dict[str, Any]]:
         specificity_type = 'max_brain_min_blood'
     else:
         raise ValueError(f'Cound not find specificity type in filename {fname}')
-    
+
     data_dicts = []
-    
+
     curr_intron = None
     with open(fname, 'r') as f:
         while line_content := f.readline():
@@ -70,7 +70,7 @@ def parse_fname_mcmc(fname: str, starting_point: str) -> Dict[str, Any]:
         file_size = f.tell()
         bytes_to_read = min(file_size, 200 * 100)
         f.seek(max(0, file_size - bytes_to_read))
-        
+
         while line_content := f.readline():
 
             if line_content.strip().startswith('Iteration'):

@@ -1,0 +1,64 @@
+{
+  "row_index": 8,
+  "category": "I. Genetic Info Processing",
+  "pathway": "RNA Processing",
+  "component": "U5 snRNP",
+  "filename_base": "i_genetic_info_processing__rna_processing__u5_snrnp",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::U5_Sm_snRNP_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "U5_Sm_snRNP_core",
+      "gene_ids": [
+        "EFTUD2",
+        "PRPF6",
+        "PRPF8",
+        "CD2BP2",
+        "DDX23",
+        "SNRNP200",
+        "SNRPB",
+        "SNRPD1",
+        "SNRPD2",
+        "SNRPD3",
+        "SNRPE",
+        "SNRPF",
+        "SNRPG"
+      ],
+      "stoichiometry": {
+        "EFTUD2": 1,
+        "PRPF6": 1,
+        "PRPF8": 1,
+        "CD2BP2": 1,
+        "DDX23": 1,
+        "SNRNP200": 1,
+        "SNRPB": 1,
+        "SNRPD1": 1,
+        "SNRPD2": 1,
+        "SNRPD3": 1,
+        "SNRPE": 1,
+        "SNRPF": 1,
+        "SNRPG": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8Q91"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "EFTUD2",
+    "PRPF6",
+    "PRPF8",
+    "CD2BP2",
+    "DDX23",
+    "SNRNP200",
+    "SNRPB",
+    "SNRPD1",
+    "SNRPD2",
+    "SNRPD3",
+    "SNRPE",
+    "SNRPF",
+    "SNRPG"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,190 @@
+{
+  "row_index": 79,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Histone Modification",
+  "component": "Histone Deacetylases",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__histone_deacetylases",
+  "complexes": [
+    {
+      "complex_id": "MONOMER::HDAC4",
+      "complex_type": "MONOMER",
+      "complex_name": "HDAC4",
+      "gene_ids": [
+        "HDAC4"
+      ],
+      "stoichiometry": {
+        "HDAC4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::HDAC6",
+      "complex_type": "MONOMER",
+      "complex_name": "HDAC6",
+      "gene_ids": [
+        "HDAC6"
+      ],
+      "stoichiometry": {
+        "HDAC6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::HDAC7",
+      "complex_type": "MONOMER",
+      "complex_name": "HDAC7",
+      "gene_ids": [
+        "HDAC7"
+      ],
+      "stoichiometry": {
+        "HDAC7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::HDAC1",
+      "complex_type": "MONOMER",
+      "complex_name": "HDAC1",
+      "gene_ids": [
+        "HDAC1"
+      ],
+      "stoichiometry": {
+        "HDAC1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::HDAC2",
+      "complex_type": "MONOMER",
+      "complex_name": "HDAC2",
+      "gene_ids": [
+        "HDAC2"
+      ],
+      "stoichiometry": {
+        "HDAC2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::HDAC3",
+      "complex_type": "MONOMER",
+      "complex_name": "HDAC3",
+      "gene_ids": [
+        "HDAC3"
+      ],
+      "stoichiometry": {
+        "HDAC3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::HDAC8",
+      "complex_type": "MONOMER",
+      "complex_name": "HDAC8",
+      "gene_ids": [
+        "HDAC8"
+      ],
+      "stoichiometry": {
+        "HDAC8": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::SIRT1",
+      "complex_type": "MONOMER",
+      "complex_name": "SIRT1",
+      "gene_ids": [
+        "SIRT1"
+      ],
+      "stoichiometry": {
+        "SIRT1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4I5I"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::SIRT2",
+      "complex_type": "MONOMER",
+      "complex_name": "SIRT2",
+      "gene_ids": [
+        "SIRT2"
+      ],
+      "stoichiometry": {
+        "SIRT2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3ZGO"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::SIRT3",
+      "complex_type": "MONOMER",
+      "complex_name": "SIRT3",
+      "gene_ids": [
+        "SIRT3"
+      ],
+      "stoichiometry": {
+        "SIRT3": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3GLS"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::SIRT6",
+      "complex_type": "MONOMER",
+      "complex_name": "SIRT6",
+      "gene_ids": [
+        "SIRT6"
+      ],
+      "stoichiometry": {
+        "SIRT6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3K35"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::SIRT7",
+      "complex_type": "MONOMER",
+      "complex_name": "SIRT7",
+      "gene_ids": [
+        "SIRT7"
+      ],
+      "stoichiometry": {
+        "SIRT7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5IQZ"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "HDAC4",
+    "HDAC6",
+    "HDAC7",
+    "HDAC1",
+    "HDAC2",
+    "HDAC3",
+    "HDAC8",
+    "SIRT1",
+    "SIRT2",
+    "SIRT3",
+    "SIRT6",
+    "SIRT7"
+  ],
+  "n_steps_per_generator": 3
+}

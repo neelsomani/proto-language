@@ -1,0 +1,59 @@
+{
+  "row_index": 15,
+  "category": "I. Genetic Info Processing",
+  "pathway": "Mediator Complex",
+  "component": "CDK Module (CKM)",
+  "filename_base": "i_genetic_info_processing__mediator_complex__cdk_module_ckm",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Mediator_Kinase_CDK8",
+      "complex_type": "COMPLEX",
+      "complex_name": "Mediator_Kinase_CDK8",
+      "gene_ids": [
+        "CDK8",
+        "CCNC",
+        "MED12",
+        "MED13"
+      ],
+      "stoichiometry": {
+        "CDK8": 1,
+        "CCNC": 1,
+        "MED12": 1,
+        "MED13": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "8TQW"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Mediator_Kinase_CDK19",
+      "complex_type": "COMPLEX",
+      "complex_name": "Mediator_Kinase_CDK19",
+      "gene_ids": [
+        "CDK19",
+        "CCNC",
+        "MED12L",
+        "MED13L"
+      ],
+      "stoichiometry": {
+        "CDK19": 1,
+        "CCNC": 1,
+        "MED12L": 1,
+        "MED13L": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CDK8",
+    "CCNC",
+    "MED12",
+    "MED13",
+    "CDK19",
+    "MED12L",
+    "MED13L"
+  ],
+  "n_steps_per_generator": 15
+}

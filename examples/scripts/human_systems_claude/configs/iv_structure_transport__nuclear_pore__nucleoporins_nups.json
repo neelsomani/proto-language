@@ -1,0 +1,97 @@
+{
+  "row_index": 30,
+  "category": "IV. Structure & Transport",
+  "pathway": "Nuclear Pore",
+  "component": "Nucleoporins (Nups)",
+  "filename_base": "iv_structure_transport__nuclear_pore__nucleoporins_nups",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::NUP62_subcomplex",
+      "complex_type": "COMPLEX",
+      "complex_name": "NUP62_subcomplex",
+      "gene_ids": [
+        "NUP62",
+        "NUP54",
+        "NUP58"
+      ],
+      "stoichiometry": {
+        "NUP62": 1,
+        "NUP54": 1,
+        "NUP58": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5C3L"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::NPC_Y_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "NPC_Y_complex",
+      "gene_ids": [
+        "NUP107",
+        "NUP160",
+        "NUP133",
+        "NUP85",
+        "NUP43",
+        "NUP37",
+        "SEH1L",
+        "SEC13"
+      ],
+      "stoichiometry": {
+        "NUP107": 1,
+        "NUP160": 1,
+        "NUP133": 1,
+        "NUP85": 1,
+        "NUP43": 1,
+        "NUP37": 1,
+        "SEH1L": 1,
+        "SEC13": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5A9Q"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::NPC_Inner_Ring",
+      "complex_type": "COMPLEX",
+      "complex_name": "NPC_Inner_Ring",
+      "gene_ids": [
+        "NUP93",
+        "NUP188",
+        "NUP205",
+        "NUP155",
+        "NUP35"
+      ],
+      "stoichiometry": {
+        "NUP93": 1,
+        "NUP188": 1,
+        "NUP205": 1,
+        "NUP155": 1,
+        "NUP35": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "NUP62",
+    "NUP54",
+    "NUP58",
+    "NUP107",
+    "NUP160",
+    "NUP133",
+    "NUP85",
+    "NUP43",
+    "NUP37",
+    "SEH1L",
+    "SEC13",
+    "NUP93",
+    "NUP188",
+    "NUP205",
+    "NUP155",
+    "NUP35"
+  ],
+  "n_steps_per_generator": 3
+}

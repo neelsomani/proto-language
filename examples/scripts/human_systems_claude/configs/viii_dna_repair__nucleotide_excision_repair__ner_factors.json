@@ -1,0 +1,67 @@
+{
+  "row_index": 88,
+  "category": "VIII. DNA Repair",
+  "pathway": "Nucleotide Excision Repair",
+  "component": "NER Factors",
+  "filename_base": "viii_dna_repair__nucleotide_excision_repair__ner_factors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::XPC_RAD23B",
+      "complex_type": "COMPLEX",
+      "complex_name": "XPC_RAD23B",
+      "gene_ids": [
+        "XPC",
+        "RAD23B"
+      ],
+      "stoichiometry": {
+        "XPC": 1,
+        "RAD23B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::DDB_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "DDB_complex",
+      "gene_ids": [
+        "DDB1",
+        "DDB2"
+      ],
+      "stoichiometry": {
+        "DDB1": 1,
+        "DDB2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "4E5Z"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::ERCC1_XPF",
+      "complex_type": "COMPLEX",
+      "complex_name": "ERCC1_XPF",
+      "gene_ids": [
+        "ERCC1",
+        "ERCC4"
+      ],
+      "stoichiometry": {
+        "ERCC1": 1,
+        "ERCC4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "9QEE"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "XPC",
+    "RAD23B",
+    "DDB1",
+    "DDB2",
+    "ERCC1",
+    "ERCC4"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,46 @@
+{
+  "row_index": 6,
+  "category": "I. Genetic Info Processing",
+  "pathway": "RNA Processing",
+  "component": "snRNP Core",
+  "filename_base": "i_genetic_info_processing__rna_processing__snrnp_core",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Sm_core_snRNP",
+      "complex_type": "COMPLEX",
+      "complex_name": "Sm_core_snRNP",
+      "gene_ids": [
+        "SNRPB",
+        "SNRPD1",
+        "SNRPD2",
+        "SNRPD3",
+        "SNRPE",
+        "SNRPF",
+        "SNRPG"
+      ],
+      "stoichiometry": {
+        "SNRPB": 1,
+        "SNRPD1": 1,
+        "SNRPD2": 1,
+        "SNRPD3": 1,
+        "SNRPE": 1,
+        "SNRPF": 1,
+        "SNRPG": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "3PGW"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "SNRPB",
+    "SNRPD1",
+    "SNRPD2",
+    "SNRPD3",
+    "SNRPE",
+    "SNRPF",
+    "SNRPG"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,58 @@
+{
+  "row_index": 19,
+  "category": "II. Protein Homeostasis",
+  "pathway": "Proteasome",
+  "component": "19S Regulatory (Non-ATPase)",
+  "filename_base": "ii_protein_homeostasis__proteasome__19s_regulatory_non_atpase",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Proteasome_19S_nonATPase",
+      "complex_type": "COMPLEX",
+      "complex_name": "Proteasome_19S_nonATPase",
+      "gene_ids": [
+        "PSMD1",
+        "PSMD2",
+        "PSMD3",
+        "PSMD4",
+        "PSMD6",
+        "PSMD7",
+        "PSMD8",
+        "PSMD11",
+        "PSMD12",
+        "PSMD13",
+        "PSMD14"
+      ],
+      "stoichiometry": {
+        "PSMD1": 1,
+        "PSMD2": 1,
+        "PSMD3": 1,
+        "PSMD4": 1,
+        "PSMD6": 1,
+        "PSMD7": 1,
+        "PSMD8": 1,
+        "PSMD11": 1,
+        "PSMD12": 1,
+        "PSMD13": 1,
+        "PSMD14": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5GJR"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "PSMD1",
+    "PSMD2",
+    "PSMD3",
+    "PSMD4",
+    "PSMD6",
+    "PSMD7",
+    "PSMD8",
+    "PSMD11",
+    "PSMD12",
+    "PSMD13",
+    "PSMD14"
+  ],
+  "n_steps_per_generator": 3
+}

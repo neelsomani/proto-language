@@ -1,0 +1,808 @@
+{
+  "generated_at": "2026-01-18T17:56:32.973369",
+  "source_excel": "/home/brianhie/proto-language/examples/data/Major pathways and complexes in human biology.xlsx",
+  "total_programs": 89,
+  "programs": [
+    {
+      "filename_base": "i_genetic_info_processing__dna_replication__origin_recognition",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__dna_replication__origin_recognition.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__dna_replication__origin_recognition.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__dna_replication__helicase_cmg_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__dna_replication__helicase_cmg_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__dna_replication__helicase_cmg_complex.py",
+      "n_genes": 11,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__dna_replication__polymerases_clamps",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__dna_replication__polymerases_clamps.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__dna_replication__polymerases_clamps.py",
+      "n_genes": 14,
+      "n_complexes": 4,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__dna_replication__accessory_factors",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__dna_replication__accessory_factors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__dna_replication__accessory_factors.py",
+      "n_genes": 9,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__transcription__rna_polymerase_ii",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__transcription__rna_polymerase_ii.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__transcription__rna_polymerase_ii.py",
+      "n_genes": 12,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__transcription__basal_transcription_factors",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__transcription__basal_transcription_factors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__transcription__basal_transcription_factors.py",
+      "n_genes": 14,
+      "n_complexes": 5,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__rna_processing__snrnp_core",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__rna_processing__snrnp_core.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__rna_processing__snrnp_core.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__rna_processing__specific_snrnps",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__rna_processing__specific_snrnps.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__rna_processing__specific_snrnps.py",
+      "n_genes": 22,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__rna_processing__u5_snrnp",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__rna_processing__u5_snrnp.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__rna_processing__u5_snrnp.py",
+      "n_genes": 13,
+      "n_complexes": 1,
+      "has_custom_modifications": true,
+      "script_regenerated": false
+    },
+    {
+      "filename_base": "i_genetic_info_processing__rna_processing__splicing_factors",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__rna_processing__splicing_factors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__rna_processing__splicing_factors.py",
+      "n_genes": 20,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__translation__40s_ribosome_subunit",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__translation__40s_ribosome_subunit.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__translation__40s_ribosome_subunit.py",
+      "n_genes": 33,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__translation__60s_ribosome_subunit",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__translation__60s_ribosome_subunit.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__translation__60s_ribosome_subunit.py",
+      "n_genes": 47,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__translation__factors",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__translation__factors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__translation__factors.py",
+      "n_genes": 6,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__mediator_complex__head_module",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__mediator_complex__head_module.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__mediator_complex__head_module.py",
+      "n_genes": 9,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__mediator_complex__middle_module",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__mediator_complex__middle_module.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__mediator_complex__middle_module.py",
+      "n_genes": 9,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "i_genetic_info_processing__mediator_complex__tail_module",
+      "config_path": "examples/scripts/human_systems_claude/configs/i_genetic_info_processing__mediator_complex__tail_module.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/i_genetic_info_processing__mediator_complex__tail_module.py",
+      "n_genes": 4,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "ii_protein_homeostasis__proteasome__20s_core_alpha_ring",
+      "config_path": "examples/scripts/human_systems_claude/configs/ii_protein_homeostasis__proteasome__20s_core_alpha_ring.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/ii_protein_homeostasis__proteasome__20s_core_alpha_ring.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "ii_protein_homeostasis__proteasome__20s_core_beta_ring",
+      "config_path": "examples/scripts/human_systems_claude/configs/ii_protein_homeostasis__proteasome__20s_core_beta_ring.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/ii_protein_homeostasis__proteasome__20s_core_beta_ring.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "ii_protein_homeostasis__proteasome__19s_regulatory_atpase",
+      "config_path": "examples/scripts/human_systems_claude/configs/ii_protein_homeostasis__proteasome__19s_regulatory_atpase.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/ii_protein_homeostasis__proteasome__19s_regulatory_atpase.py",
+      "n_genes": 6,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "ii_protein_homeostasis__proteasome__19s_regulatory_non_atpase",
+      "config_path": "examples/scripts/human_systems_claude/configs/ii_protein_homeostasis__proteasome__19s_regulatory_non_atpase.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/ii_protein_homeostasis__proteasome__19s_regulatory_non_atpase.py",
+      "n_genes": 11,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "ii_protein_homeostasis__er_folding__translocon",
+      "config_path": "examples/scripts/human_systems_claude/configs/ii_protein_homeostasis__er_folding__translocon.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/ii_protein_homeostasis__er_folding__translocon.py",
+      "n_genes": 7,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "ii_protein_homeostasis__er_folding__chaperones",
+      "config_path": "examples/scripts/human_systems_claude/configs/ii_protein_homeostasis__er_folding__chaperones.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/ii_protein_homeostasis__er_folding__chaperones.py",
+      "n_genes": 5,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iii_bioenergetics__glycolysis__enzymes",
+      "config_path": "examples/scripts/human_systems_claude/configs/iii_bioenergetics__glycolysis__enzymes.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iii_bioenergetics__glycolysis__enzymes.py",
+      "n_genes": 16,
+      "n_complexes": 10,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iii_bioenergetics__tca_cycle__enzymes",
+      "config_path": "examples/scripts/human_systems_claude/configs/iii_bioenergetics__tca_cycle__enzymes.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iii_bioenergetics__tca_cycle__enzymes.py",
+      "n_genes": 16,
+      "n_complexes": 9,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iii_bioenergetics__electron_transport_chain__complex_i",
+      "config_path": "examples/scripts/human_systems_claude/configs/iii_bioenergetics__electron_transport_chain__complex_i.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iii_bioenergetics__electron_transport_chain__complex_i.py",
+      "n_genes": 43,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iii_bioenergetics__electron_transport_chain__complex_iii",
+      "config_path": "examples/scripts/human_systems_claude/configs/iii_bioenergetics__electron_transport_chain__complex_iii.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iii_bioenergetics__electron_transport_chain__complex_iii.py",
+      "n_genes": 10,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iii_bioenergetics__electron_transport_chain__complex_iv",
+      "config_path": "examples/scripts/human_systems_claude/configs/iii_bioenergetics__electron_transport_chain__complex_iv.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iii_bioenergetics__electron_transport_chain__complex_iv.py",
+      "n_genes": 14,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iii_bioenergetics__electron_transport_chain__complex_v_atp_synthase",
+      "config_path": "examples/scripts/human_systems_claude/configs/iii_bioenergetics__electron_transport_chain__complex_v_atp_synthase.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iii_bioenergetics__electron_transport_chain__complex_v_atp_synthase.py",
+      "n_genes": 11,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__cytoskeleton__microtubules",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__cytoskeleton__microtubules.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__cytoskeleton__microtubules.py",
+      "n_genes": 4,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__cytoskeleton__actin_nucleators",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__cytoskeleton__actin_nucleators.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__cytoskeleton__actin_nucleators.py",
+      "n_genes": 9,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__nuclear_pore__nucleoporins_nups",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__nuclear_pore__nucleoporins_nups.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__nuclear_pore__nucleoporins_nups.py",
+      "n_genes": 16,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__vesicle_trafficking__copii_er_to_golgi",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__vesicle_trafficking__copii_er_to_golgi.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__vesicle_trafficking__copii_er_to_golgi.py",
+      "n_genes": 5,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__vesicle_trafficking__copi_golgi_to_er",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__vesicle_trafficking__copi_golgi_to_er.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__vesicle_trafficking__copi_golgi_to_er.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__vesicle_trafficking__clathrin",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__vesicle_trafficking__clathrin.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__vesicle_trafficking__clathrin.py",
+      "n_genes": 2,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__vesicle_trafficking__snares",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__vesicle_trafficking__snares.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__vesicle_trafficking__snares.py",
+      "n_genes": 9,
+      "n_complexes": 4,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__voltage_gated_channels__sodium_channels",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__voltage_gated_channels__sodium_channels.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__voltage_gated_channels__sodium_channels.py",
+      "n_genes": 8,
+      "n_complexes": 5,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__voltage_gated_channels__potassium_channels",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__voltage_gated_channels__potassium_channels.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__voltage_gated_channels__potassium_channels.py",
+      "n_genes": 6,
+      "n_complexes": 5,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__voltage_gated_channels__calcium_channels",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__voltage_gated_channels__calcium_channels.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__voltage_gated_channels__calcium_channels.py",
+      "n_genes": 6,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__ligand_gated_channels__glutamate_receptors",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__ligand_gated_channels__glutamate_receptors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__ligand_gated_channels__glutamate_receptors.py",
+      "n_genes": 9,
+      "n_complexes": 7,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__ligand_gated_channels__gaba_receptors",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__ligand_gated_channels__gaba_receptors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__ligand_gated_channels__gaba_receptors.py",
+      "n_genes": 6,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__atp_dependent_transporters__abc_transporters",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__atp_dependent_transporters__abc_transporters.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__atp_dependent_transporters__abc_transporters.py",
+      "n_genes": 6,
+      "n_complexes": 6,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "iv_structure_transport__atp_dependent_transporters__v_atpase",
+      "config_path": "examples/scripts/human_systems_claude/configs/iv_structure_transport__atp_dependent_transporters__v_atpase.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/iv_structure_transport__atp_dependent_transporters__v_atpase.py",
+      "n_genes": 11,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__cell_cycle__cyclins",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__cell_cycle__cyclins.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__cell_cycle__cyclins.py",
+      "n_genes": 8,
+      "n_complexes": 4,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__cell_cycle__cdks",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__cell_cycle__cdks.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__cell_cycle__cdks.py",
+      "n_genes": 4,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__cell_cycle__inhibitors",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__cell_cycle__inhibitors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__cell_cycle__inhibitors.py",
+      "n_genes": 3,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__cell_cycle__apcc_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__cell_cycle__apcc_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__cell_cycle__apcc_complex.py",
+      "n_genes": 13,
+      "n_complexes": 4,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__apoptosis__effectors",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__apoptosis__effectors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__apoptosis__effectors.py",
+      "n_genes": 3,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__apoptosis__initiators",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__apoptosis__initiators.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__apoptosis__initiators.py",
+      "n_genes": 3,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__apoptosis__bcl_2_family",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__apoptosis__bcl_2_family.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__apoptosis__bcl_2_family.py",
+      "n_genes": 4,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "v_cell_cycle_fate__apoptosis__mitochondrial",
+      "config_path": "examples/scripts/human_systems_claude/configs/v_cell_cycle_fate__apoptosis__mitochondrial.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/v_cell_cycle_fate__apoptosis__mitochondrial.py",
+      "n_genes": 2,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__mapk_erk__upstream_core",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__mapk_erk__upstream_core.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__mapk_erk__upstream_core.py",
+      "n_genes": 12,
+      "n_complexes": 4,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__pi3k_mtor__pi3k_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__pi3k_mtor__pi3k_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__pi3k_mtor__pi3k_complex.py",
+      "n_genes": 4,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__pi3k_mtor__effectors_mtor",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__pi3k_mtor__effectors_mtor.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__pi3k_mtor__effectors_mtor.py",
+      "n_genes": 10,
+      "n_complexes": 5,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__wnt_beta_catenin__effectors",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__wnt_beta_catenin__effectors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__wnt_beta_catenin__effectors.py",
+      "n_genes": 3,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__jak_stat__receptors_kinases",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__jak_stat__receptors_kinases.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__jak_stat__receptors_kinases.py",
+      "n_genes": 8,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__jak_stat__transcription_factors",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__jak_stat__transcription_factors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__jak_stat__transcription_factors.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__inflammasomes__nlrp3_inflammasome",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__inflammasomes__nlrp3_inflammasome.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__inflammasomes__nlrp3_inflammasome.py",
+      "n_genes": 4,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__inflammasomes__other_inflammasomes",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__inflammasomes__other_inflammasomes.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__inflammasomes__other_inflammasomes.py",
+      "n_genes": 4,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__nf_kb_pathway__ikk_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__nf_kb_pathway__ikk_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__nf_kb_pathway__ikk_complex.py",
+      "n_genes": 6,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__nf_kb_pathway__nf_kb_dimers",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__nf_kb_pathway__nf_kb_dimers.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__nf_kb_pathway__nf_kb_dimers.py",
+      "n_genes": 5,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__t_cell_receptor__tcr_cd3_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__t_cell_receptor__tcr_cd3_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__t_cell_receptor__tcr_cd3_complex.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__t_cell_receptor__co_receptors_signaling",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__t_cell_receptor__co_receptors_signaling.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__t_cell_receptor__co_receptors_signaling.py",
+      "n_genes": 7,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__b_cell_receptor__bcr_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__b_cell_receptor__bcr_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__b_cell_receptor__bcr_complex.py",
+      "n_genes": 8,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__mhc_presentation__mhc_class_i",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__mhc_presentation__mhc_class_i.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__mhc_presentation__mhc_class_i.py",
+      "n_genes": 10,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__mhc_presentation__mhc_class_ii",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__mhc_presentation__mhc_class_ii.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__mhc_presentation__mhc_class_ii.py",
+      "n_genes": 6,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__tgf_beta_bmp__receptors",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__tgf_beta_bmp__receptors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__tgf_beta_bmp__receptors.py",
+      "n_genes": 8,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__tgf_beta_bmp__smads",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__tgf_beta_bmp__smads.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__tgf_beta_bmp__smads.py",
+      "n_genes": 8,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__notch_pathway__receptors_ligands",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__notch_pathway__receptors_ligands.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__notch_pathway__receptors_ligands.py",
+      "n_genes": 9,
+      "n_complexes": 11,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__notch_pathway__effectors",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__notch_pathway__effectors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__notch_pathway__effectors.py",
+      "n_genes": 8,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__hedgehog_pathway__core_components",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__hedgehog_pathway__core_components.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__hedgehog_pathway__core_components.py",
+      "n_genes": 10,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__hippo_pathway__kinase_cascade",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__hippo_pathway__kinase_cascade.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__hippo_pathway__kinase_cascade.py",
+      "n_genes": 13,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway",
+      "config_path": "examples/scripts/human_systems_claude/configs/vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway.py",
+      "n_genes": 8,
+      "n_complexes": 6,
+      "has_custom_modifications": true,
+      "script_regenerated": false
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__baf_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__baf_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__baf_complex.py",
+      "n_genes": 7,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex.py",
+      "n_genes": 9,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__nurd_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__nurd_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__nurd_complex.py",
+      "n_genes": 6,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__ino80_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__ino80_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__ino80_complex.py",
+      "n_genes": 7,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__prc2_complex_polycomb",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__histone_modification__prc2_complex_polycomb.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__histone_modification__prc2_complex_polycomb.py",
+      "n_genes": 11,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__prc1_complex_polycomb",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__histone_modification__prc1_complex_polycomb.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__histone_modification__prc1_complex_polycomb.py",
+      "n_genes": 13,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__histone_exchange",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__histone_modification__histone_exchange.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__histone_modification__histone_exchange.py",
+      "n_genes": 8,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__histone_deacetylases",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__histone_modification__histone_deacetylases.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__histone_modification__histone_deacetylases.py",
+      "n_genes": 12,
+      "n_complexes": 12,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__chromosome_structure__cohesin_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__chromosome_structure__cohesin_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__chromosome_structure__cohesin_complex.py",
+      "n_genes": 9,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__chromosome_structure__condensin",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__chromosome_structure__condensin.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__chromosome_structure__condensin.py",
+      "n_genes": 5,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "vii_chromatin_regulation_and_genome_organization__chromosome_structure__ctcf_insulators",
+      "config_path": "examples/scripts/human_systems_claude/configs/vii_chromatin_regulation_and_genome_organization__chromosome_structure__ctcf_insulators.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/vii_chromatin_regulation_and_genome_organization__chromosome_structure__ctcf_insulators.py",
+      "n_genes": 2,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "viii_dna_repair__homologous_recombination__brca1_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/viii_dna_repair__homologous_recombination__brca1_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/viii_dna_repair__homologous_recombination__brca1_complex.py",
+      "n_genes": 7,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "viii_dna_repair__homologous_recombination__brca2_palb2_rad51",
+      "config_path": "examples/scripts/human_systems_claude/configs/viii_dna_repair__homologous_recombination__brca2_palb2_rad51.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/viii_dna_repair__homologous_recombination__brca2_palb2_rad51.py",
+      "n_genes": 7,
+      "n_complexes": 2,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "viii_dna_repair__homologous_recombination__mrn_complex",
+      "config_path": "examples/scripts/human_systems_claude/configs/viii_dna_repair__homologous_recombination__mrn_complex.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/viii_dna_repair__homologous_recombination__mrn_complex.py",
+      "n_genes": 3,
+      "n_complexes": 1,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "viii_dna_repair__non_homologous_end_joining__ku_dna_pkcs",
+      "config_path": "examples/scripts/human_systems_claude/configs/viii_dna_repair__non_homologous_end_joining__ku_dna_pkcs.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/viii_dna_repair__non_homologous_end_joining__ku_dna_pkcs.py",
+      "n_genes": 5,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "viii_dna_repair__mismatch_repair__muts_mutl_homologs",
+      "config_path": "examples/scripts/human_systems_claude/configs/viii_dna_repair__mismatch_repair__muts_mutl_homologs.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/viii_dna_repair__mismatch_repair__muts_mutl_homologs.py",
+      "n_genes": 6,
+      "n_complexes": 4,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    },
+    {
+      "filename_base": "viii_dna_repair__nucleotide_excision_repair__ner_factors",
+      "config_path": "examples/scripts/human_systems_claude/configs/viii_dna_repair__nucleotide_excision_repair__ner_factors.json",
+      "program_path": "examples/scripts/human_systems_claude/programs/viii_dna_repair__nucleotide_excision_repair__ner_factors.py",
+      "n_genes": 6,
+      "n_complexes": 3,
+      "has_custom_modifications": false,
+      "script_regenerated": true
+    }
+  ]
+}

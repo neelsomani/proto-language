@@ -1,0 +1,37 @@
+{
+  "row_index": 51,
+  "category": "VI. Signaling Pathways",
+  "pathway": "PI3K / mTOR",
+  "component": "PI3K Complex",
+  "filename_base": "vi_signaling_pathways__pi3k_mtor__pi3k_complex",
+  "complexes": [
+    {
+      "complex_id": "HETERO_FAMILY::ClassIA_PI3K_heterodimer",
+      "complex_type": "HETERO_FAMILY",
+      "complex_name": "ClassIA_PI3K_heterodimer",
+      "gene_ids": [
+        "PIK3CA",
+        "PIK3CB",
+        "PIK3R1",
+        "PIK3R2"
+      ],
+      "stoichiometry": {
+        "PIK3CA": 1,
+        "PIK3CB": 1,
+        "PIK3R1": 1,
+        "PIK3R2": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7MYO"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "PIK3CA",
+    "PIK3CB",
+    "PIK3R1",
+    "PIK3R2"
+  ],
+  "n_steps_per_generator": 3
+}

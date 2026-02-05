@@ -1,0 +1,31 @@
+{
+  "row_index": 33,
+  "category": "IV. Structure & Transport",
+  "pathway": "Vesicle Trafficking",
+  "component": "Clathrin",
+  "filename_base": "iv_structure_transport__vesicle_trafficking__clathrin",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Clathrin_triskelion",
+      "complex_type": "COMPLEX",
+      "complex_name": "Clathrin_triskelion",
+      "gene_ids": [
+        "CLTC",
+        "CLTA"
+      ],
+      "stoichiometry": {
+        "CLTC": 3,
+        "CLTA": 3
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6SCT"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "CLTC",
+    "CLTA"
+  ],
+  "n_steps_per_generator": 3
+}

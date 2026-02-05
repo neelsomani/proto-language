@@ -1,0 +1,32 @@
+{
+  "row_index": 47,
+  "category": "V. Cell Cycle & Fate",
+  "pathway": "Apoptosis",
+  "component": "Initiators",
+  "filename_base": "v_cell_cycle_fate__apoptosis__initiators",
+  "complexes": [
+    {
+      "complex_id": "HOMO_FAMILY::Initiator_caspase_dimers",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "Initiator_caspase_dimers",
+      "gene_ids": [
+        "CASP8",
+        "CASP10",
+        "CASP9"
+      ],
+      "stoichiometry": {
+        "CASP8": 1,
+        "CASP10": 1,
+        "CASP9": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "CASP8",
+    "CASP10",
+    "CASP9"
+  ],
+  "n_steps_per_generator": 3
+}

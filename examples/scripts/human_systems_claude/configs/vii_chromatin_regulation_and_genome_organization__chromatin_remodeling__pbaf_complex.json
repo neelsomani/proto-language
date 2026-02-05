@@ -1,0 +1,53 @@
+{
+  "row_index": 73,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Chromatin Remodeling",
+  "component": "PBAF Complex",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::PBAF_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "PBAF_core",
+      "gene_ids": [
+        "SMARCA4",
+        "ACTL6A",
+        "ACTB",
+        "SMARCC2",
+        "SMARCB1",
+        "ARID2",
+        "PHF10",
+        "BRD7",
+        "SMARCB1",
+        "PBRM1"
+      ],
+      "stoichiometry": {
+        "SMARCA4": 1,
+        "ACTL6A": 1,
+        "ACTB": 1,
+        "SMARCC2": 1,
+        "SMARCB1": 1,
+        "ARID2": 1,
+        "PHF10": 1,
+        "BRD7": 1,
+        "PBRM1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "7VDV"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "SMARCA4",
+    "ACTL6A",
+    "ACTB",
+    "SMARCC2",
+    "SMARCB1",
+    "ARID2",
+    "PHF10",
+    "BRD7",
+    "PBRM1"
+  ],
+  "n_steps_per_generator": 3
+}

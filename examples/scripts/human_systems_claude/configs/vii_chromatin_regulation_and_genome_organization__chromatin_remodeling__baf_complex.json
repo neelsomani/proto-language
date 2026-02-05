@@ -1,0 +1,46 @@
+{
+  "row_index": 72,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Chromatin Remodeling",
+  "component": "BAF Complex",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__baf_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::BAF_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "BAF_core",
+      "gene_ids": [
+        "SMARCA4",
+        "SMARCB1",
+        "SMARCC2",
+        "SMARCD1",
+        "SMARCE1",
+        "ACTL6A",
+        "ARID1A"
+      ],
+      "stoichiometry": {
+        "SMARCA4": 1,
+        "SMARCB1": 1,
+        "SMARCC2": 1,
+        "SMARCD1": 1,
+        "SMARCE1": 1,
+        "ACTL6A": 1,
+        "ARID1A": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6LTJ"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "SMARCA4",
+    "SMARCB1",
+    "SMARCC2",
+    "SMARCD1",
+    "SMARCE1",
+    "ACTL6A",
+    "ARID1A"
+  ],
+  "n_steps_per_generator": 3
+}

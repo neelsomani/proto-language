@@ -1,0 +1,44 @@
+{
+  "row_index": 82,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Chromosome Structure",
+  "component": "CTCF & Insulators",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__chromosome_structure__ctcf_insulators",
+  "complexes": [
+    {
+      "complex_id": "MONOMER::CTCF_insulator",
+      "complex_type": "MONOMER",
+      "complex_name": "CTCF_insulator",
+      "gene_ids": [
+        "CTCF"
+      ],
+      "stoichiometry": {
+        "CTCF": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5UND"
+      ]
+    },
+    {
+      "complex_id": "MONOMER::YY1_insulator",
+      "complex_type": "MONOMER",
+      "complex_name": "YY1_insulator",
+      "gene_ids": [
+        "YY1"
+      ],
+      "stoichiometry": {
+        "YY1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "1UBD"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "CTCF",
+    "YY1"
+  ],
+  "n_steps_per_generator": 3
+}

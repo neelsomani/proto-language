@@ -1,0 +1,49 @@
+{
+  "row_index": 78,
+  "category": "VII. Chromatin Regulation and Genome Organization",
+  "pathway": "Histone Modification",
+  "component": "Histone Exchange",
+  "filename_base": "vii_chromatin_regulation_and_genome_organization__histone_modification__histone_exchange",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::TIP60_core",
+      "complex_type": "COMPLEX",
+      "complex_name": "TIP60_core",
+      "gene_ids": [
+        "EP400",
+        "RUVBL1",
+        "RUVBL2",
+        "EPC1",
+        "DMAP1",
+        "VPS72",
+        "ACTB",
+        "ACTL6A"
+      ],
+      "stoichiometry": {
+        "EP400": 1,
+        "RUVBL1": 3,
+        "RUVBL2": 3,
+        "EPC1": 1,
+        "DMAP1": 1,
+        "VPS72": 1,
+        "ACTB": 0,
+        "ACTL6A": 0
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "8QR1"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "EP400",
+    "RUVBL1",
+    "RUVBL2",
+    "EPC1",
+    "DMAP1",
+    "VPS72",
+    "ACTB",
+    "ACTL6A"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,87 @@
+{
+  "row_index": 36,
+  "category": "IV. Structure & Transport",
+  "pathway": "Voltage-gated Channels",
+  "component": "Potassium Channels",
+  "filename_base": "iv_structure_transport__voltage_gated_channels__potassium_channels",
+  "complexes": [
+    {
+      "complex_id": "HOMOMER::Kv1.1",
+      "complex_type": "HOMOMER",
+      "complex_name": "Kv1.1",
+      "gene_ids": [
+        "KCNA1"
+      ],
+      "stoichiometry": {
+        "KCNA1": 4
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMOMER::Kv1.2",
+      "complex_type": "HOMOMER",
+      "complex_name": "Kv1.2",
+      "gene_ids": [
+        "KCNA2",
+        "KCNAB2"
+      ],
+      "stoichiometry": {
+        "KCNA2": 4,
+        "KCNAB2": 4
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "3LUT"
+      ]
+    },
+    {
+      "complex_id": "HOMOMER::Kv2.1",
+      "complex_type": "HOMOMER",
+      "complex_name": "Kv2.1",
+      "gene_ids": [
+        "KCNB1"
+      ],
+      "stoichiometry": {
+        "KCNB1": 4
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMOMER::Kv7.1",
+      "complex_type": "HOMOMER",
+      "complex_name": "Kv7.1",
+      "gene_ids": [
+        "KCNQ1"
+      ],
+      "stoichiometry": {
+        "KCNQ1": 4
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMOMER::hERG",
+      "complex_type": "HOMOMER",
+      "complex_name": "hERG",
+      "gene_ids": [
+        "KCNH2"
+      ],
+      "stoichiometry": {
+        "KCNH2": 4
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "KCNA1",
+    "KCNA2",
+    "KCNAB2",
+    "KCNB1",
+    "KCNQ1",
+    "KCNH2"
+  ],
+  "n_steps_per_generator": 3
+}

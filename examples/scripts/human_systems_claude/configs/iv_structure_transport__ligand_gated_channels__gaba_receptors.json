@@ -1,0 +1,57 @@
+{
+  "row_index": 39,
+  "category": "IV. Structure & Transport",
+  "pathway": "Ligand-gated Channels",
+  "component": "GABA Receptors",
+  "filename_base": "iv_structure_transport__ligand_gated_channels__gaba_receptors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::GABAA_receptor_synaptic",
+      "complex_type": "COMPLEX",
+      "complex_name": "GABAA_receptor_synaptic",
+      "gene_ids": [
+        "GABRA1",
+        "GABRB2",
+        "GABRG2"
+      ],
+      "stoichiometry": {
+        "GABRA1": 2,
+        "GABRB2": 2,
+        "GABRG2": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6D6T",
+        "6X3T"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::GABAA_receptor_extrasynaptic",
+      "complex_type": "COMPLEX",
+      "complex_name": "GABAA_receptor_extrasynaptic",
+      "gene_ids": [
+        "GABRA4",
+        "GABRB3",
+        "GABRD"
+      ],
+      "stoichiometry": {
+        "GABRA4": 1,
+        "GABRB3": 3,
+        "GABRD": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7QN5"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "GABRA1",
+    "GABRB2",
+    "GABRG2",
+    "GABRA4",
+    "GABRB3",
+    "GABRD"
+  ],
+  "n_steps_per_generator": 3
+}

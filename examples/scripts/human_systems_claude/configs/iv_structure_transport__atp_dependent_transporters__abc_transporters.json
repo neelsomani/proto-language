@@ -1,0 +1,96 @@
+{
+  "row_index": 40,
+  "category": "IV. Structure & Transport",
+  "pathway": "ATP-dependent Transporters",
+  "component": "ABC Transporters",
+  "filename_base": "iv_structure_transport__atp_dependent_transporters__abc_transporters",
+  "complexes": [
+    {
+      "complex_id": "MONOMER::MDR1",
+      "complex_type": "MONOMER",
+      "complex_name": "MDR1",
+      "gene_ids": [
+        "ABCB1"
+      ],
+      "stoichiometry": {
+        "ABCB1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::MDR3",
+      "complex_type": "MONOMER",
+      "complex_name": "MDR3",
+      "gene_ids": [
+        "ABCB4"
+      ],
+      "stoichiometry": {
+        "ABCB4": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::BSEP",
+      "complex_type": "MONOMER",
+      "complex_name": "BSEP",
+      "gene_ids": [
+        "ABCB11"
+      ],
+      "stoichiometry": {
+        "ABCB11": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::MRP1",
+      "complex_type": "MONOMER",
+      "complex_name": "MRP1",
+      "gene_ids": [
+        "ABCC1"
+      ],
+      "stoichiometry": {
+        "ABCC1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "MONOMER::CFTR",
+      "complex_type": "MONOMER",
+      "complex_name": "CFTR",
+      "gene_ids": [
+        "ABCC7"
+      ],
+      "stoichiometry": {
+        "ABCC7": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "HOMOMER::ABCG2",
+      "complex_type": "HOMOMER",
+      "complex_name": "ABCG2",
+      "gene_ids": [
+        "ABCG2"
+      ],
+      "stoichiometry": {
+        "ABCG2": 2
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "ABCB1",
+    "ABCB4",
+    "ABCB11",
+    "ABCC1",
+    "ABCC7",
+    "ABCG2"
+  ],
+  "n_steps_per_generator": 3
+}

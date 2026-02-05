@@ -1,0 +1,67 @@
+{
+  "row_index": 26,
+  "category": "III. Bioenergetics",
+  "pathway": "Electron Transport Chain",
+  "component": "Complex IV",
+  "filename_base": "iii_bioenergetics__electron_transport_chain__complex_iv",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Complex_IV_cytochrome_c_oxidase",
+      "complex_type": "COMPLEX",
+      "complex_name": "Complex_IV_cytochrome_c_oxidase",
+      "gene_ids": [
+        "MT-CO1",
+        "MT-CO2",
+        "MT-CO3",
+        "NDUFA4",
+        "COX4I1",
+        "COX5A",
+        "COX5B",
+        "COX6A1",
+        "COX6B1",
+        "COX6C",
+        "COX7A2",
+        "COX7B",
+        "COX7C",
+        "COX8A"
+      ],
+      "stoichiometry": {
+        "MT-CO1": 1,
+        "MT-CO2": 1,
+        "MT-CO3": 1,
+        "NDUFA4": 1,
+        "COX4I1": 1,
+        "COX5A": 1,
+        "COX5B": 1,
+        "COX6A1": 1,
+        "COX6B1": 1,
+        "COX6C": 1,
+        "COX7A2": 1,
+        "COX7B": 1,
+        "COX7C": 1,
+        "COX8A": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "5Z62"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "MT-CO1",
+    "MT-CO2",
+    "MT-CO3",
+    "NDUFA4",
+    "COX4I1",
+    "COX5A",
+    "COX5B",
+    "COX6A1",
+    "COX6B1",
+    "COX6C",
+    "COX7A2",
+    "COX7B",
+    "COX7C",
+    "COX8A"
+  ],
+  "n_steps_per_generator": 3
+}

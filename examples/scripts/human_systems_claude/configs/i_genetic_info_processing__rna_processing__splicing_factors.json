@@ -1,0 +1,107 @@
+{
+  "row_index": 9,
+  "category": "I. Genetic Info Processing",
+  "pathway": "RNA Processing",
+  "component": "Splicing Factors",
+  "filename_base": "i_genetic_info_processing__rna_processing__splicing_factors",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::U2AF_heterodimer",
+      "complex_type": "COMPLEX",
+      "complex_name": "U2AF_heterodimer",
+      "gene_ids": [
+        "U2AF1",
+        "U2AF2"
+      ],
+      "stoichiometry": {
+        "U2AF1": 1,
+        "U2AF2": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    },
+    {
+      "complex_id": "COMPLEX::SF3B_subcomplex",
+      "complex_type": "COMPLEX",
+      "complex_name": "SF3B_subcomplex",
+      "gene_ids": [
+        "SF3B1",
+        "SF3B2",
+        "SF3B3",
+        "SF3B4",
+        "SF3B5",
+        "SF3B6"
+      ],
+      "stoichiometry": {
+        "SF3B1": 1,
+        "SF3B2": 1,
+        "SF3B3": 1,
+        "SF3B4": 1,
+        "SF3B5": 1,
+        "SF3B6": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6Y5Q"
+      ]
+    },
+    {
+      "complex_id": "HOMO_FAMILY::SR_protein_family_monomeric",
+      "complex_type": "HOMO_FAMILY",
+      "complex_name": "SR_protein_family_monomeric",
+      "gene_ids": [
+        "SRSF1",
+        "SRSF2",
+        "SRSF3",
+        "SRSF4",
+        "SRSF5",
+        "SRSF6",
+        "SRSF7",
+        "SRSF8",
+        "SRSF9",
+        "SRSF10",
+        "SRSF11",
+        "SRSF12"
+      ],
+      "stoichiometry": {
+        "SRSF1": 1,
+        "SRSF2": 1,
+        "SRSF3": 1,
+        "SRSF4": 1,
+        "SRSF5": 1,
+        "SRSF6": 1,
+        "SRSF7": 1,
+        "SRSF8": 1,
+        "SRSF9": 1,
+        "SRSF10": 1,
+        "SRSF11": 1,
+        "SRSF12": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "U2AF1",
+    "U2AF2",
+    "SF3B1",
+    "SF3B2",
+    "SF3B3",
+    "SF3B4",
+    "SF3B5",
+    "SF3B6",
+    "SRSF1",
+    "SRSF2",
+    "SRSF3",
+    "SRSF4",
+    "SRSF5",
+    "SRSF6",
+    "SRSF7",
+    "SRSF8",
+    "SRSF9",
+    "SRSF10",
+    "SRSF11",
+    "SRSF12"
+  ],
+  "n_steps_per_generator": 3
+}

@@ -1,0 +1,61 @@
+{
+  "row_index": 83,
+  "category": "VIII. DNA Repair",
+  "pathway": "Homologous Recombination",
+  "component": "BRCA1 Complex",
+  "filename_base": "viii_dna_repair__homologous_recombination__brca1_complex",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::BRCA1_A_complex",
+      "complex_type": "COMPLEX",
+      "complex_name": "BRCA1_A_complex",
+      "gene_ids": [
+        "BRCA1",
+        "BARD1",
+        "ABRAXAS1",
+        "RAP80",
+        "BRCC3",
+        "MERIT40",
+        "BRE"
+      ],
+      "stoichiometry": {
+        "BRCA1": 2,
+        "BARD1": 2,
+        "ABRAXAS1": 2,
+        "RAP80": 2,
+        "BRCC3": 2,
+        "MERIT40": 2,
+        "BRE": 1
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "6GVW"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::BRCA1_BARD1_heterodimer",
+      "complex_type": "COMPLEX",
+      "complex_name": "BRCA1_BARD1_heterodimer",
+      "gene_ids": [
+        "BRCA1",
+        "BARD1"
+      ],
+      "stoichiometry": {
+        "BRCA1": 1,
+        "BARD1": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": []
+    }
+  ],
+  "all_gene_ids": [
+    "BRCA1",
+    "BARD1",
+    "ABRAXAS1",
+    "RAP80",
+    "BRCC3",
+    "MERIT40",
+    "BRE"
+  ],
+  "n_steps_per_generator": 3
+}

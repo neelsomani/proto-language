@@ -1,0 +1,105 @@
+{
+  "row_index": 35,
+  "category": "IV. Structure & Transport",
+  "pathway": "Voltage-gated Channels",
+  "component": "Sodium Channels",
+  "filename_base": "iv_structure_transport__voltage_gated_channels__sodium_channels",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::Nav1.1_beta4",
+      "complex_type": "COMPLEX",
+      "complex_name": "Nav1.1_beta4",
+      "gene_ids": [
+        "SCN1A",
+        "SCN4B"
+      ],
+      "stoichiometry": {
+        "SCN1A": 1,
+        "SCN4B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "7DTD"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Nav1.2_beta2",
+      "complex_type": "COMPLEX",
+      "complex_name": "Nav1.2_beta2",
+      "gene_ids": [
+        "SCN2A",
+        "SCN2B"
+      ],
+      "stoichiometry": {
+        "SCN2A": 1,
+        "SCN2B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6J8E"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Nav1.4_beta1",
+      "complex_type": "COMPLEX",
+      "complex_name": "Nav1.4_beta1",
+      "gene_ids": [
+        "SCN4A",
+        "SCN1B"
+      ],
+      "stoichiometry": {
+        "SCN4A": 1,
+        "SCN1B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6AGF"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Nav1.5",
+      "complex_type": "COMPLEX",
+      "complex_name": "Nav1.5",
+      "gene_ids": [
+        "SCN5A"
+      ],
+      "stoichiometry": {
+        "SCN5A": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "7DTC"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::Nav1.7_beta1_beta2",
+      "complex_type": "COMPLEX",
+      "complex_name": "Nav1.7_beta1_beta2",
+      "gene_ids": [
+        "SCN9A",
+        "SCN1B",
+        "SCN2B"
+      ],
+      "stoichiometry": {
+        "SCN9A": 1,
+        "SCN1B": 1,
+        "SCN2B": 1
+      },
+      "stoichiometry_inferred": true,
+      "pdb_ids": [
+        "6J8J"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "SCN1A",
+    "SCN4B",
+    "SCN2A",
+    "SCN2B",
+    "SCN4A",
+    "SCN1B",
+    "SCN5A",
+    "SCN9A"
+  ],
+  "n_steps_per_generator": 3
+}

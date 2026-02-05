@@ -1,0 +1,50 @@
+{
+  "row_index": 56,
+  "category": "VI. Signaling Pathways",
+  "pathway": "Inflammasomes",
+  "component": "NLRP3 Inflammasome",
+  "filename_base": "vi_signaling_pathways__inflammasomes__nlrp3_inflammasome",
+  "complexes": [
+    {
+      "complex_id": "COMPLEX::NLRP3_inflammasome",
+      "complex_type": "COMPLEX",
+      "complex_name": "NLRP3_inflammasome",
+      "gene_ids": [
+        "NLRP3",
+        "NEK7"
+      ],
+      "stoichiometry": {
+        "NLRP3": 3,
+        "NEK7": 3
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "8EJ4"
+      ]
+    },
+    {
+      "complex_id": "COMPLEX::ASC_Caspase1_Interface",
+      "complex_type": "COMPLEX",
+      "complex_name": "ASC_Caspase1_Interface",
+      "gene_ids": [
+        "PYCARD",
+        "CASP1"
+      ],
+      "stoichiometry": {
+        "PYCARD": 4,
+        "CASP1": 4
+      },
+      "stoichiometry_inferred": false,
+      "pdb_ids": [
+        "7KEU"
+      ]
+    }
+  ],
+  "all_gene_ids": [
+    "NLRP3",
+    "NEK7",
+    "PYCARD",
+    "CASP1"
+  ],
+  "n_steps_per_generator": 3
+}

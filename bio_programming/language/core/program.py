@@ -516,7 +516,7 @@ class Program:
 
     def cleanup(self) -> None:
         """Clean up cached models to free GPU memory."""
-        from proto_language.tools.language_models.esm2.esm2 import clear_esm2_cache
+        from proto_language.tools.language_models.esm2 import clear_esm2_cache
         from proto_language.tools.language_models.esm3.esm3 import clear_esm3_cache
         from proto_language.tools.language_models.evo2.evo2 import clear_evo2_cache
 

@@ -9,11 +9,11 @@ from typing import Literal, Optional, final
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
-from proto_language.tools.language_models.esm2.esm2 import (
+from proto_language.tools.language_models.esm2 import (
     ESM2SampleConfig,
-    LanguageModelInput,
     run_esm2_sample,
 )
+from proto_language.tools.language_models.schemas import LanguageModelInput
 from proto_language.tools.language_models.esm2.inference import ESM2_MODEL_CHECKPOINTS
 
 

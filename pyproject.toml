@@ -47,7 +47,6 @@ tools = [
     "orfipy>=0.0.4",
     "pyrodigal>=3.0.0",
     "promotercalculator>=1.0.0",
-    "pyhmmer",
     "sinkhorn-transformer",
     "huggingface_hub>=0.16.0",
     "rdkit",

@@ -26,7 +26,7 @@ from proto_language.language.optimizer import (
 )
 from proto_language.tools.language_models.evo2 import clear_evo2_cache
 
-from proto_language.tools.sequence_scoring.borzoi.borzoi import (
+from proto_language.tools.sequence_scoring.borzoi import (
     BORZOI_CONTEXT, # 524,288 bp.
     BORZOI_OUTPUT,  # 6,144 dimensions.
     BorzoiConfig,

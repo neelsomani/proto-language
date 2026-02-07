@@ -44,10 +44,7 @@ dependencies = [
 [project.optional-dependencies]
 # CPU bioinformatics tools
 tools = [
-    "orfipy>=0.0.4",
-    "pyrodigal>=3.0.0",
     "promotercalculator>=1.0.0",
-    "sinkhorn-transformer",
     "huggingface_hub>=0.16.0",
     "rdkit",
     # Structure visualization
@@ -209,8 +206,6 @@ warn_unused_ignores = true
 module = [
     # Bioinformatics packages
     "biotite.*",
-    "orfipy.*",
-    "pyrodigal.*",
     "promotercalculator.*",
     # ML/GPU packages
     "esm.*",

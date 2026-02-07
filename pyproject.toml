@@ -45,33 +45,19 @@ dependencies = [
 # CPU bioinformatics tools
 tools = [
     "promotercalculator>=1.0.0",
-    "huggingface_hub>=0.16.0",
     "rdkit",
     # Structure visualization
     "py3Dmol>=2.0.0",
     "matplotlib",
     # File Parsing/Indexing
     "pyfaidx",
-    "docstring-parser>=0.15",
     "ipython",
 ]
 
 # GPU dependencies
 gpu = [
-    # ML frameworks
-    "transformers>=4.30.0",
-
     # Sequence scoring models
     "alphagenome>=0.2.0",
-
-    # Structure prediction and scoring models
-    #"colabfold[alphafold]>=1.5.5", # Due to dependency conflicts, needs to be installed separately with --no-deps.
-
-    # Structure dynamics models
-    "bioemu",
-
-    # Inverse folding
-    #"colabdesign @ git+https://github.com/sokrypton/ColabDesign.git@v1.1.1", # REMOVED FOR NOW DUE TO CONFLICTS WITH EVO2
 ]
 
 # API dependencies
@@ -124,12 +110,13 @@ dev = [
     "ipymol>=0.5",
     "matplotlib>=3.7.0",
     "seaborn>=0.13.0",
+    "docstring-parser",
 ]
 
 
 # All dependencies
 all = [
-    "proto-language[tools,gpu,api,dev,docs]",
+    "proto-language[tools,gpu,api,dev]",
 ]
 
 [project.urls]
@@ -206,12 +193,6 @@ warn_unused_ignores = true
 module = [
     # Bioinformatics packages
     "biotite.*",
-    "promotercalculator.*",
-    # ML/GPU packages
-    "esm.*",
-    "boltz.*",
-    "chai_lab.*",
-    "alphagenome.*",
     # Visualization
     "py3Dmol.*",
     # Task queue

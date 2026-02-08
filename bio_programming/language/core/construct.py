@@ -120,7 +120,7 @@ class Construct:
         }
 
     @classmethod
-    def from_dict(cls, data) -> "Construct":
+    def from_dict(cls, data) -> Construct:
         """Deserialize Construct from dictionary."""
         segments = [Segment.from_dict(seg_data) for seg_data in data["segments"]]
         return cls(segments=segments, label=data.get("label"))

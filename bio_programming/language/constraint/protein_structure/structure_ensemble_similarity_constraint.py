@@ -454,7 +454,7 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
     )
 
     @model_validator(mode="after")
-    def validate_target(self) -> "StructureEnsembleSimilarityConfig":
+    def validate_target(self) -> StructureEnsembleSimilarityConfig:
         """Ensure exactly one target source is provided."""
         sources = [
             self.target_structure,

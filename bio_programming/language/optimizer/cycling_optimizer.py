@@ -48,7 +48,7 @@ class ProteinHunterPipelineConfig(BaseConfig):
         description="Structure prediction tool: 'boltz', 'chai', or 'alphafold3'.",
     )
 
-def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> Callable:
+def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Callable:
     """
     Create protein hunter conditioning function (structure prediction -> inverse folding).
 
@@ -86,8 +86,8 @@ CYCLING_PIPELINES: Dict[str, Dict[str, Any]] = {
 # =============================================================================
 
 def _resolve_conditioning_fn(
-    config: "CyclingOptimizerConfig",
-    generator: "Generator",
+    config: CyclingOptimizerConfig,
+    generator: Generator,
     conditioning_fn: Optional[Callable] = None,
 ) -> Callable:
     """

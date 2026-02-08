@@ -224,7 +224,7 @@ class Sequence:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Sequence":
+    def from_dict(cls, data: Dict[str, Any]) -> Sequence:
         """Deserialize Sequence from dictionary."""
         valid_chars = set(data["valid_chars"]) if data.get("valid_chars") else None
         return cls(

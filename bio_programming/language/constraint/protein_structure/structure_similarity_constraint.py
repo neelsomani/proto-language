@@ -382,7 +382,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     )
 
     @model_validator(mode="after")
-    def validate_target(self) -> "StructureSimilarityConfig":
+    def validate_target(self) -> StructureSimilarityConfig:
         """Ensure exactly one target source is provided."""
         sources = [self.target_chains, self.target_pdb_file, self.target_pdb_content]
         provided = sum(s is not None for s in sources)

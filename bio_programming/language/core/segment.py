@@ -167,7 +167,7 @@ class Segment:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Segment":
+    def from_dict(cls, data: Dict[str, Any]) -> Segment:
         """Deserialize Segment from dictionary."""
         # Reconstruct original sequence
         original_seq = Sequence.from_dict(data["original_sequence"])

@@ -32,11 +32,11 @@ class Generator(ABC):
         """
         # TODO: add logic to handle multiple assigned segments (if necessary)
         self._assigned_segment: Optional[Segment] = None
-        self.__spec: Optional["GeneratorSpec"] = None  # Lazy-loaded via property
+        self.__spec: Optional[GeneratorSpec] = None  # Lazy-loaded via property
 
     # Required lazy loading for mock generators to function in tests.
     @property
-    def _spec(self) -> "GeneratorSpec":
+    def _spec(self) -> GeneratorSpec:
         """Lazy-load the generator spec from the registry."""
         if self.__spec is None:
             from proto_language.language.generator.generator_registry import (

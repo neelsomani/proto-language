@@ -163,7 +163,7 @@ def setup_logging(
             log_file = log_path / f"proto_language_{timestamp}.log"
         else:
             log_file = log_path / log_filename
-        file_handler = logging.FileHandler(log_file)
+        file_handler = logging.FileHandler(log_file, mode='w')
         file_handler.setLevel(file_level or logging.DEBUG)
         file_handler.setFormatter(file_formatter)
         # Add filter to only log proto_language messages to file

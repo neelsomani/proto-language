@@ -129,6 +129,27 @@ def pytest_configure(config):
     # the ProtoLanguageOnlyFilter applied
 
 
+def pytest_runtest_logstart(nodeid, location):
+    """Log when a test starts (DEBUG level, file only)."""
+    logger = logging.getLogger("proto_language.tests")
+    logger.debug(f"TEST START: {nodeid}")
+
+
+def pytest_runtest_logreport(report):
+    """Log test results (DEBUG level to avoid console output)."""
+    logger = logging.getLogger("proto_language.tests")
+
+    # Only log on the call phase (not setup/teardown)
+    if report.when == "call":
+        if report.passed:
+            logger.debug(f"TEST PASSED: {report.nodeid}")
+        elif report.failed:
+            # Use DEBUG level to keep it file-only, but prefix with ERROR for visibility in logs
+            logger.debug(f"ERROR - TEST FAILED: {report.nodeid}")
+            if report.longrepr:
+                logger.debug(f"ERROR - Traceback:\n{report.longreprtext}")
+
+
 def pytest_collection_modifyitems(config, items):
     """Modify test collection based on command line options and auto-mark tests."""
     # Auto-mark all tests as CPU-only unless explicitly marked as GPU

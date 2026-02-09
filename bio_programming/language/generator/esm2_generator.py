@@ -9,12 +9,12 @@ from typing import Literal, Optional, final
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
-from proto_language.tools.language_models.esm2 import (
+from proto_language.tools.masked_models.esm2 import (
     ESM2SampleConfig,
     run_esm2_sample,
 )
-from proto_language.tools.language_models.schemas import LanguageModelInput
-from proto_language.tools.language_models.esm2.standalone.inference import ESM2_MODEL_CHECKPOINTS
+from proto_language.tools.masked_models.esm2 import ESM2SampleInput
+from proto_language.tools.masked_models.esm2.standalone.inference import ESM2_MODEL_CHECKPOINTS
 
 
 class ESM2GeneratorConfig(BaseConfig):
@@ -172,7 +172,7 @@ class ESM2Generator(Generator):
 
         # Create input and config objects
         sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
-        esm2_input = LanguageModelInput(sequences=sequences)
+        esm2_input = ESM2SampleInput(sequences=sequences)
         config = ESM2SampleConfig(
             model_checkpoint=self.model_checkpoint,
             temperature=self.temperature,

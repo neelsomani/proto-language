@@ -18,7 +18,7 @@ from proto_language.tools.orf_prediction.prodigal import ProdigalConfig, Prodiga
 from proto_language.tools.gene_annotation.mmseqs import (
     MmseqsSearchProteinsConfig,
     MmseqsSearchProteinsInput,
-    mmseqs_search_proteins,
+    run_mmseqs_search_proteins,
 )
 from proto_language.utils import MIN_ENERGY, MAX_ENERGY, calculate_percentage_range_deviation, resolve_paths
 
@@ -315,7 +315,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         query_sequences=protein_sequences,
         mmseqs_db=resolved_db,
     )
-    mmseqs_result = mmseqs_search_proteins(mmseqs_input, mmseqs_config)
+    mmseqs_result = run_mmseqs_search_proteins(mmseqs_input, mmseqs_config)
 
     if not mmseqs_result.success:
         for seq in sequences:

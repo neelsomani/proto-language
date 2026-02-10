@@ -60,7 +60,7 @@ class TestMMseqsSimilarityConstraint:
         )
 
         # Mock MMseqs2 search with new output structure
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output([
                 MmseqsSequenceSearchResult(
                     query_id="seq_0",
@@ -102,7 +102,7 @@ class TestMMseqsSimilarityConstraint:
         )
 
         # Mock MMseqs2 with no results
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output([
                 MmseqsSequenceSearchResult(
                     query_id="seq_0",
@@ -142,7 +142,7 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with results - note: for DNA, ORF prediction happens first
         # and might produce zero proteins if no ORFs are found in short sequences
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
             # This test might not even call mmseqs if no ORFs are predicted
             # But if it does, we mock the response
             mock_mmseqs.return_value = self._create_mock_output([
@@ -178,7 +178,7 @@ class TestMMseqsSimilarityConstraint:
         )
 
         # Mock MMseqs2 with multiple hits for the single protein
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output([
                 MmseqsSequenceSearchResult(
                     query_id="seq_0",
@@ -222,7 +222,7 @@ class TestMMseqsSimilarityConstraint:
         )
 
         # Mock MMseqs2 with results for both proteins
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
             # The constraint evaluates candidates one at a time in batched mode
             # but mmseqs_similarity_constraint processes all proteins at once
             # So mock needs to handle calls for each candidate
@@ -261,7 +261,7 @@ class TestMMseqsSimilarityConstraint:
             mmseqs_db=dummy_db_path,
         )
 
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output([
                 MmseqsSequenceSearchResult(
                     query_id="seq_0",
@@ -293,7 +293,7 @@ class TestMMseqsSimilarityConstraint:
             mmseqs_db=dummy_db_path,
         )
 
-        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.mmseqs_search_proteins') as mock_mmseqs:
+        with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output([
                 MmseqsSequenceSearchResult(
                     query_id="seq_0",

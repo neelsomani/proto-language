@@ -15,7 +15,7 @@ from proto_language.tools.orf_prediction.prodigal import (
     ProdigalInput,
     ProdigalConfig,
 )
-from proto_language.tools.gene_annotation.pyhmmer import pyhmmer_hmmscan, PyHmmscanInput, PyHmmerConfig
+from proto_language.tools.gene_annotation.pyhmmer import run_pyhmmer_hmmscan, PyHmmscanInput, PyHmmerConfig
 from proto_language.utils import MIN_ENERGY, MAX_ENERGY
 
 
@@ -410,7 +410,7 @@ def _check_protein_domains_batch(
     final_config = hmmscan_config
 
     # Run PyHMMER hmmscan
-    result = pyhmmer_hmmscan(inputs=hmmscan_input, config=final_config)
+    result = run_pyhmmer_hmmscan(inputs=hmmscan_input, config=final_config)
 
     if not result.success:
         raise RuntimeError(f"PyHMMER execution failed: {result.errors}")

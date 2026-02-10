@@ -179,7 +179,6 @@ class ESM2Generator(Generator):
             decoding_method=self.decoding_method,
             num_mutations=actual_mutations,
             batch_size=self.batch_size,
-            keep_on_gpu=True,  # Keep for repeated calls
             verbose=False,
         )
         result = run_esm2_sample(inputs=esm2_input, config=config)

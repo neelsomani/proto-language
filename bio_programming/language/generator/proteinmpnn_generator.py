@@ -297,7 +297,6 @@ class ProteinMPNNGenerator(Generator):
             excluded_amino_acids=self.excluded_amino_acids,
             seed=self.seed,
             device=self.device,
-            keep_on_gpu=True,
             verbose=self.verbose,
         )
 

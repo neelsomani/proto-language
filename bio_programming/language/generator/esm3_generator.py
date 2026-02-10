@@ -175,7 +175,6 @@ class ESM3Generator(Generator):
             decoding_method=self.decoding_method,
             num_mutations=actual_mutations,
             batch_size=self.batch_size,
-            keep_on_gpu=True,  # Keep for repeated calls
             verbose=False,
         )
 

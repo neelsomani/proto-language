@@ -236,7 +236,6 @@ class ProGen2Generator(Generator):
             strip_special_tokens=self.strip_special_tokens,
             prepend_prompt=self.prepend_prompt,
             verbose=self.verbose,
-            keep_on_gpu=True,
         )
 
         output = run_progen2_sample(tool_input, tool_config)

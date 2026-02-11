@@ -7,28 +7,32 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.bio_tools.tools.orf_prediction.prodigal import (
-    run_prodigal_prediction,
-    ProdigalInput,
-    ProdigalConfig,
+from proto_language.language.core import Sequence
+from proto_language.utils import MAX_ENERGY, MIN_ENERGY
+from proto_tools.tools.gene_annotation.pyhmmer import (
+    PyHmmerConfig,
+    PyHmmscanInput,
+    run_pyhmmer_hmmscan,
 )
-from proto_language.bio_tools.tools.gene_annotation.pyhmmer import run_pyhmmer_hmmscan, PyHmmscanInput, PyHmmerConfig
-from proto_language.utils import MIN_ENERGY, MAX_ENERGY
+from proto_tools.tools.orf_prediction.prodigal import (
+    ProdigalConfig,
+    ProdigalInput,
+    run_prodigal_prediction,
+)
 
 
 class ProteinDomainConfig(BaseConfig):
     """Configuration for protein domain constraint.
-    
+
     This class defines configuration parameters for evaluating whether protein
     sequences contain specific functional domains identified by keyword searches
     against HMM (Hidden Markov Model) profile databases. The constraint uses
     HMMER's hmmscan tool to identify protein domains and matches them against
     user-specified keywords, enabling targeted selection for proteins with
     desired functional characteristics.
-    
+
     Attributes:
         hmm_db (str): Path to HMM database file for hmmscan (e.g., Pfam-A.hmm,
             TIGRFAM.hmm). The database must be preprocessed with hmmpress before
@@ -61,7 +65,7 @@ class ProteinDomainConfig(BaseConfig):
             Example: ``PyHmmerConfig(cpus=4, Z=1000, domZ=1000)`` to use 4 CPU cores
             and set database size parameters for E-value calculation.
             Default: PyHmmerConfig().
-    
+
     Note:
         For DNA sequences, Prodigal is used to predict ORFs first, then each
         predicted protein is searched for domains. For protein sequences, the
@@ -117,12 +121,12 @@ class ProteinDomainConfig(BaseConfig):
 )
 def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinDomainConfig) -> List[float]:
     """Evaluate whether sequences contain protein domains matching specified keywords.
-    
+
     This constraint function searches for functional protein domains using HMMER's
-    hmmscan tool against HMM profile databases. It identifies domains in protein 
+    hmmscan tool against HMM profile databases. It identifies domains in protein
     sequences and matches them against user-specified keywords, enabling selection
     of proteins with desired functional domains.
-    
+
     For DNA sequences, the function first runs Prodigal to predict protein-coding
     regions (ORFs), then searches each predicted protein for matching domains. For
     protein sequences, the domain search is performed directly. The constraint is
@@ -133,7 +137,7 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
         input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
             Each tuple contains one DNA or protein sequence. DNA sequences are first
             processed through ORF prediction.
-            
+
         config (ProteinDomainConfig): Configuration object containing ``hmm_db``
             (path to HMM database), ``keywords`` (list of domain keywords to search),
             ``evalue_threshold`` (default: 0.005), ``query_coverage`` (default: None),
@@ -151,12 +155,12 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
             protein mixed).
         RuntimeError: If HMMER hmmscan execution fails or Prodigal ORF prediction
             fails for DNA sequences.
-    
+
     Note:
         This function modifies the input sequences by adding metadata to each
         ``Sequence`` object's ``_metadata`` dictionary. Metadata keys vary by
         sequence type:
-        
+
         **For DNA sequences:**
         - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal
         - ``prodigal_protein_count``: Integer count of predicted ORFs
@@ -165,16 +169,16 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
         - ``domain_keywords_found``: List of unique keywords found across all
           predicted proteins
         - ``domain_matching_proteins``: List of protein IDs that matched keywords
-        
+
         **For protein sequences:**
         - ``domain_search_results``: List containing domain search results
         - ``domain_keywords_found``: List of keywords found in domain descriptions
         - ``domain_matching_hits``: DataFrame of domain hits matching keywords
         - ``hmmscan_all_hits``: DataFrame of all significant hmmscan hits
-    
+
     Examples:
         Evaluating domain presence in protein with single keyword:
-        
+
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
         >>> cfg = ProteinDomainConfig(
@@ -185,9 +189,9 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
         >>> scores = protein_domain_constraint([(seq,)], config=cfg)
         >>> print(scores[0])  # 0.0 if kinase domain found, 1.0 if not
         >>> print(seq._metadata["domain_keywords_found"])  # ['kinase'] if found
-        
+
         Evaluating DNA sequence (with automatic ORF prediction):
-        
+
         >>> dna_seq = Sequence("ATGGTACTGAGCCCAGCG...", "dna")
         >>> cfg = ProteinDomainConfig(
         ...     hmm_db="Pfam-A.hmm",
@@ -206,7 +210,7 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
 
     if not config.keywords or not isinstance(config.keywords, list):
         raise ValueError("Keywords must be a non-empty list")
-    
+
     dna_sequences = []
     protein_sequences = []
     sequence_type_map = []
@@ -236,14 +240,14 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
             list(protein_seqs), hmm_db, keywords_lower, config
         )
         protein_scores = dict(zip(protein_indices, protein_results))
-    
+
     scores = []
     for idx, (seq_type, type_idx) in enumerate(sequence_type_map):
         if seq_type == 'dna':
             scores.append(dna_scores[idx])
         else:
             scores.append(protein_scores[idx])
-    
+
     return scores
 
 def _process_dna_sequences(
@@ -280,7 +284,7 @@ def _process_dna_sequences(
             input_sequence._metadata["domain_matching_proteins"] = []
             scores.append(MAX_ENERGY)
             continue
-        
+
         protein_sequences = [orf.amino_acid_sequence for orf in proteins_list]
         batch_results = _check_protein_domains_batch(
             protein_sequences,
@@ -317,7 +321,7 @@ def _process_dna_sequences(
             )
         else:
             score = MIN_ENERGY if all_keywords_found else MAX_ENERGY
-        
+
         scores.append(score)
 
     return scores
@@ -330,19 +334,19 @@ def _process_protein_sequences(
 ) -> List[float]:
     """
     Process protein sequences: Check domains in batch.
-    
+
     Args:
         input_sequences: List of protein sequences
         hmm_db: Path to HMM database
         keywords_lower: Lowercase keywords to search for
         config: Domain constraint configuration
-        
+
     Returns:
         List of constraint scores
     """
     # Extract protein sequence strings
     protein_sequences = [seq.sequence for seq in input_sequences]
-    
+
     # Batch check all protein sequences
     try:
         batch_results = _check_protein_domains_batch(
@@ -371,7 +375,7 @@ def _process_protein_sequences(
             score = MIN_ENERGY if len(keywords_found) == len(keywords_lower) else MAX_ENERGY
         else:
             score = MIN_ENERGY if keywords_found else MAX_ENERGY
-        
+
         scores.append(score)
 
     return scores

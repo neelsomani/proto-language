@@ -4,19 +4,23 @@ Tests for SpliceTransformer constraints.
 
 import pytest
 
-from proto_language.language.core import Sequence
-from proto_language.language.constraint.rna_splicing.splice_transformer_specificity import (
-    splice_transformer_specificity,
-    SpliceTransformerSpecificityConfig,
-)
 from proto_language.language.constraint.rna_splicing.splice_transformer_intron_boundary import (
-    splice_transformer_intron_boundary,
     SpliceTransformerIntronBoundaryConfig,
+    splice_transformer_intron_boundary,
 )
-from proto_language.bio_tools.tools.rna_splicing.splice_transformer import (
-    SpliceTransformerConfig,
+from proto_language.language.constraint.rna_splicing.splice_transformer_specificity import (
+    SpliceTransformerSpecificityConfig,
+    splice_transformer_specificity,
+)
+from proto_language.language.core import Sequence
+from proto_tools.tools.rna_splicing.splice_transformer import (
     CONTEXT_LENGTH as SPLICE_TRANSFORMER_CONTEXT_LENGTH,
+)
+from proto_tools.tools.rna_splicing.splice_transformer import (
     TARGET_LENGTH as SPLICE_TRANSFORMER_TARGET_LENGTH,
+)
+from proto_tools.tools.rna_splicing.splice_transformer import (
+    SpliceTransformerConfig,
 )
 
 

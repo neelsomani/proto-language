@@ -2,31 +2,34 @@
 Evaluate intron boundary prediction with SpliceTransformer.
 """
 from __future__ import annotations
+
 from typing import List, Tuple
 
 from pydantic import field_validator
 
-from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.bio_tools.tools.rna_splicing.splice_transformer import (
-    run_splice_transformer,
+from proto_language.language.core import Sequence
+from proto_tools.tools.rna_splicing.splice_transformer import (
+    CONTEXT_LENGTH as SPLICE_TRANSFORMER_CONTEXT_LENGTH,
+)
+from proto_tools.tools.rna_splicing.splice_transformer import (
     SpliceTransformerConfig,
     SpliceTransformerInput,
     SpliceTransformerType,
-    CONTEXT_LENGTH as SPLICE_TRANSFORMER_CONTEXT_LENGTH,
+    run_splice_transformer,
 )
 
 
 class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     """Configuration for SpliceTransformer intron boundary constraint.
-    
+
     This class defines configuration parameters for evaluating splice site quality
     using SpliceTransformer, a deep learning model trained to predict splice sites
     in pre-mRNA sequences. The constraint assesses whether specified positions
     in a sequence are likely to function as authentic splice sites, which is critical
     for proper intron removal and mRNA processing.
-    
+
     Attributes:
         left_context (str): DNA sequence providing left (5') context for
             SpliceTransformer prediction. Must be exactly 4000 bp (CONTEXT_LENGTH).
@@ -56,14 +59,14 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
         splice_transformer_config (SpliceTransformerConfig): Advanced SpliceTransformer
             configuration including context length, device settings, and model
             parameters. Default: SpliceTransformerConfig().
-    
+
     Note:
         SpliceTransformer requires sequences of specific lengths:
         - Target sequence (input_sequence): Must be exactly 1000 bp
         - Left context: Must be exactly 4000 bp
         - Right context: Must be exactly 4000 bp
         - Total sequence analyzed: 9000 bp (4000 + 1000 + 4000)
-        
+
         The model outputs splice site probabilities for each position. Higher
         scores indicate stronger predicted splice sites. Authentic splice sites
         typically have scores > 0.5, while non-splice positions have scores near 0.
@@ -119,19 +122,19 @@ def splice_transformer_intron_boundary(
     config: SpliceTransformerIntronBoundaryConfig,
 ) -> List[float]:
     """Evaluate intron boundary prediction with SpliceTransformer
-    
-    This constraint function uses SpliceTransformer, a deep learning model, to 
+
+    This constraint function uses SpliceTransformer, a deep learning model, to
     predict the quality of donor and acceptor splice sites at specified positions
-    in DNA sequences. The model analyzes the sequence in its genomic context 
+    in DNA sequences. The model analyzes the sequence in its genomic context
     (with 4 kb flanking regions on each side) to assess whether the specified
     positions are likely to function as authentic splice sites during pre-mRNA
     processing.
-    
+
     SpliceTransformer outputs probabilities for donor and acceptor splice sites
     at each position. Higher probabilities indicate stronger predicted splice
     sites. The constraint score is calculated as 1 - (average of donor and
     acceptor probabilities), so lower scores indicate better splice sites.
-    
+
     The function requires precisely sized inputs: the target sequence must be
     exactly 1000 bp, and both flanking contexts must be exactly 4000 bp each,
     for a total analyzed region of 9000 bp.
@@ -140,7 +143,7 @@ def splice_transformer_intron_boundary(
         input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
             Each tuple contains one DNA sequence. Must be exactly 1000 bp in length.
             This is the central region containing the splice sites to be evaluated.
-            
+
         config (SpliceTransformerIntronBoundaryConfig): Configuration object
             containing ``left_context`` (4000 bp), ``right_context`` (4000 bp),
             ``donor_pos`` (position(s) of donor sites), ``acceptor_pos``
@@ -158,11 +161,11 @@ def splice_transformer_intron_boundary(
     Raises:
         AssertionError: If left_context or right_context are not exactly 4000 bp,
             or if the output shape doesn't match the input sequence length.
-    
+
     Note:
         This function modifies the input sequence by adding metadata to the
         ``Sequence`` object's ``_metadata`` dictionary with the following keys:
-        
+
         - ``donor_pos``: Integer or list of integers indicating donor site
           position(s) evaluated
         - ``acceptor_pos``: Integer or list of integers indicating acceptor
@@ -173,23 +176,23 @@ def splice_transformer_intron_boundary(
           calculated as 1.0 - mean(acceptor_probabilities). Lower is better.
         - ``total_splice_score``: Float overall constraint score (average of
           donor_score and acceptor_score)
-        
+
         **Important prediction positions:**
         - For donor sites: SpliceTransformer predicts on the nucleotide
           immediately **before** the "GT" dinucleotide
         - For acceptor sites: SpliceTransformer predicts on the nucleotide
           immediately **after** the "AG" dinucleotide
-    
+
     Examples:
         Evaluating a single intron with one donor and one acceptor:
-        
+
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> # 1000 bp target sequence with GT at position 100, AG at position 900
         >>> target_seq = Sequence("ATCG" * 250, "dna")  # 1000 bp
         >>> # 4000 bp flanking contexts
         >>> left_ctx = "ATCG" * 1000  # 4000 bp
         >>> right_ctx = "GCTA" * 1000  # 4000 bp
-        >>> 
+        >>>
         >>> config = SpliceTransformerIntronBoundaryConfig(
         ...     left_context=left_ctx,
         ...     right_context=right_ctx,

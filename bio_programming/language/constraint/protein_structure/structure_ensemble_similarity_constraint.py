@@ -22,16 +22,16 @@ from pydantic import field_validator, model_validator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
-from proto_language.bio_tools.tools.structure_dynamics.bioemu import (
+from proto_language.utils import MAX_ENERGY, sigmoid_score
+from proto_tools.entities.structures import Structure
+from proto_tools.tools.structure_dynamics.bioemu import (
     BioEmuConfig,
     BioEmuInput,
     run_bioemu,
 )
-from proto_language.bio_tools.tools.structure_prediction.shared_data_models import (
+from proto_tools.tools.structure_prediction.shared_data_models import (
     StructurePredictionComplex,
 )
-from proto_language.bio_tools.entities.structures import Structure
-from proto_language.utils import MAX_ENERGY, sigmoid_score
 
 logger = getLogger(__name__)
 

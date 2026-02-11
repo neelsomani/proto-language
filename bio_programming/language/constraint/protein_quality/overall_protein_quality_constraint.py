@@ -7,38 +7,54 @@ from typing import List, Optional, Tuple
 import numpy as np
 from pydantic import model_validator
 
-from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.bio_tools.tools.orf_prediction.prodigal import (
-    run_prodigal_prediction,
-    ProdigalInput,
-    ProdigalConfig,
+from proto_language.language.constraint.protein_quality.balanced_aa_constraint import (
+    BalancedAaConfig,
+    balanced_aa_constraint,
 )
-from proto_language.language.constraint.sequence_composition.sequence_length_constraint import sequence_length_constraint, SequenceLengthConfig  
-from proto_language.language.constraint.protein_quality.protein_complexity_constraint import protein_complexity_constraint, ProteinComplexityConfig
-from proto_language.language.constraint.protein_quality.protein_repetitiveness_constraint import protein_repetitiveness_constraint, ProteinRepetitivenessConfig
-from proto_language.language.constraint.protein_quality.protein_diversity_constraint import protein_diversity_constraint, ProteinDiversityConfig
-from proto_language.language.constraint.protein_quality.balanced_aa_constraint import balanced_aa_constraint, BalancedAaConfig
+from proto_language.language.constraint.protein_quality.protein_complexity_constraint import (
+    ProteinComplexityConfig,
+    protein_complexity_constraint,
+)
+from proto_language.language.constraint.protein_quality.protein_diversity_constraint import (
+    ProteinDiversityConfig,
+    protein_diversity_constraint,
+)
+from proto_language.language.constraint.protein_quality.protein_repetitiveness_constraint import (
+    ProteinRepetitivenessConfig,
+    protein_repetitiveness_constraint,
+)
+from proto_language.language.constraint.sequence_composition.sequence_length_constraint import (
+    SequenceLengthConfig,
+    sequence_length_constraint,
+)
+from proto_language.language.core import Sequence
+from proto_tools.tools.orf_prediction.prodigal import (
+    ProdigalConfig,
+    ProdigalInput,
+    run_prodigal_prediction,
+)
+
 
 class ProteinQualitySubConfig(BaseConfig):
     """Configuration for individual protein quality sub-constraints.
-    
+
     This configuration class consolidates all parameters for the various protein
     quality sub-constraints into a single, flat structure.
-    
+
     Each sub-constraint can be independently enabled or disabled using its
     corresponding ``enable_*`` toggle. When enabled, the appropriate parameters
     must be provided. The configuration includes helper methods (``get_*_config``)
     that build the underlying constraint-specific config objects (e.g.,
     ``SequenceLengthConfig``) from the flat parameter structure.
-    
+
     All sub-constraints evaluate sequences on a 0.0-1.0 scale where 0.0 indicates
     perfect satisfaction and higher values indicate increasing violation. The
     ``quality_threshold`` parameter determines the maximum acceptable average
     score across all enabled constraints for a protein to be classified as
     "high quality."
-    
+
     Attributes:
         quality_threshold (float): Maximum acceptable average constraint score for
             high-quality classification. Sequences with average scores ≤ this value
@@ -47,96 +63,96 @@ class ProteinQualitySubConfig(BaseConfig):
             thresholds enforce stricter quality requirements. Example: 0.2 means
             proteins must satisfy constraints with an average score ≤ 0.2 to be
             considered high quality.
-        
+
         **Length Constraint Parameters:**
-        
+
         enable_length (bool): Toggle to include sequence length constraint. When
             True, you must specify either a length range (``length_min_length`` +
             ``length_max_length``) or a target length (``length_target_length``).
             Default: False.
-        
+
         length_min_length (Optional[int]): Minimum acceptable protein length in
             amino acids. Must be used with ``length_max_length`` for range-based
             validation. Cannot be combined with ``length_target_length``. Must be
             greater than 0.
             Default: None. Advanced parameter.
-        
+
         length_max_length (Optional[int]): Maximum acceptable protein length in
             amino acids. Must be used with ``length_min_length`` for range-based
             validation. Cannot be combined with ``length_target_length``. Must be
-            greater than 0 and should be ≥ ``length_min_length``. Default: None. 
+            greater than 0 and should be ≥ ``length_min_length``. Default: None.
             Advanced parameter.
-        
+
         length_target_length (Optional[int]): Exact target protein length in amino
             acids. Alternative to range mode; cannot be combined with
             ``length_min_length`` or ``length_max_length``. Sequences are penalized
             based on their distance from this target. Must be greater than 0.
             Default: None. Advanced parameter.
-        
+
         **Complexity Constraint Parameters:**
-        
+
         enable_complexity (bool): Toggle to include segmasker-based low-complexity
             detection. When True, uses segmasker to identify low-complexity regions
             (e.g., homopolymeric runs, simple repeats) and penalizes sequences
             exceeding the complexity threshold. Requires segmasker to be installed
             and accessible. Default: False.
-        
+
         complexity_max_low_complexity (float): Maximum acceptable fraction of
             residues identified as low-complexity by segmasker. Valid range: 0.0-1.0.
-            Lower values enforce stricter complexity requirements. Default: 0.2. 
+            Lower values enforce stricter complexity requirements. Default: 0.2.
             Advanced parameter.
-        
+
         complexity_segmasker_path (str): Path to the segmasker executable for
             low-complexity analysis. Can be an absolute path or a command name
             if segmasker is in PATH. Default: "segmasker" (assumes it's in PATH).
             Hidden parameter.
-        
+
         **Repetitiveness Constraint Parameters:**
-        
+
         enable_repetitiveness (bool): Toggle to include k-mer repetitiveness
             constraint. When True, analyzes the sequence for repeated k-mer
             patterns and penalizes sequences with excessive repetition. Checks
             k-mers of sizes from ``repetitiveness_min_repeat_length`` up to
             ``repetitiveness_min_repeat_length + 7``. Default: False.
-        
+
         repetitiveness_max_repetitiveness (float): Maximum allowed fraction of
             sequence covered by repeated k-mers. Valid range: 0.0-1.0. Lower values
             enforce stricter anti-repetition requirements. Default: 0.1. Advanced parameter.
-        
+
         repetitiveness_min_repeat_length (int): Smallest k-mer size to consider
             as a potential repeat. The analysis examines k-mers from this size
             up to this size + 7. Must be ≥ 1. Lower values detect shorter repeats
             but are more computationally intensive. Default: 1. Advanced parameter.
-        
+
         **Diversity Constraint Parameters:**
-        
+
         enable_diversity (bool): Toggle to include amino acid diversity constraint.
             When True, requires the sequence to contain a minimum fraction of the
             20 standard amino acid types. Penalizes sequences with low amino acid
             alphabet usage. Default: False.
-        
+
         diversity_min_diversity (float): Minimum acceptable fraction of unique
             amino acid types, calculated as (unique amino acids / 20). Valid range:
             0.0-1.0. Higher values enforce greater amino acid diversity. Default: 0.7.
             Advanced parameter.
-        
+
         **Balanced Amino Acids Constraint Parameters:**
-        
+
         enable_balanced_aas (bool): Toggle to include balanced amino acid
             representation constraint. When True, requires each amino acid type
             to appear above a minimum frequency threshold, with allowance for a
             limited number of underrepresented amino acids. Complements the
             diversity constraint by checking frequency in addition to presence.
             Default: False.
-        
+
         balanced_min_aa_frequency (float): Minimum acceptable relative frequency
             for any amino acid type in the sequence. Valid range: 0.0-1.0.
             Amino acids below this threshold are considered "underrepresented."
             Default: 0.02. Advanced parameter.
-        
+
         balanced_max_underrepresented_count (int): Maximum acceptable number of
             amino acid types that can fall below ``balanced_min_aa_frequency``
-            before the sequence is penalized. Valid range: 0-20. Default: 3. 
+            before the sequence is penalized. Valid range: 0-20. Default: 3.
             Advanced parameter.
     """
 
@@ -304,37 +320,37 @@ class ProteinQualitySubConfig(BaseConfig):
 
 class OverallProteinQualityConfig(BaseConfig):
     """Configuration for the overall protein quality constraint.
-    
+
     This configuration class orchestrates multiple protein quality sub-constraints
     that can be enabled or disabled individually. It provides a flexible framework
     for comprehensive protein quality assessment by combining various metrics
     including sequence length, structural complexity, repetitiveness, amino acid
     diversity, and balanced amino acid representation.
-    
+
     The configuration uses a nested structure where all sub-constraint parameters
     are exposed through a single ``protein_quality_config`` attribute of type
     ``ProteinQualitySubConfig``. This design allows for easy serialization in
     UI/API schemas while maintaining clear organization of constraint-specific
     parameters.
-    
+
     At least one sub-constraint must be enabled for the configuration to be valid.
     This is enforced through a model validator that runs after initialization.
-    
+
     Attributes:
         protein_quality_config (ProteinQualitySubConfig): Nested configuration
             object containing all parameters for individual protein quality checks.
             See ``ProteinQualitySubConfig`` for detailed parameter descriptions.
             This includes the quality threshold, toggles for each sub-constraint,
             and constraint-specific parameters.
-    
+
     Raises:
         ValueError: If no sub-constraints are enabled (i.e., all ``enable_*``
             flags in ``protein_quality_config`` are False). At least one
             sub-constraint must be specified for meaningful quality assessment.
-    
+
     Note:
         The nested ``protein_quality_config`` provides access to:
-        
+
         - **Quality threshold**: Maximum acceptable average constraint score
         - **Length constraint**: Validates protein length against min/max range
           or target value
@@ -343,7 +359,7 @@ class OverallProteinQualityConfig(BaseConfig):
         - **Diversity constraint**: Ensures adequate amino acid type diversity
         - **Balanced amino acids constraint**: Checks for underrepresented amino
           acid types
-        
+
         Each sub-constraint can be independently enabled/disabled and configured
         with specific parameters. See ``ProteinQualitySubConfig`` documentation
         for complete parameter details.
@@ -391,35 +407,35 @@ class OverallProteinQualityConfig(BaseConfig):
 )
 def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...]], config: OverallProteinQualityConfig) -> List[float]:
     """Evaluate overall protein quality using multiple configurable sub-constraints.
-    
+
     This constraint function provides a comprehensive assessment of protein quality
     by evaluating multiple aspects including sequence length, structural complexity,
     repetitiveness, amino acid diversity, and balanced amino acid representation.
     For DNA sequences, it first predicts protein-coding regions using Prodigal,
     then evaluates all predicted proteins. For protein sequences, it evaluates
     them directly.
-    
+
     The function aggregates scores from enabled sub-constraints by averaging them,
     then applies a quality threshold to determine if sequences are "high quality."
     Sequences meeting the threshold (average score ≤ threshold) receive a score
     of 0.0, while those exceeding it receive their average constraint score,
     capped at 1.0.
-    
+
     Args:
         input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
             Each tuple contains one DNA or protein sequence.
             For DNA sequences, ORF prediction is performed automatically using
             Prodigal before quality assessment.
-            
+
         config (OverallProteinQualityConfig): Configuration object containing a
             ``protein_quality_config`` attribute of type ``ProteinQualitySubConfig``,
             which exposes the following parameters:
-            
+
             - ``quality_threshold`` (float): Maximum acceptable average constraint
               score for high-quality classification (0.0-1.0, default: varies).
               Sequences with average scores ≤ this threshold receive 0.0; those
               exceeding it receive their actual average score.
-            
+
             **Length constraint (optional):**
             - ``enable_length`` (bool): Toggle for sequence length constraint.
             - ``length_min_length`` (int): Minimum acceptable protein length in
@@ -428,7 +444,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
               amino acids (used with ``length_min_length``).
             - ``length_target_length`` (int): Exact target protein length in amino
               acids (alternative to range mode).
-            
+
             **Complexity constraint (optional):**
             - ``enable_complexity`` (bool): Toggle for segmasker-based low-complexity
               detection.
@@ -436,7 +452,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
               of low-complexity residues (0.0-1.0, default: 0.2).
             - ``complexity_segmasker_path`` (str): Path to segmasker executable
               (default: "segmasker").
-            
+
             **Repetitiveness constraint (optional):**
             - ``enable_repetitiveness`` (bool): Toggle for k-mer repetitiveness
               constraint.
@@ -444,13 +460,13 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
               of sequence covered by repeated k-mers (0.0-1.0, default: 0.1).
             - ``repetitiveness_min_repeat_length`` (int): Smallest k-mer size to
               treat as a repeat, analyzes up to +7 beyond this (default: 1).
-            
+
             **Diversity constraint (optional):**
             - ``enable_diversity`` (bool): Toggle for amino acid diversity constraint.
             - ``diversity_min_diversity`` (float): Minimum acceptable fraction of
               unique amino acid types, calculated as unique_AAs / 20 (0.0-1.0,
               default: 0.7).
-            
+
             **Balanced amino acids constraint (optional):**
             - ``enable_balanced_aas`` (bool): Toggle for balanced amino acid
               representation constraint.
@@ -459,18 +475,18 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
             - ``balanced_max_underrepresented_count`` (int): Maximum acceptable
               number of amino acid types falling below frequency threshold
               (0-20, default: 3).
-            
+
             At least one sub-constraint must be enabled, or a ``ValueError`` is raised
             during configuration validation.
 
     Returns:
         List[float]: Constraint scores for each sequence, ranging from 0.0 (best,
             high quality) to 1.0 (worst, poor quality). Scores are calculated as:
-            
+
             - 0.0: Sequence meets quality threshold (average score ≤ threshold)
             - 0.0 < score ≤ 1.0: Sequence exceeds quality threshold, score equals
               the average of all enabled sub-constraint scores, capped at 1.0
-            
+
             For DNA sequences, the score reflects the average quality of all
             predicted proteins. For protein sequences, the score reflects the
             direct quality assessment.
@@ -485,7 +501,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
         This function modifies the input sequences by adding metadata to
         each ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by
         sequence type:
-        
+
         **For DNA sequences:**
         - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal,
           containing columns for protein ID, sequence, length, etc.
@@ -497,16 +513,16 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
         - ``is_high_quality``: Boolean indicating if average score ≤ threshold
         - ``protein_quality_details``: List of dictionaries, one per predicted
           protein, each containing:
-          
+
           - ``protein_id``: String identifier from Prodigal
           - ``length``: Integer protein length in amino acids
           - ``is_high_quality``: Boolean for this specific protein
           - ``avg_constraint_score``: Float average across enabled constraints
           - ``quality_scores``: Dictionary mapping constraint names to scores
           - ``metadata``: Dictionary of additional constraint-specific metadata
-        
+
         - ``protein_quality_threshold``: Float threshold value used
-        
+
         **For protein sequences:**
         - ``protein_quality_scores``: Dictionary mapping constraint names (e.g.,
           "length", "complexity", "repetitiveness", "diversity", "balanced_aas")
@@ -514,14 +530,14 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
         - ``avg_constraint_score``: Float average across all enabled constraints
         - ``is_high_quality``: Boolean indicating if average score ≤ threshold
         - ``protein_quality_threshold``: Float threshold value used
-        
+
         Each enabled sub-constraint may also add its own specific metadata fields
         to individual proteins, such as amino acid counts, low-complexity regions,
         repeat patterns, etc.
 
-    Examples:        
+    Examples:
         Using all available constraints with custom thresholds:
-        
+
         >>> quality_config = ProteinQualitySubConfig(
         ...     quality_threshold=0.15,
         ...     enable_length=True,
@@ -629,7 +645,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
             protein_quality_details = []
             for prot_idx, (orf, protein_seq) in enumerate(zip(proteins_list, predicted_protein_seqs)):
                 individual_scores = {
-                    name: scores[prot_idx] 
+                    name: scores[prot_idx]
                     for name, scores in quality_scores.items()
                 }
 
@@ -663,7 +679,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
     if protein_sequences:
         # Convert to input_sequences format for sub-constraints
         protein_input_seqs = [(seq,) for seq in protein_sequences]
-        
+
         quality_scores = {}
 
         if length_config:
@@ -710,7 +726,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
         # Store metadata
         for seq_idx, input_sequence in enumerate(protein_sequences):
             individual_scores = {
-                name: scores[seq_idx] 
+                name: scores[seq_idx]
                 for name, scores in quality_scores.items()
             }
 

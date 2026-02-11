@@ -9,9 +9,9 @@ from proto_language.language.constraint.protein_structure.protein_globularity_co
     ProteinGlobularityConfig,
 )
 from proto_language.language.core import Constraint, Segment
-from proto_language.bio_tools.tools.orf_prediction.prodigal import ProdigalOutput
-from proto_language.bio_tools.tools.structure_prediction import StructurePredictionOutput
-from proto_language.bio_tools.entities.structures import BFactorType
+from proto_tools.entities.structures import BFactorType
+from proto_tools.tools.orf_prediction.prodigal import ProdigalOutput
+from proto_tools.tools.structure_prediction import StructurePredictionOutput
 from tests.helpers.mock_structure import MockStructure
 
 mock_pdb = """ATOM      1  N   MET A   1       0.000   0.000   0.000  1.00 90.00           N
@@ -91,7 +91,7 @@ class TestProteinGlobularityConstraint:
         config = ProteinGlobularityConfig()
 
         # Mock the Prodigal output with ORF objects
-        from proto_language.bio_tools.tools.orf_prediction import ORF
+        from proto_tools.tools.orf_prediction import ORF
 
         mock_orf = ORF(
             parent_id="seq_0",

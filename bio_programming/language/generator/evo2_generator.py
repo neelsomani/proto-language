@@ -11,12 +11,14 @@ from pydantic import field_validator, model_validator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, Segment
 from proto_language.language.generator.generator_registry import generator
-from proto_language.bio_tools.tools.causal_models.evo2 import (
+from proto_tools.tools.causal_models.evo2 import (
     Evo2SampleConfig,
     Evo2SampleInput,
     run_evo2_sample,
 )
-from proto_language.bio_tools.tools.causal_models.evo2.standalone.inference import EVO2_MODEL_CHECKPOINTS
+from proto_tools.tools.causal_models.evo2.standalone.inference import (
+    EVO2_MODEL_CHECKPOINTS,
+)
 
 
 class Evo2GeneratorConfig(BaseConfig):
@@ -370,7 +372,11 @@ class Evo2Generator(Generator):
 
     def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
         """Replicate cache N times for beam branching."""
-        from vortex.model.cache import HyenaCascadeFIRInferenceParams, HyenaCascadeIIRInferenceParams, InferenceParams
+        from vortex.model.cache import (
+            HyenaCascadeFIRInferenceParams,
+            HyenaCascadeIIRInferenceParams,
+            InferenceParams,
+        )
 
         if not cache:
             return cache

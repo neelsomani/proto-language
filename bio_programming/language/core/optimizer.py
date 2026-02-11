@@ -13,7 +13,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Literal, Optional
 
-from proto_language.bio_tools.tools.infra.tool_cache import ToolCache, _program_tool_cache
+from proto_tools.tools.infra.tool_cache import ToolCache, _program_tool_cache
 
 logger = logging.getLogger(__name__)
 
@@ -355,7 +355,7 @@ class Optimizer(ABC):
         optimizer_name = self.__class__.__name__
         if source_len > self.num_selected:
             logger.info(
-                f"Handoff to {optimizer_name}: Truncating {source_len} sequences from result of previous optimizer to {self.num_selected} " 
+                f"Handoff to {optimizer_name}: Truncating {source_len} sequences from result of previous optimizer to {self.num_selected} "
                 f"sequences as starting sequences for current optimizer (keeping best {self.num_selected} by energy score)"
             )
         elif source_len < self.num_selected:

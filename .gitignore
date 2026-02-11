@@ -1,44 +1,50 @@
+# OS
 .DS_Store
+
+# IDE
 .vscode
+
+# Environment / secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Python
 .venv
 venv
-__pycache__/
-**/__pycache__/
-.ipynb_checkpoints/
-data/
 *.venvs
-*.hmm
-docs/_generated_navigation.json
-*mini_mmseqs_db
+__pycache__/
+.ipynb_checkpoints/
+proto_language.egg-info/
+build/
 
-# Database files
+# Databases
 *.db
-
-# ColabFold databases (large downloads, should not be committed)
 proto_language/bio_tools/tools/sequence_alignment/colabfold_search/databases/
 
-# Log files and directory
+# Bio tools
+*.hmm
+*mini_mmseqs_db
+
+# Logs
 *.log
 logs/
 tests/logs/
 
-# Documentation override file
-CLAUDE.md
-
-# pytest
+# Tests
 .pytest_cache/
-proto_language.egg-info/
-build/
 .coverage
 
-# AI tools
+# Documentation
+CLAUDE.md
+
+# AI / editor
 .cursor/
 .cursorignore
 .claude/
 
+# Project
+data/
 file_store/

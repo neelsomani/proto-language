@@ -9,19 +9,19 @@ constraint functions for different aspects of structural comparison.
 
 from __future__ import annotations
 
-from typing import List, Set, Tuple
 from logging import getLogger
+from typing import List, Set, Tuple
+
 import numpy as np
 
-from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.bio_tools.tools.structure_prediction import (
-    run_viennarna,
-    ViennaRNAInput,
+from proto_language.language.core import Sequence
+from proto_tools.tools.structure_prediction import (
     ViennaRNAConfig,
+    ViennaRNAInput,
+    run_viennarna,
 )
-
 
 logger = getLogger(__name__)
 

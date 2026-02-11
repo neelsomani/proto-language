@@ -9,9 +9,14 @@ from typing import Literal, Optional, final
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
-from proto_language.bio_tools.tools.masked_models.esm3 import ESM3SampleConfig, run_esm3_sample
-from proto_language.bio_tools.tools.masked_models.esm3 import ESM3SampleInput
-from proto_language.bio_tools.tools.masked_models.esm3.standalone.inference import ESM3_MODEL_CHECKPOINTS
+from proto_tools.tools.masked_models.esm3 import (
+    ESM3SampleConfig,
+    ESM3SampleInput,
+    run_esm3_sample,
+)
+from proto_tools.tools.masked_models.esm3.standalone.inference import (
+    ESM3_MODEL_CHECKPOINTS,
+)
 
 
 class ESM3GeneratorConfig(BaseConfig):
@@ -165,7 +170,7 @@ class ESM3Generator(Generator):
         self._validate_generator()
         # Cap num_mutations to sequence length
         actual_mutations = min(self.num_mutations, self._assigned_segment.sequence_length)
-        
+
         # Create input and config objects
         sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
         esm3_input = ESM3SampleInput(sequences=sequences)

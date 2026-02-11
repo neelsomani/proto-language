@@ -10,29 +10,42 @@ from typing import List, Literal, Tuple
 import numpy as np
 from pydantic import model_validator
 
-from proto_language.language.core import Sequence, DNA_NUCLEOTIDES
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.bio_tools.tools.orf_prediction.orfipy import OrfipyConfig, OrfipyInput, run_orfipy_prediction
-from proto_language.bio_tools.tools.orf_prediction.prodigal import ProdigalConfig, ProdigalInput, run_prodigal_prediction
-from proto_language.bio_tools.tools.gene_annotation.mmseqs import (
+from proto_language.language.core import DNA_NUCLEOTIDES, Sequence
+from proto_language.utils import (
+    MAX_ENERGY,
+    MIN_ENERGY,
+    calculate_percentage_range_deviation,
+    resolve_paths,
+)
+from proto_tools.tools.gene_annotation.mmseqs import (
     MmseqsSearchProteinsConfig,
     MmseqsSearchProteinsInput,
     run_mmseqs_search_proteins,
 )
-from proto_language.utils import MIN_ENERGY, MAX_ENERGY, calculate_percentage_range_deviation, resolve_paths
+from proto_tools.tools.orf_prediction.orfipy import (
+    OrfipyConfig,
+    OrfipyInput,
+    run_orfipy_prediction,
+)
+from proto_tools.tools.orf_prediction.prodigal import (
+    ProdigalConfig,
+    ProdigalInput,
+    run_prodigal_prediction,
+)
 
 
 class MMseqsSimilarityConfig(BaseConfig):
     """Configuration for MMseqs gene similarity constraint.
-    
+
     This class defines configuration parameters for evaluating sequence similarity
     (percent identity) to known proteins using MMseqs2, an ultra-fast sequence
     search tool. For DNA sequences, the constraint first predicts open reading
     frames (ORFs) using either Prodigal or ORFipy, then searches the translated
     proteins against a reference database. For protein sequences, the search is
     performed directly.
-    
+
     Attributes:
         min_similarity (float): Minimum acceptable percent identity (0-100). Hits
             below this threshold are penalized. Lower values are more permissive.
@@ -70,14 +83,16 @@ class MMseqsSimilarityConfig(BaseConfig):
         prodigal_config (ProdigalConfig): Prodigal configuration (DNA only, used
             when ``orf_predictor="prodigal"``). Controls gene finding mode and
             translation table. Default: ProdigalConfig().
-    
+
     Note:
+        For examples with tool configuration, see:
+        >>> from proto_tools.tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig
         The similarity range [min_similarity, max_similarity] defines acceptable percent
         identity. Sequences with hits outside this range are penalized. For example:
         - [40, 70]: Moderate similarity, useful for inferring functional similarity while
           avoiding identical sequences
         - [0, 40]: Low similarity filter, for novelty/uniqueness constraints
-        - [80, 100]: High similarity filter, for functional conservation requirements 
+        - [80, 100]: High similarity filter, for functional conservation requirements
     """
     # Required parameters
     min_similarity: float = ConfigField(
@@ -145,12 +160,12 @@ class MMseqsSimilarityConfig(BaseConfig):
 )
 def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: MMseqsSimilarityConfig) -> List[float]:
     """Evaluate sequence similarity using MMseqs2 protein database search.
-    
+
     This constraint function evaluates whether protein sequences (or proteins
     predicted from DNA sequences) have percent identity to known proteins within
     an acceptable range. It uses MMseqs2, an ultra-fast sequence search tool,
     to search against a reference protein database and calculates similarity scores.
-    
+
     For DNA sequences, the function first predicts open reading frames (ORFs)
     using either Prodigal (for prokaryotes) or ORFipy (viral), then
     searches the translated proteins. For protein sequences, the search is
@@ -162,7 +177,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
             All sequences in the list must be the same type (all DNA or all PROTEIN).
             For DNA sequences, ORF prediction is performed automatically based on
             the configured predictor.
-            
+
         config (MMseqsSimilarityConfig): Configuration object containing ``min_similarity``
             (minimum percent identity, default: 0.0), ``max_similarity`` (maximum
             percent identity, default: 100.0), ``mmseqs_db`` (database path),
@@ -179,12 +194,12 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
 
     Raises:
         ValueError: If sequences are of mixed types (some DNA, some protein).
-    
+
     Note:
         This function modifies the input sequences by adding metadata to each
         ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by
         sequence type and ORF predictor:
-        
+
         **For DNA sequences (with Prodigal):**
         - ``prodigal_orfs``: List of dictionaries containing predicted ORF information
           (id, start, end, strand, protein_sequence, etc.)
@@ -196,11 +211,11 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         - ``total_orfs_with_hits``: Integer total number of ORF-hit pairs
         - ``similarity_compliance_rate``: Float fraction of hits within acceptable
           range (0.0-1.0)
-        
+
         **For DNA sequences (with ORFipy):**
         - ``orfipy_orfs``: List of dictionaries with ORFipy ORF predictions
         - Other fields same as Prodigal above
-        
+
         **For protein sequences:**
         - ``direct_protein``: Dictionary with protein information (id, sequence, length)
         - ``mmseqs_results``: List of MMseqs2 hit dictionaries
@@ -208,14 +223,14 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         - ``orfs_with_acceptable_similarity``: Count of acceptable hits
         - ``total_orfs_with_hits``: Total hit count
         - ``similarity_compliance_rate``: Fraction of hits in range
-        
+
         **Error metadata (when MMseqs2 fails):**
         - ``mmseqs_error``: Boolean True
         - ``mmseqs_error_messages``: List of error message strings
-    
+
     Examples:
         Filtering for sequences with low similarity to existing proteins:
-        
+
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> protein_seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
         >>> config = MMseqsSimilarityConfig(
@@ -227,9 +242,9 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         >>> if scores[0] == 0.0:
         ...     print("Novel protein (no high-similarity hits)")
         >>> print(protein_seq._metadata["similarity_compliance_rate"])
-        
+
         Custom MMseqs2 configuration for sensitive search:
-        
+
         >>> from proto_language.bio_tools.tools.gene_annotation.mmseqs import MmseqsSearchProteinsConfig
         >>> mmseqs_cfg = MmseqsSearchProteinsConfig(
         ...     threads=32,         # Use 32 CPU cores
@@ -333,7 +348,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
     # Aggregate hits by input sequence
     # seq_hits[seq_idx] = list of all hits for that input sequence
     seq_hits: dict = {i: [] for i in range(len(sequences))}
-    
+
     for prot_idx, result in enumerate(mmseqs_result.results):
         seq_idx = protein_to_seq_idx[prot_idx]
         for hit in result.hits:

@@ -16,9 +16,7 @@ Related repos:
 
 ## Installation
 
-To install create the `proto-language` conda environment and install the dependencies, run the following command:
-
-
+Run the install script (it initializes git submodules and creates the conda environment):
 
 
 ```bash
@@ -32,7 +30,7 @@ conda activate proto-language
 conda create --name proto-language --clone /home/brianhie/miniconda/envs/gpro/
 pip uninstall -y numcodecs zarr
 pip install --no-cache-dir --force-reinstall numcodecs zarr
-pip install -e /home/{USERNAME}}/proto-language
+pip install -e /home/{USERNAME}/proto-language
 ```
 
 

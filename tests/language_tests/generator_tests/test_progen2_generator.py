@@ -1,12 +1,13 @@
 import copy
+
 import pytest
 
 from proto_language.language.core import Segment
-from proto_language.language.generator import (
-    ProGen2Generator,
-    ProGen2GeneratorConfig,
+from proto_language.language.generator import ProGen2Generator, ProGen2GeneratorConfig
+from proto_tools.tools.causal_models.progen2.standalone.inference import (
+    PROGEN2_START_TOKEN,
 )
-from proto_language.bio_tools.tools.causal_models.progen2.standalone.inference import PROGEN2_START_TOKEN
+
 
 @pytest.mark.uses_gpu
 class TestProGen2Generator:
@@ -73,7 +74,7 @@ class TestProGen2Generator:
         segment_two_candidates = Segment(length=expected_length, sequence_type="protein")
         segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
         progen2_generator.assign(segment_two_candidates)
-        
+
         # 3 prompts but 2 candidates - should raise ValueError
         with pytest.raises(ValueError, match="must either be 1"):
             progen2_generator.sample()
@@ -115,7 +116,7 @@ class TestProGen2GeneratorValidation:
         config = ProGen2GeneratorConfig(prompts="1MKTL")
         generator = ProGen2Generator(config)
         segment = Segment(length=100, sequence_type="protein")
-        
+
         # Should not raise
         generator.assign(segment)
         assert generator._assigned_segment is segment
@@ -125,10 +126,10 @@ class TestProGen2GeneratorValidation:
         config = ProGen2GeneratorConfig(prompts="1MKTL")
         generator = ProGen2Generator(config)
         segment = Segment(length=100, sequence_type="dna")
-        
+
         with pytest.raises(ValueError) as exc_info:
             generator.assign(segment)
-        
+
         error_msg = str(exc_info.value)
         assert "does not support sequence type" in error_msg
         assert "dna" in error_msg.lower()
@@ -139,9 +140,9 @@ class TestProGen2GeneratorValidation:
         config = ProGen2GeneratorConfig(prompts="1MKTL")
         generator = ProGen2Generator(config)
         segment = Segment(length=100, sequence_type="rna")
-        
+
         with pytest.raises(ValueError) as exc_info:
             generator.assign(segment)
-        
+
         assert "does not support sequence type" in str(exc_info.value)
         assert "rna" in str(exc_info.value).lower()

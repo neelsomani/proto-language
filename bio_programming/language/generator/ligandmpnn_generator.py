@@ -15,15 +15,13 @@ from pydantic import field_validator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
-from proto_language.bio_tools.tools.inverse_folding.ligandmpnn import (
-    run_ligandmpnn_sample,
-)
-from proto_language.bio_tools.tools.inverse_folding.shared_data_models import (
+from proto_tools.entities.structures import Structure
+from proto_tools.tools.inverse_folding.ligandmpnn import run_ligandmpnn_sample
+from proto_tools.tools.inverse_folding.shared_data_models import (
     InverseFoldingConfig,
     InverseFoldingInput,
     InverseFoldingStructureInput,
 )
-from proto_language.bio_tools.entities.structures import Structure
 
 
 class LigandMPNNGeneratorConfig(BaseConfig):
@@ -109,7 +107,7 @@ class LigandMPNNGeneratorConfig(BaseConfig):
 
         With per-structure chain selection and fixed positions (e.g., preserve catalytic residues):
 
-        >>> from proto_language.bio_tools.tools.inverse_folding.shared_data_models import InverseFoldingStructureInput
+        >>> from proto_tools.tools.inverse_folding.shared_data_models import InverseFoldingStructureInput
         >>> config = LigandMPNNGeneratorConfig(
         ...     structure_inputs=InverseFoldingStructureInput(
         ...         structure="/path/to/enzyme.pdb",

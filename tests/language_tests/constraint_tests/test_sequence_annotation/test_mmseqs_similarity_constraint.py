@@ -4,17 +4,23 @@ Comprehensive tests for mmseqs_similarity_constraint.
 Tests the MMseqs2 similarity constraint for protein sequences.
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
+
+from proto_language.language.constraint import (
+    ConstraintRegistry,
+    mmseqs_similarity_constraint,
+)
+from proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint import (
+    MMseqsSimilarityConfig,
+)
 from proto_language.language.core import Constraint, Segment
-from proto_language.language.constraint import mmseqs_similarity_constraint, ConstraintRegistry
-from proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint import MMseqsSimilarityConfig
-from proto_language.bio_tools.tools.gene_annotation.mmseqs import (
+from proto_tools.tools.gene_annotation.mmseqs import (
+    MmseqsHit,
     MmseqsSearchProteinsConfig,
     MmseqsSearchProteinsOutput,
     MmseqsSequenceSearchResult,
-    MmseqsHit,
 )
 
 
@@ -237,7 +243,7 @@ class TestMMseqsSimilarityConstraint:
                     for i, seq in enumerate(inputs.query_sequences)
                 ]
                 return MmseqsSearchProteinsOutput(metadata={}, results=results, success=True)
-            
+
             mock_mmseqs.side_effect = mock_side_effect
 
             constraint = Constraint(

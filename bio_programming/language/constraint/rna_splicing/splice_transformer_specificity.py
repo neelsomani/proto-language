@@ -2,32 +2,33 @@
 Evaluate tissue-specific splicing with SpliceTransformer.
 """
 from __future__ import annotations
+
 from typing import List, Literal, Tuple
 
 from pydantic import field_validator
 
-from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.bio_tools.tools.rna_splicing.splice_transformer import (
+from proto_language.language.core import Sequence
+from proto_tools.tools.rna_splicing.splice_transformer import (
+    TISSUE_INDEX_OFFSET,
     SpliceTransformerConfig,
     SpliceTransformerInput,
     SpliceTransformerTissue,
-    TISSUE_INDEX_OFFSET,
     run_splice_transformer,
 )
 
 
 class SpliceTransformerSpecificityConfig(BaseConfig):
     """Configuration for SpliceTransformer tissue-specific splicing constraint.
-    
+
     This class defines configuration parameters for evaluating tissue-specific
     splicing patterns using SpliceTransformer, a deep learning model trained to
     predict splice site usage across different human tissues. The constraint can
     be used to either maximize splicing in a specific tissue (tissue-specific
     activation) or minimize it (tissue-specific repression), enabling design of
     sequences with controlled tissue-specific alternative splicing.
-    
+
     Attributes:
         left_context (str): DNA sequence providing left (5') context for
             SpliceTransformer prediction. Must be exactly 4000 bp (CONTEXT_LENGTH).
@@ -123,19 +124,19 @@ def splice_transformer_specificity(
     config: SpliceTransformerSpecificityConfig,
 ) -> List[float]:
     """Evaluate tissue-specific splicing with SpliceTransformer.
-    
+
     This constraint function uses SpliceTransformer to predict tissue-specific
     splice site usage at specified positions in DNA sequences. The model was
     trained on GTEx (Genotype-Tissue Expression) RNA-seq data from multiple human
     tissues and can predict how strongly a splice site will be used in different tissue
     contexts.
-    
+
     The constraint enables design of sequences with controlled tissue-specific
     alternative splicing, such as brain-specific exon inclusion or liver-specific
     exon skipping. By setting the direction parameter, you can either maximize
     splicing in a target tissue (for tissue-specific activation) or minimize it
     (for tissue-specific repression).
-    
+
     The function requires precisely sized inputs: the target sequence must be
     exactly 1000 bp, and both flanking contexts must be exactly 4000 bp each,
     for a total analyzed region of 9000 bp.
@@ -145,7 +146,7 @@ def splice_transformer_specificity(
             Each tuple contains one DNA sequence. Must be exactly 1000 bp in length.
             This is the central region containing the positions to be evaluated for
             tissue-specific splicing.
-            
+
         config (SpliceTransformerSpecificityConfig): Configuration object containing
             ``left_context`` (4000 bp), ``right_context`` (4000 bp), ``splice_pos``
             (position(s) to evaluate), ``tissue`` (target tissue, default: "AVERAGE"),
@@ -155,7 +156,7 @@ def splice_transformer_specificity(
     Returns:
         List[float]: Constraint scores ranging from 0.0 to 1.0 for each sequence.
             The interpretation depends on the ``direction`` parameter:
-            
+
             - **direction="max"** (maximize splicing): Score = 1.0 - tissue_probability.
               Lower scores indicate stronger predicted splicing (0.0 = 100% probability,
               1.0 = 0% probability). Use this to encourage tissue-specific splice
@@ -164,7 +165,7 @@ def splice_transformer_specificity(
               Lower scores indicate weaker predicted splicing (0.0 = 0% probability,
               1.0 = 100% probability). Use this to discourage tissue-specific splice
               site usage.
-            
+
             When multiple positions are specified, the score uses the mean probability
             across all positions.
 
@@ -172,29 +173,29 @@ def splice_transformer_specificity(
         AssertionError: If left_context and right_context lengths don't match, or
             if the output shape doesn't match the input sequence length.
         ValueError: If direction is not "max" or "min".
-    
+
     Note:
         This function modifies the input sequence by adding metadata to the
         ``Sequence`` object's ``_metadata`` dictionary with the following keys:
-        
+
         - ``specificity_direction_{tissue}``: String indicating the optimization
           direction used ("max" or "min")
         - ``specificity_score_{tissue}``: Float constraint score for the specified
           tissue
-        
+
         The metadata keys include the tissue name, so evaluating multiple tissues
         on the same sequence will create separate metadata entries for each.
-    
+
     Examples:
         Maximizing brain-specific splicing at a splice site:
-        
+
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> # 1000 bp target sequence
         >>> target_seq = Sequence("ATCG" * 250, "dna")
         >>> # 4000 bp flanking contexts
         >>> left_ctx = "ATCG" * 1000
         >>> right_ctx = "GCTA" * 1000
-        >>> 
+        >>>
         >>> config = SpliceTransformerSpecificityConfig(
         ...     left_context=left_ctx,
         ...     right_context=right_ctx,

@@ -14,27 +14,27 @@ from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
 from proto_language.storage import FileType, store_file
-from proto_language.bio_tools.tools.orf_prediction.prodigal import (
-    ProdigalConfig,
-    ProdigalInput,
-    run_prodigal_prediction,
-)
-from proto_language.bio_tools.tools.structure_prediction.esmfold import (
-    ESMFoldConfig,
-    ESMFoldInput,
-    run_esmfold,
-)
-from proto_language.bio_tools.tools.structure_prediction.shared_data_models import (
-    StructurePredictionComplex,
-)
-from proto_language.bio_tools.entities.structures.utils import (
+from proto_language.utils import MAX_ENERGY
+from proto_tools.entities.structures.utils import (
     adjacent_distances,
     get_backbone_atoms,
     get_centroid,
     pairwise_distances,
     pdb_file_to_atomarray,
 )
-from proto_language.utils import MAX_ENERGY
+from proto_tools.tools.orf_prediction.prodigal import (
+    ProdigalConfig,
+    ProdigalInput,
+    run_prodigal_prediction,
+)
+from proto_tools.tools.structure_prediction.esmfold import (
+    ESMFoldConfig,
+    ESMFoldInput,
+    run_esmfold,
+)
+from proto_tools.tools.structure_prediction.shared_data_models import (
+    StructurePredictionComplex,
+)
 
 
 class ProteinSymmetryRingConfig(BaseConfig):

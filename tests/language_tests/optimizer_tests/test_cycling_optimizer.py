@@ -17,8 +17,10 @@ from proto_language.language.generator import (
     ProteinMPNNGeneratorConfig,
 )
 from proto_language.language.optimizer import CyclingOptimizer, CyclingOptimizerConfig
-from proto_language.bio_tools.tools.inverse_folding.shared_data_models import InverseFoldingStructureInput
-from proto_language.bio_tools.entities.structures import Structure
+from proto_tools.entities.structures import Structure
+from proto_tools.tools.inverse_folding.shared_data_models import (
+    InverseFoldingStructureInput,
+)
 
 # =============================================================================
 # Helpers
@@ -431,8 +433,8 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_full_cycle_with_proteinmpnn(self, pdb_structure):
         """Test complete optimization cycle with LigandMPNN."""
-        from proto_language.bio_tools.tools.structure_prediction import predict_structures
-        from proto_language.bio_tools.tools.structure_prediction.shared_data_models import (
+        from proto_tools.tools.structure_prediction import predict_structures
+        from proto_tools.tools.structure_prediction.shared_data_models import (
             StructurePredictionComplex,
         )
 
@@ -485,8 +487,8 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_with_filter_constraint(self, pdb_structure):
         """Test with filter constraint using real models."""
-        from proto_language.bio_tools.tools.structure_prediction import predict_structures
-        from proto_language.bio_tools.tools.structure_prediction.shared_data_models import (
+        from proto_tools.tools.structure_prediction import predict_structures
+        from proto_tools.tools.structure_prediction.shared_data_models import (
             StructurePredictionComplex,
         )
 

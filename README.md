@@ -25,6 +25,17 @@ bash install.sh
 conda activate proto-language
 ```
 
+```
+>[!NOTE] Evo2 is no longer included in the base environment. If you want to use
+> a version of the base environment that supports Evo2, clone from Brian's env
+> on Chimera (instructions below). This is required for Beam Search:
+```bash
+conda create --name proto-language --clone /home/brianhie/miniconda/envs/gpro/
+pip uninstall -y numcodecs zarr
+pip install --no-cache-dir --force-reinstall numcodecs zarr
+pip install -e /home/{USERNAME}/proto-language
+```
+
 ### Manual Setup
 
 If you prefer to set up manually, or if the install script fails:
@@ -47,17 +58,6 @@ uv pip install -e ./proto-tools
 
 # 5. Install pre-commit hooks
 pre-commit install
-```
->[!NOTE] The installation script is currently failing on Chimera due to dependency issues.
-> For now, use the following to clone from Brian's env:
-
-```bash
-conda create --name proto-language --clone /home/brianhie/miniconda/envs/gpro/
-pip uninstall -y numcodecs zarr
-pip install --no-cache-dir --force-reinstall numcodecs zarr
-pip install -e /home/{USERNAME}/proto-language
-```
-
 
 ## Running the API
 

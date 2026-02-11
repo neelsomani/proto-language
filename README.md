@@ -98,6 +98,10 @@ pytest --gpu --all
 ```
 
 
+## HuggingFace Authentication
+
+Some tools (e.g. ESM3, AlphaGenome) use gated HuggingFace models that require both authentication and accepting the model's license/terms on the HuggingFace model page. See the [proto-tools README](./proto-tools/README.md#huggingface-authentication) for the full list of gated models and setup instructions.
+
 ## Running the Toy Example
 
 ```bash

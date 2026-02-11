@@ -58,6 +58,9 @@ jobs:
         pip install --upgrade pip
         pip install uv
 
+        # Install proto-tools submodule
+        uv pip install --system -e ./proto-tools
+
         # Install package with API, tools, and dev dependencies (--system to install in system Python)
         uv pip install --system -e ".[api,tools,dev]"
 

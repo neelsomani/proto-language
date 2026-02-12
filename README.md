@@ -6,13 +6,13 @@
 
 A framework for designing biological sequences (DNA, RNA, proteins) with constraint-based optimization.
 
-Related repos:
-- [`bio-tools` (standalone tool layer)](https://github.com/evo-design/bio-tools/tree/main)
-- [`proto-language-lang` (front end)](https://github.com/evo-design/proto-language-lang)
+## Related Repositories
+### Backend
+* [`proto-tools`](https://github.com/evo-design/proto-tools/tree/main) – Standalone tool layer for biological models.
 
-> [!NOTE]
-> CI's are currently failing on main. We are working on fixing them now
-
+### Client
+* [`proto-tools-ui`](https://github.com/evo-design/proto-tools-ui) – Mock UI for demonstrating tool usage.
+* [`proto-language-lang`](https://github.com/evo-design/proto-language-lang) – Primary client interface for the biological programming language.
 
 ## Installation
 
@@ -29,6 +29,7 @@ conda activate proto-language
 >[!NOTE] Evo2 is no longer included in the base environment. If you want to use
 > a version of the base environment that supports Evo2, clone from Brian's env
 > on Chimera (instructions below). This is required for Beam Search:
+
 ```bash
 conda create --name proto-language --clone /home/brianhie/miniconda/envs/gpro/
 pip uninstall -y numcodecs zarr

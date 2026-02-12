@@ -17,6 +17,7 @@ python deployment/deploy_cloud_functions.py # Deploy all services to cloud and r
 ## Table of Contents
 - [Initial Setup](#initial-setup)
 - [Keeping the Submodule in Sync](#keeping-the-submodule-in-sync)
+- [Git Worktrees](#git-worktrees)
 - [Pre-commit Hooks](#pre-commit-hooks)
 - [Continuous Integration (CI) Checks](#continuous-integration-ci-checks)
 
@@ -58,6 +59,58 @@ git commit -m "Update proto-tools submodule"
 ```bash
 git config submodule.recurse true
 ```
+
+---
+
+## Git Worktrees
+
+Git worktrees allow you to check out multiple branches simultaneously in separate directories. This is useful for working on multiple features or reviewing PRs without stashing changes.
+
+### Common Worktree Commands
+
+```bash
+# List all worktrees
+git worktree list
+
+# Add worktree with new branch
+git worktree add -b new-branch /path/to/worktree
+
+# Add worktree for existing branch
+git worktree add /path/to/worktree existing-branch
+
+# Remove a worktree
+git worktree remove /path/to/worktree
+```
+
+### Worktrees for the Parent Repo
+
+To work on a different branch of `proto-language` while keeping your current branch intact:
+
+```bash
+# From the repo root, create a worktree for another branch
+git worktree add ../proto-language-feature feature-branch
+
+# Initialize submodules in the new worktree
+cd ../proto-language-feature
+git submodule update --init --recursive
+```
+
+### Worktrees for the Submodule
+
+To work on multiple branches of `proto-tools` simultaneously:
+
+```bash
+# Navigate into the submodule
+cd proto-tools
+
+# Create a worktree for a feature branch
+git worktree add ../proto-tools-feature feature-branch
+
+# Or create a new branch in a worktree
+git worktree add -b my-new-feature ../proto-tools-my-feature
+```
+
+> [!NOTE] When using worktrees with submodules, changes in a submodule worktree won't automatically update the parent repo's submodule reference. You'll still need to commit the submodule pointer update in the parent repo.
 
 ---
 

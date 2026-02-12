@@ -400,7 +400,7 @@ class OverallProteinQualityConfig(BaseConfig):
     label="Overall Protein Quality",
     config=OverallProteinQualityConfig,
     description="Evaluate overall protein quality using multiple sub-constraints",
-    tools_called=["prodigal", "segmasker"],
+    tools_called=["prodigal-prediction", "segmasker-score"],
     category="protein quality",
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,

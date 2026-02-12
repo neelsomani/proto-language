@@ -112,7 +112,7 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     config=SpliceTransformerIntronBoundaryConfig,
     description="Evaluate intron boundary prediction with SpliceTransformer",
     gpu_required=True,
-    tools_called=["splice_transformer"],
+    tools_called=["splice-transformer-prediction"],
     category="rna splicing",
     supported_sequence_types=["dna"],
     num_input_sequences_per_tuple=1,

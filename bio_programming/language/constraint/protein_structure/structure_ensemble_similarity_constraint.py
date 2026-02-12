@@ -497,7 +497,7 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
         "an experimental target structure using PyMOL alignment."
     ),
     gpu_required=True,
-    tools_called=["bioemu", "pymol"],
+    tools_called=["bioemu-sample", "pymol"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     num_input_sequences_per_tuple=1,

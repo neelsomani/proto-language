@@ -99,7 +99,7 @@ class ProteinGlobularityConfig(BaseConfig):
     config=ProteinGlobularityConfig,
     description="Encourage compact, globular protein structures",
     gpu_required=True,
-    tools_called=["esmfold", "prodigal"],
+    tools_called=["esmfold-prediction", "prodigal-prediction"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,

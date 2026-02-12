@@ -171,7 +171,7 @@ class ProGen2GeneratorConfig(BaseConfig):
     config=ProGen2GeneratorConfig,
     description="ProGen2 autoregressive protein language model for protein sequence generation",
     requires_gpu=True,
-    tools_called=["progen2"],
+    tools_called=["progen2-sample"],
     category="autoregressive",
     supported_sequence_types=["protein"],
 )

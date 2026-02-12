@@ -67,7 +67,7 @@ class ProteinComplexityConfig(BaseConfig):
     label="Protein Complexity",
     config=ProteinComplexityConfig,
     description="Evaluate protein sequence complexity using segmasker to detect low-complexity regions",
-    tools_called=["segmasker"],
+    tools_called=["segmasker-score"],
     category="protein quality",
     supported_sequence_types=["protein"],
     num_input_sequences_per_tuple=1,

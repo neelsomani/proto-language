@@ -22,7 +22,7 @@ class GeneratorSpec(BaseSpec):
 
     category: Literal["autoregressive", "mutation", "inverse_folding"] = Field(description="Generator category: 'autoregressive' (left-to-right, e.g. Evo2), 'mutation' (bidirectional/masked, e.g. ESM2), or 'inverse_folding' (structure-conditioned, e.g. ProteinMPNN)")
     requires_gpu: bool = Field(description="Whether generator requires GPU")
-    tools_called: List[str] = Field(description="List of tool keys this generator calls (e.g., ['esm3', 'evo2']). Helps agent find relevant tool documentation.")
+    tools_called: List[str] = Field(description="List of tool keys this generator calls (e.g., ['esm3-sample', 'evo2-sample']). Helps agent find relevant tool documentation.")
     supported_sequence_types: List[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Empty list means supports all types.")
 
     # Private field - excluded from serialization

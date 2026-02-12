@@ -212,7 +212,7 @@ class Evo2GeneratorConfig(BaseConfig):
     config=Evo2GeneratorConfig,
     description="Evo2 genome language model for DNA sequence generation",
     requires_gpu=True,
-    tools_called=["evo2"],
+    tools_called=["evo2-sample"],
     category="autoregressive",
     supported_sequence_types=["dna"],
 )

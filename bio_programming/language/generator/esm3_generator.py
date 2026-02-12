@@ -105,7 +105,7 @@ class ESM3GeneratorConfig(BaseConfig):
     config=ESM3GeneratorConfig,
     description="ESM-3 open protein language model for protein sequence generation",
     requires_gpu=True,
-    tools_called=["esm3"],
+    tools_called=["esm3-sample"],
     category="mutation",
     supported_sequence_types=["protein"],
 )

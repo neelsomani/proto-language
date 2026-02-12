@@ -17,7 +17,7 @@ class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
 
     gpu_required: bool = Field(description="Whether constraint requires GPU")
-    tools_called: List[str] = Field(description="List of tool keys this constraint calls (e.g., ['esmfold', 'prodigal']). Helps agent find relevant tool documentation.")
+    tools_called: List[str] = Field(description="List of tool keys this constraint calls (e.g., ['esmfold-prediction', 'prodigal-prediction']). Helps agent find relevant tool documentation.")
     category: Optional[str] = Field(default=None, description="Optional category for organization (e.g., 'protein_structure', 'sequence_composition'). Not required for custom constraints.")
     supported_sequence_types: List[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Must be non-empty.")
     num_input_sequences_per_tuple: Optional[int] = Field(default=None, description="Number of Sequence objects required in each tuple of input_sequences. If None, any number is allowed.")

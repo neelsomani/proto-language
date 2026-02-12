@@ -114,7 +114,7 @@ class ProteinDomainConfig(BaseConfig):
     label="Protein Domain Match",
     config=ProteinDomainConfig,
     description="Evaluate whether sequences contains protein domains matching specified keywords",
-    tools_called=["pyhmmer", "prodigal"],
+    tools_called=["pyhmmer-hmmsearch", "prodigal-prediction"],
     category="protein quality",
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,

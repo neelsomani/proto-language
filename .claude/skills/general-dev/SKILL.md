@@ -141,6 +141,7 @@ For generators, export **both** the class and its config: `from .my_generator im
 | Thing | Convention | Example |
 |-------|-----------|---------|
 | Registry key | kebab-case | `"gc-content"`, `"uniform-mutation"`, `"mcmc"` |
+| Tool registry key | `{tool}-{action}` kebab-case | `"esm2-sample"`, `"boltz2-prediction"`, `"blast-create-db"` |
 | Config class | `{Name}Config` | `GCContentConfig`, `MCMCOptimizerConfig` |
 | Constraint file | `{name}_constraint.py` | `gc_content_constraint.py` |
 | Generator file | `{name}_generator.py` | `uniform_mutation_generator.py` |
@@ -149,6 +150,12 @@ For generators, export **both** the class and its config: `from .my_generator im
 | Constraint function | `{name}_constraint` | `gc_content_constraint` |
 | Generator class | `{Name}Generator` | `UniformMutationGenerator` |
 | Optimizer class | `{Name}Optimizer` | `MCMCOptimizer` |
+
+## Tool Registry Key Pattern (`proto-tools`)
+
+All tool keys follow **`{tool}-{action}`** in kebab-case:
+- `{tool}` = the software/model name (e.g., `esm2`, `boltz2`, `blast`, `alphafold3`)
+- `{action}` = what the tool does (e.g., `sample`, `score`, `prediction`, `embedding`, `search`)
 
 ## Linting & Formatting
 

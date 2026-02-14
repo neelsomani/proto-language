@@ -197,3 +197,7 @@ class Evo1Generator(Generator):
 
         for idx, sequence in enumerate(generated_sequences):
             self._assigned_segment.candidate_sequences[idx].sequence = sequence
+            if evo1_output.scores:
+                self._assigned_segment.candidate_sequences[idx]._metadata[
+                    "evo1_score"
+                ] = evo1_output.scores[idx]

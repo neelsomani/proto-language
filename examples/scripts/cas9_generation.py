@@ -358,15 +358,15 @@ def stage2_alignment(candidates: List[Candidate]) -> List[Candidate]:
         return []
 
     from proto_tools import (
-        GapGiniConfig,
-        GapGiniInput,
         MafftConfig,
         MafftInput,
         MmseqsSearchProteinsConfig,
         MmseqsSearchProteinsInput,
-        run_gap_gini,
         run_mafft_align,
         run_mmseqs_search_proteins,
+    )
+    from proto_language.language.constraint.sequence_alignment.gap_gini_constraint import (
+        _gap_gini_single,
     )
 
     training_fasta = _get_training_fasta()
@@ -425,12 +425,7 @@ def stage2_alignment(candidates: List[Candidate]) -> List[Candidate]:
         if align_result.msa:
             al1, al2 = _trim_alignment(align_result.msa[0], align_result.msa[1])
             if al1 is not None:
-                trimmed_fasta = f">query\n{al1}\n>target\n{al2}"
-                gini_result = run_gap_gini(
-                    GapGiniInput(alignments=[trimmed_fasta]),
-                    GapGiniConfig(),
-                )
-                c.gap_gini = gini_result.gini_scores[0]
+                c.gap_gini = _gap_gini_single(al1, al2)
             else:
                 c.gap_gini = 0.0
         else:
@@ -477,17 +472,19 @@ def stage3_domains_tracr(candidates: List[Candidate]) -> List[Candidate]:
         )
         if hmm_result.domain_hits_df is not None and not hmm_result.domain_hits_df.empty:
             protein_idx_map = {
-                j: c for j, c in enumerate(c for c in candidates if c.protein)
+                j: cand for j, cand in enumerate(
+                    cand for cand in candidates if cand.protein
+                )
             }
             for _, row in hmm_result.domain_hits_df.iterrows():
                 j = _parse_seq_index(row.get("target_name", ""))
                 hmm_name = row.get("query_name", "")
                 if j is not None and j in protein_idx_map:
-                    c = protein_idx_map[j]
+                    matched = protein_idx_map[j]
                     for domain in REQUIRED_DOMAINS:
                         if domain.lower() in hmm_name.lower():
-                            if domain not in c.domains_found:
-                                c.domains_found.append(domain)
+                            if domain not in matched.domains_found:
+                                matched.domains_found.append(domain)
     elif not Path(DOMAIN_HMM_PATH).exists():
         logger.warning(f"Domain HMM not found: {DOMAIN_HMM_PATH} — skipping")
 

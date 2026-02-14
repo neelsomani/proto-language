@@ -49,6 +49,11 @@ from .rna_splicing import (
     splice_transformer_specificity,
 )
 
+# Sequence alignment constraints
+from .sequence_alignment import (
+    gap_gini_constraint,
+)
+
 # Sequence annotation constraints
 from .sequence_annotation import (
     mmseqs_similarity_constraint,
@@ -87,6 +92,8 @@ __all__ = [
     "balanced_aa_constraint",
     "overall_protein_quality_constraint",
     "protein_domain_constraint",
+    # Sequence alignment
+    "gap_gini_constraint",
     # Sequence annotation
     "mmseqs_similarity_constraint",
     "sigma70_promoter_constraint",

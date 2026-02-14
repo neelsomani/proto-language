@@ -13,11 +13,13 @@ Tests cover:
 Note: Actual promoter_calculator execution is mocked to avoid dependencies.
 """
 
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
-from proto_language.language.core import Constraint, Segment
 from proto_language.language.constraint import promoter_strength_constraint
-from proto_language.language.constraint.sequence_annotation.promoter_strength_constraint import PromoterStrengthConfig
+from proto_language.language.constraint.sequence_annotation.promoter_strength_constraint import (
+    PromoterStrengthConfig,
+)
+from proto_language.language.core import Constraint, Segment
 
 
 class TestPromoterStrengthConstraint:
@@ -136,7 +138,7 @@ class TestPromoterStrengthConstraint:
             assert scores[0] <= 0.5  # dG < -3.0 -> low penalty
 
             # Check constraint-specific metadata fields
-            constraints = segment.candidate_sequences[0]._metadata["constraints"]
+            constraints = segment.candidate_sequences[0]._constraints_metadata
             assert "promoter_strength" in constraints["promoter_strength_constraint"]["data"]
             promoter_data = constraints["promoter_strength_constraint"]["data"]["promoter_strength"]
             assert "penalty" in promoter_data

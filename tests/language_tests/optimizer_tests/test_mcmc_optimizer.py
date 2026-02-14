@@ -385,9 +385,8 @@ class TestMCMCOptimizer:
         # Each history entry should have proper structure
         for entry in optimizer.history:
             assert "time_step" in entry
-            assert "energy_scores" in entry
-            assert "constructs" in entry
-            assert len(entry["energy_scores"]) == num_selected
+            assert "batch_results" in entry
+            assert len(entry["batch_results"]) == num_selected
 
     def test_history_timesteps_validation(self):
         """Tests that time_step values in history entries are correctly tracked."""
@@ -948,7 +947,7 @@ class TestMCMCOptimizer:
         # Each trajectory's energy should be tracked independently
         # Check that history shows each trajectory improving independently
         for entry in optimizer.history:
-            assert len(entry["energy_scores"]) == num_selected
+            assert len(entry["batch_results"]) == num_selected
 
         # Final sequences should be different (each evolved from different start)
         # With high probability, they won't converge to identical sequences

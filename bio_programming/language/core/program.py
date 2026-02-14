@@ -3,9 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
-
-from proto_language.utils.helpers import filter_inf_nan_scores
+from typing import Any, Dict, List, Literal, Optional, Set
 
 from .optimizer import Optimizer
 
@@ -337,10 +335,12 @@ class Program:
 
         optimizer.run()
 
-        # Sort results by energy (best first) for consistent handoff to next optimizer
+        # Capture results before sort so batch_idx matches history snapshots
+        stage_result = self.extract_batch_results(optimizer.energy_scores)
+
+        # Sort for next-stage handoff (next optimizer gets best sequences first)
         self._sort_sequences_by_energy(optimizer)
 
-        stage_result = self.extract_batch_results(optimizer.energy_scores)
         if self.verbose:
             self._log_stage_results(stage_index, stage_result["batch_results"])
 
@@ -354,107 +354,22 @@ class Program:
         return self._stage_results[stage_index]
 
     def _clear_sequence_metadata(self) -> None:
-        """Clear constraint metadata from all sequences in all segments.
+        """Clear constraint results from all sequences in all segments.
 
-        Called at the start of each optimization stage to prevent stale metadata
+        Called at the start of each optimization stage to prevent stale constraints
         from previous stages persisting into new stages.
         """
         for construct in self.constructs:
             for segment in construct.segments:
                 for seq in segment.selected_sequences:
-                    seq._metadata["constraints"] = {}
+                    seq._constraints_metadata = {}
                 for seq in segment.candidate_sequences:
-                    seq._metadata["constraints"] = {}
+                    seq._constraints_metadata = {}
 
     def extract_batch_results(self, energy_scores: List[float]) -> Dict[str, Any]:
-        """
-        Extract batch results from constructs after optimization.
-
-        Returns a structured format with nested constructs and segments, each containing
-        their constraint metadata. This format is easy to parse and supports CSV export
-        at different granularities (program, construct, or segment level).
-
-        Note:
-            Infinite/NaN energy scores (from filter rejection) are converted to None
-            for JSON serialization compatibility. Use optimizer.energy_scores directly
-            if you need the raw values.
-
-        Args:
-            energy_scores: List of energy scores (one per batch)
-
-        Returns:
-            Dictionary containing:
-                - batch_results: List of structured batch results with nested constructs/segments
-                - best_batch_idx: Index of the batch with lowest energy
-
-        Example output format:
-            {
-                "batch_results": [{
-                    "batch_idx": 0,
-                    "energy_score": 0.5,
-                    "constructs": [{
-                        "label": "construct_0",
-                        "type": "dna",
-                        "segments": [{
-                            "label": "promoter",
-                            "sequence": "ATCG",
-                            "constraints": {
-                                "gc_content_constraint": {
-                                    "score": 0.5,
-                                    "weight": 1.0,
-                                    "weighted_score": 0.5,
-                                    "data": {
-                                        "gc_content": 50.0
-                                    }
-                                }
-                            }
-                        }]
-                    }]
-                }],
-                "best_batch_idx": 0
-            }
-        """
-        if not self.constructs or not self.constructs[0].segments:
-            return {"batch_results": [], "best_batch_idx": 0}
-
-        num_selected = len(self.constructs[0].segments[0].selected_sequences)
-        batch_results = []
-
-        for batch_idx in range(num_selected):
-            structured_constructs = []
-
-            for construct in self.constructs:
-                structured_segments = []
-
-                for seg_idx, segment in enumerate(construct.segments):
-                    seq = segment.selected_sequences[batch_idx]
-                    segment_label = segment.label or f"segment_{seg_idx}"
-
-                    structured_segments.append({
-                        "label": segment_label,
-                        "sequence": seq.sequence,
-                        "constraints": seq._metadata["constraints"],
-                    })
-
-                structured_constructs.append({
-                    "label": construct.label,
-                    "type": construct.sequence_type,
-                    "segments": structured_segments,
-                })
-
-            batch_results.append({
-                "batch_idx": batch_idx,
-                "energy_score": filter_inf_nan_scores(energy_scores[batch_idx]),
-                "constructs": structured_constructs,
-            })
-
-        # For best_idx calculation, treat None (was inf/nan) as infinity
-        def get_score(i: int) -> float:
-            score = batch_results[i]["energy_score"]
-            return float('inf') if score is None else score
-
-        best_idx = min(range(len(batch_results)), key=get_score) if batch_results else 0
-        return {"batch_results": batch_results, "best_batch_idx": best_idx}
+        """Extract batch results from constructs."""
+        from proto_language.utils.export import build_batch_results
+        return build_batch_results(self.constructs, energy_scores)
 
     def serialize_state(self) -> Dict:
         """
@@ -520,155 +435,201 @@ class Program:
     # Export Methods
     # =========================================================================
 
-    def export_segment(
-        self,
-        construct: str,
-        segment: str,
-        batch_idx: int = 0,
-        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
-        style: Literal["wide", "long"] = "wide",
-        path: Optional[Path] = None,
-        stage: Optional[int] = None,
-    ) -> Path:
-        """
-        Export all constraint metadata for a specific segment.
+    def _get_batch_results(self, stage: Optional[int] = None) -> Dict[str, Any]:
+        """Get batch results, optionally for a specific optimization stage."""
+        if stage is not None:
+            return self.get_stage_results(stage)
+        return self.extract_batch_results(self.energy_scores)
+
+    def _collect_history(
+        self, stage: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Collect history from optimizers.
 
         Args:
-            construct: Construct label
-            segment: Segment label
-            batch_idx: Batch index (default 0)
-            format: Output format - "csv", "tsv", "json", or "xlsx"
-            style: "wide" (single row with constraint.metric columns) or
-                   "long" (one row per constraint)
-            path: Output path. Defaults to ./{segment}_{batch_idx}.{format}
-            stage: Optional optimization stage index. If None, uses current state.
-
-        Returns:
-            Path where file was saved
+            stage: If set, only include history from this optimizer stage index.
         """
-        from proto_language.utils.export import flatten_segment_metadata, write_export
-
-        batch_results = self.get_stage_results(stage) if stage is not None else self.extract_batch_results(self.energy_scores)
-        rows = flatten_segment_metadata(batch_results, construct, segment, batch_idx, style)
-
-        if path is None:
-            path = Path(f"./{segment}_{batch_idx}.{format}")
-        else:
-            path = Path(path)
-
-        write_export(rows, format, path)
-        return path
-
-    def export_construct(
-        self,
-        construct: str,
-        batch_idx: int = 0,
-        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
-        style: Literal["wide", "long"] = "wide",
-        path: Optional[Path] = None,
-        stage: Optional[int] = None,
-    ) -> Path:
-        """
-        Export metadata for all segments in a construct.
-
-        Args:
-            construct: Construct label
-            batch_idx: Batch index (default 0)
-            format: Output format - "csv", "tsv", "json", or "xlsx"
-            style: "wide" (one row per segment) or
-                   "long" (one row per segment × constraint)
-            path: Output path. Defaults to ./{construct}_{batch_idx}.{format}
-            stage: Optional optimization stage index. If None, uses current state.
-
-        Returns:
-            Path where file was saved
-        """
-        from proto_language.utils.export import (
-            flatten_construct_metadata,
-            write_export,
-        )
-
-        batch_results = self.get_stage_results(stage) if stage is not None else self.extract_batch_results(self.energy_scores)
-        rows = flatten_construct_metadata(batch_results, construct, batch_idx, style)
-
-        if path is None:
-            path = Path(f"./{construct}_{batch_idx}.{format}")
-        else:
-            path = Path(path)
-
-        write_export(rows, format, path)
-        return path
-
-    def export_program(
-        self,
-        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
-        style: Literal["wide", "long"] = "wide",
-        path: Optional[Path] = None,
-        stage: Optional[int] = None,
-    ) -> Path:
-        """
-        Export metadata for all segments across all batches.
-
-        Args:
-            format: Output format - "csv", "tsv", "json", or "xlsx"
-            style: "wide" (one row per batch) or
-                   "long" (one row per batch x construct x segment)
-            path: Output path. Defaults to ./program_results.{format}
-            stage: Optional optimization stage index. If None, uses current state.
-
-        Returns:
-            Path where file was saved
-        """
-        from proto_language.utils.export import flatten_program_metadata, write_export
-
-        batch_results = self.get_stage_results(stage) if stage is not None else self.extract_batch_results(self.energy_scores)
-        rows = flatten_program_metadata(batch_results, style)
-
-        if path is None:
-            path = Path(f"./program_results.{format}")
-        else:
-            path = Path(path)
-
-        write_export(rows, format, path)
-        return path
-
-    def export_batch_history(
-        self,
-        batch_idx: int = 0,
-        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
-        style: Literal["wide", "long"] = "wide",
-        path: Optional[Path] = None,
-    ) -> Path:
-        """
-        Export metadata for a single batch across optimization history.
-
-        Args:
-            batch_idx: Batch index to track (default 0)
-            format: Output format - "csv", "tsv", "json", or "xlsx"
-            style: "wide" (one row per timepoint) or
-                   "long" (one row per timepoint x construct x segment)
-            path: Output path. Defaults to ./batch_{batch_idx}_history.{format}
-
-        Returns:
-            Path where file was saved
-
-        Note:
-            This uses the optimizer history, which is only available after
-            running the program and before clearing the optimizer state.
-        """
-        from proto_language.utils.export import flatten_batch_over_time, write_export
-
-        # Collect history from all optimizers
+        if stage is not None:
+            if stage < 0 or stage >= len(self.optimizers):
+                raise IndexError(
+                    f"Stage {stage} out of range "
+                    f"(program has {len(self.optimizers)} optimizers)"
+                )
+            return list(self.optimizers[stage].history)
         history = []
         for optimizer in self.optimizers:
             history.extend(optimizer.history)
+        return history
 
-        rows = flatten_batch_over_time(history, batch_idx, style)
+    def export_results(
+        self,
+        path: Path | str = "./results",
+        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
+        stage: Optional[int] = None,
+        segments: Optional[Set[str]] = None,
+        batch_indices: Optional[Set[int]] = None,
+    ) -> Path:
+        """Export all result tables as a multi-file bundle.
 
-        if path is None:
-            path = Path(f"./batch_{batch_idx}_history.{format}")
+        For csv/tsv/json: creates a directory with 4 files
+        (sequences, constraints, constructs, optimization).
+        For xlsx: creates one workbook with 4 sheets.
+
+        Args:
+            path: Output directory (csv/tsv/json) or file path (xlsx).
+            format: Output format.
+            stage: Optional optimization stage index. Filters both results
+                and history to this stage.
+            segments: If set, only include these segment labels.
+            batch_indices: If set, only include these batch indices.
+
+        Returns:
+            Path where results were saved.
+        """
+        from proto_language.utils.export import (
+            flatten_constraints,
+            flatten_constructs,
+            flatten_optimization,
+            flatten_sequences,
+            to_xlsx_workbook,
+            write_export,
+        )
+
+        batch_results = self._get_batch_results(stage)
+        history = self._collect_history(stage)
+        f = {"segments": segments, "batch_indices": batch_indices}
+
+        tables = {
+            "sequences": flatten_sequences(batch_results, **f),
+            "constraints": flatten_constraints(batch_results, **f),
+            "constructs": flatten_constructs(batch_results, **f),
+            "optimization": flatten_optimization(history, **f),
+        }
+
+        path = Path(path)
+        if format == "xlsx":
+            to_xlsx_workbook(tables, path)
         else:
-            path = Path(path)
-
-        write_export(rows, format, path)
+            path.mkdir(parents=True, exist_ok=True)
+            for name, rows in tables.items():
+                write_export(rows, format, path / f"{name}.{format}")
         return path
+
+    def export_sequences(
+        self,
+        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
+        path: Optional[Path] = None,
+        stage: Optional[int] = None,
+        segments: Optional[Set[str]] = None,
+        batch_indices: Optional[Set[int]] = None,
+    ) -> str | Path:
+        """Export sequences table (one row per batch x construct x segment).
+
+        Args:
+            format: Output format.
+            path: Output path. If None, returns string (not supported for xlsx).
+            stage: Optional optimization stage index.
+            segments: If set, only include these segment labels.
+            batch_indices: If set, only include these batch indices.
+
+        Returns:
+            String content or Path where file was saved.
+        """
+        from proto_language.utils.export import flatten_sequences, write_export
+
+        rows = flatten_sequences(
+            self._get_batch_results(stage),
+            segments=segments,
+            batch_indices=batch_indices,
+        )
+        return write_export(rows, format, Path(path) if path else None)
+
+    def export_constraints(
+        self,
+        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
+        path: Optional[Path] = None,
+        stage: Optional[int] = None,
+        segments: Optional[Set[str]] = None,
+        constraints: Optional[Set[str]] = None,
+        batch_indices: Optional[Set[int]] = None,
+    ) -> str | Path:
+        """Export constraints table (one row per batch x construct x segment x constraint).
+
+        Args:
+            format: Output format.
+            path: Output path. If None, returns string (not supported for xlsx).
+            stage: Optional optimization stage index.
+            segments: If set, only include these segment labels.
+            constraints: If set, only include these constraint labels.
+            batch_indices: If set, only include these batch indices.
+
+        Returns:
+            String content or Path where file was saved.
+        """
+        from proto_language.utils.export import flatten_constraints, write_export
+
+        rows = flatten_constraints(
+            self._get_batch_results(stage),
+            segments=segments,
+            constraints=constraints,
+            batch_indices=batch_indices,
+        )
+        return write_export(rows, format, Path(path) if path else None)
+
+    def export_constructs(
+        self,
+        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
+        path: Optional[Path] = None,
+        stage: Optional[int] = None,
+        segments: Optional[Set[str]] = None,
+        batch_indices: Optional[Set[int]] = None,
+    ) -> str | Path:
+        """Export constructs table (one row per batch x construct).
+
+        Args:
+            format: Output format.
+            path: Output path. If None, returns string (not supported for xlsx).
+            stage: Optional optimization stage index.
+            segments: If set, only include these segment labels in columns.
+            batch_indices: If set, only include these batch indices.
+
+        Returns:
+            String content or Path where file was saved.
+        """
+        from proto_language.utils.export import flatten_constructs, write_export
+
+        rows = flatten_constructs(
+            self._get_batch_results(stage),
+            segments=segments,
+            batch_indices=batch_indices,
+        )
+        return write_export(rows, format, Path(path) if path else None)
+
+    def export_optimization(
+        self,
+        format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
+        path: Optional[Path] = None,
+        stage: Optional[int] = None,
+        segments: Optional[Set[str]] = None,
+        batch_indices: Optional[Set[int]] = None,
+    ) -> str | Path:
+        """Export optimization trajectory (one row per timepoint x batch).
+
+        Args:
+            format: Output format.
+            path: Output path. If None, returns string (not supported for xlsx).
+            stage: If set, only include history from this optimizer stage.
+            segments: If set, only include these segment labels.
+            batch_indices: If set, only include these batch indices.
+
+        Returns:
+            String content or Path where file was saved.
+        """
+        from proto_language.utils.export import flatten_optimization, write_export
+
+        rows = flatten_optimization(
+            self._collect_history(stage),
+            segments=segments,
+            batch_indices=batch_indices,
+        )
+        return write_export(rows, format, Path(path) if path else None)

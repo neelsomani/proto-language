@@ -46,14 +46,15 @@ class TestSequence:
         """Tests automatic and custom metadata handling."""
         seq = Sequence("ATCG", "dna", metadata={"id": "test1"})
         assert seq._metadata["id"] == "test1"
-        assert seq._metadata["sequence"] == "ATCG"
-        assert seq._metadata["sequence_length"] == 4
+        # Identity fields are in the computed metadata property, not _metadata
+        assert seq.metadata["sequence"] == "ATCG"
+        assert seq.metadata["sequence_length"] == 4
 
         # Test metadata update on sequence change
         seq.sequence = "GATTACA"
         assert seq._metadata["id"] == "test1"  # Custom metadata preserved
-        assert seq._metadata["sequence"] == "GATTACA"
-        assert seq._metadata["sequence_length"] == 7
+        assert seq.metadata["sequence"] == "GATTACA"
+        assert seq.metadata["sequence_length"] == 7
 
 
 class TestLigandSequence:
@@ -97,7 +98,7 @@ class TestLigandSequence:
         seq = Sequence("C", "ligand")
         seq.sequence = "CCO"
         assert seq.sequence == "CCO"
-        assert seq._metadata["sequence"] == "CCO"
+        assert seq.metadata["sequence"] == "CCO"
 
         with pytest.warns(UserWarning, match="RDKit could not parse SMILES"):
             seq.sequence = "invalid(("

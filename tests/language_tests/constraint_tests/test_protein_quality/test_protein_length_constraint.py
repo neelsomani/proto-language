@@ -1,8 +1,10 @@
 import pytest
 
-from proto_language.language.core import Constraint, Segment
 from proto_language.language.constraint import protein_length_constraint
-from proto_language.language.constraint.protein_quality.protein_length_constraint import ProteinLengthConfig
+from proto_language.language.constraint.protein_quality.protein_length_constraint import (
+    ProteinLengthConfig,
+)
+from proto_language.language.core import Constraint, Segment
 
 
 # Tests for protein_length_constraint
@@ -19,7 +21,7 @@ class TestProteinLengthConstraint:
         )
 
         assert constraint.evaluate()[0] == 0.0
-        constraints = segment.candidate_sequences[0]._metadata["constraints"]
+        constraints = segment.candidate_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 21
 
     def test_protein_too_short(self):
@@ -35,7 +37,7 @@ class TestProteinLengthConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        constraints = segment.candidate_sequences[0]._metadata["constraints"]
+        constraints = segment.candidate_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 5
 
     def test_protein_too_long(self):
@@ -51,7 +53,7 @@ class TestProteinLengthConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        constraints = segment.candidate_sequences[0]._metadata["constraints"]
+        constraints = segment.candidate_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 100
 
     def test_invalid_sequence_type(self):

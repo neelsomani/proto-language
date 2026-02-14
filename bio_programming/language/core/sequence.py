@@ -77,24 +77,8 @@ class Sequence:
 
         self._validate_sequence(sequence)
         self._sequence: str = sequence
-        self._metadata = {}
-        protected_metadata = {
-            "sequence": sequence,
-            "sequence_length": len(sequence),
-            "constraints": {},  # populated by Constraint._propagate_metadata_to_sequence
-        }
-
-        # Add user metadata, warning if they try to override protected keys
-        if metadata:
-            conflicting_keys = [key for key in metadata if key in protected_metadata]
-            if conflicting_keys:
-                warnings.warn(
-                    f"System-managed metadata for {conflicting_keys} cannot be manually set and will be silently overridden",
-                    UserWarning,
-                    stacklevel=2,
-                )
-            self._metadata.update(metadata)
-        self._metadata.update(protected_metadata)
+        self._metadata: Dict[str, Any] = dict(metadata) if metadata else {}
+        self._constraints_metadata: Dict[str, Any] = {}
 
     def _validate_sequence(self, sequence: str) -> None:
         """
@@ -131,16 +115,12 @@ class Sequence:
     @property
     def metadata(self) -> Dict[str, Any]:
         """
-        Get metadata dictionary with consistent ordering.
-
-        Returns:
-            Dict with system keys first, then constraint keys in chronological order.
+        Computed read-only view combining identity, user/generator metadata, and constraints.
         """
-        system_keys = ["sequence", "sequence_length"]
-
-        return {**{k: self._metadata[k] for k in system_keys if k in self._metadata},  # System keys first
-            **{k: v for k, v in self._metadata.items() if k not in set(system_keys)},  # Constraint keys
-        }
+        result = {"sequence": self._sequence, "sequence_length": len(self._sequence)}
+        result.update(self._metadata)
+        result["constraints"] = self._constraints_metadata
+        return result
 
     @property
     def sequence(self) -> str:
@@ -155,7 +135,7 @@ class Sequence:
     @sequence.setter
     def sequence(self, new_sequence: str) -> None:
         """
-        Set a new sequence string with validation and metadata updates.
+        Set a new sequence string with validation.
 
         Args:
             new_sequence: The new sequence string to set.
@@ -165,8 +145,6 @@ class Sequence:
         """
         self._validate_sequence(new_sequence)
         self._sequence = new_sequence
-        self._metadata["sequence"] = new_sequence
-        self._metadata["sequence_length"] = len(new_sequence)
 
     def __len__(self) -> int:
         """
@@ -200,17 +178,17 @@ class Sequence:
 
     def __deepcopy__(self, memo):
         """
-        Optimized deepcopy: share stable data, only copy metadata.
+        Optimized deepcopy: share stable data, only copy mutable dicts.
 
-        - _valid_chars, _sequence_type: Never change, share reference
-        - _sequence: Share reference; generators create new strings on mutation
-        - _metadata: Must deep copy (constraints modify it)
+        - _valid_chars, _sequence_type, _sequence: Immutable, share reference
+        - _metadata, _constraints: Mutable, must deep copy
         """
         new_seq = object.__new__(Sequence)
         new_seq._sequence = self._sequence
         new_seq._sequence_type = self._sequence_type
         new_seq._valid_chars = self._valid_chars
         new_seq._metadata = copy.deepcopy(self._metadata, memo)
+        new_seq._constraints_metadata = copy.deepcopy(self._constraints_metadata, memo)
         memo[id(self)] = new_seq
         return new_seq
 
@@ -220,8 +198,8 @@ class Sequence:
             "sequence": self._sequence,
             "sequence_type": self.sequence_type,
             "valid_chars": list(self._valid_chars) if self._valid_chars else None,
-            # Deep copy needed: metadata contains mutable objects
-            "metadata": copy.deepcopy(self._metadata),
+            "metadata": copy.deepcopy(self._metadata) if self._metadata else {},
+            "constraints": copy.deepcopy(self._constraints_metadata) if self._constraints_metadata else {},
         }
 
     @classmethod
@@ -239,12 +217,14 @@ class Sequence:
                 valid_chars = chars
         else:
             valid_chars = None
-        return cls(
+        seq = cls(
             sequence=data["sequence"],
             sequence_type=data["sequence_type"],
             valid_chars=valid_chars,
-            metadata=data.get("metadata", {}),
+            metadata=data.get("metadata") or None,
         )
+        seq._constraints_metadata = data.get("constraints", {})
+        return seq
 
 def create_concatenated_sequence(subsequences: Iterable[Sequence], segment_labels: Optional[List[str]] = None) -> Sequence:
     """
@@ -270,7 +250,13 @@ def create_concatenated_sequence(subsequences: Iterable[Sequence], segment_label
     # Merge segment metadata if labels provided
     if segment_labels:
         assert len(segment_labels) == len(seq_list), f"Length mismatch: {len(segment_labels)} labels provided but {len(seq_list)} sequences to concatenate"
-        segments_metadata = {label: copy.deepcopy(seq._metadata) for label, seq in zip(segment_labels, seq_list)}
+        segments_metadata = {
+            label: {
+                **copy.deepcopy(seq._metadata),
+                "constraints": copy.deepcopy(seq._constraints_metadata),
+            }
+            for label, seq in zip(segment_labels, seq_list)
+        }
         joined_seq._metadata["segments"] = segments_metadata
     return joined_seq
 

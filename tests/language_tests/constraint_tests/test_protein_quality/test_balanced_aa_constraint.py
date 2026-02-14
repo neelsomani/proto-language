@@ -1,6 +1,8 @@
-from proto_language.language.core import Constraint, Segment
 from proto_language.language.constraint import balanced_aa_constraint
-from proto_language.language.constraint.protein_quality.balanced_aa_constraint import BalancedAaConfig
+from proto_language.language.constraint.protein_quality.balanced_aa_constraint import (
+    BalancedAaConfig,
+)
+from proto_language.language.core import Constraint, Segment
 
 
 # Tests for balanced_aa_constraint
@@ -20,7 +22,7 @@ class TestBalancedAAConstraint:
 
         score = constraint.evaluate()[0]
         assert score >= 0.0
-        constraints = segment.candidate_sequences[0]._metadata["constraints"]
+        constraints = segment.candidate_sequences[0]._constraints_metadata
         assert "underrepresented_aa_score" in constraints["balanced_aa_constraint"]["data"]
         assert "underrepresented_amino_acids" in constraints["balanced_aa_constraint"]["data"]
 
@@ -40,7 +42,7 @@ class TestBalancedAAConstraint:
         # So underrepresented_aa_count should be 0
         assert score >= 0.0
         # Check constraint-specific metadata fields
-        constraints = segment.candidate_sequences[0]._metadata["constraints"]
+        constraints = segment.candidate_sequences[0]._constraints_metadata
         assert "underrepresented_aa_count" in constraints["balanced_aa_constraint"]["data"]
         assert "underrepresented_aa_score" in constraints["balanced_aa_constraint"]["data"]
         assert "underrepresented_amino_acids" in constraints["balanced_aa_constraint"]["data"]

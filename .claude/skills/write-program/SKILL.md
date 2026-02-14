@@ -307,14 +307,13 @@ optimizer = MCMCOptimizer(..., custom_logging=custom_logging)
 ```python
 program.run()
 
-# Export all results as JSON
-program.export_program(format="json", path="results.json")
+# Export all 4 tables at once (sequences, constraints, constructs, optimization)
+program.export_results(path="./results/", format="csv")
 
-# Export specific segment as CSV
-program.export_segment("construct_0", "segment_0", batch_idx=0, format="csv")
-
-# Export optimization history
-program.export_batch_history(batch_idx=0, format="csv", path="history.csv")
+# Export individual tables
+program.export_sequences(format="json", path="sequences.json")
+program.export_constraints(format="csv", path="constraints.csv")
+program.export_optimization(format="csv", path="optimization.csv")
 ```
 
 ## Accessing Results

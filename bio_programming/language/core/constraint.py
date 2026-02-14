@@ -26,6 +26,13 @@ from .sequence import Sequence
 
 logger = logging.getLogger(__name__)
 
+# Reserved keys used in constraint data structure — constraint scoring functions
+# must not write these to seq._metadata as they would collide with infrastructure fields.
+_RESERVED_CONSTRAINT_KEYS = frozenset({
+    "score", "weight", "weighted_score",
+    "data", "input_segments", "position_in_inputs",
+})
+
 
 class ConstraintFunction(Protocol):
     """Protocol defining the standardized constraint function signature.
@@ -272,8 +279,8 @@ class Constraint:
             for i in range(num_candidates):
                 if i in evaluated_set:
                     j = indices_to_evaluate.index(i)
-                    # Get custom data from propagated metadata
-                    constraint_data = self._inputs[0].candidate_sequences[i]._metadata["constraints"][self.label]
+                    # Get custom data from propagated constraints
+                    constraint_data = self._inputs[0].candidate_sequences[i]._constraints_metadata[self.label]
                     custom_data = constraint_data["data"]
                     data_strs = [f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
                                  for k, v in custom_data.items()]
@@ -317,7 +324,7 @@ class Constraint:
         """
         Write constraint results to original sequences in structured format.
 
-        Stores constraint data under _metadata["constraints"][constraint_label] with:
+        Stores constraint data under _constraints_metadata[constraint_label] with:
         - Standard evaluation fields at top level (score, weight, weighted_score)
         - Custom data from scoring function nested under "data"
         - Input segment linking info for multi-segment constraints
@@ -331,7 +338,7 @@ class Constraint:
         Example:
             Scoring constraint (weight=2.0):
 
-            >>> seq._metadata["constraints"]["gc_content_constraint"]
+            >>> seq._constraints_metadata["gc_content_constraint"]
             {
                 "score": 0.12,
                 "weight": 2.0,
@@ -341,7 +348,7 @@ class Constraint:
 
             Multi-segment constraint on two segments:
 
-            >>> protein_a._metadata["constraints"]["interaction_constraint"]
+            >>> protein_a._constraints_metadata["interaction_constraint"]
             {
                 "score": 0.05,
                 "weight": 1.0,
@@ -350,7 +357,7 @@ class Constraint:
                 "position_in_inputs": 0,
                 "data": {"binding_energy": -8.2}
             }
-            >>> protein_b._metadata["constraints"]["interaction_constraint"]
+            >>> protein_b._constraints_metadata["interaction_constraint"]
             {
                 "score": 0.05,  # Same score - joint evaluation
                 "weight": 1.0,
@@ -371,9 +378,10 @@ class Constraint:
                 continue
             processed_original_ids.add(original_id)
 
-            # Extract custom data from scoring function (nested under "data")
-            custom_data = {k: v for k, v in scored_seq._metadata.items()
-                          if k not in {"sequence", "sequence_length", "constraints"}}
+            custom_data = dict(scored_seq._metadata)
+            collisions = _RESERVED_CONSTRAINT_KEYS & custom_data.keys()
+            if collisions:
+                raise ValueError(f"Constraint '{self.label}' wrote reserved keys to seq._metadata: {collisions}. Change the metadata key.")
 
             # Build structured constraint data
             constraint_data = {
@@ -388,7 +396,7 @@ class Constraint:
                 constraint_data["input_segments"] = [f"{s.construct_label}.{s.label}" for s in self._inputs]
                 constraint_data["position_in_inputs"] = seg_idx
 
-            original_seq._metadata["constraints"][self.label] = constraint_data
+            original_seq._constraints_metadata[self.label] = constraint_data
 
     def _validate_constraint(self) -> None:
         """

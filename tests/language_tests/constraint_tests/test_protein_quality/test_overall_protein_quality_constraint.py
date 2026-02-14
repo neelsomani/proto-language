@@ -4,18 +4,21 @@ Comprehensive tests for overall_protein_quality_constraint.
 
 import pytest
 
-from proto_language.language.core import Constraint, Segment
 from proto_language.language.constraint import overall_protein_quality_constraint
-from proto_language.language.constraint.protein_quality.overall_protein_quality_constraint import OverallProteinQualityConfig, ProteinQualitySubConfig
+from proto_language.language.constraint.protein_quality.overall_protein_quality_constraint import (
+    OverallProteinQualityConfig,
+    ProteinQualitySubConfig,
+)
+from proto_language.language.core import Constraint, Segment
 
 
 class TestOverallProteinQualityConstraint:
     """Unit tests for overall_protein_quality_constraint."""
-    
+
     def test_protein_input_high_quality(self):
         """Test with high quality protein sequence."""
         segment = Segment(sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF", sequence_type="protein")
-        
+
         # Only check length - protein is 48 amino acids
         sub_config = ProteinQualitySubConfig(
             enable_length=True,
@@ -25,21 +28,21 @@ class TestOverallProteinQualityConstraint:
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config
         )
-        
+
         constraint = Constraint(
             inputs=[segment],
             function=overall_protein_quality_constraint,
             function_config=config,
         )
-        
+
         scores = constraint.evaluate()
         assert len(scores) == 1
         assert scores[0] == 0.0  # High quality
-    
+
     def test_protein_input_low_quality_length(self):
         """Test with protein that violates length constraint."""
         segment = Segment(sequence="MVLSP", sequence_type="protein")
-        
+
         sub_config = ProteinQualitySubConfig(
             enable_length=True,
             length_target_length=20,  # Much longer than actual length of 5
@@ -48,21 +51,21 @@ class TestOverallProteinQualityConstraint:
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config
         )
-        
+
         constraint = Constraint(
             inputs=[segment],
             function=overall_protein_quality_constraint,
             function_config=config,
         )
-        
+
         scores = constraint.evaluate()
         assert len(scores) == 1
         assert scores[0] > 0.0  # Low quality due to short length
-    
+
     def test_protein_input_multiple_checks(self):
         """Test with multiple quality checks and constraint-specific metadata."""
         segment = Segment(sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEAL", sequence_type="protein")
-        
+
         sub_config = ProteinQualitySubConfig(
             enable_length=True,
             length_target_length=30,
@@ -73,29 +76,29 @@ class TestOverallProteinQualityConstraint:
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config
         )
-        
+
         constraint = Constraint(
             inputs=[segment],
             function=overall_protein_quality_constraint,
             function_config=config,
         )
-        
+
         scores = constraint.evaluate()
         assert len(scores) == 1
         # Should be high quality (good length, good diversity)
         assert scores[0] < 0.5
-        
+
         # Check constraint-specific metadata fields (nested under constraints)
-        constraints = segment.candidate_sequences[0]._metadata["constraints"]
+        constraints = segment.candidate_sequences[0]._constraints_metadata
         assert "overall_protein_quality_constraint" in constraints
         constraint_data = constraints["overall_protein_quality_constraint"]
         assert "avg_constraint_score" in constraint_data["data"]
         assert "is_high_quality" in constraint_data["data"]
-    
+
     def test_protein_input_repetitive(self):
         """Test with repetitive protein."""
         segment = Segment(sequence="AAAAAAAAAAAAAAAA", sequence_type="protein")
-        
+
         sub_config = ProteinQualitySubConfig(
             enable_repetitiveness=True,
             repetitiveness_max_repetitiveness=0.3,
@@ -106,17 +109,17 @@ class TestOverallProteinQualityConstraint:
         config = OverallProteinQualityConfig(
             protein_quality_config=sub_config
         )
-        
+
         constraint = Constraint(
             inputs=[segment],
             function=overall_protein_quality_constraint,
             function_config=config,
         )
-        
+
         scores = constraint.evaluate()
         assert len(scores) == 1
         assert scores[0] > 0.0  # Low quality
-    
+
     def test_config_validation_no_subchecks(self):
         """Test that config requires at least one sub-check (constraint-specific validation)."""
         with pytest.raises(Exception):  # Pydantic ValidationError

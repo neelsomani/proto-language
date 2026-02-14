@@ -179,10 +179,7 @@ class Segment:
             sequence_type=data["sequence_type"],
             valid_chars=set(data["valid_chars"]) if data.get("valid_chars") else None,
             label=data.get("label"),
-            metadata={
-                k: v for k, v in original_seq._metadata.items()
-                if k not in {"sequence", "sequence_length", "constraints"}
-            } or None,
+            metadata=original_seq._metadata or None,
         )
 
         # Restore sequence pools

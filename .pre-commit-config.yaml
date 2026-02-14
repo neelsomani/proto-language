@@ -14,7 +14,7 @@ repos:
     hooks:
       - id: generate-docs
         name: Generate documentation
-        entry: bash -c 'cd "$GIT_PREFIX" && python docs/generate_docs.py'
+        entry: bash -c 'cd "$GIT_PREFIX" && /opt/miniconda3/envs/proto-language/bin/python docs/generate_docs.py'
         language: system
         pass_filenames: false
         files: |

@@ -1,14 +1,16 @@
 # Helper utilities (constraint scoring, and tools)
 # Export utilities
 from .export import (
-    flatten_batch_over_time,
-    flatten_construct_metadata,
-    flatten_program_metadata,
-    flatten_segment_metadata,
+    build_batch_results,
+    flatten_constraints,
+    flatten_constructs,
+    flatten_optimization,
+    flatten_sequences,
     to_csv,
     to_json,
     to_tsv,
     to_xlsx,
+    to_xlsx_workbook,
     write_export,
 )
 from .helpers import (  # Constraint scoring; Tool utilities
@@ -76,13 +78,15 @@ __all__ = [
     "run_subprocess_command",
     "resolve_sequence_ids",
     # Export utilities
-    "flatten_segment_metadata",
-    "flatten_construct_metadata",
-    "flatten_program_metadata",
-    "flatten_batch_over_time",
+    "build_batch_results",
+    "flatten_sequences",
+    "flatten_constraints",
+    "flatten_constructs",
+    "flatten_optimization",
     "to_csv",
     "to_tsv",
     "to_json",
     "to_xlsx",
+    "to_xlsx_workbook",
     "write_export",
 ]

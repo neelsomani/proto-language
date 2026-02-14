@@ -724,11 +724,10 @@ class TestProgressSnapshot:
         snapshot = optimizer.history[0]
 
         assert snapshot["time_step"] == 5
-        assert snapshot["energy_scores"] == [0.1]
-        assert "constructs" in snapshot
-        # History stores serialized dicts, not Construct objects
-        assert isinstance(snapshot["constructs"], list)
-        assert isinstance(snapshot["constructs"][0], dict)
+        assert "batch_results" in snapshot
+        assert len(snapshot["batch_results"]) == 1
+        assert snapshot["batch_results"][0]["energy_score"] == 0.1
+        assert isinstance(snapshot["batch_results"][0]["constructs"], list)
 
     def test_snapshot_validates_energy_scores_length(self):
         """Tests that snapshot raises error if energy_scores length != num_selected."""

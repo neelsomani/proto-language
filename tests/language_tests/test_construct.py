@@ -49,22 +49,22 @@ class TestConstruct:
         seg2 = Segment(sequence="C", metadata={"id": 2, "status": "new"}, label="second")
 
         construct = Construct([seg1, seg2])
-        final_meta = construct.joined_sequences[0]._metadata
+        joined = construct.joined_sequences[0]
 
-        # Top-level has system metadata
-        assert final_meta["sequence"] == "AC"
-        assert final_meta["sequence_length"] == 2
+        # Identity fields are in the computed metadata property
+        assert joined.metadata["sequence"] == "AC"
+        assert joined.metadata["sequence_length"] == 2
 
-        # Segment metadata nested under "segments" key
-        assert "segments" in final_meta
-        assert "first" in final_meta["segments"]
-        assert "second" in final_meta["segments"]
+        # Segment metadata nested under "segments" key in _metadata
+        assert "segments" in joined._metadata
+        assert "first" in joined._metadata["segments"]
+        assert "second" in joined._metadata["segments"]
 
         # Each segment's metadata is preserved
-        assert final_meta["segments"]["first"]["id"] == 1
-        assert final_meta["segments"]["first"]["source"] == "seg1"
-        assert final_meta["segments"]["second"]["id"] == 2
-        assert final_meta["segments"]["second"]["status"] == "new"
+        assert joined._metadata["segments"]["first"]["id"] == 1
+        assert joined._metadata["segments"]["first"]["source"] == "seg1"
+        assert joined._metadata["segments"]["second"]["id"] == 2
+        assert joined._metadata["segments"]["second"]["status"] == "new"
 
     def test_validation_inconsistent_valid_chars(self):
         """Tests that inconsistent valid_chars sets raise a ValueError."""

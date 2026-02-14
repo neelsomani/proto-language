@@ -302,16 +302,16 @@ class TestRunStageRestart:
 
         # Verify stage 1 constraint metadata is present
         seq = segment.selected_sequences[0]
-        assert "gc_stage_1" in seq._metadata["constraints"]
+        assert "gc_stage_1" in seq._constraints_metadata
 
         # Run stage 2
         program.run_stage(1)
 
         # Verify stage 1 metadata is cleared and only stage 2 metadata exists
         seq = segment.selected_sequences[0]
-        assert "gc_stage_1" not in seq._metadata["constraints"], \
+        assert "gc_stage_1" not in seq._constraints_metadata, \
             "Stage 1 constraint metadata should be cleared"
-        assert "gc_stage_2" in seq._metadata["constraints"], \
+        assert "gc_stage_2" in seq._constraints_metadata, \
             "Stage 2 constraint metadata should be present"
 
     def test_get_stage_results_raises_for_unrun_stage(self):

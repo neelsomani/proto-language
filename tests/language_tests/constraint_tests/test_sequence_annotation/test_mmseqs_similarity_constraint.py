@@ -89,7 +89,7 @@ class TestMMseqsSimilarityConstraint:
             assert scores[0] >= 0.0
 
             # Check metadata - verify results were stored
-            constraints = segment.candidate_sequences[0]._metadata["constraints"]
+            constraints = segment.candidate_sequences[0]._constraints_metadata
             assert "mmseqs_results" in constraints["mmseqs_similarity_constraint"]["data"]
             # Should have 1 hit from our mock
             results = constraints["mmseqs_similarity_constraint"]["data"]["mmseqs_results"]
@@ -208,7 +208,7 @@ class TestMMseqsSimilarityConstraint:
             assert isinstance(scores[0], float)
 
             # Check metadata shows correct hit counts
-            constraints = segment.candidate_sequences[0]._metadata["constraints"]
+            constraints = segment.candidate_sequences[0]._constraints_metadata
             assert constraints["mmseqs_similarity_constraint"]["data"]["total_orfs_with_hits"] == 3
             # 2 hits are within range (85 and 95), 1 is below (75)
             assert constraints["mmseqs_similarity_constraint"]["data"]["orfs_with_acceptable_similarity"] == 2

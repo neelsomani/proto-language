@@ -1,95 +1,122 @@
 """
-Export utilities for metadata at different granularities.
+Export utilities for optimization results at different granularities.
 
-Supports exporting to CSV, TSV, JSON, and Excel formats with both wide and long styles.
+Four tables, each with a single natural format:
+- sequences:    One row per (batch_idx, construct, segment)
+- constraints:  One row per (batch_idx, construct, segment, constraint)
+- constructs:   One row per (batch_idx, construct)
+- optimization: One row per (timepoint, batch_idx)
+
+Supports CSV, TSV, JSON, and Excel output formats.
 """
 
 from __future__ import annotations
 
+import copy
 import csv
 import json
 from io import StringIO
 from pathlib import Path
-from typing import Any, Dict, IO, List, Literal, Optional, Union
+from typing import IO, Any, Dict, List, Literal, Optional, Set, Union
+
+from proto_language.utils.helpers import filter_inf_nan_scores
 
 # Type aliases
-Style = Literal["wide", "long"]
 Format = Literal["csv", "tsv", "json", "xlsx"]
-BatchResults = Dict[str, Any]  # Output from Program.extract_batch_results()
+BatchResults = Dict[str, Any]  # Output from build_batch_results()
 
 
-def _get_segment_data(batch_results: BatchResults, construct: str, segment: str, batch_idx: int) -> Optional[Dict]:
-    """Extract segment data from batch_results structure."""
-    for batch in batch_results.get("batch_results", []):
-        if batch["batch_idx"] != batch_idx:
-            continue
-        for c in batch["constructs"]:
-            if c["label"] != construct:
-                continue
-            for s in c["segments"]:
-                if s["label"] == segment:
-                    return {
-                        "sequence": s["sequence"],
-                        "constraints": s["constraints"],
-                        "energy_score": batch["energy_score"],
-                    }
-    return None
+# =============================================================================
+# Build batch results
+# =============================================================================
 
 
-def _flatten_constraints_wide(constraints: Dict[str, Dict], prefix: str = "") -> Dict[str, Any]:
-    """
-    Flatten constraints dict to wide format: {constraint.metric: value}.
-    
-    Constraint structure:
-        {
-            "constraint_name": {
-                "score": 0.1,
-                "weight": 1.0,
-                "weighted_score": 0.1,
-                "input_segments": ["c0.seg1", "c0.seg2"],  # multi-segment only
-                "position_in_inputs": 0,  # multi-segment only
-                "data": {"gc_content": 52.3, ...}
+def build_batch_results(
+    constructs: list,
+    energy_scores: List[float],
+) -> BatchResults:
+    """Build standardized batch-first results from live Construct objects.
+
+    Produces the canonical format consumed by all flatten/export functions.
+    Always deep copies constraints/metadata so callers get an independent snapshot.
+    Infinite/NaN energy scores are converted to None for JSON compatibility.
+
+    Args:
+        constructs: List of Construct objects.
+        energy_scores: List of energy scores (one per batch member).
+
+    Returns:
+        Dict with "batch_results" (list of batch dicts) and "best_batch_idx"::
+
+            {
+                "batch_results": [{
+                    "batch_idx": 0,
+                    "energy_score": 0.5,
+                    "constructs": [{
+                        "label": "construct_0",
+                        "type": "dna",
+                        "segments": [{
+                            "label": "promoter",
+                            "sequence": "ATCG",
+                            "constraints": {
+                                "gc_content": {
+                                    "score": 0.5,
+                                    "weight": 1.0,
+                                    "weighted_score": 0.5,
+                                    "data": {"gc_content": 50.0}
+                                }
+                            },
+                            "metadata": {}
+                        }]
+                    }]
+                }],
+                "best_batch_idx": 0
             }
-        }
     """
-    flat = {}
-    for constraint_label, constraint_data in constraints.items():
-        base = f"{prefix}{constraint_label}" if prefix else constraint_label
-        
-        # Add top-level fields (score, weight, multi-segment info)
-        for key in ["score", "weight", "weighted_score", "input_segments", "position_in_inputs"]:
-            if key in constraint_data:
-                flat[f"{base}.{key}"] = constraint_data[key]
-        
-        # Add nested "data" fields
-        data = constraint_data.get("data", {})
-        for metric_name, value in data.items():
-            flat[f"{base}.{metric_name}"] = value
-    
-    return flat
+    if not constructs or not constructs[0].segments:
+        return {"batch_results": [], "best_batch_idx": 0}
+
+    num_selected = len(constructs[0].segments[0].selected_sequences)
+    batch_results = []
+
+    for batch_idx in range(num_selected):
+        structured_constructs = []
+        for construct in constructs:
+            structured_segments = []
+            for seg_idx, segment in enumerate(construct.segments):
+                seq = segment.selected_sequences[batch_idx]
+                constraints = copy.deepcopy(seq._constraints_metadata)
+                metadata = copy.deepcopy(seq._metadata)
+                structured_segments.append({
+                    "label": segment.label or f"segment_{seg_idx}",
+                    "sequence": seq.sequence,
+                    "constraints": constraints,
+                    "metadata": metadata,
+                })
+            structured_constructs.append({
+                "label": construct.label,
+                "type": construct.sequence_type,
+                "segments": structured_segments,
+            })
+        batch_results.append({
+            "batch_idx": batch_idx,
+            "energy_score": filter_inf_nan_scores(energy_scores[batch_idx]),
+            "constructs": structured_constructs,
+        })
+
+    def get_score(i: int) -> float:
+        score = batch_results[i]["energy_score"]
+        return float("inf") if score is None else score
+
+    best_idx = (
+        min(range(len(batch_results)), key=get_score) if batch_results else 0
+    )
+    return {"batch_results": batch_results, "best_batch_idx": best_idx}
 
 
-def _flatten_constraints_long(constraints: Dict[str, Dict]) -> List[Dict[str, Any]]:
-    """
-    Flatten constraints dict to long format: list of {constraint_label, metric, value} rows.
-    
-    Each constraint becomes one row with its score fields and custom data merged.
-    """
-    rows = []
-    for constraint_label, constraint_data in constraints.items():
-        row = {"constraint_label": constraint_label}
-        
-        # Add top-level fields (score, weight, multi-segment info)
-        for key in ["score", "weight", "weighted_score", "input_segments", "position_in_inputs"]:
-            if key in constraint_data:
-                row[key] = constraint_data[key]
-        
-        # Add nested "data" fields
-        data = constraint_data.get("data", {})
-        row.update(data)
-        
-        rows.append(row)
-    return rows
+# =============================================================================
+# Shared helpers
+# =============================================================================
 
 
 def _collect_all_columns(rows: List[Dict]) -> List[str]:
@@ -104,196 +131,225 @@ def _collect_all_columns(rows: List[Dict]) -> List[str]:
     return columns
 
 
-def flatten_segment_metadata(
-    batch_results: BatchResults,
-    construct: str,
-    segment: str,
-    batch_idx: int = 0,
-    style: Style = "wide",
-) -> List[Dict[str, Any]]:
-    """
-    Flatten metadata for a single segment.
+def _flatten_constraint_columns(
+    constraints: Dict[str, Dict], prefix: str = ""
+) -> Dict[str, Any]:
+    """Flatten all constraint data with {prefix}{label}.{field} namespacing.
+
+    Used by flatten_sequences, flatten_constructs, flatten_optimization.
+    Includes score, weight, weighted_score, all data fields, and multi-segment info.
 
     Args:
-        batch_results: Output from Program.extract_batch_results()
-        construct: Construct label
-        segment: Segment label
-        batch_idx: Batch index (default 0)
-        style: "wide" (single row) or "long" (one row per constraint)
-
-    Returns:
-        List of dicts suitable for CSV/JSON export
+        constraints: Dict mapping constraint labels to their data.
+        prefix: Column name prefix (e.g., "promoter." for construct-level).
     """
-    data = _get_segment_data(batch_results, construct, segment, batch_idx)
-    if not data:
-        return []
-
-    constraints = data["constraints"]
-
-    if style == "wide":
-        row = {"sequence": data["sequence"]}
-        row.update(_flatten_constraints_wide(constraints))
-        return [row]
-    else:  # long
-        rows = _flatten_constraints_long(constraints)
-        for row in rows:
-            row["sequence"] = data["sequence"]
-        return rows
+    flat = {}
+    for label, cdata in constraints.items():
+        base = f"{prefix}{label}"
+        for key in ("score", "weight", "weighted_score"):
+            if key in cdata:
+                flat[f"{base}.{key}"] = cdata[key]
+        for key in ("input_segments", "position_in_inputs"):
+            if key in cdata:
+                flat[f"{base}.{key}"] = cdata[key]
+        for k, v in cdata.get("data", {}).items():
+            flat[f"{base}.{k}"] = v
+    return flat
 
 
-def flatten_construct_metadata(
+# =============================================================================
+# Flatten functions — one per table
+# =============================================================================
+
+
+def flatten_sequences(
     batch_results: BatchResults,
-    construct: str,
-    batch_idx: int = 0,
-    style: Style = "wide",
+    segments: Optional[Set[str]] = None,
+    batch_indices: Optional[Set[int]] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Flatten metadata for all segments in a construct.
+    """One row per (batch_idx, construct, segment). All constraint fields inline.
 
     Args:
-        batch_results: Output from Program.extract_batch_results()
-        construct: Construct label
-        batch_idx: Batch index (default 0)
-        style: "wide" (one row per segment) or "long" (one row per segment × constraint)
+        batch_results: Output from build_batch_results().
+        segments: If set, only include these segment labels.
+        batch_indices: If set, only include these batch indices.
 
-    Returns:
-        List of dicts suitable for CSV/JSON export
+    Columns:
+        Fixed: batch_idx, energy_score, construct, segment, sequence
+        Per constraint: {label}.score, {label}.weight, {label}.weighted_score,
+            {label}.{data_key}, and optionally {label}.input_segments,
+            {label}.position_in_inputs
+        Metadata: metadata.{key}
     """
     rows = []
-
     for batch in batch_results.get("batch_results", []):
-        if batch["batch_idx"] != batch_idx:
+        if batch_indices is not None and batch["batch_idx"] not in batch_indices:
             continue
-        for c in batch["constructs"]:
-            if c["label"] != construct:
-                continue
-            for seg in c["segments"]:
-                if style == "wide":
-                    row = {
-                        "segment_label": seg["label"],
-                        "sequence": seg["sequence"],
-                    }
-                    row.update(_flatten_constraints_wide(seg["constraints"]))
-                    rows.append(row)
-                else:  # long
-                    for constraint_row in _flatten_constraints_long(seg["constraints"]):
-                        constraint_row["segment_label"] = seg["label"]
-                        constraint_row["sequence"] = seg["sequence"]
-                        rows.append(constraint_row)
-
+        for construct in batch["constructs"]:
+            for segment in construct["segments"]:
+                if segments is not None and segment["label"] not in segments:
+                    continue
+                row = {
+                    "batch_idx": batch["batch_idx"],
+                    "energy_score": batch["energy_score"],
+                    "construct": construct["label"],
+                    "segment": segment["label"],
+                    "sequence": segment["sequence"],
+                }
+                row.update(
+                    _flatten_constraint_columns(
+                        segment.get("constraints", {})
+                    )
+                )
+                for key, value in segment.get("metadata", {}).items():
+                    row[f"metadata.{key}"] = value
+                rows.append(row)
     return rows
 
 
-def flatten_program_metadata(
+def flatten_constraints(
     batch_results: BatchResults,
-    style: Style = "wide",
+    segments: Optional[Set[str]] = None,
+    constraints: Optional[Set[str]] = None,
+    batch_indices: Optional[Set[int]] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Flatten metadata for all segments across all batches.
+    """One row per (batch_idx, construct, segment, constraint). All metrics.
 
     Args:
-        batch_results: Output from Program.extract_batch_results()
-        style: "wide" (one row per batch) or "long" (one row per batch × construct × segment)
+        batch_results: Output from build_batch_results().
+        segments: If set, only include these segment labels.
+        constraints: If set, only include these constraint labels.
+        batch_indices: If set, only include these batch indices.
 
-    Returns:
-        List of dicts suitable for CSV/JSON export
+    Columns:
+        Fixed: batch_idx, energy_score, construct, segment, constraint
+        Standard: score, weight, weighted_score
+        Multi-segment (when applicable): input_segments, position_in_inputs
+        Custom data: {key} un-prefixed (one constraint per row)
     """
     rows = []
-
     for batch in batch_results.get("batch_results", []):
-        batch_idx = batch["batch_idx"]
-        energy_score = batch["energy_score"]
-
-        if style == "wide":
-            # One row per batch, with construct.segment.constraint.metric columns
-            row = {
-                "batch_idx": batch_idx,
-                "energy_score": energy_score,
-            }
-            for c in batch["constructs"]:
-                for seg in c["segments"]:
-                    prefix = f"{c['label']}.{seg['label']}."
-                    row[f"{prefix}sequence"] = seg["sequence"]
-                    row.update(_flatten_constraints_wide(seg["constraints"], prefix=prefix))
-            rows.append(row)
-        else:  # long
-            # One row per batch × construct × segment
-            for c in batch["constructs"]:
-                for seg in c["segments"]:
+        if batch_indices is not None and batch["batch_idx"] not in batch_indices:
+            continue
+        for construct in batch["constructs"]:
+            for segment in construct["segments"]:
+                if segments is not None and segment["label"] not in segments:
+                    continue
+                for label, cdata in segment.get("constraints", {}).items():
+                    if constraints is not None and label not in constraints:
+                        continue
                     row = {
-                        "batch_idx": batch_idx,
-                        "energy_score": energy_score,
-                        "construct_label": c["label"],
-                        "segment_label": seg["label"],
-                        "sequence": seg["sequence"],
+                        "batch_idx": batch["batch_idx"],
+                        "energy_score": batch["energy_score"],
+                        "construct": construct["label"],
+                        "segment": segment["label"],
+                        "constraint": label,
+                        "score": cdata.get("score"),
+                        "weight": cdata.get("weight"),
+                        "weighted_score": cdata.get("weighted_score"),
                     }
-                    row.update(_flatten_constraints_wide(seg["constraints"]))
+                    for key in ("input_segments", "position_in_inputs"):
+                        if key in cdata:
+                            row[key] = cdata[key]
+                    for k, v in cdata.get("data", {}).items():
+                        row[k] = v
                     rows.append(row)
-
     return rows
 
 
-def flatten_batch_over_time(
-    history: List[Dict[str, Any]],
-    batch_idx: int = 0,
-    style: Style = "wide",
+def flatten_constructs(
+    batch_results: BatchResults,
+    segments: Optional[Set[str]] = None,
+    batch_indices: Optional[Set[int]] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Flatten metadata for a single batch across optimization history.
+    """One row per (batch_idx, construct). Per-segment data as prefixed columns.
 
     Args:
-        history: Optimizer history list (from optimizer.history)
-        batch_idx: Batch index to track (default 0)
-        style: "wide" (one row per timepoint) or "long" (one row per timepoint × segment)
+        batch_results: Output from build_batch_results().
+        segments: If set, only include these segment labels in per-segment columns.
+            full_sequence still reflects all segments for construct integrity.
+        batch_indices: If set, only include these batch indices.
 
-    Returns:
-        List of dicts suitable for CSV/JSON export
+    Columns:
+        Fixed: batch_idx, energy_score, construct, full_sequence
+        Per segment: {segment}.sequence
+        Per segment x constraint: {segment}.{constraint}.score, etc.
+        Per segment metadata: {segment}.metadata.{key}
     """
     rows = []
-
-    for entry in history:
-        time_step = entry["time_step"]
-        energy_scores = entry.get("energy_scores", [])
-        energy_score = energy_scores[batch_idx] if batch_idx < len(energy_scores) else None
-        constructs = entry.get("constructs", [])
-
-        if style == "wide":
+    for batch in batch_results.get("batch_results", []):
+        if batch_indices is not None and batch["batch_idx"] not in batch_indices:
+            continue
+        for construct in batch["constructs"]:
             row = {
-                "timepoint": time_step,
-                "energy_score": energy_score,
+                "batch_idx": batch["batch_idx"],
+                "energy_score": batch["energy_score"],
+                "construct": construct["label"],
+                "full_sequence": "".join(
+                    s["sequence"] for s in construct["segments"]
+                ),
             }
-            for c_data in constructs:
-                c_label = c_data.get("label", "construct")
-                for seg_data in c_data.get("segments", []):
-                    seg_label = seg_data.get("label", "segment")
-                    # Get the sequence at this batch_idx
-                    selected = seg_data.get("selected_sequences", [])
-                    if batch_idx < len(selected):
-                        seq_data = selected[batch_idx]
-                        prefix = f"{c_label}.{seg_label}."
-                        row[f"{prefix}sequence"] = seq_data.get("sequence", "")
-                        constraints = seq_data.get("metadata", {}).get("constraints", {})
-                        row.update(_flatten_constraints_wide(constraints, prefix=prefix))
+            for segment in construct["segments"]:
+                if segments is not None and segment["label"] not in segments:
+                    continue
+                seg = segment["label"]
+                row[f"{seg}.sequence"] = segment["sequence"]
+                row.update(
+                    _flatten_constraint_columns(
+                        segment.get("constraints", {}),
+                        prefix=f"{seg}.",
+                    )
+                )
+                for key, value in segment.get("metadata", {}).items():
+                    row[f"{seg}.metadata.{key}"] = value
             rows.append(row)
-        else:  # long
-            for c_data in constructs:
-                c_label = c_data.get("label", "construct")
-                for seg_data in c_data.get("segments", []):
-                    seg_label = seg_data.get("label", "segment")
-                    selected = seg_data.get("selected_sequences", [])
-                    if batch_idx < len(selected):
-                        seq_data = selected[batch_idx]
-                        row = {
-                            "timepoint": time_step,
-                            "energy_score": energy_score,
-                            "construct_label": c_label,
-                            "segment_label": seg_label,
-                            "sequence": seq_data.get("sequence", ""),
-                        }
-                        constraints = seq_data.get("metadata", {}).get("constraints", {})
-                        row.update(_flatten_constraints_wide(constraints))
-                        rows.append(row)
+    return rows
 
+
+def flatten_optimization(
+    history: List[Dict[str, Any]],
+    segments: Optional[Set[str]] = None,
+    batch_indices: Optional[Set[int]] = None,
+) -> List[Dict[str, Any]]:
+    """One row per (timepoint, batch_idx). Sequences + constraint scores.
+
+    History entries use the same batch_results format as extract_batch_results(),
+    so traversal is identical to the other flatten functions.
+
+    Args:
+        history: List of history entries from optimizer(s).
+        segments: If set, only include these segment labels.
+        batch_indices: If set, only include these batch indices.
+
+    Columns:
+        Fixed: timepoint, batch_idx, energy_score
+        Per segment: {segment}.sequence
+        Per segment x constraint: {segment}.{constraint}.score, etc.
+    """
+    rows = []
+    for entry in history:
+        timepoint = entry["time_step"]
+        for batch in entry.get("batch_results", []):
+            if batch_indices is not None and batch["batch_idx"] not in batch_indices:
+                continue
+            row = {
+                "timepoint": timepoint,
+                "batch_idx": batch["batch_idx"],
+                "energy_score": batch["energy_score"],
+            }
+            for construct in batch["constructs"]:
+                for segment in construct["segments"]:
+                    if segments is not None and segment["label"] not in segments:
+                        continue
+                    seg = segment["label"]
+                    row[f"{seg}.sequence"] = segment["sequence"]
+                    row.update(
+                        _flatten_constraint_columns(
+                            segment.get("constraints", {}),
+                            prefix=f"{seg}.",
+                        )
+                    )
+            rows.append(row)
     return rows
 
 
@@ -301,9 +357,9 @@ def flatten_batch_over_time(
 # Format Writers
 # =============================================================================
 
+
 def to_csv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
-    """
-    Write rows to CSV format.
+    """Write rows to CSV format.
 
     Args:
         rows: List of dicts with consistent keys
@@ -317,10 +373,11 @@ def to_csv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
 
     columns = _collect_all_columns(rows)
     buffer = StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction='ignore')
+    writer = csv.DictWriter(
+        buffer, fieldnames=columns, extrasaction="ignore"
+    )
     writer.writeheader()
     for row in rows:
-        # Fill missing values with empty string
         writer.writerow({k: row.get(k, "") for k in columns})
 
     csv_str = buffer.getvalue()
@@ -336,8 +393,7 @@ def to_csv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
 
 
 def to_tsv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
-    """
-    Write rows to TSV format.
+    """Write rows to TSV format.
 
     Args:
         rows: List of dicts with consistent keys
@@ -351,7 +407,9 @@ def to_tsv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
 
     columns = _collect_all_columns(rows)
     buffer = StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=columns, delimiter='\t', extrasaction='ignore')
+    writer = csv.DictWriter(
+        buffer, fieldnames=columns, delimiter="\t", extrasaction="ignore"
+    )
     writer.writeheader()
     for row in rows:
         writer.writerow({k: row.get(k, "") for k in columns})
@@ -368,9 +426,12 @@ def to_tsv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
         return tsv_str
 
 
-def to_json(rows: List[Dict], output: Union[Path, IO, None] = None, indent: int = 2) -> str:
-    """
-    Write rows to JSON format.
+def to_json(
+    rows: List[Dict],
+    output: Union[Path, IO, None] = None,
+    indent: int = 2,
+) -> str:
+    """Write rows to JSON format.
 
     Args:
         rows: List of dicts
@@ -393,8 +454,7 @@ def to_json(rows: List[Dict], output: Union[Path, IO, None] = None, indent: int 
 
 
 def to_xlsx(rows: List[Dict], output: Union[Path, IO]) -> None:
-    """
-    Write rows to Excel format.
+    """Write rows to Excel format (single sheet).
 
     Args:
         rows: List of dicts with consistent keys
@@ -418,11 +478,9 @@ def to_xlsx(rows: List[Dict], output: Union[Path, IO]) -> None:
     wb = Workbook()
     ws = wb.active
 
-    # Write header
     for col_idx, col_name in enumerate(columns, start=1):
         ws.cell(row=1, column=col_idx, value=col_name)
 
-    # Write data
     for row_idx, row in enumerate(rows, start=2):
         for col_idx, col_name in enumerate(columns, start=1):
             ws.cell(row=row_idx, column=col_idx, value=row.get(col_name, ""))
@@ -433,17 +491,57 @@ def to_xlsx(rows: List[Dict], output: Union[Path, IO]) -> None:
         wb.save(output)
 
 
+def to_xlsx_workbook(
+    tables: Dict[str, List[Dict]], output: Path
+) -> None:
+    """Write multiple tables as sheets in a single Excel workbook.
+
+    Args:
+        tables: Dict mapping sheet names to row lists.
+        output: Output file path.
+
+    Raises:
+        ImportError: If openpyxl is not installed
+    """
+    try:
+        from openpyxl import Workbook
+    except ImportError:
+        raise ImportError(
+            "openpyxl is required for Excel export. "
+            "Install with: pip install openpyxl"
+        )
+
+    wb = Workbook()
+    # Remove default sheet
+    wb.remove(wb.active)
+
+    for sheet_name, rows in tables.items():
+        ws = wb.create_sheet(title=sheet_name)
+        if not rows:
+            continue
+        columns = _collect_all_columns(rows)
+        for col_idx, col_name in enumerate(columns, start=1):
+            ws.cell(row=1, column=col_idx, value=col_name)
+        for row_idx, row in enumerate(rows, start=2):
+            for col_idx, col_name in enumerate(columns, start=1):
+                ws.cell(
+                    row=row_idx, column=col_idx, value=row.get(col_name, "")
+                )
+
+    wb.save(str(output))
+
+
 # =============================================================================
 # High-level export function
 # =============================================================================
+
 
 def write_export(
     rows: List[Dict],
     format: Format,
     path: Optional[Path] = None,
 ) -> Union[str, None]:
-    """
-    Write rows to the specified format.
+    """Write rows to the specified format.
 
     Args:
         rows: List of dicts to export

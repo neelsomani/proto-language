@@ -248,7 +248,7 @@ class TestCyclingOptimizerRun:
         assert call_count[0] == num_steps
         assert len(optimizer.history) == num_steps + 1
         for entry in optimizer.history:
-            assert "time_step" in entry and "constructs" in entry
+            assert "time_step" in entry and "batch_results" in entry
 
     def test_filter_constraint_rollback(self):
         """Test that failing candidates are rolled back to previous sequences."""
@@ -430,10 +430,7 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_full_cycle_with_proteinmpnn(self, pdb_structure):
         """Test complete optimization cycle with LigandMPNN."""
-        from proto_tools import (
-            StructurePredictionComplex,
-            predict_structures,
-        )
+        from proto_tools import StructurePredictionComplex, predict_structures
 
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)
@@ -484,10 +481,7 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_with_filter_constraint(self, pdb_structure):
         """Test with filter constraint using real models."""
-        from proto_tools import (
-            StructurePredictionComplex,
-            predict_structures,
-        )
+        from proto_tools import StructurePredictionComplex, predict_structures
 
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)

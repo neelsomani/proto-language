@@ -15,6 +15,8 @@ from typing import Any, Callable, Dict, List, Literal, Optional
 
 from proto_tools.utils.tool_cache import ToolCache, _program_tool_cache
 
+from proto_language.utils.export import build_batch_results
+
 logger = logging.getLogger(__name__)
 
 from .constraint import Constraint
@@ -433,7 +435,8 @@ class Optimizer(ABC):
         """Save current optimization state to history.
 
         Validates that ``selected_sequences`` and ``energy_scores`` have length
-        ``num_selected``, then appends a snapshot to ``self.history``.
+        ``num_selected``, then appends a snapshot using the standardized
+        batch_results format (same structure as extract_batch_results).
         """
         for segment in self.segments:
             if len(segment.selected_sequences) != self.num_selected:
@@ -441,8 +444,6 @@ class Optimizer(ABC):
         if len(self.energy_scores) != self.num_selected:
             raise RuntimeError(f"energy_scores has length {len(self.energy_scores)}, expected {self.num_selected}")
 
-        self.history.append({
-            "time_step": time_step,
-            "energy_scores": self.energy_scores.copy(),
-            "constructs": [c.to_dict() for c in self.constructs],  # Optimization: serialize instead of deepcopy
-        })
+        result = build_batch_results(self.constructs, self.energy_scores)
+        result["time_step"] = time_step
+        self.history.append(result)

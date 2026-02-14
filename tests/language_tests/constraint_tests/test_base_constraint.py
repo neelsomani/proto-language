@@ -1,20 +1,19 @@
 from __future__ import annotations
-import pytest
+
 import copy
 import math
 
+import pytest
 from pydantic import BaseModel
 
-from proto_language.language.core import (
-    Segment,
-    Constraint,
-)
+from proto_language.language.core import Constraint, Segment
+
 from .utils import (
-    mock_single_input_scoring_function,
+    mock_dna_only_scoring_function,
     mock_multi_input_scoring_function,
     mock_multi_input_scoring_function_disjoint,
-    mock_dna_only_scoring_function,
     mock_protein_only_scoring_function,
+    mock_single_input_scoring_function,
 )
 
 
@@ -85,7 +84,7 @@ class TestConstraintEvaluation:
 
         # Check metadata was propagated in nested format
         for i, seq in enumerate(segment.candidate_sequences):
-            constraints = seq._metadata["constraints"]
+            constraints = seq._constraints_metadata
             assert "mock_multi_input_scoring_function" in constraints
             assert "t_count" in constraints["mock_multi_input_scoring_function"]["data"]
             assert "total_length" in constraints["mock_multi_input_scoring_function"]["data"]
@@ -113,8 +112,8 @@ class TestConstraintEvaluation:
 
         # Each segment should have its own metadata in nested format
         for i in range(len(sequences_a)):
-            constraints_a = seg_a.candidate_sequences[i]._metadata["constraints"]
-            constraints_b = seg_b.candidate_sequences[i]._metadata["constraints"]
+            constraints_a = seg_a.candidate_sequences[i]._constraints_metadata
+            constraints_b = seg_b.candidate_sequences[i]._constraints_metadata
             assert "mock_multi_input_scoring_function_disjoint" in constraints_a
             assert "mock_multi_input_scoring_function_disjoint" in constraints_b
             assert "t_percent" in constraints_a["mock_multi_input_scoring_function_disjoint"]["data"]
@@ -222,7 +221,7 @@ class TestConstraintLabel:
         constraint.evaluate()
 
         # Metadata should use custom label in nested format
-        constraints = segment.candidate_sequences[0]._metadata["constraints"]
+        constraints = segment.candidate_sequences[0]._constraints_metadata
         assert "my_custom_label" in constraints
         assert "t_count" in constraints["my_custom_label"]["data"]
         # Should NOT use function name
@@ -260,9 +259,9 @@ class TestConstraintMask:
 
         # Verify metadata only propagated to evaluated candidates (nested under "constraints")
         constraint_label = "mock_multi_input_scoring_function"
-        assert constraint_label in segment.candidate_sequences[0]._metadata["constraints"]
+        assert constraint_label in segment.candidate_sequences[0]._constraints_metadata
         # Skipped candidate should have no constraint metadata (constraints dict always exists but is empty)
-        assert constraint_label not in segment.candidate_sequences[1]._metadata["constraints"]
+        assert constraint_label not in segment.candidate_sequences[1]._constraints_metadata
 
     def test_mask_all_false_returns_nan(self):
         """Test that all-false mask returns NaN for all candidates."""
@@ -431,3 +430,53 @@ class TestConstraintEdgeCases:
 
         with pytest.raises(ZeroDivisionError):
             constraint.evaluate()
+
+    def test_reserved_key_collision_raises_error(self):
+        """Test that writing a reserved key to seq._metadata raises ValueError."""
+        def collision_scoring_function(input_sequences, config):
+            scores = []
+            for (seq,) in input_sequences:
+                # Write a reserved key — this should be caught
+                seq._metadata["score"] = 0.5
+                scores.append(0.1)
+            return scores
+
+        collision_scoring_function._constraint_supported_sequence_types = {"dna"}
+        collision_scoring_function._constraint_num_input_sequences_per_tuple = 1
+
+        segment = _make_segment_with_candidates(["ATCG"], "dna")
+        constraint = Constraint(
+            inputs=[segment],
+            function=collision_scoring_function,
+            function_config=MockConstraintConfig(),
+        )
+
+        with pytest.raises(ValueError, match="reserved key"):
+            constraint.evaluate()
+
+    def test_non_reserved_key_allowed(self):
+        """Test that writing non-reserved keys to seq._metadata works fine."""
+        def safe_scoring_function(input_sequences, config):
+            scores = []
+            for (seq,) in input_sequences:
+                seq._metadata["gc_content"] = 50.0
+                seq._metadata["my_custom_metric"] = 42
+                scores.append(0.1)
+            return scores
+
+        safe_scoring_function._constraint_supported_sequence_types = {"dna"}
+        safe_scoring_function._constraint_num_input_sequences_per_tuple = 1
+
+        segment = _make_segment_with_candidates(["ATCG"], "dna")
+        constraint = Constraint(
+            inputs=[segment],
+            function=safe_scoring_function,
+            function_config=MockConstraintConfig(),
+        )
+
+        scores = constraint.evaluate()
+        assert len(scores) == 1
+        # Custom data should be in constraints_metadata under "data"
+        cdata = segment.candidate_sequences[0]._constraints_metadata["safe_scoring_function"]
+        assert cdata["data"]["gc_content"] == 50.0
+        assert cdata["data"]["my_custom_metric"] == 42

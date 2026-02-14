@@ -7,9 +7,14 @@ dinucleotide_frequency and tetranucleotide_usage constraints.
 
 import pytest
 
+from proto_language.language.constraint import (
+    ConstraintRegistry,
+    kmer_frequency_constraint,
+)
+from proto_language.language.constraint.sequence_composition.kmer_frequency_constraint import (
+    KmerFrequencyConfig,
+)
 from proto_language.language.core import Constraint, Segment
-from proto_language.language.constraint import kmer_frequency_constraint, ConstraintRegistry
-from proto_language.language.constraint.sequence_composition.kmer_frequency_constraint import KmerFrequencyConfig
 
 
 class TestKmerFrequencyConstraint:
@@ -37,7 +42,7 @@ class TestKmerFrequencyConstraint:
         assert score >= 0.0
 
         # Check metadata
-        constraints = seq.candidate_sequences[0]._metadata["constraints"]
+        constraints = seq.candidate_sequences[0]._constraints_metadata
         assert "2mer_frequencies" in constraints["kmer_frequency_constraint"]["data"]
         freqs = constraints["kmer_frequency_constraint"]["data"]["2mer_frequencies"]
         assert "AT" in freqs
@@ -65,7 +70,7 @@ class TestKmerFrequencyConstraint:
         assert score >= 0.0
 
         # Check metadata
-        constraints = seq.candidate_sequences[0]._metadata["constraints"]
+        constraints = seq.candidate_sequences[0]._constraints_metadata
         assert "GATC_usage_deviation" in constraints["kmer_frequency_constraint"]["data"]
         assert "GATC_count" in constraints["kmer_frequency_constraint"]["data"]
 
@@ -89,7 +94,7 @@ class TestKmerFrequencyConstraint:
         score = constraint.evaluate()[0]
         assert score >= 0.0
 
-        constraints = seq.candidate_sequences[0]._metadata["constraints"]
+        constraints = seq.candidate_sequences[0]._constraints_metadata
         assert "2mer_frequencies" in constraints["kmer_frequency_constraint"]["data"]
 
     def test_empty_sequence(self):

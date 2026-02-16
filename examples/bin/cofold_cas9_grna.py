@@ -80,7 +80,12 @@ def construct_sgrna(
 
 
 def download_reference_pdb(output_dir: Path) -> Path:
-    """Download 4OO8.pdb from RCSB if not already cached."""
+    """Download 4OO8.pdb from RCSB if not already cached.
+
+    4OO8 contains a biological dimer (chains A-C and D-F).  We keep only
+    chains A (protein), B (sgRNA), and C (target DNA) so that USalign
+    compares against a single monomer complex.
+    """
     pdb_path = output_dir / f"{REFERENCE_PDB_ID}.pdb"
     if pdb_path.exists():
         logger.info(f"Reference PDB already cached: {pdb_path}")
@@ -89,8 +94,19 @@ def download_reference_pdb(output_dir: Path) -> Path:
     logger.info(f"Downloading {REFERENCE_PDB_ID}.pdb from RCSB...")
     response = requests.get(RCSB_PDB_URL, timeout=60)
     response.raise_for_status()
-    pdb_path.write_text(response.text)
-    logger.info(f"Saved reference PDB to {pdb_path}")
+
+    # Keep only monomer chains A, B, C (drop dimer mate D, E, F).
+    keep_chains = {"A", "B", "C"}
+    filtered_lines = []
+    for line in response.text.splitlines(keepends=True):
+        if line.startswith(("ATOM", "HETATM", "TER", "ANISOU")):
+            chain_id = line[21] if len(line) > 21 else ""
+            if chain_id not in keep_chains:
+                continue
+        filtered_lines.append(line)
+    pdb_path.write_text("".join(filtered_lines))
+    logger.info(f"Saved reference PDB (chains {','.join(sorted(keep_chains))}) "
+                f"to {pdb_path}")
     return pdb_path
 
 

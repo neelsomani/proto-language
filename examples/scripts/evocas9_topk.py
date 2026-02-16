@@ -44,7 +44,9 @@ logger = logging.getLogger(__name__)
 PROMPT = "`A"  # Backtick = Cas9 class token + one nucleotide
 NUM_TOKENS = 8000
 MODEL_NAME = "evo-1-8k-crispr"
-TEMPERATURES = [0.1, 0.3, 0.5]
+# Temperatures [0.1, 0.3, 0.5] and top_k [2, 4] were all tested in the paper;
+# subsequent analysis showed temp=0.5 dominates the top structural hits.
+TEMPERATURES = [0.5]
 TOP_KS = [2, 4]
 
 # Data paths (all relative to repo root)

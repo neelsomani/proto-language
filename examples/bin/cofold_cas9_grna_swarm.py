@@ -39,7 +39,41 @@ logger = logging.getLogger(__name__)
 # Each job writes cas9_topk_{n_samples}_{SLURM_JOB_ID}_candidates.tsv.
 CANDIDATE_TSV_GLOB = "*_candidates.tsv"
 
-DEFAULT_REFERENCE_PDB = "cofold_cas9_grna_output/4OO8.pdb"
+REFERENCE_PDB_ID = "4OO8"
+RCSB_PDB_URL = f"https://files.rcsb.org/download/{REFERENCE_PDB_ID}.pdb"
+
+
+def download_reference_pdb(output_dir: Path) -> Path:
+    """Download 4OO8.pdb from RCSB if not already cached.
+
+    4OO8 contains a biological dimer (chains A-C and D-F).  We keep only
+    chains A (protein), B (sgRNA), and C (target DNA) so that USalign
+    compares against a single monomer complex.
+    """
+    import requests
+
+    pdb_path = output_dir / f"{REFERENCE_PDB_ID}.pdb"
+    if pdb_path.exists():
+        logger.info(f"Reference PDB already cached: {pdb_path}")
+        return pdb_path
+
+    logger.info(f"Downloading {REFERENCE_PDB_ID}.pdb from RCSB...")
+    response = requests.get(RCSB_PDB_URL, timeout=60)
+    response.raise_for_status()
+
+    # Keep only monomer chains A, B, C (drop dimer mate D, E, F).
+    keep_chains = {"A", "B", "C"}
+    filtered_lines = []
+    for line in response.text.splitlines(keepends=True):
+        if line.startswith(("ATOM", "HETATM", "TER", "ANISOU")):
+            chain_id = line[21] if len(line) > 21 else ""
+            if chain_id not in keep_chains:
+                continue
+        filtered_lines.append(line)
+    pdb_path.write_text("".join(filtered_lines))
+    logger.info(f"Saved reference PDB (chains {','.join(sorted(keep_chains))}) "
+                f"to {pdb_path}")
+    return pdb_path
 
 
 def discover_candidate_tsvs(input_dir: str) -> List[str]:
@@ -333,8 +367,8 @@ def main(args: Optional[List[str]] = None) -> None:
     )
     parser.add_argument(
         "--reference-pdb",
-        default=DEFAULT_REFERENCE_PDB,
-        help=f"Path to 4OO8.pdb (default: {DEFAULT_REFERENCE_PDB})",
+        default=None,
+        help="Path to 4OO8.pdb (default: auto-download monomer to output dir)",
     )
     parser.add_argument(
         "--num-workers",
@@ -391,14 +425,14 @@ def main(args: Optional[List[str]] = None) -> None:
 
     # Resolve paths to absolute for remote workers.
     repo_root = str(Path(__file__).resolve().parent.parent.parent)
-    reference_pdb = str(Path(parsed.reference_pdb).resolve())
     output_dir_abs = str(output_dir.resolve())
 
-    if not Path(reference_pdb).exists():
-        raise FileNotFoundError(
-            f"Reference PDB not found: {reference_pdb}. "
-            f"Run cofold_cas9_grna.py first to download 4OO8.pdb, or provide --reference-pdb."
-        )
+    if parsed.reference_pdb:
+        reference_pdb = str(Path(parsed.reference_pdb).resolve())
+        if not Path(reference_pdb).exists():
+            raise FileNotFoundError(f"Reference PDB not found: {reference_pdb}")
+    else:
+        reference_pdb = str(download_reference_pdb(output_dir).resolve())
 
     # Resolve input TSV paths.
     if parsed.input_dir:

@@ -454,6 +454,33 @@ class TestConstraintEdgeCases:
         with pytest.raises(ValueError, match="reserved key"):
             constraint.evaluate()
 
+    def test_out_of_range_scores_warn(self, caplog):
+        """Test that constraint scores outside [0, 1] log a warning."""
+        def negative_scoring(input_sequences, config=None):
+            return [-0.5, 1.5, 0.5]
+        negative_scoring._constraint_config_class = MockConstraintConfig
+        negative_scoring._constraint_supported_sequence_types = ["dna"]
+
+        sequences = ["ATCG", "GGGG", "TTTT"]
+        segment = _make_segment_with_candidates(sequences, "dna")
+
+        constraint = Constraint(
+            inputs=[segment],
+            function=negative_scoring,
+            function_config=MockConstraintConfig(),
+        )
+
+        import logging
+        with caplog.at_level(logging.WARNING):
+            scores = constraint.evaluate()
+
+        # Out-of-range scores pass through (not clamped), warnings logged
+        assert scores == [-0.5, 1.5, 0.5]
+        warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warning_msgs) == 2
+        assert "out-of-range score -0.5" in warning_msgs[0]
+        assert "out-of-range score 1.5" in warning_msgs[1]
+
     def test_non_reserved_key_allowed(self):
         """Test that writing non-reserved keys to seq._metadata works fine."""
         def safe_scoring_function(input_sequences, config):

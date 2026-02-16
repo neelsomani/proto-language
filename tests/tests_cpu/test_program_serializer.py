@@ -27,6 +27,7 @@ from proto_language.language.optimizer import (
     TopKOptimizerConfig,
 )
 
+
 class TestProgramSerializer:
     """Tests for serialize_program function."""
 
@@ -425,6 +426,40 @@ class TestProgramSerializer:
         con = result["optimization_stages"][0]["constraints"][0]
         assert con["label"] == "my_custom_gc_constraint"
 
+    def test_filter_constraint_round_trip_omits_weight(self):
+        """Filter constraints should serialize without weight and parse back cleanly."""
+        segment = Segment(length=20, sequence_type="dna", label="test")
+        construct = Construct([segment])
+
+        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        generator = UniformMutationGenerator(gen_config)
+        generator.assign(segment)
+
+        filter_constraint = ConstraintRegistry.create(
+            key="gc-content",
+            segments=[segment],
+            config_dict={"min_gc": 40, "max_gc": 60},
+            threshold=0.5,
+        )
+
+        opt_config = TopKOptimizerConfig(num_samples=10, k=2, batch_size=2)
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[generator],
+            constraints=[filter_constraint],
+            config=opt_config,
+        )
+
+        program = Program(optimizers=[optimizer])
+        serialized = serialize_program(program)
+
+        serialized_constraint = serialized["optimization_stages"][0]["constraints"][0]
+        assert serialized_constraint["threshold"] == 0.5
+        assert "weight" not in serialized_constraint
+
+        reparsed = DarwinParser(serialized).parse()
+        assert reparsed.optimizers[0].constraints[0].threshold == 0.5
+
     def test_serialize_program_function(self):
         """Test that serialize_program function works correctly."""
         segment = Segment(length=20, sequence_type="dna", label="test")
@@ -735,16 +770,16 @@ class TestBeamSearchOptimizerSerialization:
         # Create program with labeled constructs
         seg1 = Segment(sequence="ATGC" * 10, sequence_type="dna", label="promoter")
         seg2 = Segment(sequence="GCTA" * 10, sequence_type="dna", label="gene")
-        
+
         construct1 = Construct([seg1], label="plasmid")
         construct2 = Construct([seg2], label="insert")
         construct3 = Construct([Segment(sequence="TTAA" * 10, sequence_type="dna")])  # No label
-        
+
         gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig())
         gen1.assign(seg1)
         gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig())
         gen2.assign(seg2)
-        
+
         constraint1 = ConstraintRegistry.create(
             key="gc-content",
             segments=[seg1],
@@ -755,7 +790,7 @@ class TestBeamSearchOptimizerSerialization:
             segments=[seg2],
             config_dict={"min_gc": 0, "max_gc": 100},
         )
-        
+
         opt_config = TopKOptimizerConfig(num_samples=2, k=1, batch_size=2)
         optimizer = TopKOptimizer(
             constructs=[construct1, construct2, construct3],
@@ -763,19 +798,19 @@ class TestBeamSearchOptimizerSerialization:
             constraints=[constraint1, constraint2],
             config=opt_config,
         )
-        
+
         program = Program(optimizers=[optimizer])
-        
+
         # Serialize
         result = serialize_program(program)
-        
+
         # Verify construct labels are present
         assert len(result["constructs"]) == 3
         assert result["constructs"][0]["label"] == "plasmid"
         assert result["constructs"][1]["label"] == "insert"
         # construct3 gets auto-labeled by Program as "construct_2"
         assert result["constructs"][2]["label"] == "construct_2"
-        
+
         # Verify round-trip
         program2 = DarwinParser(result).parse()
         assert program2.constructs[0].label == "plasmid"

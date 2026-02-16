@@ -182,6 +182,13 @@ class TestSequenceDeepCopy:
 class TestConcatenatedSequence:
     """Tests for create_concatenated_sequence."""
 
+    def test_concatenated_sequence_empty_input_raises(self):
+        """Concatenating an empty iterable should fail with a clear error."""
+        from proto_language.language.core.sequence import create_concatenated_sequence
+
+        with pytest.raises(ValueError, match="empty sequence list"):
+            create_concatenated_sequence([])
+
     def test_concatenated_sequence_metadata_independence(self):
         """Verify that mutating source metadata doesn't corrupt joined sequence (B6)."""
         from proto_language.language.core.sequence import create_concatenated_sequence

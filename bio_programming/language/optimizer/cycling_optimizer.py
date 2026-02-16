@@ -293,6 +293,7 @@ class CyclingOptimizer(Optimizer):
     """
 
     config_class = CyclingOptimizerConfig
+    _require_non_empty_constraints = False
 
     def __init__(
         self,
@@ -390,35 +391,25 @@ class CyclingOptimizer(Optimizer):
                 num_passed = self._accept_passed_candidates(passed_mask, prev_energies)
             else:  # Otherwise, unconditionally accept all new candidates
                 self.target_segment.selected_sequences = [copy.deepcopy(seq) for seq in self.target_segment.candidate_sequences]
-                self.energy_scores = [0.0] * self.num_candidates
+                self.energy_scores = [float("inf")] * self.num_candidates
 
             self._save_progress_snapshot(time_step=step)
             self._log_step_progress(step, num_passed)
 
     def _validate_optimizer(self) -> None:
-        """Validate optimizer configuration."""
-        # Validate constructs
-        if not self.constructs:
-            raise ValueError("Constructs list cannot be empty")
-        for i, construct in enumerate(self.constructs):
-            if not isinstance(construct, Construct):
-                raise TypeError(f"Construct {i} has type {type(construct)}, expected Construct")
-            if not construct.segments:
-                raise ValueError(f"Construct {i} has no segments")
+        """Validate cycling optimizer configuration.
 
-        # Validate target_segment belongs to one of the constructs
-        if self.target_segment not in self.segments:
-            raise ValueError(f"target_segment '{self.target_segment.label or 'unlabeled'}' is not in any of the provided constructs")
+        Extends base validation with cycling-specific checks:
+        target_segment membership, callable conditioning_fn, valid
+        conditioning_param_name, and filter-only constraints.
+        """
+        super()._validate_optimizer()
+        self._validate_target_segment(self.target_segment)
 
-        # Validate generator
-        if not isinstance(self.generator, Generator):
-            raise TypeError(f"Generator has type {type(self.generator)}, expected Generator")
-
-        # Validate conditioning_fn is callable
+        # Conditioning function checks
         if not callable(self.conditioning_fn):
             raise TypeError(f"conditioning_fn must be callable, got {type(self.conditioning_fn)}")
 
-        # Validate conditioning_param_name is accepted by generator.sample()
         sample_sig = inspect.signature(self.generator.sample)
         valid_params = set(sample_sig.parameters.keys()) - {"self"}
         if self.conditioning_param_name not in valid_params:
@@ -427,17 +418,13 @@ class CyclingOptimizer(Optimizer):
                 f"Valid parameters: {sorted(valid_params)}"
             )
 
-        # Validate constraints (optional, but if present must be filters)
+        # All constraints must be filters
         for i, constraint in enumerate(self.constraints):
-            if not isinstance(constraint, Constraint):
-                raise TypeError(f"Constraint {i} has type {type(constraint)}, expected Constraint")
-            if not constraint.inputs:
-                raise RuntimeError(f"Constraint {i} has no input segment(s) assigned")
             if constraint.threshold is None:
-                raise ValueError(f"CyclingOptimizer only supports filter constraints. Constraint {i} ('{constraint.label}') has no threshold set.")
-
-        # Deduplicate constraint labels for metadata namespacing
-        self._deduplicate_constraint_labels()
+                raise ValueError(
+                    f"CyclingOptimizer only supports filter constraints. "
+                    f"Constraint {i} ('{constraint.label}') has no threshold set."
+                )
 
     def _accept_passed_candidates(self, passed_mask: list[bool], prev_energies: list[float]) -> int:
         """Accept candidates that passed filters into selected_sequences.

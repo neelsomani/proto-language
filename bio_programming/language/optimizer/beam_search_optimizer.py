@@ -294,46 +294,24 @@ class BeamSearchOptimizer(Optimizer):
         self.generator.batched = True
 
     def _validate_optimizer(self) -> None:
+        """Validate beam search optimizer configuration.
+
+        Extends base validation with beam-search-specific checks:
+        target_segment membership, autoregressive generator, KV caching
+        interface, non-empty prompt, and beam_length bounds.
         """
-        Beam Search processes a single target segment with beam search.
+        super()._validate_optimizer()
+        self._validate_target_segment(self.target_segment)
 
-        Validation ensures:
-        1. Constructs are valid and non-empty
-        2. Constraints are valid and have input segments
-        3. target_segment is in one of the constructs
-        4. Generator is valid and autoregressive
-        5. Generator supports KV caching interface if use_kv_caching is enabled
-        6. Prompt is not empty
-        7. beam_length does not exceed target_segment length
-        """
-        # Validate constructs list is not empty and contains valid Constructs
-        if not self.constructs:
-            raise ValueError("Constructs list cannot be empty")
-        for i, construct in enumerate(self.constructs):
-            if not isinstance(construct, Construct):
-                raise TypeError(f"Construct {i} has type {type(construct)}, expected Construct")
-
-        # Validate constraints
-        if not self.constraints:
-            raise ValueError("Constraints list cannot be empty")
-        for i, constraint in enumerate(self.constraints):
-            if not isinstance(constraint, Constraint):
-                raise TypeError(f"Constraint {i} has type {type(constraint)}, expected Constraint")
-            if not constraint.inputs:
-                raise RuntimeError(f"Constraint {i} has no input segment(s) assigned")
-
-        # Validate target_segment belongs to one of the constructs
-        if self.target_segment not in self.segments:
-            raise ValueError(f"target_segment '{self.target_segment.label or 'unlabeled'}' is not in any of the provided constructs")
-
-        # Validate generator is valid and autoregressive
-        if not isinstance(self.generator, Generator):
-            raise TypeError(f"Generator has type {type(self.generator)}, expected Generator")
+        # Generator must be autoregressive
         generator_spec = GeneratorRegistry.get(GeneratorRegistry.get_key(self.generator))
         if generator_spec.category != "autoregressive":
-            raise ValueError(f"BeamSearchOptimizer requires autoregressive generators. The provided generator '{self.generator.__class__.__name__}' is not autoregressive.")
+            raise ValueError(
+                f"BeamSearchOptimizer requires autoregressive generators. "
+                f"The provided generator '{self.generator.__class__.__name__}' is not autoregressive."
+            )
 
-        # Validate generator supports KV caching interface if use_kv_caching is enabled
+        # KV caching support (if enabled)
         if self.use_kv_caching:
             if not hasattr(self.generator, 'replicate_cache') or not callable(getattr(self.generator, 'replicate_cache', None)):
                 raise ValueError(
@@ -346,16 +324,14 @@ class BeamSearchOptimizer(Optimizer):
                     f"Set use_kv_caching=False or use a generator that supports KV caching."
                 )
 
-        # Validate prompt is not empty
+        # Prompt + beam_length
         if not self.prompt:
             raise ValueError("Prompt for BeamSearchOptimizer cannot be empty")
-
-        # Validate beam_length does not exceed target_segment length
         if self.beam_length > self.target_segment.sequence_length:
-            raise ValueError(f"beam_length={self.beam_length} cannot be greater than target_segment length ({self.target_segment.sequence_length})")
-
-        # Deduplicate constraint labels for metadata namespacing
-        self._deduplicate_constraint_labels()
+            raise ValueError(
+                f"beam_length={self.beam_length} cannot be greater than "
+                f"target_segment length ({self.target_segment.sequence_length})"
+            )
 
     def _capture_initial_state(self) -> None:
         """Capture state and reset BeamSearch-specific state for fresh run."""

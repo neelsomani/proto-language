@@ -1,3 +1,5 @@
+import pytest
+
 from proto_language.language.core import Segment, Sequence
 
 
@@ -84,6 +86,16 @@ class TestSegment:
             Sequence(sequence="", sequence_type="dna"),
         ]
         assert not segment.candidates_populated
+
+    def test_zero_length_raises_error(self):
+        """Test that Segment(length=0) raises ValueError."""
+        with pytest.raises(ValueError, match="Segment length must be positive"):
+            Segment(length=0, sequence_type="dna")
+
+    def test_negative_length_raises_error(self):
+        """Test that Segment(length=-1) raises ValueError."""
+        with pytest.raises(ValueError, match="Segment length must be positive"):
+            Segment(length=-1, sequence_type="dna")
 
     def test_is_ligand_property(self):
         """Tests that is_ligand correctly identifies ligand segments."""

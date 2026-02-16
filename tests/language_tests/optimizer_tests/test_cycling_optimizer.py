@@ -204,6 +204,62 @@ class TestCyclingOptimizerValidation:
                 conditioning_fn=components["conditioning_fn"],
             )
 
+    def test_constraints_must_target_target_segment(self):
+        """Cycling constraints must target the configured target segment."""
+        components = _setup_cycling_components()
+        context_segment = Segment(sequence="M" * 20, sequence_type="protein")
+        construct = Construct([components["target_segment"], context_segment])
+
+        def filter_func(input_sequences, config=None):
+            return [0.0 for _ in input_sequences]
+
+        filter_func._constraint_config_class = EmptyConfig
+        filter_func._constraint_supported_sequence_types = ["protein"]
+
+        invalid_constraint = Constraint(
+            inputs=[context_segment],
+            function=filter_func,
+            function_config=EmptyConfig(),
+            threshold=0.5,
+        )
+
+        with pytest.raises(ValueError, match="only supports constraints targeting the target_segment"):
+            CyclingOptimizer(
+                target_segment=components["target_segment"],
+                constructs=[construct],
+                generators=[components["generator"]],
+                constraints=[invalid_constraint],
+                config=components["config"],
+                conditioning_fn=components["conditioning_fn"],
+            )
+
+    def test_duplicate_constraint_instance_fails(self):
+        """Same constraint instance cannot be passed twice."""
+        components = _setup_cycling_components()
+
+        def filter_func(input_sequences, config=None):
+            return [0.0 for _ in input_sequences]
+
+        filter_func._constraint_config_class = EmptyConfig
+        filter_func._constraint_supported_sequence_types = ["protein"]
+
+        constraint = Constraint(
+            inputs=[components["target_segment"]],
+            function=filter_func,
+            function_config=EmptyConfig(),
+            threshold=0.5,
+        )
+
+        with pytest.raises(ValueError, match="appears multiple times"):
+            CyclingOptimizer(
+                target_segment=components["target_segment"],
+                constructs=[components["construct"]],
+                generators=[components["generator"]],
+                constraints=[constraint, constraint],
+                config=components["config"],
+                conditioning_fn=components["conditioning_fn"],
+            )
+
 
 # =============================================================================
 # Run Method Tests

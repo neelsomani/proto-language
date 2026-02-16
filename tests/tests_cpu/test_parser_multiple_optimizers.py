@@ -6,9 +6,10 @@ in a single program.
 """
 
 import pytest
-from proto_language.language.optimizer import TopKOptimizer, MCMCOptimizer
-from proto_language.language.generator import UniformMutationGenerator
+
 from api.core.parser import DarwinParser
+from proto_language.language.generator import UniformMutationGenerator
+from proto_language.language.optimizer import MCMCOptimizer, TopKOptimizer
 
 
 def test_parse_single_optimizer():
@@ -35,7 +36,7 @@ def test_parse_single_optimizer():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 5
                         }
                     }
@@ -104,7 +105,7 @@ def test_parse_multiple_optimizers():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 10
                         }
                     }
@@ -133,7 +134,7 @@ def test_parse_multiple_optimizers():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 1
                         }
                     }
@@ -355,6 +356,50 @@ def test_parse_unknown_optimizer_method():
         parser.parse()
 
 
+def test_parse_duplicate_segment_ids_fails():
+    """Segment IDs must be unique across all constructs."""
+    json_data = {
+        "name": "duplicate_segment_ids",
+        "constructs": [
+            {
+                "type": "DNA",
+                "segments": [{"id": "seg1", "length": 20}],
+            },
+            {
+                "type": "DNA",
+                "segments": [{"id": "seg1", "length": 30}],
+            },
+        ],
+        "optimization_stages": [
+            {
+                "optimizer": {
+                    "method": "topk",
+                    "config": {"num_samples": 4, "k": 1, "batch_size": 2},
+                },
+                "generators": [
+                    {
+                        "key": "uniform-mutation",
+                        "target": "seg1",
+                        "config": {"num_mutations": 1},
+                    }
+                ],
+                "constraints": [
+                    {
+                        "key": "gc-content",
+                        "targets": ["seg1"],
+                        "config": {"min_gc": 0, "max_gc": 100},
+                    }
+                ],
+            }
+        ],
+    }
+
+    parser = DarwinParser(json_data)
+
+    with pytest.raises(ValueError, match="Duplicate segment id"):
+        parser.parse()
+
+
 def test_parse_generator_assignment_to_segments():
     """Test that generators are correctly assigned to segments."""
     json_data = {
@@ -382,7 +427,7 @@ def test_parse_generator_assignment_to_segments():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 5
                         }
                     },
@@ -450,7 +495,7 @@ def test_parse_different_generators_per_stage():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 10
                         }
                     }
@@ -475,7 +520,7 @@ def test_parse_different_generators_per_stage():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 1
                         }
                     }
@@ -605,7 +650,7 @@ def test_parse_reusable_constraints():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 10
                         }
                     }
@@ -633,7 +678,7 @@ def test_parse_reusable_constraints():
                     {
                         "key": "uniform-mutation",
                         "target": "seg1",
-                        "config": {                            
+                        "config": {
                             "num_mutations": 1
                         }
                     }

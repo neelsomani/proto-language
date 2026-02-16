@@ -247,9 +247,59 @@ class TestBeamSearchOptimizer:
         )
         assert optimizer.target_segment == segments[0]
 
+    def test_non_target_constraint_input_fails(self):
+        """BeamSearch constraints must target only the target segment."""
+        target_segment = Segment(length=20, sequence_type="dna")
+        context_segment = Segment(sequence="ATCGATCGATCGATCGATCG", sequence_type="dna")
+        construct = Construct([target_segment, context_segment])
+        generator = MockAutoregressiveGenerator()
+        generator._assigned_segment = target_segment
+
+        invalid_constraint = Constraint(
+            inputs=[context_segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+        config = BeamSearchOptimizerConfig(
+            prompt="ATCG", beam_length=10, beam_width=2, candidates_per_beam=3
+        )
+
+        with pytest.raises(ValueError, match="only supports constraints targeting the target_segment"):
+            BeamSearchOptimizer(
+                target_segment=target_segment,
+                constructs=[construct],
+                generators=[generator],
+                constraints=[invalid_constraint],
+                config=config,
+            )
+
+    def test_duplicate_constraint_instance_fails(self):
+        """Same constraint instance cannot be passed twice."""
+        segment = Segment(length=20, sequence_type="dna")
+        construct = Construct([segment])
+        generator = MockAutoregressiveGenerator()
+        generator._assigned_segment = segment
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+        config = BeamSearchOptimizerConfig(
+            prompt="ATCG", beam_length=10, beam_width=2, candidates_per_beam=3
+        )
+
+        with pytest.raises(ValueError, match="appears multiple times"):
+            BeamSearchOptimizer(
+                target_segment=segment,
+                constructs=[construct],
+                generators=[generator],
+                constraints=[constraint, constraint],
+                config=config,
+            )
+
     def test_target_segment_not_in_constructs_fails(self):
         """target_segment must belong to one of the provided constructs."""
-        segment = Segment(length=20, sequence_type="dna")
+        segment = Segment(sequence="A" * 20, sequence_type="dna")
         other_segment = Segment(length=20, sequence_type="dna")  # Not in construct
         construct = Construct([segment])
         generator = MockAutoregressiveGenerator()

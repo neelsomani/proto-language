@@ -54,6 +54,8 @@ class Optimizer(ABC):
         4. Rejected candidates receive filter_penalty score (default: inf)
     """
 
+    _require_non_empty_constraints: bool = True
+
     @abstractmethod
     def __init__(
         self,
@@ -289,7 +291,7 @@ class Optimizer(ABC):
             raise ValueError("Constructs list cannot be empty")
         if not self.generators:
             raise ValueError("Generators list cannot be empty")
-        if not self.constraints:
+        if self._require_non_empty_constraints and not self.constraints:
             raise ValueError("Constraints list cannot be empty")
 
         # 2. Type validation
@@ -373,6 +375,23 @@ class Optimizer(ABC):
                     else:
                         segment_label_counts[key] = 0
             self._labels_deduplicated = True
+
+    def _validate_target_segment(self, target_segment) -> None:
+        """Validate target_segment is in constructs and all constraints reference only it."""
+        if target_segment not in self.segments:
+            raise ValueError(
+                f"target_segment '{target_segment.label or 'unlabeled'}' "
+                "is not in any of the provided constructs"
+            )
+        for constraint in self.constraints:
+            for input_segment in constraint.inputs:
+                if input_segment is not target_segment:
+                    raise ValueError(
+                        f"{self.__class__.__name__} only supports constraints targeting "
+                        f"the target_segment ('{target_segment.label or 'unlabeled'}'). "
+                        f"Constraint '{constraint.label}' references "
+                        f"'{input_segment.label or 'unlabeled'}'."
+                    )
 
     def _initialize_sequence_pools(self) -> None:
         """Initialize sequence pools from previous optimizer's results or original sequence.

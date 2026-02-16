@@ -68,6 +68,10 @@ class Segment:
         if sequence_type == "ligand" and sequence is None:
             raise ValueError("Ligand segments must be initialized with a sequence (SMILES string), not just a length")
 
+        # Length must be positive
+        if length is not None and length <= 0:
+            raise ValueError(f"Segment length must be positive, got {length}")
+
         # If sequence is provided - set sequence_length and initial_sequence
         elif sequence is not None:
             initial_sequence = sequence
@@ -75,8 +79,6 @@ class Segment:
 
         # If length is provided - set sequence_length accordingly and initial_sequence to empty
         else:
-            if length <= 0:
-                raise ValueError("Segment length must be positive")
             initial_sequence = ""
             self.sequence_length = length
 

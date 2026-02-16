@@ -256,6 +256,8 @@ def create_concatenated_sequence(subsequences: Iterable[Sequence], segment_label
         includes segment metadata nested under _metadata["segments"][label].
     """
     seq_list = list(subsequences)
+    if not seq_list:
+        raise ValueError("Cannot concatenate an empty sequence list")
     combined_sequence_string = "".join(seq.sequence for seq in seq_list)
 
     joined_seq = Sequence(

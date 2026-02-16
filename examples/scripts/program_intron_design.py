@@ -1,5 +1,7 @@
 from tap import Tap
-from typing import Tuple
+from typing import Any, Dict, List, Tuple
+from pathlib import Path
+import logging
 import random
 
 from proto_language.language.core import (
@@ -34,6 +36,127 @@ CONTEXT_LENGTH = 4000
 # Design defaults.
 INTRON_LENGTH = 301
 N_STEPS = 5_000
+
+
+def _enable_mcmc_energy_logging() -> None:
+    """
+    Enable default per-iteration MCMC energy logs from the optimizer module.
+    """
+    mcmc_logger = logging.getLogger("proto_language.language.optimizer.mcmc_optimizer")
+    mcmc_logger.setLevel(logging.DEBUG)
+    if not mcmc_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        mcmc_logger.addHandler(handler)
+    mcmc_logger.propagate = False
+
+
+def _join_three_part_target_sequence(sequence_tuple: Tuple[Sequence, ...]) -> Sequence:
+    """
+    Concatenate left flank + intron core + right flank into the 1-kb target sequence
+    required by SpliceTransformer constraints.
+    """
+    if len(sequence_tuple) != 3:
+        raise ValueError(
+            f"Expected 3 input sequences (left_flank, intron, right_flank), got {len(sequence_tuple)}."
+        )
+    left_flank, intron_core, right_flank = sequence_tuple
+    return Sequence(
+        sequence=left_flank.sequence + intron_core.sequence + right_flank.sequence,
+        sequence_type=left_flank.sequence_type,
+    )
+
+
+def splice_transformer_intron_boundary_three_part(
+    input_sequences: List[Tuple[Sequence, ...]],
+    config: Any,
+) -> List[float]:
+    """
+    Script-local compatibility wrapper.
+
+    The current base constraint expects one concatenated target sequence tuple.
+    This script historically passes three segments to keep the intron mutable while
+    keeping flanks fixed, so we concatenate per tuple before scoring and propagate
+    the resulting metadata back to each tuple member for optimizer logging.
+    """
+    concatenated_inputs = []
+    for sequence_tuple in input_sequences:
+        concatenated_target = _join_three_part_target_sequence(sequence_tuple)
+        concatenated_inputs.append((concatenated_target,))
+
+    scores = splice_transformer_intron_boundary(concatenated_inputs, config)
+
+    for original_tuple, (concatenated_target,) in zip(input_sequences, concatenated_inputs):
+        metadata_update = dict(concatenated_target._metadata)
+        for sequence in original_tuple:
+            sequence._metadata.update(metadata_update)
+
+    return scores
+
+
+def splice_transformer_specificity_three_part(
+    input_sequences: List[Tuple[Sequence, ...]],
+    config: Any,
+) -> List[float]:
+    """
+    Script-local compatibility wrapper for tissue-specific SpliceTransformer scoring
+    over three-part input tuples.
+    """
+    concatenated_inputs = []
+    for sequence_tuple in input_sequences:
+        concatenated_target = _join_three_part_target_sequence(sequence_tuple)
+        concatenated_inputs.append((concatenated_target,))
+
+    scores = splice_transformer_specificity(concatenated_inputs, config)
+
+    for original_tuple, (concatenated_target,) in zip(input_sequences, concatenated_inputs):
+        metadata_update = dict(concatenated_target._metadata)
+        for sequence in original_tuple:
+            sequence._metadata.update(metadata_update)
+
+    return scores
+
+
+# Keep config and type validation in Constraint while allowing three-part tuples.
+splice_transformer_intron_boundary_three_part._constraint_config_class = (
+    splice_transformer_intron_boundary._constraint_config_class
+)
+splice_transformer_intron_boundary_three_part._constraint_supported_sequence_types = (
+    splice_transformer_intron_boundary._constraint_supported_sequence_types
+)
+splice_transformer_intron_boundary_three_part._constraint_num_input_sequences_per_tuple = 3
+
+splice_transformer_specificity_three_part._constraint_config_class = (
+    splice_transformer_specificity._constraint_config_class
+)
+splice_transformer_specificity_three_part._constraint_supported_sequence_types = (
+    splice_transformer_specificity._constraint_supported_sequence_types
+)
+splice_transformer_specificity_three_part._constraint_num_input_sequences_per_tuple = 3
+
+
+def _get_constraints_metadata(sequence: Sequence) -> Dict[str, Any]:
+    """
+    Return constraint metadata from a Sequence across old/new metadata layouts.
+    """
+    metadata_view = getattr(sequence, "metadata", None)
+    if isinstance(metadata_view, dict):
+        constraints = metadata_view.get("constraints")
+        if isinstance(constraints, dict):
+            return constraints
+
+    constraints_metadata = getattr(sequence, "_constraints_metadata", None)
+    if isinstance(constraints_metadata, dict):
+        return constraints_metadata
+
+    raw_metadata = getattr(sequence, "_metadata", None)
+    if isinstance(raw_metadata, dict):
+        constraints = raw_metadata.get("constraints")
+        if isinstance(constraints, dict):
+            return constraints
+
+    return {}
 
 
 class ProgramIntronDesignArgs(Tap):
@@ -185,6 +308,7 @@ def process_splice_transformer_input(
 
 if __name__ == '__main__':
     args = ProgramIntronDesignArgs(explicit_bool=True).parse_args()
+    _enable_mcmc_energy_logging()
 
     print(args)
 
@@ -200,10 +324,10 @@ if __name__ == '__main__':
         plasmid_paths = [ 'examples/data/intron_plasmid_context.txt' ]
 
     intron = None
-    intron_constructs = []
+    intron_construct = None
     all_constraints = []
 
-    for plasmid_path in plasmid_paths:
+    for context_idx, plasmid_path in enumerate(plasmid_paths):
 
         args.plasmid_context_path = plasmid_path
 
@@ -267,32 +391,55 @@ if __name__ == '__main__':
             sequence_type="dna",
         )
 
-        intron_construct = Construct([left_flank, intron, right_flank])
-
-        intron_constructs.append(intron_construct)
+        # New Program validation forbids reusing one Segment instance across multiple
+        # constructs. Keep a single construct and apply additional context constraints
+        # with separate flank segments.
+        if intron_construct is None:
+            intron_construct = Construct([left_flank, intron, right_flank])
 
         #################
         ## Constraints ##
         #################
 
-        donor_pos_all = [donor_start_pos_in_target - 1]
-        acceptor_pos_all = [acceptor_end_pos_in_target + 1]
+        donor_eval_pos = donor_start_pos_in_target - 1
+        acceptor_eval_pos = acceptor_end_pos_in_target + 1
+
+        # SpliceTransformer donor is scored at the base immediately before "GT".
+        assert 0 <= donor_eval_pos < TARGET_LENGTH, (
+            f"Donor eval pos {donor_eval_pos} out of bounds for target length {TARGET_LENGTH}"
+        )
+        assert target_seq[donor_eval_pos + 1 : donor_eval_pos + 3] == "GT", (
+            "Donor evaluation position is not immediately before GT."
+        )
+
+        # SpliceTransformer acceptor is scored at the base immediately after "AG".
+        assert 0 <= acceptor_eval_pos < TARGET_LENGTH, (
+            f"Acceptor eval pos {acceptor_eval_pos} out of bounds for target length {TARGET_LENGTH}"
+        )
+        assert target_seq[acceptor_eval_pos - 2 : acceptor_eval_pos] == "AG", (
+            "Acceptor evaluation position is not immediately after AG."
+        )
+
+        donor_pos_all = [donor_eval_pos]
+        acceptor_pos_all = [acceptor_eval_pos]
+        context_label = Path(plasmid_path).stem
 
         intron_boundary = Constraint(
             inputs=[left_flank, intron, right_flank],
-            function=splice_transformer_intron_boundary,
+            function=splice_transformer_intron_boundary_three_part,
             function_config={
                 "left_context": left_context,
                 "right_context": right_context,
                 "donor_pos": donor_pos_all,
                 "acceptor_pos": acceptor_pos_all,
             },
+            label=f"splice_boundary__{context_label}__{context_idx}",
         )
         all_constraints += [ intron_boundary ]
         if 'max_brain' in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity,
+                function=splice_transformer_specificity_three_part,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,
@@ -300,12 +447,13 @@ if __name__ == '__main__':
                     "tissue": "BRAIN",
                     "direction": "max",
                 },
+                label=f"splice_specificity_brain_max__{context_label}__{context_idx}",
             )
             all_constraints += [ intron_brain_specificity ]
         if 'min_brain' in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity,
+                function=splice_transformer_specificity_three_part,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,
@@ -313,12 +461,13 @@ if __name__ == '__main__':
                     "tissue": "BRAIN",
                     "direction": "min",
                 },
+                label=f"splice_specificity_brain_min__{context_label}__{context_idx}",
             )
             all_constraints += [ intron_brain_specificity ]
         if 'max_blood' in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity,
+                function=splice_transformer_specificity_three_part,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,
@@ -326,12 +475,13 @@ if __name__ == '__main__':
                     "tissue": "BLOOD",
                     "direction": "max",
                 },
+                label=f"splice_specificity_blood_max__{context_label}__{context_idx}",
             )
             all_constraints += [ intron_brain_specificity ]
         if 'min_blood' in args.specificity_type:
             intron_blood_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity,
+                function=splice_transformer_specificity_three_part,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,
@@ -339,6 +489,7 @@ if __name__ == '__main__':
                     "tissue": "BLOOD",
                     "direction": "min",
                 },
+                label=f"splice_specificity_blood_min__{context_label}__{context_idx}",
             )
             all_constraints += [ intron_blood_specificity ]
 
@@ -356,24 +507,22 @@ if __name__ == '__main__':
             f"\tsequence (right_flank): {right_flank_sequence}"
         )
 
-        for idx, i in enumerate(range(
-            0,
-            len(intron_constructs) * len(intron_constructs[0].segments),
-            len(intron_constructs[0].segments)
-        )):
-            constraints = outputs[i].selected_sequences[0]._metadata["constraints"]
-            output_keys = [
-                "specificity_direction",
-                "specificity_score",
-                "donor_score",
-                "acceptor_score",
-                "total_splice_score",
-            ]
-            for _, constraint_data in constraints.items():
-                for metric_name, metric_value in constraint_data["data"].items():
-                    if metric_name in output_keys:
-                        print(f"\tConstruct {idx}: {metric_name}: {metric_value}")
+        constraints = _get_constraints_metadata(outputs[1].selected_sequences[0])
+        for constraint_label in sorted(constraints):
+            constraint_data = constraints[constraint_label]
+            metric_data = constraint_data.get("data", {})
+            for metric_name in sorted(metric_data):
+                metric_value = metric_data[metric_name]
+                if (
+                    metric_name in {"donor_score", "acceptor_score", "total_splice_score"}
+                    or metric_name.startswith("specificity_direction")
+                    or metric_name.startswith("specificity_score")
+                ):
+                    print(f"\t{constraint_label}: {metric_name}: {metric_value}")
 
+
+    if intron_construct is None:
+        raise RuntimeError("No intron construct was created.")
 
     if args.intron_generator == "evo2":
         optimizer_config = TopKOptimizerConfig(
@@ -383,7 +532,7 @@ if __name__ == '__main__':
             verbose=True,
         )
         optimizer = TopKOptimizer(
-            constructs=intron_constructs,
+            constructs=[intron_construct],
             generators=[intron_gen],
             constraints=all_constraints,
             config=optimizer_config,
@@ -400,7 +549,7 @@ if __name__ == '__main__':
             verbose=True,
         )
         optimizer = MCMCOptimizer(
-            constructs=intron_constructs,
+            constructs=[intron_construct],
             generators=[intron_gen],
             constraints=all_constraints,
             config=optimizer_config,

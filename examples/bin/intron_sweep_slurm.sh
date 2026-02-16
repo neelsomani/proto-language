@@ -30,6 +30,7 @@ do
             --temperature $log_value \
             --n_steps 5000 \
             --multicontext True \
+            --intron_generator uniform \
             --initialization $INIT \
             --specificity_type max_brain_min_blood \
             > $DIR/intron_design_temp${log_value}_max-brain-min-blood_${JOB_ID}.log 2>&1
@@ -38,6 +39,7 @@ do
             --temperature $log_value \
             --n_steps 5000 \
             --multicontext True \
+            --intron_generator uniform \
             --initialization $INIT \
             --specificity_type min_blood \
             > $DIR/intron_design_temp${log_value}_min-blood-only_${JOB_ID}.log 2>&1

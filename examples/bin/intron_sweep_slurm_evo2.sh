@@ -21,11 +21,11 @@ python -m examples.scripts.program_intron_design \
     --multicontext True \
     --intron_generator evo2 \
     --specificity_type max_brain_min_blood \
-    > $DIR/intron_design_temp${log_value}_max-brain-min-blood_${JOB_ID}.log 2>&1
+    > $DIR/intron_design_evo2_max-brain-min-blood_${JOB_ID}.log 2>&1
 
 python -m examples.scripts.program_intron_design \
     --n_steps 500 \
     --multicontext True \
     --intron_generator evo2 \
     --specificity_type min_blood \
-    > $DIR/intron_design_temp${log_value}_min-blood-only_${JOB_ID}.log 2>&1
+    > $DIR/intron_design_evo2_min-blood-only_${JOB_ID}.log 2>&1

@@ -12,7 +12,12 @@ from proto_tools import (
     BorzoiInput,
     run_borzoi,
 )
-from proto_tools.tools.causal_models.evo2 import clear_evo2_cache
+try:
+    from proto_tools.tools.causal_models.evo2 import clear_evo2_cache
+except ImportError:
+    from proto_tools.tools.causal_models.evo2._in_process_mode.evo2_cache import (
+        clear_evo2_cache,
+    )
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import (

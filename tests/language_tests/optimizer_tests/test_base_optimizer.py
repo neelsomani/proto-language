@@ -902,12 +902,13 @@ class TestCandidateTracking:
         assert optimizer._candidate_outcomes == ["accepted", "Filter2", "Filter1"]
 
     def test_snapshot_includes_candidate_results(self):
-        """_save_progress_snapshot includes candidate_results derived from _candidate_outcomes."""
+        """_save_progress_snapshot includes candidate_results with energy_score."""
         construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
 
         optimizer.energy_scores = [0.5]
         optimizer._candidate_outcomes = ["accepted", "GC Filter"]
+        optimizer._candidate_energy_scores = [0.5, float("inf")]
 
         optimizer._save_progress_snapshot(time_step=1)
 
@@ -916,8 +917,10 @@ class TestCandidateTracking:
         assert len(snapshot["candidate_results"]) == 2
         assert snapshot["candidate_results"][0]["accepted"] is True
         assert snapshot["candidate_results"][0]["rejected_by"] is None
+        assert snapshot["candidate_results"][0]["energy_score"] == 0.5
         assert snapshot["candidate_results"][1]["accepted"] is False
         assert snapshot["candidate_results"][1]["rejected_by"] == "GC Filter"
+        assert snapshot["candidate_results"][1]["energy_score"] is None  # inf → None
 
     def test_snapshot_omits_candidate_results_when_outcomes_empty(self):
         """_save_progress_snapshot omits candidate_results before any scoring."""
@@ -928,3 +931,21 @@ class TestCandidateTracking:
         optimizer._save_progress_snapshot(time_step=0)
 
         assert "candidate_results" not in optimizer.history[0]
+
+    def test_restore_clears_candidate_tracking(self):
+        """_restore_initial_state resets candidate tracking so re-run step-0 has no stale data."""
+        construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
+        optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
+
+        optimizer._capture_initial_state()
+
+        # Simulate end-of-run state
+        optimizer._candidate_outcomes = ["accepted", "GC Filter"]
+        optimizer._candidate_energy_scores = [0.5, float("inf")]
+        optimizer.history = [{"step": 1}]
+
+        optimizer._restore_initial_state()
+
+        assert optimizer._candidate_outcomes == []
+        assert optimizer._candidate_energy_scores == []
+        assert optimizer.history == []

@@ -395,8 +395,9 @@ class CyclingOptimizer(Optimizer):
                         self.energy_scores[i] = prev_energies[i]
             else:
                 self.target_segment.selected_sequences = [copy.deepcopy(seq) for seq in self.target_segment.candidate_sequences]
-                self.energy_scores = [float("inf")] * self.num_candidates
+                self.energy_scores = [0] * self.num_candidates
                 self._candidate_outcomes = ["accepted"] * self.num_candidates
+                self._candidate_energy_scores = [0] * self.num_candidates
 
             self._save_progress_snapshot(time_step=step)
             self._log_step_progress(step)

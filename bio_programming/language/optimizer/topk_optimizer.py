@@ -3,8 +3,8 @@ TopK Optimizer that runs multiple independent sampling rounds and returns the to
 """
 from __future__ import annotations
 
+import bisect
 import copy
-import heapq
 import logging
 from typing import Callable, List, Optional, final
 
@@ -28,7 +28,7 @@ class TopKOptimizerConfig(BaseConfig):
 
     The TopK optimizer generates many candidate sequences and keeps only the best
     ``k`` by lowest energy score. It samples in batches for efficiency and maintains
-    a heap to track the top candidates.
+    a sorted list to track the top candidates.
 
     Attributes:
         num_samples (int): Maximum number of samples to generate. Rounded up to the
@@ -49,8 +49,7 @@ class TopKOptimizerConfig(BaseConfig):
 
     Note:
         If filter constraints reject many candidates (returning inf/nan energies),
-        the optimizer may return fewer than ``k`` valid results. The remaining
-        slots are filled with empty placeholder sequences and inf energy scores.
+        the optimizer may return fewer than ``k`` valid results.
 
     """
     # Required parameters
@@ -114,7 +113,7 @@ class TopKOptimizer(Optimizer):
     1. Resets candidates to the original sequence
     2. Applies all generators sequentially
     3. Evaluates candidates with constraints
-    4. Updates the top-k heap if any candidates are better than the current worst
+    4. Updates the sorted top-k list if any candidates are better than the current worst
 
     If ``energy_threshold`` is set, the optimizer stops early once all ``k`` best
     candidates have energy below the threshold.
@@ -126,9 +125,8 @@ class TopKOptimizer(Optimizer):
         energy_threshold (Optional[float]): Early stopping threshold.
 
     Note:
-        If filter constraints reject many candidates, the optimizer may have fewer
-        than ``k`` valid results. Remaining slots are padded with empty sequences
-        and inf energy scores.
+        If filter constraints reject many candidates, the optimizer may return
+        fewer than ``k`` valid results.
 
     Example:
         >>> config = TopKOptimizerConfig(num_samples=100, k=10, batch_size=10)
@@ -206,9 +204,23 @@ class TopKOptimizer(Optimizer):
             )
         else:
             self.num_samples = config.num_samples
-        # Max-heap for tracking top-k: stores (-energy, heap_idx) tuples
-        # heap_idx corresponds to position in selected_sequences
-        self._energy_heap: List[tuple] = []
+        # Sorted list of energies for selected_sequences (ascending order,
+        # parallel to selected_sequences — index i matches segment.selected_sequences[i])
+        self._selected_energies: list[float] = []
+
+    def _insert_into_topk(self, pos: int, candidate_idx: int, energy: float) -> None:
+        """Insert a candidate into the sorted top-k at the given position."""
+        self._selected_energies.insert(pos, energy)
+        for segment in self.segments:
+            segment.selected_sequences.insert(
+                pos, copy.deepcopy(segment.candidate_sequences[candidate_idx])
+            )
+
+    def _remove_worst_from_topk(self) -> None:
+        """Remove the worst (last) entry from the sorted top-k."""
+        self._selected_energies.pop()
+        for segment in self.segments:
+            segment.selected_sequences.pop()
 
     def _run_sampling_round(self, round_idx: int) -> None:
         """Execute a single sampling round.
@@ -216,8 +228,8 @@ class TopKOptimizer(Optimizer):
         1. Reset candidate sequences to their initial state (fresh each round).
         2. Run all generators sequentially on the candidates.
         3. Score candidates with constraints (sets ``_candidate_outcomes``).
-        4. Update the top-k heap and classify outcomes.
-        5. Save a progress snapshot from the current heap state.
+        4. Update the sorted top-k list and classify outcomes.
+        5. Save a progress snapshot from the current sorted state.
 
         Args:
             round_idx: The index of the current round (for tracking purposes).
@@ -241,28 +253,26 @@ class TopKOptimizer(Optimizer):
         # 3. Score candidates with constraints
         self.score_energy()
 
-        # 4. Update the top-k heap and classify outcomes
+        # 4. Update the sorted top-k list and classify outcomes
         for candidate_idx in range(self.batch_size):
             if self._candidate_outcomes[candidate_idx] != "accepted":
                 continue
             energy = self.energy_scores[candidate_idx]
-            if len(self._energy_heap) < self.k:
-                heap_idx = len(self._energy_heap)
-                heapq.heappush(self._energy_heap, (-energy, heap_idx))
-                for segment in self.segments:
-                    segment.selected_sequences.append(copy.deepcopy(segment.candidate_sequences[candidate_idx]))
-            elif energy < -self._energy_heap[0][0]:
-                _, worst_heap_idx = heapq.heappop(self._energy_heap)
-                heapq.heappush(self._energy_heap, (-energy, worst_heap_idx))
-                for segment in self.segments:
-                    segment.selected_sequences[worst_heap_idx] = copy.deepcopy(segment.candidate_sequences[candidate_idx])
+
+            if len(self._selected_energies) < self.k:
+                pos = bisect.bisect_left(self._selected_energies, energy)
+                self._insert_into_topk(pos, candidate_idx, energy)
+            elif energy < self._selected_energies[-1]:
+                self._remove_worst_from_topk()
+                pos = bisect.bisect_left(self._selected_energies, energy)
+                self._insert_into_topk(pos, candidate_idx, energy)
             else:
                 self._candidate_outcomes[candidate_idx] = "Not in top-k"
 
-        # 5. Save a progress snapshot from the current heap state
+        # 5. Save a progress snapshot from the current sorted state
         saved_energy_scores = self.energy_scores
-        self.energy_scores = [-e for e, _ in sorted(self._energy_heap, key=lambda x: x[1])]
-        self._save_progress_snapshot(time_step=round_idx)
+        self.energy_scores = list(self._selected_energies)
+        self._save_progress_snapshot(time_step=round_idx + 1)
         self.energy_scores = saved_energy_scores
 
         self._log_round_progress(round_idx)
@@ -270,16 +280,18 @@ class TopKOptimizer(Optimizer):
     def _capture_initial_state(self) -> None:
         """Capture state and clear TopK-specific state for fresh run."""
         super()._capture_initial_state()
-        self._energy_heap = []
-        # TopK builds selected_sequences dynamically via the heap
+        self._selected_energies = []
+        self.energy_scores = []
+        # TopK builds selected_sequences dynamically via sorted insertion
         for segment in self.segments:
             segment.selected_sequences = []
 
     def _restore_initial_state(self) -> None:
         """Restore to captured state and reset TopK-specific state."""
         super()._restore_initial_state()
-        self._energy_heap = []
-        # TopK builds selected_sequences dynamically via the heap
+        self._selected_energies = []
+        self.energy_scores = []
+        # TopK builds selected_sequences dynamically via sorted insertion
         for segment in self.segments:
             segment.selected_sequences = []
 
@@ -300,6 +312,9 @@ class TopKOptimizer(Optimizer):
         """
         self._prepare_run()
 
+        # t=0 initial snapshot (empty state)
+        self._save_progress_snapshot(time_step=0)
+
         candidates_generated = 0
         threshold_met = False
         num_sampling_rounds = self.num_samples // self.batch_size
@@ -311,8 +326,8 @@ class TopKOptimizer(Optimizer):
             # Threshold mode: Generate until threshold met or num_samples reached
             for round_idx in range(num_sampling_rounds):
                 # Check if threshold is met (only after we have k candidates)
-                if len(self._energy_heap) == self.k:
-                    worst_energy = -self._energy_heap[0][0]  # Un-negate from heap
+                if len(self._selected_energies) == self.k:
+                    worst_energy = self._selected_energies[-1]
                     if worst_energy < self.energy_threshold:
                         threshold_met = True
                         if self.verbose:
@@ -322,65 +337,33 @@ class TopKOptimizer(Optimizer):
                 self._run_sampling_round(round_idx)
                 candidates_generated += self.batch_size
 
-            # Log warning if heap never filled to k (filter constraints too strict)
-            if not threshold_met and len(self._energy_heap) < self.k:
-                logger.warning(f"TopK optimizer completed with only {len(self._energy_heap)}/{self.k} valid candidates. Filter constraints may be too restrictive. Results will be padded with inf energies.")
+            # Log warning if list never filled to k (filter constraints too strict)
+            if not threshold_met and len(self._selected_energies) < self.k:
+                logger.warning(f"TopK optimizer completed with only {len(self._selected_energies)}/{self.k} valid candidates. Filter constraints may be too restrictive or num_samples may not be high enough.")
         else:
             # Standard mode: Generate exactly num_samples
             for round_idx in range(num_sampling_rounds):
                 self._run_sampling_round(round_idx)
                 candidates_generated += self.batch_size
 
-        # Sort selected_sequences and energy_scores by energy (best first), pad to k
-        self._sort_topk_by_energy()
+            if len(self._selected_energies) < self.k:
+                logger.warning(f"TopK optimizer completed with only {len(self._selected_energies)}/{self.k} valid candidates. Filter constraints may be too restrictive or num_samples may not be high enough.")
 
-        # Save final snapshot with sorted, padded top-k results
-        self._save_progress_snapshot(time_step=num_sampling_rounds)
+        # Handoff: set energy_scores to the sorted selected energies.
+        # May be fewer than k if filter constraints rejected too many candidates.
+        self.energy_scores = list(self._selected_energies)
 
         # Log statistics
         if self.verbose:
             self._log_optimization_summary(threshold_mode, threshold_met, candidates_generated)
 
-    def _sort_topk_by_energy(self) -> None:
-        """Sort selected_sequences and energy_scores by energy (best first).
-
-        If fewer than k valid candidates were found, pads with inf energies and
-        empty placeholder sequences to ensure len(energy_scores) == k and
-        len(selected_sequences) == k.
-        """
-        if self._energy_heap:
-            idx_to_energy = {idx: -neg_energy for neg_energy, idx in self._energy_heap}
-            sorted_indices = sorted(idx_to_energy.keys(), key=lambda i: idx_to_energy[i])
-            self.energy_scores = [idx_to_energy[i] for i in sorted_indices]
-            for segment in self.segments:
-                segment.selected_sequences = [segment.selected_sequences[i] for i in sorted_indices]
-        else:
-            self.energy_scores = []
-
-        # Pad to k if heap was underfilled or empty (candidates had inf/nan energies)
-        if len(self.energy_scores) < self.k:
-            num_to_pad = self.k - len(self.energy_scores)
-            self.energy_scores.extend([float('inf')] * num_to_pad)
-            for segment in self.segments:
-                for _ in range(num_to_pad):
-                    # Use empty placeholder sequence to clearly indicate invalid result
-                    segment.selected_sequences.append(
-                        Sequence(
-                            sequence="",
-                            sequence_type=segment.sequence_type,
-                            valid_chars=segment.valid_chars
-                        )
-                    )
-
     def _log_round_progress(self, round_idx: int) -> None:
         """Log round progress."""
         if self.verbose:
-            num_selected = len(self._energy_heap)
+            num_selected = len(self._selected_energies)
             if num_selected > 0:
-                energies = [-neg_energy for neg_energy, _ in self._energy_heap]
-                best_energy = min(energies)
-                worst_energy = -self._energy_heap[0][0]  # Max-heap root is worst
-                # Show round progress relative to total
+                best_energy = self._selected_energies[0]
+                worst_energy = self._selected_energies[-1]
                 total_rounds = self.num_samples // self.batch_size
                 progress_pct = ((round_idx + 1) / total_rounds) * 100
                 logger.info(f"Round {round_idx+1}/{total_rounds} ({progress_pct:.0f}%): {num_selected}/{self.k} in top-k, best={best_energy:.4f}, worst={worst_energy:.4f}")

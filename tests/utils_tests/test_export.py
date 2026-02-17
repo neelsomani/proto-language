@@ -1302,17 +1302,21 @@ class TestBuildCandidateResults:
         """Candidates with mixed pass/fail status are correctly annotated."""
         constructs = self._make_constructs(["ATCG", "GCTA", "TTAA"])
         outcomes = ["accepted", "GC Filter", "accepted"]
+        energies = [0.5, float("inf"), 0.8]
 
-        results = build_candidate_results(constructs, outcomes)
+        results = build_candidate_results(constructs, outcomes, energies)
 
         assert len(results) == 3
         assert results[0]["candidate_idx"] == 0
         assert results[0]["accepted"] is True
         assert results[0]["rejected_by"] is None
+        assert results[0]["energy_score"] == 0.5
         assert results[1]["candidate_idx"] == 1
         assert results[1]["accepted"] is False
         assert results[1]["rejected_by"] == "GC Filter"
+        assert results[1]["energy_score"] is None  # inf → None
         assert results[2]["accepted"] is True
+        assert results[2]["energy_score"] == 0.8
 
     def test_all_accepted(self):
         """All candidates accepted produces correct output."""
@@ -1386,6 +1390,19 @@ class TestBuildCandidateResults:
         construct.segments = []
         assert build_candidate_results([construct], ["accepted"]) == []
 
+    def test_outcomes_shorter_than_candidates_raises(self):
+        """Mismatched outcomes length raises ValueError."""
+        constructs = self._make_constructs(["ATCG", "GCTA", "TTAA"])
+        with pytest.raises(ValueError, match="lengths must match"):
+            build_candidate_results(constructs, ["accepted"])
+
+    def test_energy_scores_shorter_than_candidates_raises(self):
+        """Mismatched energy_scores length raises ValueError."""
+        constructs = self._make_constructs(["ATCG", "GCTA", "TTAA"])
+        outcomes = ["accepted", "accepted", "accepted"]
+        with pytest.raises(ValueError, match="energy_scores.*lengths must match"):
+            build_candidate_results(constructs, outcomes, energy_scores=[0.5])
+
 
 # =============================================================================
 # Test flatten_optimization with include_candidates
@@ -1416,6 +1433,7 @@ class TestFlattenOptimizationCandidates:
                         "candidate_idx": 0,
                         "accepted": True,
                         "rejected_by": None,
+                        "energy_score": 0.5,
                         "constructs": [{
                             "label": "c0", "type": "dna",
                             "segments": [{"label": "seg", "sequence": "AAAA", "constraints": {}, "metadata": {}}],
@@ -1425,6 +1443,7 @@ class TestFlattenOptimizationCandidates:
                         "candidate_idx": 1,
                         "accepted": False,
                         "rejected_by": "GC Filter",
+                        "energy_score": None,
                         "constructs": [{
                             "label": "c0", "type": "dna",
                             "segments": [{"label": "seg", "sequence": "GGGG", "constraints": {
@@ -1453,17 +1472,19 @@ class TestFlattenOptimizationCandidates:
         assert len(candidates) == 2
 
     def test_candidate_rows_have_tracking_columns(self, history_with_candidates):
-        """Candidate rows have candidate_idx, accepted, rejected_by columns."""
+        """Candidate rows have candidate_idx, accepted, rejected_by, energy_score columns."""
         rows = flatten_optimization(history_with_candidates, include_candidates=True)
         candidates = [r for r in rows if r.get("pool") == "candidate"]
 
         accepted_cand = [c for c in candidates if c["candidate_idx"] == 0][0]
         assert accepted_cand["accepted"] is True
         assert accepted_cand["rejected_by"] is None
+        assert accepted_cand["energy_score"] == 0.5
 
         rejected_cand = [c for c in candidates if c["candidate_idx"] == 1][0]
         assert rejected_cand["accepted"] is False
         assert rejected_cand["rejected_by"] == "GC Filter"
+        assert rejected_cand["energy_score"] is None
 
     def test_candidate_constraint_data_exported(self, history_with_candidates):
         """Constraint data on candidate rows is properly flattened."""

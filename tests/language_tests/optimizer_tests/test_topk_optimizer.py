@@ -4,9 +4,7 @@ Tests for TopKOptimizer functionality.
 Minimal tests verifying core behavior of the TopKOptimizer.
 """
 
-import heapq
 import logging
-import math
 import random
 
 import pytest
@@ -262,17 +260,17 @@ class TestTopKOptimizerStandardMode:
         # Verify energy scores captured
         assert 'energy_scores' in optimizer._initial_state
 
-        # Verify heap was cleared (TopK-specific state)
-        assert len(optimizer._energy_heap) == 3  # Has k entries after run
+        # Verify sorted list was populated (TopK-specific state)
+        assert len(optimizer._selected_energies) == 3  # Has k entries after run
 
         # Manually modify sequences to invalid values to verify restore
         for seq in segment.selected_sequences:
             seq.sequence = "GGGGGGGG"
 
-        # Second run should restart - heap should be cleared and sequences restored
+        # Second run should restart - sorted list should be cleared and sequences restored
         optimizer.run()
         assert len(segment.selected_sequences) == 3
-        assert len(optimizer._energy_heap) == 3  # Rebuilt from scratch
+        assert len(optimizer._selected_energies) == 3  # Rebuilt from scratch
 
         # Verify sequences were restored (not all G's - restoration happened)
         assert any(seq.sequence != "GGGGGGGG" for seq in segment.selected_sequences)
@@ -359,7 +357,7 @@ class TestTopKOptimizerStandardMode:
         assert len(optimizer.energy_scores) == 5
 
     def test_inf_and_nan_energy_rejection(self):
-        """Test that TopK optimizer skips inf/nan energies from heap."""
+        """Test that TopK optimizer skips inf/nan energies."""
         import math
 
         from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
@@ -535,23 +533,21 @@ class TestTopKOptimizerValidation:
 class TestTopKOptimizerInternals:
     """Test TopKOptimizer internal methods."""
 
-    def test_sort_topk_by_energy(self):
-        """Test _sort_topk_by_energy correctly sorts sequences by energy."""
-        # Create optimizer with minimal setup
-        segment1 = Segment(sequence="ATCG", sequence_type="dna")
-        segment2 = Segment(sequence="GCTA", sequence_type="dna")
-        construct = Construct([segment1, segment2])
+    def test_selected_sequences_always_sorted(self):
+        """Test that selected_sequences are always sorted by energy (ascending)."""
+        segment = Segment(sequence="ATCGATCG", sequence_type="dna")
+        construct = Construct([segment])
 
-        gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
-        gen.assign(segment1)
+        gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=2))
+        gen.assign(segment)
 
         constraint = Constraint(
-            inputs=[segment1],
-            function=sequence_length_constraint,
-            function_config={"target_length": 4},
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        config = TopKOptimizerConfig(num_samples=5, k=3, batch_size=1)
+        config = TopKOptimizerConfig(num_samples=30, k=5, batch_size=5)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -559,50 +555,15 @@ class TestTopKOptimizerInternals:
             config=config,
         )
 
-        # Manually populate heap and selected_sequences with unsorted data
-        # Simulate having 4 sequences with energies: [5.0, 2.0, 8.0, 1.0]
-        energies = [5.0, 2.0, 8.0, 1.0]
-        sequences_seg1 = [
-            Sequence("ATCG", "dna"),
-            Sequence("ATCC", "dna"),
-            Sequence("ATCA", "dna"),
-            Sequence("ATCT", "dna"),
-        ]
-        sequences_seg2 = [
-            Sequence("GCTA", "dna"),
-            Sequence("GCTC", "dna"),
-            Sequence("GCTG", "dna"),
-            Sequence("GCTT", "dna"),
-        ]
+        optimizer.run()
 
-        # Build heap with negated energies
-        optimizer._energy_heap = []
-        for idx, energy in enumerate(energies):
-            heapq.heappush(optimizer._energy_heap, (-energy, idx))
+        # energy_scores should be sorted ascending
+        assert optimizer.energy_scores == sorted(optimizer.energy_scores)
+        # _selected_energies should match energy_scores
+        assert optimizer._selected_energies == optimizer.energy_scores
 
-        # Populate selected_sequences (unsorted)
-        segment1.selected_sequences = sequences_seg1
-        segment2.selected_sequences = sequences_seg2
-
-        # Call _sort_topk_by_energy
-        optimizer._sort_topk_by_energy()
-
-        # Verify energy_scores are sorted (best first: lowest to highest)
-        assert optimizer.energy_scores == [1.0, 2.0, 5.0, 8.0]
-
-        # Verify selected_sequences are reordered to match sorted energies
-        assert segment1.selected_sequences[0].sequence == "ATCT"  # energy 1.0
-        assert segment1.selected_sequences[1].sequence == "ATCC"  # energy 2.0
-        assert segment1.selected_sequences[2].sequence == "ATCG"  # energy 5.0
-        assert segment1.selected_sequences[3].sequence == "ATCA"  # energy 8.0
-
-        assert segment2.selected_sequences[0].sequence == "GCTT"  # energy 1.0
-        assert segment2.selected_sequences[1].sequence == "GCTC"  # energy 2.0
-        assert segment2.selected_sequences[2].sequence == "GCTA"  # energy 5.0
-        assert segment2.selected_sequences[3].sequence == "GCTG"  # energy 8.0
-
-    def test_sort_topk_by_energy_empty_heap(self):
-        """Test _sort_topk_by_energy handles empty heap by padding with inf energies."""
+    def test_empty_selected_when_all_rejected(self):
+        """Test that TopK returns empty lists when all candidates are rejected."""
         segment = Segment(sequence="ATCG", sequence_type="dna")
         construct = Construct([segment])
 
@@ -623,22 +584,13 @@ class TestTopKOptimizerInternals:
             config=config,
         )
 
-        # Capture initial state
+        # Capture initial state and clear selected
         optimizer._capture_initial_state()
 
-        # Empty heap
-        optimizer._energy_heap = []
-        segment.selected_sequences = []
-
-        # Should handle gracefully by padding to k entries
-        optimizer._sort_topk_by_energy()
-
-        # Pads with inf energies and empty placeholder sequences
-        assert len(optimizer.energy_scores) == 3
-        assert all(math.isinf(e) for e in optimizer.energy_scores)
-        assert len(segment.selected_sequences) == 3
-        # All padded sequences should be empty placeholders
-        assert all(seq.sequence == "" for seq in segment.selected_sequences)
+        # Verify empty state
+        assert optimizer._selected_energies == []
+        assert optimizer.energy_scores == []
+        assert segment.selected_sequences == []
 
     def test_all_candidates_rejected_by_filter(self):
         """Test TopK optimizer handles case where all candidates are rejected by filter.
@@ -680,18 +632,12 @@ class TestTopKOptimizerInternals:
             config=config,
         )
 
-        # Should not crash - should handle gracefully by padding with inf energies
+        # Should not crash - returns empty results when no valid candidates found
         optimizer.run()
 
-        # Verify the optimizer completed and has k results
-        assert len(optimizer.energy_scores) == 5
-        assert len(segment.selected_sequences) == 5
-
-        # All energies should be inf since no valid candidates were found
-        assert all(math.isinf(e) for e in optimizer.energy_scores)
-
-        # All sequences should be empty placeholders
-        assert all(seq.sequence == "" for seq in segment.selected_sequences)
+        # No valid candidates found — empty results (no padding)
+        assert len(optimizer.energy_scores) == 0
+        assert len(segment.selected_sequences) == 0
 
     def test_partial_candidates_rejected_by_filter(self):
         """Test TopK optimizer handles case where some but not all candidates pass filter."""
@@ -731,9 +677,9 @@ class TestTopKOptimizerInternals:
 
         optimizer.run()
 
-        # Should have k results
-        assert len(optimizer.energy_scores) == 10
-        assert len(segment.selected_sequences) == 10
+        # Should have results (up to k, may be fewer if some were rejected)
+        assert len(optimizer.energy_scores) <= 10
+        assert len(segment.selected_sequences) == len(optimizer.energy_scores)
 
 
 class TestTopKOptimizerTrajectoryPreservation:
@@ -886,11 +832,10 @@ class TestTopKOptimizerTrajectoryPreservation:
 
 
 class TestTopKCustomLogging:
-    """Regression: custom_logging must not corrupt heap indices (Bug 1).
+    """Regression: custom_logging must not corrupt results (Bug 1).
 
-    Previously, ``_log_round_progress`` called ``_sort_topk_by_energy()`` when
-    ``custom_logging`` was set, reordering ``selected_sequences`` in-place while
-    the heap still held the old indices.
+    Previously, logging could corrupt the sorted top-k list by reordering
+    ``selected_sequences`` while indices were still in use.
     """
 
     def test_custom_logging_does_not_corrupt_results(self):

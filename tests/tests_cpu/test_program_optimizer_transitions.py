@@ -279,7 +279,7 @@ class TestMCMCTransitions:
     """Tests 5-8: Transitions FROM MCMC."""
 
     def test_5_mcmc_to_topk(self):
-        """MCMC -> TopK: TopK uses MCMC's sorted results."""
+        """MCMC -> TopK: TopK uses MCMC's results."""
         segment = Segment(length=30, sequence_type="dna")
         construct = Construct([segment])
 
@@ -289,7 +289,6 @@ class TestMCMCTransitions:
         program = Program(optimizers=[opt1, opt2])
 
         program.run_stage(0)
-        assert opt1.energy_scores == sorted(opt1.energy_scores), "MCMC results sorted by Program"
 
         program.run_stage(1)
         assert len(segment.selected_sequences) == 2
@@ -330,7 +329,7 @@ class TestMCMCTransitions:
         assert all(s.startswith("CCCC") for s in beam_seqs), "BeamSearch ignores previous state"
 
     def test_8_mcmc_to_cycling(self):
-        """MCMC -> CyclingOptimizer: Cycling inherits MCMC's sorted results."""
+        """MCMC -> CyclingOptimizer: Cycling inherits MCMC's results."""
         segment = Segment(length=30, sequence_type="dna")
         construct = Construct([segment])
 
@@ -497,10 +496,10 @@ class TestCyclingOptimizerTransitions:
 # =============================================================================
 
 class TestSortingContent:
-    """Verify sorting reorders sequences to match energy scores."""
+    """Verify optimizer sorting behavior after Program.run_stage."""
 
-    def test_best_sequence_at_index_0(self):
-        """After sorting, index 0 should have the minimum energy."""
+    def test_mcmc_results_not_necessarily_sorted(self):
+        """MCMC results are not sorted by energy (no Program-level sort)."""
         segment = Segment(length=30, sequence_type="dna")
         construct = Construct([segment])
 
@@ -508,10 +507,12 @@ class TestSortingContent:
         program = Program(optimizers=[opt1])
         program.run_stage(0)
 
-        assert opt1.energy_scores[0] == min(opt1.energy_scores)
+        # MCMC doesn't sort — just verify we have valid energy scores
+        assert len(opt1.energy_scores) == 5
+        assert all(isinstance(e, float) for e in opt1.energy_scores)
 
-    def test_energies_ascending_after_sort(self):
-        """Energy scores should be in ascending order after sort."""
+    def test_topk_energies_ascending(self):
+        """TopK energy scores are always in ascending order (sorted internally)."""
         segment = Segment(length=30, sequence_type="dna")
         construct = Construct([segment])
 
@@ -549,27 +550,3 @@ class TestCyclingContent:
         assert initialized[2] == source_seqs[0]
         assert initialized[3] == source_seqs[1]
         assert initialized[4] == source_seqs[0]
-
-
-class TestTruncationContent:
-    """Verify truncation keeps best sequences."""
-
-    def test_truncation_keeps_best(self):
-        """When num_selected decreases, best sequences are kept."""
-        segment = Segment(length=30, sequence_type="dna")
-        construct = Construct([segment])
-
-        opt1 = create_mcmc_optimizer(construct, segment, num_selected=5, num_steps=15)
-        opt2 = create_mcmc_optimizer(construct, segment, num_selected=2, num_steps=1)
-
-        program = Program(optimizers=[opt1, opt2])
-
-        program.run_stage(0)
-        sorted_seqs = [s.sequence for s in segment.selected_sequences]
-        best_two = sorted_seqs[:2]
-
-        opt2._initialize_sequence_pools()
-        truncated = [s.sequence for s in segment.selected_sequences]
-
-        assert truncated[0] == best_two[0]
-        assert truncated[1] == best_two[1]

@@ -118,15 +118,17 @@ def build_batch_results(
 def build_candidate_results(
     constructs: list,
     outcomes: list[str],
+    energy_scores: list[float] | None = None,
 ) -> list[dict[str, Any]]:
     """Build per-candidate results with accept/reject status from live Construct objects.
 
     Reads from ``candidate_sequences`` (all proposed sequences) and annotates each
-    with whether it was accepted and the rejection reason (if any).
+    with whether it was accepted, the rejection reason (if any), and energy score.
 
     Args:
         constructs: List of Construct objects.
         outcomes: Per-candidate outcome — ``"accepted"`` or a rejection reason string.
+        energy_scores: Per-candidate energy scores. Inf/NaN converted to None.
 
     Returns:
         List of candidate dicts::
@@ -135,6 +137,7 @@ def build_candidate_results(
                 "candidate_idx": 0,
                 "accepted": True,
                 "rejected_by": None,
+                "energy_score": 0.42,
                 "constructs": [{
                     "label": "construct_0",
                     "type": "dna",
@@ -172,11 +175,21 @@ def build_candidate_results(
                 "type": construct.sequence_type,
                 "segments": structured_segments,
             })
-        outcome = outcomes[cand_idx] if cand_idx < len(outcomes) else None
+        if cand_idx >= len(outcomes):
+            raise ValueError(f"outcomes has {len(outcomes)} entries but there are {num_candidates} candidates — lengths must match")
+        if energy_scores is not None and cand_idx >= len(energy_scores):
+            raise ValueError(f"energy_scores has {len(energy_scores)} entries but there are {num_candidates} candidates — lengths must match")
+        outcome = outcomes[cand_idx]
+        energy = (
+            filter_inf_nan_scores(energy_scores[cand_idx])
+            if energy_scores is not None
+            else None
+        )
         candidate_results.append({
             "candidate_idx": cand_idx,
             "accepted": outcome == "accepted",
             "rejected_by": None if outcome == "accepted" else outcome,
+            "energy_score": energy,
             "constructs": structured_constructs,
         })
 
@@ -427,7 +440,7 @@ def flatten_optimization(
         Per segment: {segment}.sequence
         Per segment x constraint: {segment}.{constraint}.score, etc.
         When include_candidates=True:
-            pool, candidate_idx, accepted, rejected_by
+            pool, candidate_idx, accepted, rejected_by, energy_score
     """
     rows = []
     for entry in history:
@@ -468,6 +481,7 @@ def flatten_optimization(
                     "candidate_idx": candidate["candidate_idx"],
                     "accepted": candidate["accepted"],
                     "rejected_by": candidate["rejected_by"],
+                    "energy_score": candidate.get("energy_score"),
                 }
                 if "stage" in entry:
                     row["stage"] = entry["stage"]

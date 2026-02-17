@@ -355,6 +355,10 @@ class BeamSearchOptimizer(Optimizer):
         """
         self._prepare_run()
 
+        # t=0 initial snapshot (empty state before any beams run)
+        self.energy_scores = [float("inf")] * self.beam_width
+        self._save_progress_snapshot(time_step=0)
+
         if self.verbose:
             self._log_run_start()
 
@@ -380,7 +384,7 @@ class BeamSearchOptimizer(Optimizer):
             self._select_topk_beams(candidate_beams)
 
             # Save per-beam snapshot (selected_sequences set by _select_topk_beams)
-            self._save_progress_snapshot(time_step=beam_idx)
+            self._save_progress_snapshot(time_step=beam_idx + 1)
 
             tokens_generated += beam_tokens
 
@@ -388,7 +392,8 @@ class BeamSearchOptimizer(Optimizer):
             if self.verbose:
                 self._log_beamsearch_progress(beam_idx)
 
-        # Write final sequences to segment
+        # Write final sequences to segment (same content as last _select_topk_beams
+        # snapshot, so no additional snapshot needed)
         self.target_segment.selected_sequences = [
             Sequence(
                 sequence=beam.running_sequence if self.prepend_prompt else beam.running_sequence[len(self.prompt):],
@@ -396,9 +401,6 @@ class BeamSearchOptimizer(Optimizer):
             )
             for beam in self.beams
         ]
-
-        # Save final snapshot
-        self._save_progress_snapshot(time_step=self.num_beams)
 
     def _generate_candidates_for_beam(
         self,
@@ -565,8 +567,9 @@ class BeamSearchOptimizer(Optimizer):
         self.beams = [beam for _, beam, _ in sorted_candidates[:self.beam_width]]
         self.energy_scores = [score for _, _, score in sorted_candidates[:self.beam_width]]
 
-        # 3. Update _candidate_outcomes
+        # 3. Update _candidate_outcomes and _candidate_energy_scores
         self._candidate_outcomes = ["Beam pruned"] * len(candidate_beams)
+        self._candidate_energy_scores = [sc for _, _, sc in scored_candidates]
         for idx in selected_indices:
             self._candidate_outcomes[idx] = "accepted"
 
@@ -610,7 +613,7 @@ class BeamSearchOptimizer(Optimizer):
 
         for i, beam in enumerate(self.beams):
             agg_score = self._get_aggregated_score(beam)
-            last_score = beam.beam_scores[-1] if beam.beam_scores else 0.0
+            last_score = beam.beam_scores[-1] if beam.beam_scores else float("inf")
             logger.debug(f"  [{i}] agg={agg_score:.4f}, last={last_score:.4f}, len={len(beam.running_sequence)}: '{beam.running_sequence}'")
 
         if self.custom_logging:

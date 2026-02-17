@@ -38,8 +38,8 @@ class Optimizer(ABC):
     Pool Initialization:
         ``_initialize_sequence_pools()`` is called during ``__init__()`` and by
         ``Program.run_stage()`` before each subsequent optimizer. It reads from
-        ``selected_sequences`` (sorted by Program) or ``original_sequence`` and
-        initializes both pools by cycling through source to preserve diversity.
+        ``selected_sequences`` (from previous optimizer) or ``original_sequence``
+        and initializes both pools by cycling through source to preserve diversity.
 
     Filter Constraints:
         Constraints with a threshold parameter act as binary filters that accept or reject
@@ -97,8 +97,9 @@ class Optimizer(ABC):
         self._initial_state: Optional[Dict] = None  # Captured on first run() for restart
         self._labels_deduplicated: bool = False
 
-        # For logging: "accepted" or a rejection reason string
+        # Per-candidate tracking (set by score_energy / optimizer-specific logic)
         self._candidate_outcomes: list[str] = []
+        self._candidate_energy_scores: list[float] = []
 
         # Default value for progress tracking (can be overridden by subclasses)
         self.num_steps: int = 1
@@ -230,6 +231,9 @@ class Optimizer(ABC):
                     logger.info(f"  Candidate {i}: {score:.4f} [ACCEPTED]")
                 else:
                     logger.info(f"  Candidate {i}: {score:.4f} [REJECTED by {outcome}]")
+
+        # Snapshot candidate energies before optimizers truncate/swap energy_scores
+        self._candidate_energy_scores = list(self.energy_scores)
 
         self._clear_tool_cache()
 
@@ -392,7 +396,7 @@ class Optimizer(ABC):
         """Initialize sequence pools from previous optimizer's results or original sequence.
 
         Source priority:
-        1. ``segment.selected_sequences`` (if populated) - from previous optimizer, sorted by Program
+        1. ``segment.selected_sequences`` (if populated) - from previous optimizer
         2. ``[segment.original_sequence]`` (if first optimizer) - falls back to original
 
         Both ``selected_sequences`` and ``candidate_sequences`` are initialized by cycling
@@ -400,7 +404,7 @@ class Optimizer(ABC):
 
         Example: source=[A,B,C], num_selected=5 → [A,B,C,A,B]
         """
-        # Determine source length from first segment (all segments have same length after sorting)
+        # Determine source length from first segment (all segments have same length)
         source_len = len(self.segments[0].selected_sequences or [self.segments[0].original_sequence])
 
         # Log truncation or expansion with optimizer name for context
@@ -408,7 +412,7 @@ class Optimizer(ABC):
         if source_len > self.num_selected:
             logger.info(
                 f"Handoff to {optimizer_name}: Truncating {source_len} sequences from result of previous optimizer to {self.num_selected} "
-                f"sequences as starting sequences for current optimizer (keeping best {self.num_selected} by energy score)"
+                f"sequences as starting sequences for current optimizer (keeping first {self.num_selected})"
             )
         elif source_len < self.num_selected:
             logger.info(
@@ -461,6 +465,8 @@ class Optimizer(ABC):
             seg.selected_sequences = [Sequence.from_dict(s) for s in state['selected']]
             seg.candidate_sequences = [Sequence.from_dict(s) for s in state['candidates']]
         self.energy_scores = self._initial_state['energy_scores'].copy()
+        self._candidate_outcomes = []
+        self._candidate_energy_scores = []
         self.history = []
 
     def _save_progress_snapshot(self, time_step: int) -> None:
@@ -468,7 +474,7 @@ class Optimizer(ABC):
 
         Validates internal consistency: all segments have the same number of
         ``selected_sequences`` and ``energy_scores`` matches that count.
-        Allows partial snapshots (e.g. TopK mid-run with heap < k).
+        Allows partial snapshots (e.g. TopK mid-run with fewer than k selected).
         """
         expected_len = len(self.segments[0].selected_sequences)
         for segment in self.segments:
@@ -481,6 +487,8 @@ class Optimizer(ABC):
         result["time_step"] = time_step
 
         if self._candidate_outcomes:
-            result["candidate_results"] = build_candidate_results(self.constructs, self._candidate_outcomes)
+            result["candidate_results"] = build_candidate_results(
+                self.constructs, self._candidate_outcomes, self._candidate_energy_scores,
+            )
 
         self.history.append(result)

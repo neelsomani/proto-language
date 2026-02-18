@@ -55,7 +55,6 @@ class Optimizer(ABC):
     """
 
     _require_non_empty_constraints: bool = True
-    _candidates_per_result: int = 1
 
     @abstractmethod
     def __init__(
@@ -63,11 +62,14 @@ class Optimizer(ABC):
         constructs: List[Construct],
         generators: List[Generator],
         constraints: List[Constraint],
-        num_candidates: int | None,
         num_results: int | None,
+        tracking_interval: int,
+        track_candidates: bool,
+        verbose: bool,
+        candidates_per_result: int = 1,
+        num_candidates: int | None = None,
         clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
         custom_logging: Optional[Callable] = None,
-        verbose: bool = False,
     ) -> None:
         """
         Initialize the Optimizer with dual-pool semantics.
@@ -76,26 +78,34 @@ class Optimizer(ABC):
             constructs: List of Construct objects to optimize.
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
-            num_candidates: Number of candidate proposals to generate per iteration.
-                May be None when num_results is deferred (resolved later by Program).
             num_results: Number of sequences to select and maintain as results.
                 May be None to defer resolution to Program(num_results=N).
+            tracking_interval: Save history snapshot and log progress every N steps.
+                Step 0 (initial) and the final step are always saved.
+            track_candidates: Include per-candidate results in history snapshots.
+            verbose: Whether to print detailed progress information.
+            candidates_per_result: Number of candidate proposals per result sequence.
+                Used to compute num_candidates when deferred.
+            num_candidates: Number of candidate proposals to generate per iteration.
+                Computed as ``num_results * candidates_per_result`` when None.
             clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
                               (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
-            custom_logging: Optional callback called after each iteration with
-                signature ``(step: int, segments: tuple) -> None``.
-            verbose: Whether to print detailed progress information. Default: False.
+            custom_logging: Optional callback with signature ``(step: int, segments: tuple) -> None``.
+                Called at tracked steps only (governed by ``tracking_interval``).
         """
         self.constructs = constructs
         self.generators = generators
         self.constraints = constraints
         self.num_results = num_results
+        self.tracking_interval = tracking_interval
+        self.track_candidates = track_candidates
+        self.verbose = verbose
+        self._candidates_per_result = candidates_per_result
         self.num_candidates = num_candidates
-        self.energy_scores: List[float] = []
         self.clear_tool_cache = clear_tool_cache
         self.custom_logging = custom_logging
-        self.verbose = verbose
+        self.energy_scores: List[float] = []
         self.history: List[Dict[str, Any]] = []
         self._initial_state: Optional[Dict] = None  # Captured on first run() for restart
         self._labels_deduplicated: bool = False
@@ -514,9 +524,7 @@ class Optimizer(ABC):
         result = build_batch_results(self.constructs, self.energy_scores)
         result["time_step"] = time_step
 
-        if self._candidate_outcomes:
-            result["candidate_results"] = build_candidate_results(
-                self.constructs, self._candidate_outcomes, self._candidate_energy_scores,
-            )
+        if self.track_candidates and self._candidate_outcomes:
+            result["candidate_results"] = build_candidate_results(self.constructs, self._candidate_outcomes, self._candidate_energy_scores)
 
         self.history.append(result)

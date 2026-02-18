@@ -14,7 +14,7 @@ from pydantic import model_validator
 logger = logging.getLogger(__name__)
 
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -27,7 +27,7 @@ from proto_language.language.optimizer.optimizer_registry import optimizer
 # Maximum safe exponent for np.exp() to prevent overflow
 MAX_EXP_ARG = 700.0
 
-class MCMCOptimizerConfig(BaseConfig):
+class MCMCOptimizerConfig(BaseOptimizerConfig):
     """Configuration object for MCMCOptimizer.
 
     This class defines configuration parameters for the Metropolis-Hastings MCMC
@@ -106,13 +106,6 @@ class MCMCOptimizerConfig(BaseConfig):
         description="Minimum temperature for annealing",
         advanced=True,
     )
-    verbose: bool = ConfigField(
-        default=False,
-        title="Verbose",
-        description="Whether to print progress information.",
-        advanced=True,
-    )
-
     @model_validator(mode='after')
     def validate_cross_field_constraints(self):
         """Validate cross-field constraints."""
@@ -198,7 +191,7 @@ class MCMCOptimizer(Optimizer):
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
             config: Configuration object containing algorithm parameters (temperature, num_steps, etc.).
-            custom_logging: Optional custom logging function called at tracked steps.
+            custom_logging: Optional callback called at tracked steps (governed by ``tracking_interval``).
             clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
                               (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
@@ -207,17 +200,18 @@ class MCMCOptimizer(Optimizer):
             ValueError: If any validation checks fail or num_results cannot be determined.
         """
         self.config = config
-        self._candidates_per_result = config.candidates_per_result
 
         super().__init__(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
-            num_candidates=None,
             num_results=config.num_results,
+            candidates_per_result=config.candidates_per_result,
             clear_tool_cache=clear_tool_cache,
             custom_logging=custom_logging,
             verbose=config.verbose,
+            tracking_interval=config.tracking_interval,
+            track_candidates=config.track_candidates,
         )
 
         self.num_steps: int = config.num_steps
@@ -277,9 +271,9 @@ class MCMCOptimizer(Optimizer):
             # 5. Metropolis-Hastings acceptance and update energy score, candidate_sequences, and selected_sequences state
             self._select_topk_with_mcmc_acceptance(step, old_selected_sequences)
 
-            # Save snapshot every step
-            self._save_progress_snapshot(time_step=step)
-            if self.verbose:
+            # Save snapshot and log at tracking interval or final step
+            if step % self.tracking_interval == 0 or step == self.num_steps:
+                self._save_progress_snapshot(time_step=step)
                 self._log_mcmc_progress(step)
 
     def _save_sequence_state(self) -> List[Tuple[Dict[int, Sequence], float]]:
@@ -412,29 +406,30 @@ class MCMCOptimizer(Optimizer):
         return min(1.0, np.exp(log_acceptance_ratio))
 
     def _log_mcmc_progress(self, step: int) -> None:
-        """Log optimization progress"""
-        best_energy = min(self.energy_scores)
-        mean_energy = np.mean(self.energy_scores)
-        worst_energy = max(self.energy_scores)
-        std_energy = np.std(self.energy_scores) if len(self.energy_scores) > 1 else 0.0
-        current_temp = self._compute_temperature(step)
+        """Log optimization progress."""
+        if self.verbose:
+            best_energy = min(self.energy_scores)
+            mean_energy = np.mean(self.energy_scores)
+            worst_energy = max(self.energy_scores)
+            std_energy = np.std(self.energy_scores) if len(self.energy_scores) > 1 else 0.0
+            current_temp = self._compute_temperature(step)
 
-        # Format output based on num_results
-        if self.num_results == 1:
-            logger.debug(
-                f"Iteration {step:4d} | "
-                f"energy: {best_energy:.6f}, "
-                f"T: {current_temp:.4f}"
-            )
-        else:
-            logger.debug(
-                f"Iteration {step:4d} | "
-                f"best: {best_energy:.6f}, "
-                f"mean: {mean_energy:.6f}, "
-                f"worst: {worst_energy:.6f}, "
-                f"std: {std_energy:.6f}, "
-                f"T: {current_temp:.4f}"
-            )
+            # Format output based on num_results
+            if self.num_results == 1:
+                logger.debug(
+                    f"Iteration {step:4d} | "
+                    f"energy: {best_energy:.6f}, "
+                    f"T: {current_temp:.4f}"
+                )
+            else:
+                logger.debug(
+                    f"Iteration {step:4d} | "
+                    f"best: {best_energy:.6f}, "
+                    f"mean: {mean_energy:.6f}, "
+                    f"worst: {worst_energy:.6f}, "
+                    f"std: {std_energy:.6f}, "
+                    f"T: {current_temp:.4f}"
+                )
 
         if self.custom_logging:
             self.custom_logging(step, self.segments)

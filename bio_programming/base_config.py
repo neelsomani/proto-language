@@ -1,9 +1,12 @@
 """
-Base configuration class for all pydantic configs.
+Base configuration classes for all pydantic configs.
 """
 from __future__ import annotations
+
 from typing import Any
-from pydantic import BaseModel, ConfigDict, Field as PydanticField
+
+from pydantic import BaseModel, ConfigDict
+from pydantic import Field as PydanticField
 
 
 def ConfigField(
@@ -43,16 +46,44 @@ def ConfigField(
 class BaseConfig(BaseModel):
     """
     Base configuration class for consistent behavior across all configs (tools, constraints, and generators).
-    
+
     Example:
         >>> class MyToolConfig(BaseConfig):
         ...     param1: int
         ...     param2: str
     """
-    
+
     model_config = ConfigDict(
         extra='ignore',              # Ignore unknown fields
         validate_assignment=True,    # Validate on field updates
         use_enum_values=True,        # Serialize enums as values
         validate_default=True,       # Validate default values
+    )
+
+
+# ---------------------------------------------------------------------------
+# Optimizer configs
+# ---------------------------------------------------------------------------
+
+
+class BaseOptimizerConfig(BaseConfig):
+    """Shared base config for all optimizers."""
+    tracking_interval: int = ConfigField(
+        default=1,
+        ge=1,
+        title="Tracking Interval",
+        description="Save history and log progress every N steps. Step 0 and final step always saved.",
+        advanced=True,
+    )
+    track_candidates: bool = ConfigField(
+        default=False,
+        title="Track Candidates",
+        description="Save granular per-candidate results (accept/reject) in history snapshots.",
+        advanced=True,
+    )
+    verbose: bool = ConfigField(
+        default=False,
+        title="Verbose",
+        description="Whether to print progress information.",
+        hidden=True,
     )

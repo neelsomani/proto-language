@@ -39,7 +39,6 @@ def build_batch_results(
     """Build standardized batch-first results from live Construct objects.
 
     Produces the canonical format consumed by all flatten/export functions.
-    Always deep copies constraints/metadata so callers get an independent snapshot.
     Infinite/NaN energy scores are converted to None for JSON compatibility.
 
     Args:
@@ -86,13 +85,11 @@ def build_batch_results(
             structured_segments = []
             for seg_idx, segment in enumerate(construct.segments):
                 seq = segment.selected_sequences[batch_idx]
-                constraints = copy.deepcopy(seq._constraints_metadata)
-                metadata = copy.deepcopy(seq._metadata)
                 structured_segments.append({
                     "label": segment.label or f"segment_{seg_idx}",
                     "sequence": seq.sequence,
-                    "constraints": constraints,
-                    "metadata": metadata,
+                    "constraints": copy.deepcopy(seq._constraints_metadata),
+                    "metadata": copy.deepcopy(seq._metadata),
                 })
             structured_constructs.append({
                 "label": construct.label,
@@ -162,13 +159,11 @@ def build_candidate_results(
             structured_segments = []
             for seg_idx, segment in enumerate(construct.segments):
                 seq = segment.candidate_sequences[cand_idx]
-                constraints = copy.deepcopy(seq._constraints_metadata)
-                metadata = copy.deepcopy(seq._metadata)
                 structured_segments.append({
                     "label": segment.label or f"segment_{seg_idx}",
                     "sequence": seq.sequence,
-                    "constraints": constraints,
-                    "metadata": metadata,
+                    "constraints": copy.deepcopy(seq._constraints_metadata),
+                    "metadata": copy.deepcopy(seq._metadata),
                 })
             structured_constructs.append({
                 "label": construct.label,

@@ -17,7 +17,7 @@ from pydantic import model_validator
 
 logger = logging.getLogger(__name__)
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -45,7 +45,7 @@ class BeamState:
     beam_scores: List[float] = field(default_factory=list)
 
 
-class BeamSearchOptimizerConfig(BaseConfig):
+class BeamSearchOptimizerConfig(BaseOptimizerConfig):
     """Configuration object for BeamSearchOptimizer.
 
     This class defines configuration parameters for the beam search optimizer, which
@@ -158,13 +158,6 @@ class BeamSearchOptimizerConfig(BaseConfig):
         description="Optional batch size for generation. If None, generates all candidates at once.",
         advanced=True,
     )
-    verbose: bool = ConfigField(
-        default=False,
-        title="Verbose",
-        description="Whether to print progress information.",
-        hidden=True,
-    )
-
     @model_validator(mode="after")
     def validate_config(self):
         """Validate beam search configuration."""
@@ -246,7 +239,7 @@ class BeamSearchOptimizer(Optimizer):
             generators: List containing a single autoregressive Generator object (must have category="autoregressive").
             constraints: List of Constraint objects for evaluation (lower scores are better).
             config: Configuration object containing algorithm parameters.
-            custom_logging: Optional custom logging function called after each beam search step.
+            custom_logging: Optional callback called at tracked beams (governed by ``tracking_interval``).
             clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
                               (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
@@ -265,18 +258,19 @@ class BeamSearchOptimizer(Optimizer):
         self.beam_length: int = config.beam_length
         self.generator: Generator = generator
         self.use_kv_caching: bool = config.use_kv_caching
-        self._candidates_per_result = config.candidates_per_result
 
         # Base class init (calls _validate_optimizer)
         super().__init__(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
-            num_candidates=None,
             num_results=config.num_results,
+            candidates_per_result=config.candidates_per_result,
             clear_tool_cache=clear_tool_cache,
             custom_logging=custom_logging,
             verbose=config.verbose,
+            tracking_interval=config.tracking_interval,
+            track_candidates=config.track_candidates,
         )
 
         self.prepend_prompt: bool = config.prepend_prompt
@@ -371,7 +365,7 @@ class BeamSearchOptimizer(Optimizer):
         # Track tokens generated so far
         tokens_generated = 0
 
-        for beam_idx in range(self.num_beams):
+        for beam_num in range(1, self.num_beams + 1):
             # Calculate tokens to generate this beam (may be less for final beam)
             remaining_tokens = self.target_segment.sequence_length - tokens_generated
             beam_tokens = min(self.beam_length, remaining_tokens)
@@ -379,10 +373,8 @@ class BeamSearchOptimizer(Optimizer):
             # Override generator's num_tokens for this beam
             self.generator.num_tokens = beam_tokens
 
-            prepend_prompt_to_first_beam = self.prepend_prompt and beam_idx == 0
+            prepend_prompt_to_first_beam = self.prepend_prompt and beam_num == 1
 
-            if self.verbose:
-                logger.info(f"Beam {beam_idx + 1}/{self.num_beams} ({beam_tokens} tokens)")
             # Generate and score candidates, resampling until all beams have valid candidates
             candidate_beams = self._generate_and_score_with_resampling(prepend_prompt_to_first_beam)
 
@@ -390,13 +382,11 @@ class BeamSearchOptimizer(Optimizer):
             self._select_topk_beams(candidate_beams)
 
             # Save per-beam snapshot (selected_sequences set by _select_topk_beams)
-            self._save_progress_snapshot(time_step=beam_idx + 1)
+            if beam_num % self.tracking_interval == 0 or beam_num == self.num_beams:
+                self._save_progress_snapshot(time_step=beam_num)
+                self._log_beamsearch_progress(beam_num, beam_tokens)
 
             tokens_generated += beam_tokens
-
-            # Log progress
-            if self.verbose:
-                self._log_beamsearch_progress(beam_idx)
 
         # Write final sequences to segment (same content as last _select_topk_beams
         # snapshot, so no additional snapshot needed)
@@ -610,20 +600,20 @@ class BeamSearchOptimizer(Optimizer):
     # LOGGING #
     ###########
 
-    def _log_beamsearch_progress(self, beam_idx: int) -> None:
-        """
-        Log progress information for a beam during beam search.
-        """
-        logger.debug(f"Completed beam {beam_idx + 1}/{self.num_beams}")
-        logger.debug(f"Top {self.num_results} beams by {self.score_by} score:")
+    def _log_beamsearch_progress(self, beam_num: int, beam_tokens: int) -> None:
+        """Log progress information for a beam during beam search."""
+        if self.verbose:
+            logger.info(f"Beam {beam_num}/{self.num_beams} ({beam_tokens} tokens)")
+            logger.debug(f"Completed beam {beam_num}/{self.num_beams}")
+            logger.debug(f"Top {self.num_results} beams by {self.score_by} score:")
 
-        for i, beam in enumerate(self.beams):
-            agg_score = self._get_aggregated_score(beam)
-            last_score = beam.beam_scores[-1] if beam.beam_scores else float("inf")
-            logger.debug(f"  [{i}] agg={agg_score:.4f}, last={last_score:.4f}, len={len(beam.running_sequence)}: '{beam.running_sequence}'")
+            for i, beam in enumerate(self.beams):
+                agg_score = self._get_aggregated_score(beam)
+                last_score = beam.beam_scores[-1] if beam.beam_scores else float("inf")
+                logger.debug(f"  [{i}] agg={agg_score:.4f}, last={last_score:.4f}, len={len(beam.running_sequence)}: '{beam.running_sequence}'")
 
         if self.custom_logging:
-            self.custom_logging(beam_idx, self.segments)
+            self.custom_logging(beam_num, self.segments)
 
     def _log_beam_generation_start(self, beam_idx: int, beam: BeamState) -> None:
         """Log the start of candidate generation for a beam."""

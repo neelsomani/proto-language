@@ -10,7 +10,7 @@ from typing import Callable, List, Optional, final
 
 from pydantic import model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -23,7 +23,7 @@ from proto_language.language.optimizer.optimizer_registry import optimizer
 logger = logging.getLogger(__name__)
 
 
-class TopKOptimizerConfig(BaseConfig):
+class TopKOptimizerConfig(BaseOptimizerConfig):
     """Configuration object for TopKOptimizer.
 
     The TopK optimizer generates many candidate sequences and keeps only the best
@@ -81,13 +81,6 @@ class TopKOptimizerConfig(BaseConfig):
         title="Energy Threshold",
         description="Early stop when all energy scores in top-k are below threshold.",
         advanced=True,
-    )
-
-    verbose: bool = ConfigField(
-        default=False,
-        title="Verbose",
-        description="Whether to print progress information.",
-        hidden=True,
     )
 
     @model_validator(mode='after')
@@ -173,7 +166,7 @@ class TopKOptimizer(Optimizer):
             generators: List of Generator objects for sequence modification.
             constraints: List of Constraint objects for evaluation.
             config: Configuration object containing algorithm parameters.
-            custom_logging: Optional custom logging function called after each round.
+            custom_logging: Optional callback called at tracked rounds (governed by ``tracking_interval``).
             clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
                               (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
@@ -192,6 +185,8 @@ class TopKOptimizer(Optimizer):
             clear_tool_cache=clear_tool_cache,
             custom_logging=custom_logging,
             verbose=config.verbose,
+            tracking_interval=config.tracking_interval,
+            track_candidates=config.track_candidates,
         )
         self.batch_size: int = config.batch_size
         self.energy_threshold: Optional[float] = config.energy_threshold
@@ -223,17 +218,18 @@ class TopKOptimizer(Optimizer):
         for segment in self.segments:
             segment.selected_sequences.pop()
 
-    def _run_sampling_round(self, round_idx: int) -> None:
+    def _run_sampling_round(self, round_num: int, save_snapshot: bool = True) -> None:
         """Execute a single sampling round.
 
         1. Reset candidate sequences to their initial state (fresh each round).
         2. Run all generators sequentially on the candidates.
         3. Score candidates with constraints (sets ``_candidate_outcomes``).
         4. Update the sorted top-k list and classify outcomes.
-        5. Save a progress snapshot from the current sorted state.
+        5. Optionally save a progress snapshot from the current sorted state.
 
         Args:
-            round_idx: The index of the current round (for tracking purposes).
+            round_num: The 1-indexed round number (for tracking purposes).
+            save_snapshot: Whether to save a progress snapshot after this round.
         """
         # 1. Reset candidate sequences to their initial state
         for seg_idx, segment in enumerate(self.segments):
@@ -270,13 +266,9 @@ class TopKOptimizer(Optimizer):
             else:
                 self._candidate_outcomes[candidate_idx] = "Not in top-k"
 
-        # 5. Save a progress snapshot from the current sorted state
-        saved_energy_scores = self.energy_scores
-        self.energy_scores = list(self._selected_energies)
-        self._save_progress_snapshot(time_step=round_idx + 1)
-        self.energy_scores = saved_energy_scores
-
-        self._log_round_progress(round_idx)
+        # 5. Save a progress snapshot and log from the current sorted state
+        if save_snapshot:
+            self._save_topk_snapshot(round_num)
 
     def _capture_initial_state(self) -> None:
         """Capture state and clear TopK-specific state for fresh run."""
@@ -325,47 +317,44 @@ class TopKOptimizer(Optimizer):
 
         candidates_generated = 0
         threshold_met = False
+        threshold_mode = self.energy_threshold is not None
         num_sampling_rounds = self.num_samples // self.batch_size
 
-        # Determine mode based on energy_threshold
-        threshold_mode = self.energy_threshold is not None
+        for round_num in range(1, num_sampling_rounds + 1):
+            save = round_num % self.tracking_interval == 0 or round_num == num_sampling_rounds
+            self._run_sampling_round(round_num, save_snapshot=save)
+            candidates_generated += self.batch_size
 
-        if threshold_mode:
-            # Threshold mode: Generate until threshold met or num_samples reached
-            for round_idx in range(num_sampling_rounds):
-                # Check if threshold is met (only after we have k candidates)
-                if len(self._selected_energies) == self.num_results:
-                    worst_energy = self._selected_energies[-1]
-                    if worst_energy < self.energy_threshold:
-                        threshold_met = True
-                        if self.verbose:
-                            logger.info(f"Threshold met! Worst in top-{self.num_results}: {worst_energy:.6f} < {self.energy_threshold:.6f}")
-                        break
+            # Threshold mode: stop early when all top-k are below threshold
+            if threshold_mode and len(self._selected_energies) == self.num_results:
+                if self._selected_energies[-1] < self.energy_threshold:
+                    threshold_met = True
+                    if self.verbose:
+                        logger.info(f"Threshold met! Worst in top-{self.num_results}: {self._selected_energies[-1]:.6f} < {self.energy_threshold:.6f}")
+                    # Force a final snapshot if this round wasn't already saved
+                    if not save:
+                        self._save_topk_snapshot(round_num)
+                    break
 
-                self._run_sampling_round(round_idx)
-                candidates_generated += self.batch_size
-
-            # Log warning if list never filled to k (filter constraints too strict)
-            if not threshold_met and len(self._selected_energies) < self.num_results:
-                logger.warning(f"TopK optimizer completed with only {len(self._selected_energies)}/{self.num_results} valid candidates. Filter constraints may be too restrictive or num_samples may not be high enough.")
-        else:
-            # Standard mode: Generate exactly num_samples
-            for round_idx in range(num_sampling_rounds):
-                self._run_sampling_round(round_idx)
-                candidates_generated += self.batch_size
-
-            if len(self._selected_energies) < self.num_results:
-                logger.warning(f"TopK optimizer completed with only {len(self._selected_energies)}/{self.num_results} valid candidates. Filter constraints may be too restrictive or num_samples may not be high enough.")
+        if not threshold_met and len(self._selected_energies) < self.num_results:
+            logger.warning(f"TopK optimizer completed with only {len(self._selected_energies)}/{self.num_results} valid candidates. Filter constraints may be too restrictive or num_samples may not be high enough.")
 
         # Handoff: set energy_scores to the sorted selected energies.
         # May be fewer than k if filter constraints rejected too many candidates.
         self.energy_scores = list(self._selected_energies)
 
         # Log statistics
-        if self.verbose:
-            self._log_optimization_summary(threshold_mode, threshold_met, candidates_generated)
+        self._log_optimization_summary(threshold_mode, threshold_met, candidates_generated)
 
-    def _log_round_progress(self, round_idx: int) -> None:
+    def _save_topk_snapshot(self, round_num: int) -> None:
+        """Save a progress snapshot using the sorted selected energies."""
+        saved_energy_scores = self.energy_scores
+        self.energy_scores = list(self._selected_energies)
+        self._save_progress_snapshot(time_step=round_num)
+        self.energy_scores = saved_energy_scores
+        self._log_round_progress(round_num)
+
+    def _log_round_progress(self, round_num: int) -> None:
         """Log round progress."""
         if self.verbose:
             num_results = len(self._selected_energies)
@@ -373,11 +362,11 @@ class TopKOptimizer(Optimizer):
                 best_energy = self._selected_energies[0]
                 worst_energy = self._selected_energies[-1]
                 total_rounds = self.num_samples // self.batch_size
-                progress_pct = ((round_idx + 1) / total_rounds) * 100
-                logger.info(f"Round {round_idx+1}/{total_rounds} ({progress_pct:.0f}%): {num_results}/{self.num_results} in top-k, best={best_energy:.4f}, worst={worst_energy:.4f}")
+                progress_pct = (round_num / total_rounds) * 100
+                logger.info(f"Round {round_num}/{total_rounds} ({progress_pct:.0f}%): {num_results}/{self.num_results} in top-k, best={best_energy:.4f}, worst={worst_energy:.4f}")
 
         if self.custom_logging:
-            self.custom_logging(round_idx, self.segments)
+            self.custom_logging(round_num, self.segments)
 
     def _log_optimization_summary(
         self,
@@ -386,6 +375,8 @@ class TopKOptimizer(Optimizer):
         candidates_generated: int
     ) -> None:
         """Log optimization statistics and results."""
+        if not self.verbose:
+            return
         mode_str = "threshold" if threshold_mode else "standard"
         logger.debug(f"Optimization complete ({mode_str} mode):")
         logger.debug(f"  Total samples generated: {candidates_generated}")

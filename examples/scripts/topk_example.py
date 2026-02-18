@@ -34,8 +34,8 @@ inputs=[dna_segment],
 
 
 # Define custom logging function
-def custom_logger(round_idx, segments):
-    print(f"After round {round_idx + 1}:")
+def custom_logger(step, segments):
+    print(f"After round {step}:")
     for i, segment in enumerate(segments):
         print(f"Selected sequences for Segment {i + 1}:")
         # show metadata of each sequence in the segment

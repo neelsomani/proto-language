@@ -1122,6 +1122,7 @@ class TestCyclingCandidateTracking:
             config=components["config"],
             conditioning_fn=components["conditioning_fn"],
         )
+        optimizer.track_candidates = True
 
         def mock_sample(structure_inputs=None):
             for c in components["target_segment"].candidate_sequences:
@@ -1144,3 +1145,39 @@ class TestCyclingCandidateTracking:
 
         # At least one step should have candidate_results
         assert any("candidate_results" in e for e in optimizer.history)
+
+
+class TestCyclingTrackingInterval:
+    """Test tracking_interval in CyclingOptimizer."""
+
+    def test_tracking_interval(self):
+        """tracking_interval=3 reduces history snapshots."""
+        components = _setup_cycling_components(num_steps=10, num_results=2)
+
+        def mock_sample(structure_inputs=None):
+            for c in components["target_segment"].candidate_sequences:
+                c.sequence = "MKTAYIAKQRQISFVKSHFS"
+
+        components["generator"].sample = mock_sample
+
+        # Override config to set tracking_interval=3
+        config = CyclingOptimizerConfig(
+            num_steps=10,
+            num_results=2,
+            conditioning_param_name="structure_inputs",
+            tracking_interval=3,
+        )
+
+        optimizer = CyclingOptimizer(
+            target_segment=components["target_segment"],
+            constructs=[components["construct"]],
+            generators=[components["generator"]],
+            constraints=[],
+            config=config,
+            conditioning_fn=components["conditioning_fn"],
+        )
+
+        optimizer.run()
+
+        saved_steps = {entry["time_step"] for entry in optimizer.history}
+        assert saved_steps == {0, 3, 6, 9, 10}

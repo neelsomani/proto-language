@@ -885,8 +885,8 @@ class TestTopKCustomLogging:
         """Verify the custom_logging callback receives the correct arguments."""
         received = []
 
-        def logger_fn(round_idx, segments):
-            received.append((round_idx, len(segments)))
+        def logger_fn(step, segments):
+            received.append((step, len(segments)))
 
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
@@ -912,8 +912,8 @@ class TestTopKCustomLogging:
         optimizer.run()
 
         assert len(received) == 5
-        for round_idx, num_segments in received:
-            assert isinstance(round_idx, int)
+        for step, num_segments in received:
+            assert isinstance(step, int)
             assert num_segments == 1
 
 
@@ -1013,7 +1013,11 @@ class TestTopKCandidateTracking:
             generators=[gen],
             constraints=[constraint],
             config=TopKOptimizerConfig(
-                num_samples=20, num_results=3, batch_size=5, verbose=False
+                num_samples=20,
+                num_results=3,
+                batch_size=5,
+                verbose=False,
+                track_candidates=True,
             ),
         )
         optimizer.run()
@@ -1031,3 +1035,80 @@ class TestTopKCandidateTracking:
                     all_rejectors.add(cand["rejected_by"])
 
         assert all_rejectors.issubset(valid_rejectors)
+
+
+class TestTopKTrackingInterval:
+    """Test tracking_interval in TopK optimizer."""
+
+    def test_tracking_interval(self):
+        """tracking_interval=2 reduces history snapshots."""
+        segment = Segment(sequence="ATCGATCG", sequence_type="dna")
+        construct = Construct([segment])
+        gen = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(num_mutations=1)
+        )
+        gen.assign(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
+        )
+        config = TopKOptimizerConfig(
+            num_samples=10,
+            num_results=3,
+            batch_size=1,
+            verbose=False,
+            tracking_interval=2,
+        )
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        optimizer.run()
+
+        # 10 rounds with interval=2: rounds 2,4,6,8,10 + step 0
+        saved_steps = {entry["time_step"] for entry in optimizer.history}
+        assert saved_steps == {0, 2, 4, 6, 8, 10}
+
+    def test_tracking_interval_with_threshold_early_exit(self):
+        """Threshold early-exit forces a final snapshot even on non-interval rounds."""
+        segment = Segment(sequence="ATCGATCG", sequence_type="dna")
+        construct = Construct([segment])
+        gen = UniformMutationGenerator(
+            UniformMutationGeneratorConfig(num_mutations=1)
+        )
+        gen.assign(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
+        )
+        config = TopKOptimizerConfig(
+            num_samples=1000,
+            num_results=3,
+            batch_size=1,
+            verbose=False,
+            tracking_interval=5,
+            energy_threshold=100.0,  # Very high — easily met early
+        )
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
+        optimizer.run()
+
+        # Threshold should be met well before round 1000
+        num_sampling_rounds = config.num_samples // config.batch_size
+        assert len(optimizer.history) < num_sampling_rounds
+
+        # The last snapshot should reflect the round where threshold was met
+        saved_steps = sorted(entry["time_step"] for entry in optimizer.history)
+        last_saved = saved_steps[-1]
+        # Final snapshot must exist and be > 0 (not just the initial snapshot)
+        assert last_saved > 0
+        # If threshold was met on a non-interval round, we still get a snapshot
+        # (the fix ensures this)

@@ -46,8 +46,8 @@ gc_constraint_1 = Constraint(
     function_config={"min_gc": 70, "max_gc": 100},
 )
 
-def topk_custom_logger(round_idx, segments):
-    print(f"After round {round_idx + 1}:")
+def topk_custom_logger(step, segments):
+    print(f"After round {step}:")
     for i, segment in enumerate(segments):
         print(f"Selected sequences for Segment {i + 1}:")
         # show metadata of each sequence in the segment
@@ -89,8 +89,8 @@ gc_constraint_2 = Constraint(
     function_config={"min_gc": 80, "max_gc": 90},
 )
 
-def mcmc_custom_logger(round_idx, segments):
-    print(f"After round {round_idx + 1}:")
+def mcmc_custom_logger(step, segments):
+    print(f"After round {step}:")
     for i, segment in enumerate(segments):
         print(f"Selected sequences for Segment {i + 1}:")
         # show metadata of each sequence in the segment

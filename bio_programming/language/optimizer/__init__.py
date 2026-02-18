@@ -1,32 +1,26 @@
 # Registry and base infrastructure
-from .optimizer_registry import (
-    OptimizerRegistry,
-    OptimizerSpec,
-    OPTIMIZERS_WITH_TARGET_SEGMENT,
-    optimizer,
-)
+from proto_language.base_config import BaseOptimizerConfig
 
-# Optimizers
-from .mcmc_optimizer import (
-    MCMCOptimizer,
-    MCMCOptimizerConfig,
-)
 from .beam_search_optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,
 )
-from .topk_optimizer import (
-    TopKOptimizer,
-    TopKOptimizerConfig,
+from .cycling_optimizer import CyclingOptimizer, CyclingOptimizerConfig
+
+# Optimizers
+from .mcmc_optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from .optimizer_registry import (
+    OPTIMIZERS_WITH_TARGET_SEGMENT,
+    OptimizerRegistry,
+    OptimizerSpec,
+    optimizer,
 )
-from .cycling_optimizer import (
-    CyclingOptimizer,
-    CyclingOptimizerConfig,
-)
+from .topk_optimizer import TopKOptimizer, TopKOptimizerConfig
 
 __all__ = [
-    # Registry
+    # Registry and base
+    "BaseOptimizerConfig",
     "OptimizerRegistry",
     "OptimizerSpec",
     "OPTIMIZERS_WITH_TARGET_SEGMENT",

@@ -17,7 +17,7 @@ from pydantic import model_validator
 
 logger = logging.getLogger(__name__)
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -147,7 +147,7 @@ def _resolve_conditioning_fn(
 # Config
 # =============================================================================
 
-class CyclingOptimizerConfig(BaseConfig):
+class CyclingOptimizerConfig(BaseOptimizerConfig):
     """Configuration for CyclingOptimizer.
 
     This optimizer cycles between a conditioning function and a generator.
@@ -227,13 +227,6 @@ class CyclingOptimizerConfig(BaseConfig):
         title="Protein Hunter Config",
         description="Configuration for protein-hunter pipeline. Only used when pipeline='protein-hunter'.",
     )
-    verbose: bool = ConfigField(
-        default=False,
-        title="Verbose",
-        description="Whether to print progress information.",
-        hidden=True,
-    )
-
     @model_validator(mode="after")
     def validate_pipeline_config(self):
         """Validate that pipeline-specific config is provided when pipeline is set."""
@@ -325,8 +318,8 @@ class CyclingOptimizer(Optimizer):
                 Signature: ``(sequences: List[Sequence]) -> List[Any]``
                 Returns one conditioning item per candidate.
                 Mutually exclusive with ``config.pipeline`` - use one or the other.
-            custom_logging: Optional callback called after each cycle with
-                signature ``(cycle: int, segments: tuple) -> None``.
+            custom_logging: Optional callback called at tracked steps (governed by ``tracking_interval``)
+                with signature ``(step: int, segments: tuple) -> None``.
             clear_tool_cache: Cache management setting. (int) byte threshold,
                 (bool) clear all, or (List[str]) specific tool names.
 
@@ -358,11 +351,12 @@ class CyclingOptimizer(Optimizer):
             constructs=constructs,
             generators=[generator],
             constraints=constraints,
-            num_candidates=None,
             num_results=config.num_results,
             clear_tool_cache=clear_tool_cache,
             custom_logging=custom_logging,
             verbose=config.verbose,
+            tracking_interval=config.tracking_interval,
+            track_candidates=config.track_candidates,
         )
 
         self.num_steps: int = config.num_steps
@@ -404,8 +398,9 @@ class CyclingOptimizer(Optimizer):
                 self._candidate_outcomes = ["accepted"] * self.num_candidates
                 self._candidate_energy_scores = [0] * self.num_candidates
 
-            self._save_progress_snapshot(time_step=step)
-            self._log_step_progress(step)
+            if step % self.tracking_interval == 0 or step == self.num_steps:
+                self._save_progress_snapshot(time_step=step)
+                self._log_step_progress(step)
 
     def _validate_optimizer(self) -> None:
         """Validate cycling optimizer configuration.

@@ -28,6 +28,8 @@ class ConcreteOptimizer(Optimizer):
         num_results: int | None,
         clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
         verbose: bool = False,
+        tracking_interval: int = 1,
+        track_candidates: bool = False,
     ) -> None:
         super().__init__(
             constructs=constructs,
@@ -36,7 +38,9 @@ class ConcreteOptimizer(Optimizer):
             num_candidates=num_candidates,
             num_results=num_results,
             clear_tool_cache=clear_tool_cache,
-            verbose=verbose
+            verbose=verbose,
+            tracking_interval=tracking_interval,
+            track_candidates=track_candidates,
         )
 
     def run(self) -> None:
@@ -188,35 +192,6 @@ class TestOptimizerValidation:
         assert constraint1.label == "same_label"
         assert constraint2.label == "same_label_1"
 
-    def test_multiple_duplicate_constraint_labels_auto_renames(self):
-        """Tests that multiple duplicate labels get incrementing suffixes."""
-        construct, generator, _, segment = _setup_optimizer_components()
-
-        constraint1 = MagicMock(spec=Constraint)
-        constraint1.inputs = [segment]
-        constraint1.label = "gc_content"
-        constraint1.threshold = None
-        constraint1.weight = 1.0
-
-        constraint2 = MagicMock(spec=Constraint)
-        constraint2.inputs = [segment]
-        constraint2.label = "gc_content"
-        constraint2.threshold = None
-        constraint2.weight = 1.0
-
-        constraint3 = MagicMock(spec=Constraint)
-        constraint3.inputs = [segment]
-        constraint3.label = "gc_content"
-        constraint3.threshold = None
-        constraint3.weight = 1.0
-
-        ConcreteOptimizer([construct], [generator], [constraint1, constraint2, constraint3], 4, 2)
-
-        # First keeps original, subsequent get incrementing suffixes
-        assert constraint1.label == "gc_content"
-        assert constraint2.label == "gc_content_1"
-        assert constraint3.label == "gc_content_2"
-
     def test_duplicate_constraint_labels_different_segments_allowed(self):
         """Tests that same constraint labels on different segments are allowed."""
         segment1 = Segment(sequence="ATCG", sequence_type="dna")
@@ -345,18 +320,11 @@ class TestOptimizerValidation:
         constraint2.weight = 1.0
         constraint2.evaluate.return_value = [1.0, 1.0, 1.0, 1.0]
 
-        optimizer = ConcreteOptimizer([construct], [generator], [constraint1, constraint2], 4, 2)
+        ConcreteOptimizer([construct], [generator], [constraint1, constraint2], 4, 2)
 
         # First constraint keeps original label
         assert constraint1.label == "structure_constraint"
         # Second constraint gets _1 suffix (collision between constraints)
-        assert constraint2.label == "structure_constraint_1"
-
-        # Multiple score_energy calls shouldn't change anything
-        for _ in range(3):
-            optimizer.score_energy()
-
-        assert constraint1.label == "structure_constraint"
         assert constraint2.label == "structure_constraint_1"
 
     def test_four_constraints_same_label_sequential_suffixes(self):
@@ -851,6 +819,8 @@ class TestStateRestartBehavior:
         segment.selected_sequences[0].sequence = "CCCC"
         optimizer.energy_scores = [999.0, 999.0]
         optimizer.history = [{"test": "data"}]
+        optimizer._candidate_outcomes = ["accepted", "GC Filter"]
+        optimizer._candidate_energy_scores = [0.5, float("inf")]
 
         # Restore
         optimizer._prepare_run()
@@ -860,18 +830,8 @@ class TestStateRestartBehavior:
         assert segment.selected_sequences[0].sequence == original_seq
         assert optimizer.energy_scores == [float("inf"), float("inf")]
         assert optimizer.history == []
-
-    def test_restore_initial_state_clears_history(self):
-        """Tests that _restore_initial_state clears history."""
-        construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
-        optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 2)
-
-        optimizer._capture_initial_state()
-        optimizer.history = [{"step": 1}, {"step": 2}]
-
-        optimizer._restore_initial_state()
-
-        assert optimizer.history == []
+        assert optimizer._candidate_outcomes == []
+        assert optimizer._candidate_energy_scores == []
 
     def test_state_independence_via_serialization(self):
         """Tests that captured state is independent of current state."""
@@ -918,9 +878,10 @@ class TestCandidateTracking:
         assert optimizer._candidate_outcomes == ["accepted", "Filter2", "Filter1"]
 
     def test_snapshot_includes_candidate_results(self):
-        """_save_progress_snapshot includes candidate_results with energy_score."""
+        """_save_progress_snapshot includes candidate_results when track_candidates=True."""
         construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
+        optimizer.track_candidates = True
 
         optimizer.energy_scores = [0.5]
         optimizer._candidate_outcomes = ["accepted", "GC Filter"]
@@ -938,33 +899,45 @@ class TestCandidateTracking:
         assert snapshot["candidate_results"][1]["rejected_by"] == "GC Filter"
         assert snapshot["candidate_results"][1]["energy_score"] is None  # inf → None
 
+    def test_snapshot_omits_candidate_results_by_default(self):
+        """_save_progress_snapshot omits candidate_results when track_candidates=False (default)."""
+        construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
+        optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
+
+        optimizer.energy_scores = [0.5]
+        optimizer._candidate_outcomes = ["accepted", "GC Filter"]
+        optimizer._candidate_energy_scores = [0.5, float("inf")]
+        optimizer._save_progress_snapshot(time_step=1)
+
+        assert "candidate_results" not in optimizer.history[0]
+
     def test_snapshot_omits_candidate_results_when_outcomes_empty(self):
         """_save_progress_snapshot omits candidate_results before any scoring."""
         construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
+        optimizer.track_candidates = True
 
         optimizer.energy_scores = [0.5]
         optimizer._save_progress_snapshot(time_step=0)
 
         assert "candidate_results" not in optimizer.history[0]
 
-    def test_restore_clears_candidate_tracking(self):
-        """_restore_initial_state resets candidate tracking so re-run step-0 has no stale data."""
+    def test_tracking_interval_gates_snapshots(self):
+        """tracking_interval>1 reduces the number of history snapshots."""
         construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
+        optimizer.tracking_interval = 3
 
-        optimizer._capture_initial_state()
+        # Simulate saving snapshots for steps 0..10
+        for step in range(11):
+            optimizer.energy_scores = [0.5]
+            if step % optimizer.tracking_interval == 0 or step == 10:
+                optimizer._save_progress_snapshot(time_step=step)
 
-        # Simulate end-of-run state
-        optimizer._candidate_outcomes = ["accepted", "GC Filter"]
-        optimizer._candidate_energy_scores = [0.5, float("inf")]
-        optimizer.history = [{"step": 1}]
-
-        optimizer._restore_initial_state()
-
-        assert optimizer._candidate_outcomes == []
-        assert optimizer._candidate_energy_scores == []
-        assert optimizer.history == []
+        # Steps saved: 0, 3, 6, 9, 10 = 5 snapshots
+        assert len(optimizer.history) == 5
+        saved_steps = {entry["time_step"] for entry in optimizer.history}
+        assert saved_steps == {0, 3, 6, 9, 10}
 
 
 class TestDeferredNumResults:

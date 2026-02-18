@@ -946,6 +946,7 @@ class TestBeamSearchCandidateTracking:
         optimizer, _, _, _ = _setup_beam_search(
             num_results=3, candidates_per_result=2, beam_length=10
         )
+        optimizer.track_candidates = True
         optimizer.run()
 
         valid_rejectors = {"Beam pruned"}
@@ -961,3 +962,42 @@ class TestBeamSearchCandidateTracking:
                     all_rejectors.add(cand["rejected_by"])
 
         assert all_rejectors.issubset(valid_rejectors)
+
+
+class TestBeamSearchTrackingInterval:
+    """Test tracking_interval in BeamSearchOptimizer."""
+
+    def test_tracking_interval(self):
+        """tracking_interval=2 reduces history snapshots."""
+        segment = Segment(length=100, sequence_type="dna")
+        construct = Construct([segment])
+        generator = MockAutoregressiveGenerator(use_kv_caching=False)
+        generator._assigned_segment = segment
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+        config = BeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_length=20,
+            num_results=3,
+            candidates_per_result=5,
+            use_kv_caching=False,
+            verbose=False,
+            tracking_interval=2,
+        )
+        optimizer = BeamSearchOptimizer(
+            constructs=[construct],
+            generators=[generator],
+            constraints=[constraint],
+            config=config,
+            target_segment=segment,
+        )
+        optimizer.run()
+
+        # 100/20 = 5 beams; with interval=2: beams 2,4 saved + final (5) always saved
+        saved_steps = {entry["time_step"] for entry in optimizer.history}
+        # Final beam (5) is always saved
+        assert optimizer.num_beams in saved_steps
+        assert len(optimizer.history) < optimizer.num_beams  # Fewer than every-beam

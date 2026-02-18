@@ -1095,6 +1095,7 @@ class TestMCMCOptimizer:
                 candidates_per_result=3,
                 num_steps=10,
                 verbose=False,
+                track_candidates=True,
             ),
         )
 
@@ -1119,3 +1120,30 @@ class TestMCMCOptimizer:
                     all_rejectors.add(cand["rejected_by"])
 
         assert all_rejectors.issubset(valid_rejectors)
+
+    def test_tracking_interval(self):
+        """tracking_interval=3 saves only steps {0, 3, 6, 9, 10}."""
+        optimizer, _, _, _ = _setup_mcmc_components(
+            seq_length=10,
+            num_results=1,
+            num_mcmc_steps=10,
+        )
+        optimizer.tracking_interval = 3
+
+        optimizer.run()
+
+        saved_steps = {entry["time_step"] for entry in optimizer.history}
+        assert saved_steps == {0, 3, 6, 9, 10}
+
+    def test_track_candidates_default_false(self):
+        """track_candidates defaults to False — no candidate_results in snapshots."""
+        optimizer, _, _, _ = _setup_mcmc_components(
+            seq_length=10,
+            num_results=1,
+            num_mcmc_steps=3,
+        )
+        # Don't set track_candidates — should default to False
+        optimizer.run()
+
+        for entry in optimizer.history:
+            assert "candidate_results" not in entry

@@ -147,14 +147,14 @@ from typing import List, Optional
 
 from pydantic import field_validator, model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import Construct, Constraint, Generator, Optimizer
 from proto_language.language.optimizer.optimizer_registry import optimizer
 
 logger = logging.getLogger(__name__)
 
 
-class MyOptimizerConfig(BaseConfig):
+class MyOptimizerConfig(BaseOptimizerConfig):
     """Configuration for MyOptimizer.
 
     Detailed description of the optimization algorithm and its parameters.
@@ -172,13 +172,6 @@ class MyOptimizerConfig(BaseConfig):
         title="Number of Steps",
         description="Total optimization iterations",
         ge=1,
-    )
-
-    verbose: bool = ConfigField(
-        default=True,
-        title="Verbose",
-        description="Log progress during optimization",
-        advanced=True,
     )
 
     @model_validator(mode="after")
@@ -210,17 +203,16 @@ class MyOptimizer(Optimizer):
     ) -> None:
         # Store config BEFORE calling super().__init__
         # (super validates, which may need config values)
-        num_results = config.num_results
         self._num_steps = config.num_steps
-        self._verbose = config.verbose
 
         super().__init__(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
-            config=config,
-            num_results=num_results,
-            num_candidates=num_results,  # Override as needed
+            num_results=config.num_results,
+            tracking_interval=config.tracking_interval,
+            track_candidates=config.track_candidates,
+            verbose=config.verbose,
         )
 
     def run(self) -> None:
@@ -248,12 +240,12 @@ class MyOptimizer(Optimizer):
             # 4. Select top candidates → update selected_sequences
             self._select_top_candidates()
 
-            # 5. Track progress
-            self._save_progress_snapshot(step)
-
-            if self._verbose:
-                best_score = min(self.energy_scores)
-                logger.info(f"Step {step}/{self._num_steps}: best={best_score:.4f}")
+            # 5. Track progress (gated by tracking_interval)
+            if step % self.tracking_interval == 0 or step == self._num_steps:
+                self._save_progress_snapshot(step)
+                if self.verbose:
+                    best_score = min(self.energy_scores)
+                    logger.info(f"Step {step}/{self._num_steps}: best={best_score:.4f}")
 
     def _select_top_candidates(self) -> None:
         """Select top-scoring candidates into selected_sequences."""

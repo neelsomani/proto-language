@@ -93,11 +93,6 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
             slow down optimization with very restrictive constraints. Must be at
             least 1. Default: ``3``.
 
-        batch_size (int): Optional batch size for generation. If not specified,
-            generates all num_results * candidates_per_result candidates at once.
-            Lower values reduce memory usage but increase generation time.
-            Default: None (generates all candidates at once).
-
         verbose (bool): Whether to print detailed progress information including
             beam energies, selected sequences, and generation statistics at each
             iteration. Default: ``False``.
@@ -151,20 +146,12 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
         description="Maximum number of times to resample beams with invalid (inf/NaN) energies before giving up.",
         advanced=True,
     )
-    batch_size: Optional[int] = ConfigField(
-        default=None,
-        ge=1,
-        title="Batch Size",
-        description="Optional batch size for generation. If None, generates all candidates at once.",
-        advanced=True,
-    )
+
     @model_validator(mode="after")
     def validate_config(self):
         """Validate beam search configuration."""
         if not self.prompt:
             raise ValueError("prompt must be non-empty")
-        if self.num_results is not None and self.batch_size and self.batch_size > self.num_results * self.candidates_per_result:
-            raise ValueError(f"batch_size={self.batch_size} exceeds total candidates ({self.num_results * self.candidates_per_result})")
         return self
 
 
@@ -276,7 +263,7 @@ class BeamSearchOptimizer(Optimizer):
         self.prepend_prompt: bool = config.prepend_prompt
         self.score_by: str = config.score_by
         self.max_resample_attempts: int = config.max_resample_attempts
-        self.batch_size: Optional[int] = config.batch_size
+        self.batch_size: int = self.generator.batch_size
 
         if self.num_results is not None:
             self.beams: List[BeamState] = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]
@@ -406,7 +393,7 @@ class BeamSearchOptimizer(Optimizer):
         """
         Generate candidate BeamStates for a single beam.
 
-        If batch_size is set, generates candidates in batches to manage GPU memory.
+        Generates candidates in batches (sized by generator batch_size) to manage GPU memory.
 
         Args:
             beam_idx: Index of the beam to generate candidates for
@@ -416,14 +403,13 @@ class BeamSearchOptimizer(Optimizer):
             List of BeamState candidates (length=candidates_per_result)
         """
         beam = self.beams[beam_idx]
-        batch_size = self.batch_size or self._candidates_per_result
 
         if self.verbose:
             self._log_beam_generation_start(beam_idx, beam)
 
         candidates = []
-        for batch_start in range(0, self._candidates_per_result, batch_size):
-            batch_count = min(batch_size, self._candidates_per_result - batch_start)
+        for batch_start in range(0, self._candidates_per_result, self.batch_size):
+            batch_count = min(self.batch_size, self._candidates_per_result - batch_start)
 
             # Replicate prompt and KV cache for this batch
             prompts = [beam.running_sequence] * batch_count
@@ -619,8 +605,7 @@ class BeamSearchOptimizer(Optimizer):
         """Log the start of candidate generation for a beam."""
         logger.debug(f"[Beam {beam_idx}] Generating {self._candidates_per_result} candidates")
         logger.debug(f"  Prompt length: {len(beam.running_sequence)}")
-        if self.batch_size:
-            logger.debug(f"  Batch size: {self.batch_size}")
+        logger.debug(f"  Batch size: {self.batch_size}")
 
     def _log_cache_state(self, kv_cache: Optional[Dict]) -> None:
         """Log KV cache state for debugging."""

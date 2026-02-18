@@ -266,7 +266,7 @@ def create_creb_dna_program() -> Program:
     top_k_optimizer_config = TopKOptimizerConfig(
         num_samples=N_SAMPLES,
         num_results=1,
-        batch_size=N_SAMPLES,
+        samples_per_round=N_SAMPLES,
         verbose=True,
     )
     creb_dna_optimizer = TopKOptimizer(

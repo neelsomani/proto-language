@@ -25,6 +25,8 @@ class Generator(ABC):
     additional validation or initialization is needed (call super().assign() first).
     """
 
+    batch_size: int = 1  # GPU generators override to higher values
+
     @abstractmethod
     def __init__(self) -> None:
         """

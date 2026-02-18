@@ -46,7 +46,7 @@ def custom_logger(step, segments):
 topk_config = TopKOptimizerConfig(
     num_samples=100,
     num_results=3,
-    batch_size=20,
+    samples_per_round=20,
     verbose=True,
 )
 

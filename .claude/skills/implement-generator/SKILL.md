@@ -110,10 +110,10 @@ class MyGeneratorConfig(BaseConfig):
         advanced=True,
     )
 
-    batch_size: Optional[int] = ConfigField(
-        default=None,
+    batch_size: int = ConfigField(
+        default=1,
         title="Batch Size",
-        description="Override automatic batch sizing",
+        description="Number of sequences to process per batch on the GPU",
         ge=1,
         advanced=True,
     )

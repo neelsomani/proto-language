@@ -34,6 +34,7 @@ construct = Construct([seq1])
 evo2_gen_config = Evo2GeneratorConfig(
     prompts=PROMPTS,
     prepend_prompt=True,  # Include prompt in output
+    batch_size=BATCH_SIZE,
 )
 evo2_gen = Evo2Generator(evo2_gen_config)
 
@@ -51,7 +52,7 @@ gc_constraint = Constraint(
 config = TopKOptimizerConfig(
     num_samples=BATCH_SIZE * 2,
     energy_threshold=0.0,
-    batch_size=BATCH_SIZE,
+    samples_per_round=BATCH_SIZE,
     verbose=True,
 )
 

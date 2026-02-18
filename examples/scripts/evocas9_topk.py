@@ -860,7 +860,7 @@ def build_program(
     optimizer_config = TopKOptimizerConfig(
         num_samples=n_samples,
         num_results=n_samples,
-        batch_size=batch_size,
+        samples_per_round=batch_size,
         verbose=verbose,
     )
     optimizer = TopKOptimizer(

@@ -5,6 +5,7 @@ Provides a decorator-based API for registering optimizer classes with metadata a
 automatic schema generation for API/client integration.
 """
 from __future__ import annotations
+
 from typing import Dict, FrozenSet, List, Type
 
 # Optimizers that operate on a single target segment (require target_segment parameter)
@@ -53,7 +54,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         ...             constructs=constructs,
         ...             generators=generators,
         ...             constraints=constraints,
-        ...             batch_size=config.batch_size
+        ...             num_results=config.num_results,
         ...         )
         ...         # Implementation
 
@@ -67,7 +68,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         Direct Usage:
         >>> # Call optimizer class directly
         >>> from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
-        >>> config = MCMCOptimizerConfig(batch_size=5, num_steps=100)
+        >>> config = MCMCOptimizerConfig(num_results=5, num_steps=100)
         >>> optimizer = MCMCOptimizer(
         ...     constructs=constructs,
         ...     generators=generators,

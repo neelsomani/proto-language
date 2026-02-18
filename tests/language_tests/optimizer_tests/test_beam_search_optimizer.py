@@ -123,12 +123,14 @@ def _setup_beam_search(
     prompt: str = "ATCG",
     score_by: str = "mean",
     prepend_prompt: bool = True,
-    batch_size: Optional[int] = None,
+    mock_generator: MockAutoregressiveGenerator | None = None,
 ):
     """Helper to set up a BeamSearchOptimizer for testing."""
     segment = Segment(length=segment_length, sequence_type="dna")
     construct = Construct([segment])
-    generator = MockAutoregressiveGenerator(use_kv_caching=use_kv_caching)
+    generator = mock_generator or MockAutoregressiveGenerator(
+        use_kv_caching=use_kv_caching
+    )
     generator._assigned_segment = segment
     constraint = Constraint(
         inputs=[segment],
@@ -143,7 +145,6 @@ def _setup_beam_search(
         score_by=score_by,
         use_kv_caching=use_kv_caching,
         prepend_prompt=prepend_prompt,
-        batch_size=batch_size,
         verbose=False,
     )
     optimizer = BeamSearchOptimizer(
@@ -194,18 +195,6 @@ class TestBeamSearchOptimizer:
         with pytest.raises(ValidationError):
             BeamSearchOptimizerConfig(
                 prompt="ATCG", num_results=5, candidates_per_result=10, score_by="invalid"
-            )
-
-    def test_batch_size_exceeds_total_candidates_fails(self):
-        from pydantic import ValidationError
-
-        with pytest.raises(ValidationError):
-            BeamSearchOptimizerConfig(
-                prompt="ATCG",
-                num_results=2,
-                candidates_per_result=3,
-                beam_length=10,
-                batch_size=10,
             )
 
     # --- Initialization ---
@@ -562,13 +551,16 @@ class TestBeamSearchOptimizer:
 
     # --- Batch Size ---
     def test_batch_size_smaller_than_candidates(self):
+        mock_gen = MockAutoregressiveGenerator(use_kv_caching=True)
+        mock_gen.batch_size = 2
         optimizer, _, _, segment = _setup_beam_search(
             segment_length=40,
             beam_length=20,
             num_results=2,
             candidates_per_result=6,
-            batch_size=2,
+            mock_generator=mock_gen,
         )
+        assert optimizer.generator.batch_size == 2
         optimizer.run()
         assert len(segment.selected_sequences) == optimizer.num_results
 

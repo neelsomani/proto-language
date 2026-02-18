@@ -47,7 +47,7 @@ class TestProgramSerializer:
             config_dict={"min_gc": 40, "max_gc": 60},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -84,7 +84,6 @@ class TestProgramSerializer:
         assert stage["optimizer"]["method"] == "topk"
         assert stage["optimizer"]["config"]["num_samples"] == 10
         assert stage["optimizer"]["config"]["num_results"] == 3
-        assert stage["optimizer"]["config"]["batch_size"] == 2
 
         # Verify generator
         assert len(stage["generators"]) == 1
@@ -117,7 +116,7 @@ class TestProgramSerializer:
             config_dict={"min_gc": 50, "max_gc": 100},
         )
 
-        opt1_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt1_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         opt1 = TopKOptimizer(
             constructs=[construct],
             generators=[gen1],
@@ -177,7 +176,7 @@ class TestProgramSerializer:
                 {
                     "optimizer": {
                         "method": "topk",
-                        "config": {"num_samples": 10, "num_results": 3, "batch_size": 2},
+                        "config": {"num_samples": 10, "num_results": 3},
                     },
                     "generators": [
                         {
@@ -222,7 +221,6 @@ class TestProgramSerializer:
         assert result_opt["method"] == orig_opt["method"]
         assert result_opt["config"]["num_samples"] == orig_opt["config"]["num_samples"]
         assert result_opt["config"]["num_results"] == orig_opt["config"]["num_results"]
-        assert result_opt["config"]["batch_size"] == orig_opt["config"]["batch_size"]
 
         # Verify generator config
         orig_gen = original_json["optimization_stages"][0]["generators"][0]
@@ -265,7 +263,7 @@ class TestProgramSerializer:
             key="gc-content", segments=[seg1], config_dict={"min_gc": 40, "max_gc": 60}
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct1, construct2],
             generators=[gen1, gen2, gen3],
@@ -304,7 +302,7 @@ class TestProgramSerializer:
             config_dict={"min_gc": 40, "max_gc": 60},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -336,7 +334,7 @@ class TestProgramSerializer:
             config_dict={"min_gc": 40, "max_gc": 60},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -379,7 +377,7 @@ class TestProgramSerializer:
             config_dict={"min_gc": 40, "max_gc": 60},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen1, gen2],
@@ -413,7 +411,7 @@ class TestProgramSerializer:
             label="my_custom_gc_constraint",
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -443,7 +441,7 @@ class TestProgramSerializer:
             threshold=0.5,
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=2, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=2)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -476,7 +474,7 @@ class TestProgramSerializer:
             config_dict={"min_gc": 40, "max_gc": 60},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -507,7 +505,7 @@ class TestProgramSerializer:
                 {
                     "optimizer": {
                         "method": "topk",
-                        "config": {"num_samples": 10, "num_results": 3, "batch_size": 2},
+                        "config": {"num_samples": 10, "num_results": 3},
                     },
                     "generators": [
                         {
@@ -591,7 +589,7 @@ class TestProgramSerializer:
             config_dict={"min_gc": 40, "max_gc": 60},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -644,7 +642,7 @@ class TestProgramSerializer:
             config_dict={"min_length": 40, "max_length": 60},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=10, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -796,7 +794,7 @@ class TestBeamSearchOptimizerSerialization:
             config_dict={"min_gc": 0, "max_gc": 100},
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=2, num_results=1, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=2, num_results=1)
         optimizer = TopKOptimizer(
             constructs=[construct1, construct2, construct3],
             generators=[gen1, gen2],

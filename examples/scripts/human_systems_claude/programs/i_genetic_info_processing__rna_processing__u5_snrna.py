@@ -270,7 +270,7 @@ def create_u5_snrna_program() -> Program:
     top_k_optimizer_config = TopKOptimizerConfig(
         num_samples=N_SAMPLES,
         num_results=1,
-        batch_size=N_SAMPLES,
+        samples_per_round=N_SAMPLES,
         verbose=True,
     )
     u5_snrna_optimizer = TopKOptimizer(

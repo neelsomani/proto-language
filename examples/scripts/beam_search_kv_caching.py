@@ -39,9 +39,6 @@ N_CANDIDATES_PER_RESULT: int = 2
 # Score aggregation method: "mean" or "last"
 SCORE_BY: str = "mean"
 
-# Optional batch size for memory management (None = generate all at once)
-BATCH_SIZE: int | None = None
-
 # Initial prompt for beam search
 INITIAL_PROMPT: str = "ATCGATCGATCG"
 
@@ -65,7 +62,6 @@ def run_beam_search(
     target_gc_min: float,
     target_gc_max: float,
     score_by: str = "mean",
-    batch_size: int | None = None,
     verbose: bool = False
 ) -> tuple[float, list[str]]:
     """
@@ -81,7 +77,6 @@ def run_beam_search(
         target_gc_min: Minimum target GC content (percentage)
         target_gc_max: Maximum target GC content (percentage)
         score_by: Score aggregation method ("mean" or "last")
-        batch_size: Optional batch size for memory management
         verbose: Whether to print progress
 
     Returns:
@@ -117,7 +112,6 @@ def run_beam_search(
         candidates_per_result=candidates_per_result,
         score_by=score_by,
         use_kv_caching=use_kv_caching,
-        batch_size=batch_size,
         prepend_prompt=True,
         verbose=verbose,
     )
@@ -166,7 +160,6 @@ def main():
     print(f"  Num results: {NUM_RESULTS}")
     print(f"  Candidates per result: {N_CANDIDATES_PER_RESULT}")
     print(f"  Score aggregation: {SCORE_BY}")
-    print(f"  Batch size: {BATCH_SIZE or 'None (all at once)'}")
     print(f"  Target GC content: {TARGET_GC_MIN:.1f}% - {TARGET_GC_MAX:.1f}%")
     print(f"  Number of timing runs: {NUM_TIMING_RUNS}")
     print()
@@ -190,7 +183,6 @@ def main():
             target_gc_min=TARGET_GC_MIN,
             target_gc_max=TARGET_GC_MAX,
             score_by=SCORE_BY,
-            batch_size=BATCH_SIZE,
             verbose=True,
         )
         uncached_times.append(elapsed)
@@ -217,7 +209,6 @@ def main():
             target_gc_min=TARGET_GC_MIN,
             target_gc_max=TARGET_GC_MAX,
             score_by=SCORE_BY,
-            batch_size=BATCH_SIZE,
             verbose=True,
         )
         cached_times.append(elapsed)

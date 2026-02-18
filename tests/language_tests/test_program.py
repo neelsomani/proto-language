@@ -30,7 +30,7 @@ def _create_simple_program(num_stages: int = 1, sequence: str = "ATGCATGCATGCATG
             config_dict={"min_gc": 0, "max_gc": 100},  # Always passes
         )
 
-        opt_config = TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2)
+        opt_config = TopKOptimizerConfig(num_samples=3, num_results=2)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[generator],
@@ -171,7 +171,7 @@ def _make_topk(segment, construct, num_results=None):
     )
     return TopKOptimizer(
         constructs=[construct], generators=[gen], constraints=[constraint],
-        config=TopKOptimizerConfig(num_samples=6, num_results=num_results, batch_size=2),
+        config=TopKOptimizerConfig(num_samples=6, num_results=num_results),
     )
 
 
@@ -355,7 +355,7 @@ class TestRunStageRestart:
             constructs=[construct],
             generators=[gen1],
             constraints=[constraint1],
-            config=TopKOptimizerConfig(num_samples=2, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=2, num_results=2),
         )
 
         # Stage 2: uses gc-content constraint with label "gc_stage_2"
@@ -371,7 +371,7 @@ class TestRunStageRestart:
             constructs=[construct],
             generators=[gen2],
             constraints=[constraint2],
-            config=TopKOptimizerConfig(num_samples=2, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=2, num_results=2),
         )
 
         program = Program(optimizers=[opt1, opt2], num_results=2)
@@ -452,7 +452,7 @@ class TestProgramValidation:
             constructs=[construct1, construct2],
             generators=[gen1],
             constraints=[constraint1],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
@@ -464,7 +464,7 @@ class TestProgramValidation:
             constructs=[construct1],  # Different count!
             generators=[gen2],
             constraints=[constraint2],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         with pytest.raises(ValueError, match="has 1 constructs.*has 2"):
@@ -487,7 +487,7 @@ class TestProgramValidation:
             constructs=[construct1],
             generators=[gen1],
             constraints=[constraint1],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
@@ -499,7 +499,7 @@ class TestProgramValidation:
             constructs=[construct2],  # Different construct object!
             generators=[gen2],
             constraints=[constraint2],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         with pytest.raises(ValueError, match="not the same object"):
@@ -526,7 +526,7 @@ class TestProgramValidation:
             constructs=[construct1, construct2],
             generators=[gen1, gen2],
             constraints=[constraint1, constraint2],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         with pytest.raises(ValueError, match="Construct labels must be unique.*same_label"):
@@ -547,7 +547,7 @@ class TestProgramValidation:
             constructs=[construct1, construct2],
             generators=[gen1],
             constraints=[constraint],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         with pytest.raises(ValueError, match="Segment.*used in multiple constructs"):
@@ -568,7 +568,7 @@ class TestProgramValidation:
             constructs=[construct],
             generators=[gen],
             constraints=[constraint],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         with pytest.raises(ValueError, match="never populated.*no input sequence and no generator"):
@@ -592,13 +592,13 @@ class TestProgramValidation:
             constructs=[construct],
             generators=[shared_gen],  # Same generator instance
             constraints=[constraint1],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
         opt2 = TopKOptimizer(
             constructs=[construct],
             generators=[shared_gen],  # Same generator instance!
             constraints=[constraint2],
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         with pytest.raises(ValueError, match="Generator.*reused across optimizer"):
@@ -621,13 +621,13 @@ class TestProgramValidation:
             constructs=[construct],
             generators=[gen1],
             constraints=[shared_constraint],  # Same constraint instance
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
         opt2 = TopKOptimizer(
             constructs=[construct],
             generators=[gen2],
             constraints=[shared_constraint],  # Same constraint instance!
-            config=TopKOptimizerConfig(num_samples=3, num_results=2, batch_size=2),
+            config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
         with pytest.raises(ValueError, match="Constraint.*reused across optimizer"):

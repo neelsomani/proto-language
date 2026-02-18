@@ -4,7 +4,6 @@ Tests for TopKOptimizer functionality.
 Minimal tests verifying core behavior of the TopKOptimizer.
 """
 
-import logging
 import random
 
 import pytest
@@ -43,7 +42,6 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=10,
             num_results=5,
-            batch_size=1,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -54,7 +52,7 @@ class TestTopKOptimizerStandardMode:
         )
 
         assert optimizer.num_samples == 10
-        assert optimizer.batch_size == 1
+        assert optimizer.samples_per_round == 1  # Default
         assert optimizer.energy_threshold is None  # Standard mode
         assert optimizer.num_results == 5
         assert len(optimizer.constraints) == 1
@@ -79,7 +77,6 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=20,
             num_results=3,
-            batch_size=1,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -118,7 +115,6 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=50,
             num_results=5,
-            batch_size=1,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -158,7 +154,6 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=10,
             num_results=3,
-            batch_size=1,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -194,7 +189,6 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=5,
             num_results=5,
-            batch_size=1,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -230,7 +224,6 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=5,
             num_results=3,
-            batch_size=1,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -274,8 +267,8 @@ class TestTopKOptimizerStandardMode:
         # Verify sequences were restored (not all G's - restoration happened)
         assert any(seq.sequence != "GGGGGGGG" for seq in segment.selected_sequences)
 
-    def test_topk_with_batch_size(self):
-        """Test TopK with batch_size > 1 for efficient batching."""
+    def test_topk_with_candidates_per_round(self):
+        """Test TopK with samples_per_round > 1 for efficient batching."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
@@ -293,7 +286,7 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=20,
             num_results=3,
-            batch_size=5,
+            samples_per_round=5,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -304,7 +297,7 @@ class TestTopKOptimizerStandardMode:
         )
 
         assert optimizer.num_samples == 20
-        assert optimizer.batch_size == 5
+        assert optimizer.samples_per_round == 5
         assert optimizer.num_results == 3
 
         optimizer.run()
@@ -315,8 +308,8 @@ class TestTopKOptimizerStandardMode:
         for i in range(len(optimizer.energy_scores) - 1):
             assert optimizer.energy_scores[i] <= optimizer.energy_scores[i + 1]
 
-    def test_topk_rounds_up_num_samples(self, caplog):
-        """Test TopK rounds up num_samples when not divisible by batch_size."""
+    def test_topk_rounds_up_num_samples(self):
+        """Test TopK rounds num_samples up to nearest samples_per_round multiple."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
@@ -331,24 +324,23 @@ class TestTopKOptimizerStandardMode:
             function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        # 10 samples with batch_size=3 should round up to 12
-        with caplog.at_level(logging.WARNING):
-            config = TopKOptimizerConfig(
-                num_samples=10,
-                num_results=5,
-                batch_size=3,
-                verbose=False
-            )
-            optimizer = TopKOptimizer(
-                constructs=[construct],
-                generators=[gen],
-                constraints=[constraint],
-                config=config,
-            )
+        # 10 samples with samples_per_round=3 → rounded up to 12 (4 rounds)
+        config = TopKOptimizerConfig(
+            num_samples=10,
+            num_results=5,
+            samples_per_round=3,
+            verbose=False
+        )
+        optimizer = TopKOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=config,
+        )
 
-        # Check that num_samples was rounded up
+        # num_samples rounded up to nearest multiple of samples_per_round
         assert optimizer.num_samples == 12
-        assert "Rounding up to 12" in caplog.text
+        assert optimizer.num_samples // optimizer.samples_per_round == 4
 
         optimizer.run()
 
@@ -381,7 +373,6 @@ class TestTopKOptimizerStandardMode:
         config = TopKOptimizerConfig(
             num_samples=100,
             num_results=5,
-            batch_size=10,
             verbose=False
         )
 
@@ -424,7 +415,6 @@ class TestTopKOptimizerThresholdMode:
             num_samples=100,
             energy_threshold=0.5,
             num_results=3,
-            batch_size=2,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -459,7 +449,6 @@ class TestTopKOptimizerThresholdMode:
             num_samples=1000,
             energy_threshold=100.0,  # Very high threshold, easily met
             num_results=3,
-            batch_size=2,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -495,7 +484,6 @@ class TestTopKOptimizerThresholdMode:
             num_samples=20,
             energy_threshold=0.0,  # Impossible to meet (energy would need to be negative)
             num_results=3,
-            batch_size=5,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -546,7 +534,7 @@ class TestTopKOptimizerInternals:
             function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        config = TopKOptimizerConfig(num_samples=30, num_results=5, batch_size=5)
+        config = TopKOptimizerConfig(num_samples=30, num_results=5)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -575,7 +563,7 @@ class TestTopKOptimizerInternals:
             function_config={"target_length": 4},
         )
 
-        config = TopKOptimizerConfig(num_samples=5, num_results=3, batch_size=1)
+        config = TopKOptimizerConfig(num_samples=5, num_results=3)
         optimizer = TopKOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -620,7 +608,6 @@ class TestTopKOptimizerInternals:
         config = TopKOptimizerConfig(
             num_samples=20,
             num_results=5,
-            batch_size=5,
             verbose=False
         )
 
@@ -663,7 +650,6 @@ class TestTopKOptimizerInternals:
         config = TopKOptimizerConfig(
             num_samples=50,
             num_results=10,
-            batch_size=5,
             verbose=False
         )
 
@@ -713,11 +699,11 @@ class TestTopKOptimizerTrajectoryPreservation:
         )
 
         # num_results=6 with 3 source sequences → cycling produces [A, C, G, A, C, G]
-        # num_samples must be >= num_results, and batch_size is the pool size
+        # samples_per_round=6 means 6 candidates per round
         config = TopKOptimizerConfig(
             num_samples=6,              # Generate 6 samples total
-            num_results=6,                        # Keep top 6
-            batch_size=6,     # All at once
+            num_results=6,              # Keep top 6
+            samples_per_round=6,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -797,7 +783,7 @@ class TestTopKOptimizerTrajectoryPreservation:
         config = TopKOptimizerConfig(
             num_samples=4,
             num_results=4,
-            batch_size=4,
+            samples_per_round=4,
             verbose=False
         )
         optimizer = TopKOptimizer(
@@ -855,7 +841,7 @@ class TestTopKCustomLogging:
                 function_config={"min_gc": 40.0, "max_gc": 60.0},
             )
             config = TopKOptimizerConfig(
-                num_samples=30, num_results=5, batch_size=1, verbose=False,
+                num_samples=30, num_results=5, verbose=False,
             )
             optimizer = TopKOptimizer(
                 constructs=[construct],
@@ -900,7 +886,7 @@ class TestTopKCustomLogging:
             function_config={"target_length": 8},
         )
         config = TopKOptimizerConfig(
-            num_samples=5, num_results=3, batch_size=1, verbose=False,
+            num_samples=5, num_results=3, verbose=False,
         )
         optimizer = TopKOptimizer(
             constructs=[construct],
@@ -942,7 +928,7 @@ class TestTopKLabelDeduplication:
         assert constraint1.label == constraint2.label
 
         config = TopKOptimizerConfig(
-            num_samples=5, num_results=3, batch_size=1, verbose=False
+            num_samples=5, num_results=3, verbose=False
         )
         optimizer = TopKOptimizer(
             constructs=[construct],
@@ -974,7 +960,7 @@ class TestTopKLabelDeduplication:
         )
 
         config = TopKOptimizerConfig(
-            num_samples=5, num_results=3, batch_size=1, verbose=False
+            num_samples=5, num_results=3, verbose=False
         )
         optimizer = TopKOptimizer(
             constructs=[construct],
@@ -1015,7 +1001,6 @@ class TestTopKCandidateTracking:
             config=TopKOptimizerConfig(
                 num_samples=20,
                 num_results=3,
-                batch_size=5,
                 verbose=False,
                 track_candidates=True,
             ),
@@ -1056,7 +1041,6 @@ class TestTopKTrackingInterval:
         config = TopKOptimizerConfig(
             num_samples=10,
             num_results=3,
-            batch_size=1,
             verbose=False,
             tracking_interval=2,
         )
@@ -1088,7 +1072,6 @@ class TestTopKTrackingInterval:
         config = TopKOptimizerConfig(
             num_samples=1000,
             num_results=3,
-            batch_size=1,
             verbose=False,
             tracking_interval=5,
             energy_threshold=100.0,  # Very high — easily met early
@@ -1102,7 +1085,7 @@ class TestTopKTrackingInterval:
         optimizer.run()
 
         # Threshold should be met well before round 1000
-        num_sampling_rounds = config.num_samples // config.batch_size
+        num_sampling_rounds = config.num_samples // optimizer.samples_per_round
         assert len(optimizer.history) < num_sampling_rounds
 
         # The last snapshot should reflect the round where threshold was met

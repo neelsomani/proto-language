@@ -4,7 +4,7 @@ ESM2 Generator for protein sequence generation
 
 from __future__ import annotations
 
-from typing import Literal, Optional, final
+from typing import Literal, final
 
 from proto_tools import ESM2SampleConfig, ESM2SampleInput, run_esm2_sample
 from proto_tools.tools.masked_models.esm2.standalone.inference import (
@@ -57,9 +57,9 @@ class ESM2GeneratorConfig(BaseConfig):
             Higher values explore more of sequence space but may reduce biological
             plausibility. Must be at least 1. Default: 1.
 
-        batch_size (Optional[int]): Number of sequences to process per batch during inference.
-            If None, processes all sequences at once. Larger batches are faster but use more GPU memory.
-            Reduce if encountering out-of-memory errors. Default: ``None``.
+        batch_size (int): Number of sequences to process per batch during inference.
+            Larger batches are faster but use more GPU memory. Reduce if encountering
+            out-of-memory errors. Default: ``1``.
     """
 
     model_checkpoint: ESM2_MODEL_CHECKPOINTS = ConfigField(
@@ -89,10 +89,11 @@ class ESM2GeneratorConfig(BaseConfig):
         description="Number of positions to mutate per sampling iteration",
         advanced=True,
     )
-    batch_size: Optional[int] = ConfigField(
-        default=None,
+    batch_size: int = ConfigField(
+        default=1,
+        ge=1,
         title="Batch Size",
-        description="Number of sequences to process per batch. If None, processes all at once.",
+        description="Number of sequences to process per batch.",
         advanced=True,
     )
 

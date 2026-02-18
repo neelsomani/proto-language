@@ -64,9 +64,9 @@ class Evo1GeneratorConfig(BaseConfig):
         description="Whether to prepend prompt to generation",
         hidden=True,
     )
-    batch_size: Optional[int] = ConfigField(
+    batch_size: int = ConfigField(
         title="Batch Size",
-        default=None,
+        default=1,
         ge=1,
         description="Max number of samples on the GPU at once",
         advanced=True,

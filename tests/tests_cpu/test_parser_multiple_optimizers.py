@@ -29,8 +29,7 @@ def test_parse_single_optimizer():
                     "method": "topk",
                     "config": {
                         "num_samples": 10,
-                        "num_results": 3,
-                        "batch_size": 2
+                        "num_results": 3
                     }
                 },
                 "generators": [
@@ -67,7 +66,6 @@ def test_parse_single_optimizer():
     optimizer = program.optimizers[0]
     assert optimizer.num_samples == 10
     assert optimizer.num_results == 3
-    assert optimizer.batch_size == 2
 
     # Verify generators
     assert len(optimizer.generators) == 1
@@ -100,7 +98,6 @@ def test_parse_multiple_optimizers():
                     "config": {
                         "num_samples": 10,
                         "num_results": 3,
-                        "batch_size": 2
                     }
                 },
                 "generators": [
@@ -166,7 +163,6 @@ def test_parse_multiple_optimizers():
     opt1 = program.optimizers[0]
     assert opt1.num_samples == 10
     assert opt1.num_results == 3
-    assert opt1.batch_size == 2
     assert len(opt1.generators) == 1
     assert opt1.generators[0].num_mutations == 10
     assert len(opt1.constraints) == 1
@@ -294,7 +290,7 @@ def test_parse_missing_generators_in_stage():
             {
                 "optimizer": {
                     "method": "topk",
-                    "config": {"num_samples": 10, "num_results": 3, "batch_size": 2}
+                    "config": {"num_samples": 10, "num_results": 3}
                 },
                 "constraints": []
             }
@@ -322,7 +318,7 @@ def test_parse_missing_constraints_in_stage():
             {
                 "optimizer": {
                     "method": "topk",
-                    "config": {"num_samples": 10, "num_results": 3, "batch_size": 2}
+                    "config": {"num_samples": 10, "num_results": 3}
                 },
                 "generators": []
             }
@@ -383,7 +379,7 @@ def test_parse_duplicate_segment_ids_fails():
             {
                 "optimizer": {
                     "method": "topk",
-                    "config": {"num_samples": 4, "num_results": 1, "batch_size": 2},
+                    "config": {"num_samples": 4, "num_results": 1},
                 },
                 "generators": [
                     {
@@ -429,8 +425,7 @@ def test_parse_generator_assignment_to_segments():
                     "method": "topk",
                     "config": {
                         "num_samples": 10,
-                        "num_results": 3,
-                        "batch_size": 2
+                        "num_results": 3
                     }
                 },
                 "generators": [
@@ -498,8 +493,7 @@ def test_parse_different_generators_per_stage():
                     "method": "topk",
                     "config": {
                         "num_samples": 10,
-                        "num_results": 3,
-                        "batch_size": 2
+                        "num_results": 3
                     }
                 },
                 "generators": [
@@ -576,8 +570,7 @@ def test_parse_different_constraints_per_stage():
                     "method": "topk",
                     "config": {
                         "num_samples": 10,
-                        "num_results": 3,
-                        "batch_size": 2
+                        "num_results": 3
                     }
                 },
                 "generators": [
@@ -655,8 +648,7 @@ def test_parse_reusable_constraints():
                     "method": "topk",
                     "config": {
                         "num_samples": 10,
-                        "num_results": 3,
-                        "batch_size": 2
+                        "num_results": 3
                     }
                 },
                 "generators": [

@@ -4,26 +4,25 @@ Promoter strength constraint using Salis Lab Promoter Calculator.
 
 from __future__ import annotations
 
-from typing import List, Optional, Literal, Tuple
+from typing import List, Literal, Tuple
 
 from promoter_calculator.wrapper import promoter_calculator
 
-
-from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
+from proto_language.language.core import Sequence
 
 
 class PromoterStrengthConfig(BaseConfig):
     """Configuration for promoter strength constraint using Salis Lab Promoter Calculator.
-    
+
     This class defines configuration parameters for evaluating bacterial promoter
     strength using the Salis Lab Promoter Calculator, a biophysical model that
     predicts RNA polymerase binding affinity and transcription initiation
     rates for sigma-70 promoters in E. coli. The calculator identifies promoter elements
     (-10 and -35 boxes, spacer regions) and computes binding free energy (dG) and
     predicted transcription rates.
-    
+
     Attributes:
         add_context (bool): If True, adds flanking 'A' nucleotides to sequences
             shorter than the calculator's minimum length requirement. This ensures
@@ -46,25 +45,20 @@ class PromoterStrengthConfig(BaseConfig):
             detection across sequence ends. Useful for plasmids where promoters
             may span the origin. If False, treats sequences as linear. Default: False.
 
-        batch_size (Optional[int]): Maximum number of sequences to process in each
-            batch. If None, processes all sequences together in a single batch.
-            Use lower values (e.g., 100-500) to control memory usage for very
-            large sequence sets. Default: None.
-
         scoring_type (Literal["dG", "tx_rate"]): Metric to use for promoter strength
             scoring. Options:
             - "dG": Binding free energy in kcal/mol. More negative values indicate
               stronger RNAP binding. Range typically -5 to 2 kcal/mol. Use for
-              biophysical interpretation, with values < -2.0 indicating a likely 
+              biophysical interpretation, with values < -2.0 indicating a likely
               promoter.
             - "tx_rate": Predicted transcription initiation rate in arbitrary units.
               Higher values indicate stronger promoters. Range typically 0-30,000+.
               Use for relative promoter strength comparison.
             Default: "dG".
-    
+
     Note:
         The Salis Lab Promoter Calculator specifically models E. coli sigma-70 promoters.
-        
+
         Penalty scores are mapped from raw predictions:
         - **For dG scoring**: Strong promoters (dG < -3.0) get low penalties (0.0-0.5),
           moderate promoters (-3.0 to -1.5) get medium penalties (0.5-1.0), weak or unlikely
@@ -106,13 +100,6 @@ class PromoterStrengthConfig(BaseConfig):
         description="If True, treat sequences as circular for promoter detection across ends",
         advanced=True,
     )
-    # TODO: Determine how this should be handled for the client.
-    batch_size: Optional[int] = ConfigField(
-        title="Batch Size",
-        default=None,
-        description="Max sequences per batch (None=process all together). Use for memory control.",
-        hidden=True,
-    )
     scoring_type: Literal["dG", "tx_rate"] = ConfigField(
         title="Scoring Type",
         default="dG",
@@ -133,17 +120,17 @@ class PromoterStrengthConfig(BaseConfig):
 )
 def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], config: PromoterStrengthConfig) -> List[float]:
     """Evaluate bacterial promoter strength using Salis Lab Promoter Calculator.
-    
+
     This constraint function uses the Salis Lab Promoter Calculator to predict
     E. coli sigma-70 promoter strength. The calculator scans sequences for canonical
     promoter elements (-10 and -35 boxes) and computes either binding free energy (dG)
     or predicted transcription initiation rate (tx_rate).
-    
+
     The constraint returns penalty scores where lower values indicate stronger
     promoters. The penalty mapping differs based on scoring type:
     - **dG scoring**: Promoters with dG < -3.0 kcal/mol are strong (penalty 0.0-0.5)
     - **tx_rate scoring**: Promoters with tx_rate > 10000 are strong (penalty 0.0-0.5)
-    
+
     The calculator can identify multiple promoters in a single sequence and returns
     predictions for the strongest promoter on the forward (+) strand.
 
@@ -151,7 +138,7 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         sequences (List[Sequence]): List of DNA sequences to evaluate. Sequences
             should contain potential promoter regions (typically 70-200+ bp).
             The calculator scans for sigma-70 promoter elements throughout each sequence.
-            
+
         config (PromoterStrengthConfig): Configuration object containing ``scoring_type``
             (default: "dG"), ``threads`` (default: 8), ``add_context`` (default: False),
             and other processing parameters.
@@ -160,21 +147,21 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         List[float]: Penalty scores for each sequence, ranging from 0.0 (strong
             promoter) to 1.0 (weak/no promoter). The scoring scheme depends on
             ``scoring_type``:
-            
+
             **For dG scoring:**
             - penalty = 1.0: dG > -1.5 (weak/no promoter)
             - penalty = 1.0 → 0.5: dG from -1.5 to -3.0 (moderate)
             - penalty = 0.5 → 0.0: dG from -3.0 to -5.0+ (strong)
-            
+
             **For tx_rate scoring:**
             - penalty = 1.0: tx_rate < 3000 (weak/no promoter)
             - penalty = 1.0 → 0.5: tx_rate from 3000 to 10000 (moderate)
             - penalty = 0.5 → 0.0: tx_rate from 10000 to 20,000+ (strong)
-    
+
     Note:
         This function modifies the input sequences by adding metadata to each
         ``Sequence`` object's ``_metadata`` dictionary with the following keys:
-        
+
         **When promoter is found:**
         - ``promoter_strength``: Dictionary containing:
           - ``penalty``: Float penalty score (0.0-1.0)
@@ -183,16 +170,16 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
           - ``raw_output``: List of dictionaries with detailed promoter predictions
             including -10/-35 box positions, sequences, spacer length, and
             individual energy terms
-        
+
         **When no promoter is found:**
         - ``promoter_strength``: Dictionary containing:
           - ``penalty``: Float 1.0 (maximum penalty)
           - ``reason``: String "no_promoter_found"
           - ``raw_output``: Empty list []
-    
+
     Examples:
         Evaluating promoter strength using dG scoring:
-        
+
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> # Sequence with strong constitutive promoter
         >>> promoter_seq = Sequence(
@@ -215,43 +202,18 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
 
     penalties: List[float] = []
 
-    # Process in batches if batch_size is specified, otherwise all at once
-    if config.batch_size and config.batch_size < len(processed_sequences):
-        # Process in batches
-        all_results = []
-        for i in range(0, len(processed_sequences), config.batch_size):
-            batch = processed_sequences[i : i + config.batch_size]
-            batch_results = []
-            for seq in batch:
-                res = (
-                    promoter_calculator(
-                        seq, threads=config.threads, verbosity=config.verbosity, circular=config.circular
-                    )
-                    or []
-                )
-                batch_results.append(res)
-            all_results.extend(batch_results)
-    else:
-        try:
-            # Attempt batch processing
-            all_results = promoter_calculator(
-                processed_sequences,
+    all_results = []
+    for seq in processed_sequences:
+        res = (
+            promoter_calculator(
+                seq,
                 threads=config.threads,
                 verbosity=config.verbosity,
                 circular=config.circular,
             )
-            if not isinstance(all_results[0], list):
-                raise NotImplementedError("Batch processing format not recognized")
-        except (TypeError, AttributeError, NotImplementedError):
-            all_results = []
-            for seq in processed_sequences:
-                res = (
-                    promoter_calculator(
-                        seq, threads=config.threads, verbosity=config.verbosity, circular=config.circular
-                    )
-                    or []
-                )
-                all_results.append(res)
+            or []
+        )
+        all_results.append(res)
 
     # Process results for each sequence
     for (seq_obj,), res in zip(input_sequences, all_results):
@@ -307,5 +269,5 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
                 "raw_output": [r.__dict__ for r in res],
             }
             penalties.append(penalty)
-    
+
     return penalties

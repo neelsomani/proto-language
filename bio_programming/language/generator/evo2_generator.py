@@ -13,7 +13,7 @@ from proto_tools.tools.causal_models.evo2.standalone.inference import (
 from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -233,7 +233,6 @@ class Evo2Generator(Generator):
         prompts (List[str]): Prompt sequences for generation.
         model_checkpoint (str): Evo2 model checkpoint name.
         temperature (float): Sampling temperature for diversity control.
-        num_tokens (int): Number of tokens to generate (calculated dynamically on assign).
         kv_caches (List[Dict]): Stored KV caches when ``store_kv_cache=True``.
 
     Example:
@@ -277,98 +276,58 @@ class Evo2Generator(Generator):
         self.batch_size = config.batch_size
         self.store_kv_cache = config.store_kv_cache
         self.prepend_prompt = config.prepend_prompt
-        self.num_tokens: Optional[int] = None # num_tokens will be calculated dynamically on assign()
-        self.kv_caches: List[Dict] = []  # store old KV caches for cached generation
-
-    def assign(self, assigned_segment: Segment) -> None:
-        """
-        Assign a Segment to this generator.
-
-        Dynamically calculates num_tokens based on segment.sequence_length and prepend_prompt setting.
-        """
-        super().assign(assigned_segment)
-
-        prompt_length = (
-            len(self.prompts[0])
-            if isinstance(self.prompts, list)
-            else len(self.prompts)
-        )
-
-        # Calculate num_tokens according to sequence_length and prepend_prompt
-        self.num_tokens = (
-            (assigned_segment.sequence_length - prompt_length)
-            if self.prepend_prompt
-            else assigned_segment.sequence_length
-        )
-
-        if self.num_tokens < 1:
-            raise ValueError(f"Must increase segment length (currently {assigned_segment.sequence_length})")
+        self.kv_caches: List[Dict] = []
 
     def sample(
         self,
         prompts: Optional[List[str]] = None,
         prepend_prompt: Optional[bool] = None,
+        num_tokens: Optional[int] = None,
         old_kv_cache: Optional[Dict] = None,
     ) -> None:
-        """
-        Generate sequences using the Evo2 model and update generator output.
-
-        When store_kv_cache=True, stores KV caches in self.kv_caches for access
-        by beam search optimizer. The caches are overwritten on each call to sample().
+        """Generate sequences using the Evo2 model.
 
         Args:
-            prompts: Optional list of prompt sequences to use instead of self.prompts.
-            prepend_prompt: Optional boolean to prepend prompts to generated sequences.
+            prompts: Optional prompts to use instead of self.prompts.
+            prepend_prompt: Optional override for prepend_prompt setting.
+            num_tokens: Optional explicit token count (used by beam search).
             old_kv_cache: Optional cache state to continue from (batched format).
         """
         self._validate_generator()
-        # Use provided prompts or fall back to the default prompt
-        sampling_prompts = prompts if prompts is not None else self.prompts
 
-        # When prompts are explicitly provided, use their count directly.
-        # This allows beam search optimizers to generate candidates in batches.
-        if prompts is not None:
-            num_candidates = len(sampling_prompts)
-        else:
-            # Using default prompts - match segment's candidate count
-            num_candidates = len(self._assigned_segment.candidate_sequences)
-            if len(sampling_prompts) != num_candidates:
-                if len(sampling_prompts) == 1:
-                    sampling_prompts = sampling_prompts * num_candidates
-                else:
-                    raise ValueError(
-                        f"Number of prompts ({len(sampling_prompts)}) must either be 1 (will be replicated) or match the number of candidates ({num_candidates})"
-                    )
+        sampling_prompts = prompts if prompts is not None else self._replicate_prompts(self.prompts)
+        prepend_prompt = prepend_prompt if prepend_prompt is not None else self.prepend_prompt
+        if num_tokens is None:
+            num_tokens = self._compute_num_tokens(len(sampling_prompts[0]), prepend_prompt)
 
-        # Create config for the tool
         inputs = Evo2SampleInput(prompts=sampling_prompts)
         sample_config = Evo2SampleConfig(
-            prepend_prompt=(prepend_prompt if prepend_prompt is not None else self.prepend_prompt),
+            prepend_prompt=prepend_prompt,
             model_checkpoint=self.model_checkpoint,
             local_path=self.local_path,
             top_k=self.top_k,
             top_p=self.top_p,
             temperature=self.temperature,
-            num_tokens=self.num_tokens,
+            num_tokens=num_tokens,
             cached_generation=self.cached_generation,
             force_prompt_threshold=self.force_prompt_threshold,
             max_seqlen=self.max_seqlen,
             verbose=self.verbose,
             stop_at_eos=self.stop_at_eos,
             old_kv_cache=old_kv_cache,
-            keep_on_gpu=True,  # Keep for repeated calls
+            keep_on_gpu=True,
             batched=self.batched,
             batch_size=self.batch_size,
         )
 
-        # Run the sampling tool
         evo2_output = run_evo2_sample(inputs=inputs, config=sample_config)
         generated_sequences = evo2_output.sequences
-        self.kv_caches = evo2_output.kv_caches if self.store_kv_cache else None
+        self.kv_caches = evo2_output.kv_caches if self.store_kv_cache else []
 
-        # Update candidate sequences
-        for idx, sequence in enumerate(generated_sequences):
-            self._assigned_segment.candidate_sequences[idx].sequence = sequence
+        for candidate, sequence in zip(
+            self._assigned_segment.candidate_sequences, generated_sequences, strict=True
+        ):
+            candidate.sequence = sequence
 
     def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
         """Replicate cache N times for beam branching."""
@@ -449,3 +408,28 @@ class Evo2Generator(Generator):
                 },
             ),
         }
+
+    def _replicate_prompts(self, prompts: List[str]) -> List[str]:
+        """Match prompt count to candidate count, replicating single prompts."""
+        num_candidates = len(self._assigned_segment.candidate_sequences)
+        if len(prompts) == num_candidates:
+            return prompts
+        if len(prompts) == 1:
+            return prompts * num_candidates
+        raise ValueError(
+            f"Expected 1 or {num_candidates} prompts, got {len(prompts)}"
+        )
+
+    def _compute_num_tokens(
+        self, prompt_length: int, prepend_prompt: bool
+    ) -> int:
+        """Compute tokens to generate based on segment length and prompt settings."""
+        segment_length = self._assigned_segment.sequence_length
+        num_tokens = (
+            (segment_length - prompt_length) if prepend_prompt else segment_length
+        )
+        if num_tokens < 1:
+            raise ValueError(
+                f"Prompt length ({prompt_length}) exceeds segment length ({segment_length})"
+            )
+        return num_tokens

@@ -185,6 +185,7 @@ class ESM3Generator(Generator):
         result = run_esm3_sample(inputs=esm3_input, config=config)
         mutated_sequences = result.sequences
 
-        # Update sequences in the batch
-        for i, sequence in enumerate(mutated_sequences):
-            self._assigned_segment.candidate_sequences[i].sequence = sequence
+        for candidate, sequence in zip(
+            self._assigned_segment.candidate_sequences, mutated_sequences, strict=True
+        ):
+            candidate.sequence = sequence

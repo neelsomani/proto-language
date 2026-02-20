@@ -331,10 +331,6 @@ class LigandMPNNGenerator(Generator):
             generated_sequences.extend(design.sequences)
             all_metrics.extend(design.ligandmpnn_metrics)
 
-        if len(generated_sequences) != num_candidates:
-            raise RuntimeError(f"Expected generator to generate {num_candidates} sequences but got {len(generated_sequences)}")
-
-        # Update candidate sequences
         for candidate, sequence, score in zip(
             self._assigned_segment.candidate_sequences,
             generated_sequences,

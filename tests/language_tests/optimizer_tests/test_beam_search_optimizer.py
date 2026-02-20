@@ -34,7 +34,6 @@ class MockAutoregressiveGenerator(Generator):
         super().__init__()
         self.use_kv_caching = use_kv_caching
         self.kv_caches: List[Dict] = []
-        self.num_tokens = 100
 
     def assign(self, assigned_segment: Segment) -> None:
         self._assigned_segment = assigned_segment
@@ -43,13 +42,16 @@ class MockAutoregressiveGenerator(Generator):
         self,
         prompts: Optional[List[str]] = None,
         prepend_prompt: Optional[bool] = None,
+        num_tokens: Optional[int] = None,
         old_kv_cache: Optional[Dict] = None,
     ) -> None:
+        if num_tokens is None:
+            num_tokens = 100
         if prompts is None:
             prompts = [""]
         sequences = []
         for prompt in prompts:
-            new_seq = "".join(random.choice("ATCG") for _ in range(self.num_tokens))
+            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
         self._assigned_segment.candidate_sequences = [
             Sequence(sequence=seq, sequence_type="dna") for seq in sequences
@@ -90,7 +92,6 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
 
     def __init__(self):
         super().__init__()
-        self.num_tokens = 100
         # Intentionally missing kv_caches and replicate_cache
 
     def assign(self, assigned_segment: Segment) -> None:
@@ -100,13 +101,16 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
         self,
         prompts: Optional[List[str]] = None,
         prepend_prompt: Optional[bool] = None,
+        num_tokens: Optional[int] = None,
         old_kv_cache: Optional[Dict] = None,
     ) -> None:
+        if num_tokens is None:
+            num_tokens = 100
         if prompts is None:
             prompts = [""]
         sequences = []
         for prompt in prompts:
-            new_seq = "".join(random.choice("ATCG") for _ in range(self.num_tokens))
+            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
         self._assigned_segment.candidate_sequences = [
             Sequence(sequence=seq, sequence_type="dna") for seq in sequences

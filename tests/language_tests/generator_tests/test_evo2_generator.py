@@ -1,4 +1,5 @@
 import copy
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -73,7 +74,7 @@ class TestEvo2Generator:
         segment_two_candidates2.candidate_sequences = [copy.deepcopy(segment_two_candidates2.original_sequence) for _ in range(2)]
         evo2_generator_multi.assign(segment_two_candidates2)
 
-        with pytest.raises(ValueError, match="must either be 1"):
+        with pytest.raises(ValueError, match="Expected 1 or"):
             evo2_generator_multi.sample()
 
     def test_evo2_custom_parameters(self):
@@ -151,3 +152,20 @@ class TestEvo2GeneratorValidation:
         error_msg = str(exc_info.value)
         assert "does not support sequence type" in error_msg
         assert seq_type in error_msg.lower()
+
+    @patch("proto_language.language.generator.evo2_generator.run_evo2_sample")
+    def test_num_tokens_computed_with_prepend_override(self, mock_run):
+        """num_tokens adjusts when sample() gets prepend_prompt override."""
+        config = Evo2GeneratorConfig(prompts="ATCG")  # len=4
+        gen = Evo2Generator(config)
+        segment = Segment(length=100, sequence_type="dna")
+        gen.assign(segment)
+
+        mock_output = MagicMock()
+        mock_output.sequences = ["A" * 100]
+        mock_output.kv_caches = []
+        mock_run.return_value = mock_output
+
+        # prepend_prompt=True → should subtract prompt len: 100 - 4 = 96
+        gen.sample(prepend_prompt=True)
+        assert mock_run.call_args[1]["config"].num_tokens == 96

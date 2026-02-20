@@ -34,7 +34,7 @@ class TestProGen2Generator:
 
     def test_progen2_batch_sampling(self):
         """Test ProGen2 generator with multiple prompt sequences."""
-        prompts = ["<|pf03668|>1MEVVIVTGMSGAGK", "1EVQLVE"]
+        prompts = ["1MEVVIVTGMSGAGK", "1EVQLVESGGGLVQP"]
         num_tokens = 150
         expected_length = len(prompts[0]) + num_tokens
         config = ProGen2GeneratorConfig(
@@ -58,7 +58,7 @@ class TestProGen2Generator:
 
     def test_progen2_assign_errors(self):
         """Test error conditions for ProGen2 generator assignment."""
-        prompts = ["<|pf03668|>1MEVVIVTGMSGAGK", "1EVQLVE", "1MKTL"]
+        prompts = ["1MKTL", "1EVQL", "1AAAA"]
         config = ProGen2GeneratorConfig(prompts=prompts)
         progen2_generator = ProGen2Generator(config)
 
@@ -67,7 +67,7 @@ class TestProGen2Generator:
         segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
         progen2_generator.assign(segment_two_candidates)
 
-        with pytest.raises(ValueError, match="must either be 1"):
+        with pytest.raises(ValueError, match="Expected 1 or"):
             progen2_generator.sample()
 
     def test_progen2_custom_parameters(self):
@@ -120,7 +120,12 @@ class TestProGen2Generator:
 
 
 class TestProGen2GeneratorValidation:
-    """Test sequence type validation for ProGen2 generator."""
+    """Test sequence type and config validation for ProGen2 generator."""
+
+    def test_config_rejects_different_length_prompts(self):
+        """Prompts with different lengths should raise ValueError."""
+        with pytest.raises(ValueError, match="same length"):
+            ProGen2GeneratorConfig(prompts=["1MKTL", "1MK"])
 
     def test_valid_protein_assignment(self):
         """ProGen2 should accept PROTEIN segments."""

@@ -1,4 +1,5 @@
 import copy
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -51,7 +52,7 @@ class TestEvo1Generator:
         ]
         gen.assign(segment)
 
-        with pytest.raises(ValueError, match="must either be 1"):
+        with pytest.raises(ValueError, match="Expected 1 or"):
             gen.sample()
 
 
@@ -85,3 +86,20 @@ class TestEvo1GeneratorValidation:
         """Prompts with different lengths should raise ValueError."""
         with pytest.raises(ValueError, match="same length"):
             Evo1GeneratorConfig(prompts=["ATCG", "AT"])
+
+    @patch("proto_language.language.generator.evo1_generator.run_evo1_sample")
+    def test_num_tokens_computed_with_prepend_override(self, mock_run):
+        """num_tokens adjusts when sample() gets prepend_prompt override."""
+        config = Evo1GeneratorConfig(prompts="ATCG")  # len=4
+        gen = Evo1Generator(config)
+        segment = Segment(length=100, sequence_type="dna")
+        gen.assign(segment)
+
+        mock_output = MagicMock()
+        mock_output.sequences = ["A" * 100]
+        mock_output.scores = []
+        mock_run.return_value = mock_output
+
+        # prepend_prompt=True → should subtract prompt len: 100 - 4 = 96
+        gen.sample(prepend_prompt=True)
+        assert mock_run.call_args[1]["config"].num_tokens == 96

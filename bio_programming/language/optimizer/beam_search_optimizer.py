@@ -365,13 +365,10 @@ class BeamSearchOptimizer(Optimizer):
             remaining_tokens = self.target_segment.sequence_length - tokens_generated
             beam_tokens = min(self.beam_length, remaining_tokens)
 
-            # Override generator's num_tokens for this beam
-            self.generator.num_tokens = beam_tokens
-
             prepend_prompt_to_first_beam = self.prepend_prompt and beam_num == 1
 
             # Generate and score candidates, resampling until all beams have valid candidates
-            candidate_beams = self._generate_and_score_with_resampling(prepend_prompt_to_first_beam)
+            candidate_beams = self._generate_and_score_with_resampling(prepend_prompt_to_first_beam, beam_tokens)
 
             # Select top num_results candidates and update beam states
             self._select_topk_beams(candidate_beams)
@@ -396,7 +393,8 @@ class BeamSearchOptimizer(Optimizer):
     def _generate_candidates_for_beam(
         self,
         beam_idx: int,
-        prepend_prompt: bool = False
+        prepend_prompt: bool = False,
+        num_tokens: Optional[int] = None,
     ) -> List[BeamState]:
         """
         Generate candidate BeamStates for a single beam.
@@ -431,7 +429,12 @@ class BeamSearchOptimizer(Optimizer):
                 self._log_cache_state(kv_cache)
 
             # Generate candidates
-            self.generator.sample(prompts=prompts, prepend_prompt=prepend_prompt, old_kv_cache=kv_cache)
+            self.generator.sample(
+                prompts=prompts,
+                prepend_prompt=prepend_prompt,
+                num_tokens=num_tokens,
+                old_kv_cache=kv_cache,
+            )
 
             # Collect results from this batch
             kv_caches = self.generator.kv_caches if self.use_kv_caching else [None] * batch_count
@@ -447,7 +450,7 @@ class BeamSearchOptimizer(Optimizer):
 
         return candidates
 
-    def _generate_and_score_with_resampling(self, prepend_prompt: bool = False) -> List[BeamState]:
+    def _generate_and_score_with_resampling(self, prepend_prompt: bool = False, num_tokens: Optional[int] = None) -> List[BeamState]:
         """
         Generate and score candidates, resampling beams until each has valid candidates.
 
@@ -466,7 +469,7 @@ class BeamSearchOptimizer(Optimizer):
         # Initial generation: Generate candidates for all beams
         all_candidates = []
         for beam_idx in range(self.num_results):
-            candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt)
+            candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt, num_tokens)
             all_candidates.extend(candidates)
 
         # Score all candidates on their FULL accumulated sequences
@@ -496,7 +499,7 @@ class BeamSearchOptimizer(Optimizer):
                 logger.info(f"Resampling {len(beams_to_resample)} beams (attempt {attempt}): counts={counts}")
 
             for beam_idx in beams_to_resample:
-                candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt)
+                candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt, num_tokens)
 
                 # Score candidates on their FULL accumulated sequences
                 self.target_segment.candidate_sequences = [

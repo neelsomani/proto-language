@@ -14,10 +14,10 @@ from proto_tools import (
 from proto_tools.tools.causal_models.progen2.standalone.inference import (
     PROGEN2_MODEL_CHECKPOINTS,
 )
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -177,6 +177,13 @@ class ProGen2GeneratorConfig(BaseConfig):
         """Convert single string to list for consistent internal handling."""
         return [v] if isinstance(v, str) else v
 
+    @model_validator(mode="after")
+    def validate_prompts_length(self):
+        """Validate that all prompts have the same length."""
+        if len(set(len(seq) for seq in self.prompts)) != 1:
+            raise ValueError(f"All prompts must have same length, got: {[len(seq) for seq in self.prompts]}")
+        return self
+
 
 @generator(
     key="progen2",
@@ -207,38 +214,21 @@ class ProGen2Generator(Generator):
         self.batch_size = config.batch_size
         self.verbose = config.verbose
 
-        # This should get assigned during `self.assign()`.
-        self.max_length: Optional[int] = None
+    def sample(
+        self,
+        prompts: Optional[List[str]] = None,
+        prepend_prompt: Optional[bool] = None,
+    ) -> None:
+        """Generate protein sequences using ProGen2 tool.
 
-    def assign(self, assigned_segment: Segment) -> None:
-        """Assign a Segment to this generator and calculate lengths."""
-        super().assign(assigned_segment)
-
-        prompt_length = (
-            len(self.prompts[0])
-            if isinstance(self.prompts, list)
-            else len(self.prompts)
-        )
-
-        if self.prepend_prompt:
-            # Prompt is included in the output, so max_length covers the full sequence.
-            self.max_length = assigned_segment.sequence_length
-        else:
-            self.max_length = assigned_segment.sequence_length + prompt_length
-
-    def sample(self, prompts: Optional[List[str]] = None) -> None:
-        """Generate protein sequences using ProGen2 tool."""
+        Args:
+            prompts: Optional prompts to use instead of self.prompts.
+            prepend_prompt: Optional override for prepend_prompt setting.
+        """
         self._validate_generator()
-        sampling_prompts = prompts if prompts is not None else self.prompts
-        num_candidates = len(self._assigned_segment.candidate_sequences)
-
-        # Handle prompt count matching
-        if len(sampling_prompts) != num_candidates:
-            if len(sampling_prompts) == 1:
-                # Replicate single prompt for all candidates
-                sampling_prompts = sampling_prompts * num_candidates
-            else:
-                raise ValueError(f"Number of prompts ({len(sampling_prompts)}) must either be 1 (will be replicated) or match the number of candidates ({num_candidates})")
+        sampling_prompts = prompts if prompts is not None else self._replicate_prompts(self.prompts)
+        prepend_prompt = prepend_prompt if prepend_prompt is not None else self.prepend_prompt
+        max_length = self._compute_max_length(len(sampling_prompts[0]), prepend_prompt)
 
         tool_input = ProGen2SampleInput(prompts=sampling_prompts)
 
@@ -248,10 +238,10 @@ class ProGen2Generator(Generator):
             temperature=self.temperature,
             top_p=self.top_p,
             top_k=self.top_k,
-            max_length=self.max_length,
+            max_length=max_length,
             truncate_at_stop=self.truncate_at_stop,
             strip_special_tokens=self.strip_special_tokens,
-            prepend_prompt=self.prepend_prompt,
+            prepend_prompt=prepend_prompt,
             batch_size=self.batch_size,
             verbose=self.verbose,
         )
@@ -259,6 +249,23 @@ class ProGen2Generator(Generator):
         output = run_progen2_sample(tool_input, tool_config)
         generated_sequences = output.sequences
 
-        for idx, sequence in enumerate(generated_sequences):
-            if idx < len(self._assigned_segment.candidate_sequences):
-                self._assigned_segment.candidate_sequences[idx].sequence = sequence
+        for candidate, sequence in zip(
+            self._assigned_segment.candidate_sequences, generated_sequences, strict=True
+        ):
+            candidate.sequence = sequence
+
+    def _replicate_prompts(self, prompts: List[str]) -> List[str]:
+        """Match prompt count to candidate count, replicating single prompts."""
+        num_candidates = len(self._assigned_segment.candidate_sequences)
+        if len(prompts) == num_candidates:
+            return prompts
+        if len(prompts) == 1:
+            return prompts * num_candidates
+        raise ValueError(f"Expected 1 or {num_candidates} prompts, got {len(prompts)}")
+
+    def _compute_max_length(self, prompt_length: int, prepend_prompt: bool) -> int:
+        """Compute max_length for ProGen2 based on segment length and prompt settings."""
+        segment_length = self._assigned_segment.sequence_length
+        if prepend_prompt:
+            return segment_length
+        return segment_length + prompt_length

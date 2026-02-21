@@ -6,10 +6,8 @@ from __future__ import annotations
 from typing import List, Literal, Tuple
 
 from proto_tools import (
-    TISSUE_INDEX_OFFSET,
     SpliceTransformerConfig,
     SpliceTransformerInput,
-    SpliceTransformerTissue,
     run_splice_transformer,
 )
 from pydantic import field_validator
@@ -17,6 +15,46 @@ from pydantic import field_validator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
+
+SpliceTransformerTissueName = Literal[
+    "AVERAGE",
+    "ADIPOSE_TISSUE",
+    "BLOOD",
+    "BLOOD_VESSEL",
+    "BRAIN",
+    "COLON",
+    "HEART",
+    "KIDNEY",
+    "LIVER",
+    "LUNG",
+    "MUSCLE",
+    "NERVE",
+    "SMALL_INTESTINE",
+    "SKIN",
+    "SPLEEN",
+    "STOMACH",
+]
+
+# SpliceTransformer prediction channels are:
+# [0: neither, 1: acceptor, 2: donor, 3+: tissue logits].
+SPLICE_TISSUE_CHANNEL_INDEX: dict[SpliceTransformerTissueName, int | None] = {
+    "AVERAGE": None,
+    "ADIPOSE_TISSUE": 3,
+    "BLOOD": 4,
+    "BLOOD_VESSEL": 5,
+    "BRAIN": 6,
+    "COLON": 7,
+    "HEART": 8,
+    "KIDNEY": 9,
+    "LIVER": 10,
+    "LUNG": 11,
+    "MUSCLE": 12,
+    "NERVE": 13,
+    "SMALL_INTESTINE": 14,
+    "SKIN": 15,
+    "SPLEEN": 16,
+    "STOMACH": 17,
+}
 
 
 class SpliceTransformerSpecificityConfig(BaseConfig):
@@ -48,9 +86,9 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
             integer (automatically converted to list) or list of integers for
             multiple positions.
 
-        tissue (SpliceTransformerTissue): Target tissue for specificity evaluation.
+        tissue (SpliceTransformerTissueName): Target tissue for specificity evaluation.
             Options include "AVERAGE" (average across all tissues, default) or
-            specific tissues like "BRAIN", "HEART", "LIVER", "MUSCLE", "TESTIS",
+            specific tissues like "BRAIN", "HEART", "LIVER", "MUSCLE", "STOMACH",
             etc. SpliceTransformer was trained on RNA-seq data from multiple human
             tissues and can predict tissue-specific splicing patterns. Use "AVERAGE"
             for general splice site quality or specific tissues for tissue-specific
@@ -81,7 +119,7 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
         title="Splice Position(s)",
         description="0-indexed position(s) into input_sequence on which to compute the score",
     )
-    tissue: SpliceTransformerTissue.as_literal() = ConfigField(
+    tissue: SpliceTransformerTissueName = ConfigField(
         title="Tissue to Evaluate",
         default="AVERAGE",
         description="Tissue on which to define the score. By default, averages across all tissues.",
@@ -210,7 +248,7 @@ def splice_transformer_specificity(
     """
     assert len(config.left_context) == len(config.right_context)
     context_length = len(config.left_context)
-    tissue = SpliceTransformerTissue[config.tissue]
+    tissue_channel_index = SPLICE_TISSUE_CHANNEL_INDEX[config.tissue]
 
     scores = []
     for (sequence,) in input_sequences:
@@ -230,10 +268,10 @@ def splice_transformer_specificity(
 
         assert output.shape[1] == len(sequence.sequence)
 
-        if tissue == SpliceTransformerTissue.AVERAGE:
-            score = float(output[:, config.splice_pos, TISSUE_INDEX_OFFSET:].mean())
+        if tissue_channel_index is None:
+            score = float(output[:, config.splice_pos, 3:].mean())
         else:
-            score = float(output[:, config.splice_pos, TISSUE_INDEX_OFFSET + tissue.value].mean())
+            score = float(output[:, config.splice_pos, tissue_channel_index].mean())
 
         if config.direction == "max":
             score = 1. - score

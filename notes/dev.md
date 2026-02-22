@@ -6,7 +6,7 @@ This guide covers the development workflow, including pre-commit hooks and what 
 
 ```bash
 # Important commands to know
-python docs/generate_docs.py          # Command used to auto-generate docs (this is done automatically by pre-commit hooks)
+python docs/generate_docs.py          # Manually regenerate docs locally (CI auto-generates on main)
 flake8 proto_language api agent tests # Run by Lint Check CI to check code style
 pytest --cpu --skip-ci                 # Run by Unit Test CI to run CPU-only unit tests (mimics exact CI conditions)
 python tests/run_integration_tests.py  # Run by Integration Test CI to run integration tests
@@ -116,7 +116,7 @@ git worktree add -b my-new-feature ../proto-tools-my-feature
 
 ## Pre-commit Hooks
 
-Pre-commit hooks run automatically before every commit to ensure code quality and keep documentation in sync.
+Pre-commit hooks run automatically before every commit to ensure code quality.
 
 ### Manual Installation
 
@@ -128,9 +128,8 @@ pre-commit install
 
 ### What the Hooks Do
 
-1. **Auto-generate documentation** - Extracts docstrings from Python files and converts tool READMEs to MDX format
-2. **Code formatting** - Runs `black` and `isort` to format Python code
-3. **Basic checks** - Removes trailing whitespace, fixes end-of-file issues, validates YAML, checks for large files
+1. **Code formatting** - Runs `black` and `isort` to format Python code
+2. **Basic checks** - Removes trailing whitespace, fixes end-of-file issues, validates YAML, checks for large files
 
 ### Running Hooks Manually
 
@@ -142,7 +141,6 @@ pre-commit run --all-files
 pre-commit run --files path/to/file.py
 
 # Run a specific hook
-pre-commit run generate-docs --all-files
 pre-commit run black --all-files
 ```
 
@@ -160,19 +158,6 @@ git commit --no-verify
 
 ### Conditional Automatic CIs
 The following CIs run automatically on pull requests that are in `ready_for_review` state:
-
-#### Auto-Generate Documentation
-**File:** `.github/workflows/docs_check.yml`
-**Triggers:** When doc-related files change (docstrings, READMEs, generate_docs.py)
-**What it does:** Verifies that generated docs are in sync with source files
-
-This should be covered automatically by the pre-commit hooks, but you can also manually run and commit the files via:
-
-```bash
-python docs/generate_docs.py
-git add docs/
-git commit -m "docs: Auto-generate documentation"
-```
 
 #### CPU Unit Tests
 **File:** `.github/workflows/run-unit-tests.yml`
@@ -237,15 +222,14 @@ The following CIs run manually when requested by the user:
 # Answers specific question only
 ```
 
-#### the docs site Documentation Validation
-**File:** `.github/workflows/docs.yml`
-**Triggers:** On pushes to main branch that modify docs
-**What it does:** Validates documentation and checks for broken links
+#### Auto-Generate Unified Documentation (Main only)
+**File:** `.github/workflows/docs_autogen.yml`
+**Triggers:** Pushes to `main` when language source, docs content/generator, or submodule pointer changes
+**What it does:** Regenerates docs, validates links (``), and auto-commits `docs/` updates with the bot
 
-**Run locally:**
+**Run locally (optional):**
 ```bash
-cd docs
-
+python docs/generate_docs.py
 
 ```
 
@@ -255,8 +239,8 @@ cd docs
 
 Documentation is auto-generated from:
 
-1. **Python docstrings** - Constraints, generators, optimizers
-2. **Tool READMEs** - Individual tool documentation in `proto-tools/proto_tools/tools/*/README.md`
+1. **Python docstrings** - Constraints, generators, optimizers (parsed in this repo)
+2. **Tool docs artifacts** - Synced from `proto-tools/docs/tools/*.mdx` at the pinned submodule commit
 
 ### Documentation Structure
 
@@ -266,7 +250,7 @@ docs/
 │   ├── constraints/    # Auto-generated from constraint docstrings
 │   ├── generators/     # Auto-generated from generator docstrings
 │   └── optimizers/     # Auto-generated from optimizer docstrings
-├── tools/              # Auto-generated from tool READMEs
+├── tools/              # Synced from proto-tools generated docs
 └── docs.json           # Navigation structure (auto-updated)
 ```
 
@@ -274,12 +258,14 @@ docs/
 
 **For constraints/generators/optimizers:**
 1. Add Google-style docstrings to your Python class/function
-2. Commit the code (docs will auto-generate via pre-commit)
+2. Open and merge your PR without committing generated docs
+3. After merge to `main`, docs are regenerated automatically by CI
 
 **For tools:**
-1. Create a `README.md` in your tool directory: `proto-tools/proto_tools/tools/category/tool_name/README.md`
-2. Follow the existing README structure
-3. Commit (docs will auto-generate via pre-commit)
+1. Update tool README/source in `proto-tools`
+2. Merge that change in the tools repo (its own main-only autogen updates tool docs artifacts)
+3. Bump the `proto-tools` submodule pointer in this repo
+4. Merge pointer update; outer main autogen then syncs those artifacts into unified docs
 
 ### Manual Documentation Generation
 
@@ -290,7 +276,7 @@ python docs/generate_docs.py
 This will:
 - Scan all registered constraints, generators, and optimizers
 - Parse their docstrings
-- Convert tool READMEs to MDX format
+- Sync tool MDX artifacts from the pinned submodule commit snapshot
 - Update `docs.json` navigation
 
 ---

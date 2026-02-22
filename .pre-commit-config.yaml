@@ -9,24 +9,6 @@
 #   pre-commit run --all-files
 
 repos:
-  # Auto-generate documentation from docstrings and READMEs
-  - repo: local
-    hooks:
-      - id: generate-docs
-        name: Generate documentation
-        entry: bash -c 'cd "$GIT_PREFIX" && /opt/miniconda3/envs/proto-language/bin/python docs/generate_docs.py'
-        language: system
-        pass_filenames: false
-        files: |
-          (?x)^(
-              proto-tools/proto_tools/tools/.*/README\.md|
-              proto_language/language/constraint/.*\.py|
-              proto_language/language/generator/.*\.py|
-              proto_language/language/optimizer/.*\.py|
-              docs/generate_docs\.py
-          )$
-        stages: [pre-commit]
-
   # Import sorting
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2

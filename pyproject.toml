@@ -31,7 +31,6 @@ dependencies = [
     "gemmi",
 
     # Infrastructure
-    "torch>=2.0.0",
     "google-cloud-storage>=2.0.0",
 
     # Utilities
@@ -56,6 +55,7 @@ tools = [
 
 # GPU dependencies
 gpu = [
+    "torch>=2.0.0",
     # Sequence scoring models
     "alphagenome>=0.2.0",
 ]

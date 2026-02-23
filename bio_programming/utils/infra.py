@@ -5,13 +5,13 @@ This module provides utilities for managing compute resources and file storage,
 including GPU selection (local/cloud), cloud storage access (GCS), and caching.
 """
 from __future__ import annotations
-import os
+
 import hashlib
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
-import torch
 from google.cloud import storage
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 def number_of_available_gpus() -> int:
     """Returns the number of available GPUs."""
+    import torch
+
     return torch.cuda.device_count()
 
 
@@ -99,6 +101,8 @@ def get_device_string(device_str_or_int: int | str | torch.device) -> str:
     Returns the string representation of the GPU specified by an integer index.
     """
     # If the device is a torch.device, get the string representation
+    import torch
+
     if isinstance(device_str_or_int, torch.device):
         device_str_or_int = str(device_str_or_int)
 

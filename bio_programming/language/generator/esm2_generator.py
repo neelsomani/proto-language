@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Literal, final
 
 from proto_tools import ESM2SampleConfig, ESM2SampleInput, run_esm2_sample
-from proto_tools.tools.masked_models.esm2.standalone.inference import (
+from proto_tools.tools.masked_models.esm2.esm2_sample import (
     ESM2_MODEL_CHECKPOINTS,
 )
 

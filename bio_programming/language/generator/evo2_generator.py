@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, final
 
 from proto_tools import Evo2SampleConfig, Evo2SampleInput, run_evo2_sample
-from proto_tools.tools.causal_models.evo2.standalone.inference import (
+from proto_tools.tools.causal_models.evo2.evo2_sample import (
     EVO2_MODEL_CHECKPOINTS,
 )
 from pydantic import field_validator, model_validator

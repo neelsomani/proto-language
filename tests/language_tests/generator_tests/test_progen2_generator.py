@@ -1,9 +1,6 @@
 import copy
 
 import pytest
-from proto_tools.tools.causal_models.progen2.standalone.inference import (
-    PROGEN2_START_TOKEN,
-)
 
 from proto_language.language.core import Segment
 from proto_language.language.generator import ProGen2Generator, ProGen2GeneratorConfig
@@ -95,7 +92,7 @@ class TestProGen2Generator:
 
         assert segment.candidate_sequences[0].sequence is not None
         assert segment.candidate_sequences[0].sequence_type == "protein"
-        assert segment.candidate_sequences[0].sequence.startswith(PROGEN2_START_TOKEN)
+        assert segment.candidate_sequences[0].sequence.startswith("1")
 
     def test_progen2_batch_size_parameter(self):
         """Test ProGen2 generator with batch_size for GPU memory management."""

@@ -11,7 +11,7 @@ from proto_tools import (
     ProGen2SampleInput,
     run_progen2_sample,
 )
-from proto_tools.tools.causal_models.progen2.standalone.inference import (
+from proto_tools.tools.causal_models.progen2.progen2_sample import (
     PROGEN2_MODEL_CHECKPOINTS,
 )
 from pydantic import field_validator, model_validator

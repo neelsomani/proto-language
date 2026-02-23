@@ -1,5 +1,5 @@
 """
-Tests for serialize_program - converting Program objects to Darwin GPL JSON.
+Tests for serialize_program - converting Program objects to Proto Bio GPL JSON.
 
 Tests cover:
 - Basic serialization of single optimizer programs
@@ -12,7 +12,7 @@ Tests cover:
 
 import json
 
-from api.core.parser import DarwinParser
+from api.core.parser import ProtoParser
 from api.core.serializer import serialize_program
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.core import Construct, Program, Segment
@@ -199,7 +199,7 @@ class TestProgramSerializer:
         }
 
         # Parse to Program
-        parser = DarwinParser(original_json)
+        parser = ProtoParser(original_json)
         program = parser.parse()
 
         # Serialize back to JSON
@@ -456,7 +456,7 @@ class TestProgramSerializer:
         assert serialized_constraint["threshold"] == 0.5
         assert "weight" not in serialized_constraint
 
-        reparsed = DarwinParser(serialized).parse()
+        reparsed = ProtoParser(serialized).parse()
         assert reparsed.optimizers[0].constraints[0].threshold == 0.5
 
     def test_serialize_program_function(self):
@@ -551,7 +551,7 @@ class TestProgramSerializer:
         }
 
         # Parse to Program
-        parser = DarwinParser(original_json)
+        parser = ProtoParser(original_json)
         program = parser.parse()
 
         # Serialize back to JSON
@@ -682,7 +682,7 @@ class TestCyclingOptimizerSerialization:
         }
 
         # Parse
-        program = DarwinParser(original_json).parse()
+        program = ProtoParser(original_json).parse()
 
         # Serialize
         result = serialize_program(program)
@@ -696,7 +696,7 @@ class TestCyclingOptimizerSerialization:
         assert opt["config"]["protein_hunter"]["structure_tool"] == "chai1"
 
         # Re-parse and verify
-        program2 = DarwinParser(result).parse()
+        program2 = ProtoParser(result).parse()
         assert program2.optimizers[0].pipeline == "protein-hunter"
         assert program2.optimizers[0].protein_hunter.structure_tool == "chai1"
 
@@ -719,7 +719,7 @@ class TestCyclingOptimizerSerialization:
             }]
         }
 
-        program = DarwinParser(json_data).parse()
+        program = ProtoParser(json_data).parse()
         result = serialize_program(program)
 
         # Serializer generates IDs like construct0-segment1 (second segment)
@@ -751,7 +751,7 @@ class TestBeamSearchOptimizerSerialization:
         }
 
         # Parse
-        program = DarwinParser(original_json).parse()
+        program = ProtoParser(original_json).parse()
 
         # Serialize
         result = serialize_program(program)
@@ -764,7 +764,7 @@ class TestBeamSearchOptimizerSerialization:
         assert opt["config"]["beam_length"] == 10
 
         # Re-parse and verify
-        program2 = DarwinParser(result).parse()
+        program2 = ProtoParser(result).parse()
         assert program2.optimizers[0].__class__.__name__ == "BeamSearchOptimizer"
         assert program2.optimizers[0].target_segment is not None
 
@@ -815,7 +815,7 @@ class TestBeamSearchOptimizerSerialization:
         assert result["constructs"][2]["label"] == "construct_2"
 
         # Verify round-trip
-        program2 = DarwinParser(result).parse()
+        program2 = ProtoParser(result).parse()
         assert program2.constructs[0].label == "plasmid"
         assert program2.constructs[1].label == "insert"
         assert program2.constructs[2].label == "construct_2"

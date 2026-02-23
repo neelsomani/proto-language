@@ -1,5 +1,5 @@
 """
-Tests for DarwinParser with multiple optimizer support.
+Tests for ProtoParser with multiple optimizer support.
 
 Tests the parsing of the new JSON format that supports multiple sequential optimizers
 in a single program.
@@ -7,7 +7,7 @@ in a single program.
 
 import pytest
 
-from api.core.parser import DarwinParser
+from api.core.parser import ProtoParser
 from proto_language.language.generator import UniformMutationGenerator
 from proto_language.language.optimizer import MCMCOptimizer, TopKOptimizer
 
@@ -55,7 +55,7 @@ def test_parse_single_optimizer():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
     program = parser.parse()
 
     # Verify program structure
@@ -151,7 +151,7 @@ def test_parse_multiple_optimizers():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
     program = parser.parse()
 
     # Verify program structure
@@ -193,7 +193,7 @@ def test_parse_missing_optimizations_field():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="JSON must include 'optimization_stages' array"):
         parser.parse()
@@ -213,7 +213,7 @@ def test_parse_empty_optimizations_array():
         "optimization_stages": []
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="optimizers list cannot be empty"):
         parser.parse()
@@ -241,7 +241,7 @@ def test_parse_missing_method_in_stage():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="must include 'method'"):
         parser.parse()
@@ -269,7 +269,7 @@ def test_parse_missing_config_in_stage():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="must include 'config'"):
         parser.parse()
@@ -297,7 +297,7 @@ def test_parse_missing_generators_in_stage():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="must include 'generators' array"):
         parser.parse()
@@ -325,7 +325,7 @@ def test_parse_missing_constraints_in_stage():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="must include 'constraints' array"):
         parser.parse()
@@ -354,7 +354,7 @@ def test_parse_unknown_optimizer_method():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="Unknown optimization method"):
         parser.parse()
@@ -399,7 +399,7 @@ def test_parse_duplicate_segment_ids_fails():
         ],
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
 
     with pytest.raises(ValueError, match="Duplicate segment id"):
         parser.parse()
@@ -458,7 +458,7 @@ def test_parse_generator_assignment_to_segments():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
     program = parser.parse()
 
     # Verify generators were assigned
@@ -541,7 +541,7 @@ def test_parse_different_generators_per_stage():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
     program = parser.parse()
 
     # Verify generators are different instances with different configs
@@ -620,7 +620,7 @@ def test_parse_different_constraints_per_stage():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
     program = parser.parse()
 
     # Verify constraints are different instances
@@ -702,7 +702,7 @@ def test_parse_reusable_constraints():
         ]
     }
 
-    parser = DarwinParser(json_data)
+    parser = ProtoParser(json_data)
     program = parser.parse()
 
     # Verify both optimizers have constraints defined (they are separate objects in new format)

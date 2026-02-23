@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from api.core.parser import DarwinParser
+from api.core.parser import ProtoParser
 
 
 def main():
@@ -15,17 +15,17 @@ def main():
     arg_parser.add_argument("program", help="Path to JSON program file")
     arg_parser.add_argument("-o", "--output", help="Output file (JSON)")
     args = arg_parser.parse_args()
-    
+
     # Load and parse
     with open(args.program) as f:
         json_data = json.load(f)
-    
+
     print(f"Running: {json_data.get('name', 'Unnamed')}")
-    
-    darwin_parser = DarwinParser(json_data)
-    program = darwin_parser.parse()
+
+    proto_parser = ProtoParser(json_data)
+    program = proto_parser.parse()
     program.run()
-    
+
     # Extract results
     results = {
         "program": json_data.get("name", "Unnamed"),

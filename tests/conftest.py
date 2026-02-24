@@ -339,32 +339,6 @@ def setup_test_logging(request):
     yield
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_cloud_environment():
-    """Ensure cloud can find credentials in pytest context."""
-    import toml
-
-    logger = logging.getLogger(__name__)
-
-    cloud_config_path = Path.home() / ".cloud.toml"
-    if cloud_config_path.exists():
-        config = toml.load(cloud_config_path)
-
-        # Find active profile (proto-language)
-        if "proto-language" in config:
-            os.environ["CLOUD_TOKEN_ID"] = config["proto-language"]["token_id"]
-            os.environ["CLOUD_TOKEN_SECRET"] = config["proto-language"]["token_secret"]
-            os.environ["CLOUD_ENVIRONMENT"] = "main"
-            logger.info("Loaded cloud credentials for proto-language workspace")
-
-    yield
-
-    # Cleanup
-    for key in ["CLOUD_TOKEN_ID", "CLOUD_TOKEN_SECRET", "CLOUD_ENVIRONMENT"]:
-        if key in os.environ:
-            del os.environ[key]
-
-
 # Sample PDB content for testing (minimal valid structure)
 SAMPLE_PDB_CONTENT = """ATOM      1  N   ALA A   1       0.000   0.000   0.000  1.00  0.00           N
 ATOM      2  CA  ALA A   1       1.458   0.000   0.000  1.00  0.00           C
@@ -413,17 +387,6 @@ def temp_pdb_file():
     yield temp_path
     if os.path.exists(temp_path):
         os.remove(temp_path)
-
-
-@pytest.fixture(scope="session")
-def gpu_available():
-    """Check if GPU is available for tests."""
-    try:
-        import torch
-
-        return torch.cuda.is_available()
-    except ImportError:
-        return False
 
 
 @pytest.fixture(autouse=True)

@@ -117,12 +117,6 @@ Mocks SQLAlchemy sessions and database operations. Patches `DatabaseManager` CRU
 ### `setup_test_logging` (session-scoped, autouse)
 Configures logging to `logs/pytest_{timestamp}.log`. Suppresses noisy third-party loggers.
 
-### `setup_cloud_environment` (session-scoped, autouse)
-Loads cloud credentials from `~/.cloud.toml` for tests that call deployed services.
-
-### `gpu_available` (session-scoped, NOT autouse)
-Returns `True` if GPU is available. Use in tests: `@pytest.mark.skipif(not gpu_available, reason="No GPU")`.
-
 ## Mock Scoring Functions (`tests/language_tests/constraint_tests/utils.py`)
 
 For testing the `Constraint` class without real constraint functions:
@@ -474,8 +468,8 @@ with pytest.raises(TypeError):
 def test_mapping(self, input, expected):
     assert func(input) == expected
 
-# Skip conditionally
-@pytest.mark.skipif(not gpu_available, reason="No GPU")
+# Skip conditionally (GPU tests)
+@pytest.mark.gpu
 def test_gpu_feature(self):
     ...
 ```

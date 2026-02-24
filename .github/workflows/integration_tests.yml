@@ -51,8 +51,8 @@ jobs:
         # Install proto-tools submodule
         uv pip install --system -e ./proto-tools
 
-        # Install package with API, agent, and dev dependencies (--system to install in system Python)
-        uv pip install --system -e ".[api,agent,dev]"
+        # Install package with dev dependencies
+        uv pip install --system -e ".[all]"
 
     - name: Run full integration tests
       run: |

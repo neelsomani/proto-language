@@ -38,7 +38,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip uv
-        uv pip install --system -e ".[api,agent,dev]"
+        uv pip install --system -e ".[all]"
         uv pip install --system -e ./proto-tools
 
     - name: Run CPU unit tests

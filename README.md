@@ -16,8 +16,6 @@ A framework for designing biological sequences (DNA, RNA, proteins) with constra
 
 ## Installation
 
-### Setup
-
 ```bash
 # 1. Clone and initialize submodules
 git clone https://github.com/evo-design/proto-language.git
@@ -29,15 +27,15 @@ conda create --name proto-language python=3.12 -y
 conda activate proto-language
 
 # 3. Install dependencies
-pip install uv
-uv pip install -e ".[api,agent,dev]"
-# For GPU support (protein structure prediction, language models, etc.):
-# uv pip install -e ".[all]"
+pip install -e .                      # Core language only
+pip install -e ./proto-tools
+```
 
-# 4. Install proto-tools submodule
-uv pip install -e ./proto-tools
+**For developers** (API server, AI agent, testing, linting):
 
-# 5. (Optional for dev) Install pre-commit hooks
+```bash
+pip install -e ".[all]"               # Core + API + dev tools
+pip install -e ./proto-tools
 pre-commit install
 ```
 

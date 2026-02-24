@@ -25,14 +25,7 @@ python deployment/deploy_cloud_functions.py # Deploy all services to cloud and r
 
 ## Initial Setup
 
-If you haven't already, run the installation script which will set up your environment and install pre-commit hooks automatically:
-
-> [!NOTE] As of 01/14/2026, the installation script is failing on Chimera due to dependency issues.
-
-```bash
-bash install.sh
-conda activate proto-language
-```
+Follow the setup instructions in the [README](../README.md#setup) to create your conda environment and install dependencies.
 
 ---
 

@@ -30,22 +30,12 @@ jobs:
 
     - name: Install system dependencies
       run: |
-        # Install a cache
         sudo apt-get update
         sudo apt-get install -y cache-server
-
-        # Install MMseqs2
-        wget https://github.com/soedinglab/MMseqs2/releases/latest/download/mmseqs-linux-avx2.tar.gz
-        tar xvzf mmseqs-linux-avx2.tar.gz
-        sudo mv mmseqs/bin/mmseqs /usr/local/bin/
-        rm -rf mmseqs mmseqs-linux-avx2.tar.gz
-
-        # Verify installations
-        mmseqs version
         cache-cli --version
 
     - name: Cache pip packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
@@ -61,8 +51,8 @@ jobs:
         # Install proto-tools submodule
         uv pip install --system -e ./proto-tools
 
-        # Install package with API, tools, and dev dependencies (--system to install in system Python)
-        uv pip install --system -e ".[api,tools,dev]"
+        # Install package with API, agent, and dev dependencies (--system to install in system Python)
+        uv pip install --system -e ".[api,agent,dev]"
 
     - name: Run full integration tests
       run: |

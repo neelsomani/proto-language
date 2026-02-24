@@ -16,13 +16,29 @@ A framework for designing biological sequences (DNA, RNA, proteins) with constra
 
 ## Installation
 
-### Quick Start
-
-Run the install script (it initializes git submodules and creates the conda environment):
+### Setup
 
 ```bash
-bash install.sh
+# 1. Clone and initialize submodules
+git clone https://github.com/evo-design/proto-language.git
+cd proto-language
+git submodule update --init --recursive
+
+# 2. Create and activate conda environment
+conda create --name proto-language python=3.12 -y
 conda activate proto-language
+
+# 3. Install dependencies
+pip install uv
+uv pip install -e ".[api,agent,dev]"
+# For GPU support (protein structure prediction, language models, etc.):
+# uv pip install -e ".[all]"
+
+# 4. Install proto-tools submodule
+uv pip install -e ./proto-tools
+
+# 5. (Optional for dev) Install pre-commit hooks
+pre-commit install
 ```
 
 > [!NOTE]
@@ -35,30 +51,6 @@ conda create --name proto-language --clone /home/brianhie/miniconda/envs/gpro/
 pip uninstall -y numcodecs zarr
 pip install --no-cache-dir --force-reinstall numcodecs zarr
 pip install -e /home/{USERNAME}/proto-language
-```
-
-### Manual Setup
-
-If you prefer to set up manually, or if the install script fails:
-
-```bash
-# 1. Initialize submodules
-git submodule update --init --recursive
-
-# 2. Create and activate conda environment
-conda create --name proto-language python=3.12 -y
-conda activate proto-language
-
-# 3. Install dependencies (choose one)
-pip install uv
-uv pip install -e .[tools,api,dev]          # CPU-only
-# uv pip install -e .[tools,api,gpu,dev]    # GPU
-
-# 4. Install proto-tools submodule
-uv pip install -e ./proto-tools
-
-# 5. Install pre-commit hooks
-pre-commit install
 ```
 
 ## Running the API

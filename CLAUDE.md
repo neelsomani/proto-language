@@ -24,7 +24,7 @@ def gc_content_constraint(input_sequences, config) -> List[float]: ...
 
 ## Environment
 
-- **Conda env**: `proto-language` (Python >=3.12). Assumed active — do NOT create/activate venvs.
+- **Conda env**: `proto-language` (Python >=3.10). Assumed active — do NOT create/activate venvs.
 - `.env` contains API keys — never expose or commit.
 
 ## Commands

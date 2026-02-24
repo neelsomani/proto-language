@@ -12,8 +12,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-from google.cloud import storage
-
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -215,6 +213,8 @@ def download_gcs_file(gcs_url: str, destination: Path) -> Path:
 
     logger.info("Downloading from GCS: %s to %s", gcs_url, destination)
 
+    from google.cloud import storage
+
     # Prefer authenticated client; fall back to anonymous for public buckets.
     try:
         client = storage.Client()
@@ -321,6 +321,8 @@ def upload_to_gcs(content: bytes, bucket_name: str, blob_path: str) -> str:
         RuntimeError: If upload fails.
     """
     logger.info("Uploading to GCS: gs://%s/%s", bucket_name, blob_path)
+
+    from google.cloud import storage
 
     try:
         client = storage.Client()

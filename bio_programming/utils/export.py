@@ -652,16 +652,8 @@ def to_xlsx(rows: List[Dict], output: Union[Path, IO]) -> None:
         rows: List of dicts with consistent keys
         output: Path or file-like object (required for xlsx)
 
-    Raises:
-        ImportError: If openpyxl is not installed
     """
-    try:
-        from openpyxl import Workbook
-    except ImportError:
-        raise ImportError(
-            "openpyxl is required for Excel export. "
-            "Install with: pip install openpyxl"
-        )
+    from openpyxl import Workbook
 
     if not rows:
         return
@@ -692,16 +684,8 @@ def to_xlsx_workbook(
         tables: Dict mapping sheet names to row lists.
         output: Output file path.
 
-    Raises:
-        ImportError: If openpyxl is not installed
     """
-    try:
-        from openpyxl import Workbook
-    except ImportError:
-        raise ImportError(
-            "openpyxl is required for Excel export. "
-            "Install with: pip install openpyxl"
-        )
+    from openpyxl import Workbook
 
     wb = Workbook()
     # Remove default sheet

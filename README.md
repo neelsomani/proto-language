@@ -1,18 +1,21 @@
 # High-Level Programming Language for Generative Biology
 
-[![Unit Tests](https://github.com/evo-design/proto-language/actions/workflows/run-unit-tests.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/run-unit-tests.yml)
-[![Integration Tests](https://github.com/evo-design/proto-language/actions/workflows/integration_tests.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/integration_tests.yml)
-[![Lint Check](https://github.com/evo-design/proto-language/actions/workflows/flake8_check.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/flake8_check.yml)
+[Unit Tests](https://github.com/evo-design/proto-language/actions/workflows/run-unit-tests.yml)
+[Integration Tests](https://github.com/evo-design/proto-language/actions/workflows/integration_tests.yml)
+[Lint Check](https://github.com/evo-design/proto-language/actions/workflows/flake8_check.yml)
 
 A framework for designing biological sequences (DNA, RNA, proteins) with constraint-based optimization.
 
 ## Related Repositories
+
 ### Backend
-* [`proto-tools`](https://github.com/evo-design/proto-tools/tree/main) – Standalone tool layer for biological models.
+
+- `[proto-tools](https://github.com/evo-design/proto-tools/tree/main)` – Standalone tool layer for biological models.
 
 ### Client
-* [`proto-tools-ui`](https://github.com/evo-design/proto-tools-ui) – Mock UI for demonstrating tool usage.
-* [`proto-language-lang`](https://github.com/evo-design/proto-language-lang) – Primary client interface for the biological programming language.
+
+- `[proto-tools-ui](https://github.com/evo-design/proto-tools-ui)` – Mock UI for demonstrating tool usage.
+- `[proto-language-lang](https://github.com/evo-design/proto-language-lang)` – Primary client interface for the biological programming language.
 
 ## Installation
 
@@ -35,6 +38,7 @@ uv pip install -e ./proto-tools
 **For developers** (API server, AI agent, testing, linting):
 
 ```bash
+pip install uv
 uv pip install -e ".[all]"               # Developers: + API, agent, testing, linting
 uv pip install -e ./proto-tools
 
@@ -68,7 +72,7 @@ python api/start_dev.py
 docker-compose up
 ```
 
-API will be available at http://localhost:8000
+API will be available at [http://localhost:8000](http://localhost:8000)
 
 ## Tests
 
@@ -91,7 +95,6 @@ pytest --cpu
 # Run all GPU-based tests
 pytest --gpu --all
 ```
-
 
 ## HuggingFace Authentication
 
@@ -121,6 +124,6 @@ Skills (auto-loaded when relevant):
 
 Commands (invoked with `/command-name`):
 
-- **`/fix-issue <number>`** — full GitHub issue fix lifecycle (read issue, explore, reproduce, fix, test, verify)
+- `**/fix-issue <number>`** — full GitHub issue fix lifecycle (read issue, explore, reproduce, fix, test, verify)
 
 The `proto-tools/` submodule has its own skills and commands — see its [README](./proto-tools/README.md#using-with-claude-code).

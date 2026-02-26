@@ -99,9 +99,16 @@ dev = [
     "docstring-parser",
 ]
 
+# MCP server
+mcp = [
+    "fastmcp>=3.0.0",
+    "httpx",
+    "rank-bm25",
+]
+
 # Everything
 all = [
-    "proto-language[api,dev]",
+    "proto-language[api,dev,mcp]",
 ]
 
 [project.urls]
@@ -112,7 +119,7 @@ Documentation = "https://github.com/evo-design/proto-language#readme"
 
 
 [tool.setuptools.packages.find]
-include = ["proto_language*", "api*", "agent*"]
+include = ["proto_language*", "api*", "agent*", "mcp*"]
 exclude = ["tests*", "examples*", "*.tests*", "*.tests", "proto-tools*"]
 
 [tool.pytest.ini_options]
@@ -145,7 +152,7 @@ target-version = ['py310']
 
 [tool.isort]
 profile = "black"
-known_first_party = ["proto_language", "api", "agent"]
+known_first_party = ["proto_language", "api", "agent", "mcp"]
 
 [tool.mypy]
 python_version = "3.10"

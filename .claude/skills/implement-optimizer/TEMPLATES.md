@@ -2,6 +2,111 @@
 
 Complete templates for config class and optimizer class. Load this file on demand when implementing a new optimizer.
 
+## Optimizer ABC Full Contract
+
+```python
+class Optimizer(ABC):
+    @abstractmethod
+    def __init__(
+        self,
+        constructs: List[Construct],
+        generators: List[Generator],
+        constraints: List[Constraint],
+        num_results: int | None,
+        tracking_interval: int,
+        track_candidates: bool,
+        verbose: bool,
+        candidates_per_result: int = 1,
+        num_candidates: int | None = None,
+        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
+        custom_logging: Optional[Callable] = None,
+    ) -> None:
+        # Stores all parameters as instance attributes
+        # Calls _validate_optimizer()
+        # Key attributes after init:
+        #   self.segments (property) — all segments from all constructs
+        #   self.energy_scores — populated by score_energy()
+        #   self.history — populated by _save_progress_snapshot()
+
+    @abstractmethod
+    def run(self) -> None:
+        # Executes the optimization loop
+        # Modifies segments' selected_sequences and candidate_sequences
+```
+
+## Key Base Class Methods
+
+### `score_energy(operation="add", filter_penalty=float("inf"))`
+
+Evaluates ALL constraints on current `candidate_sequences`:
+
+```python
+# In your run() method:
+self.score_energy(operation="add")      # Additive scoring (default)
+self.score_energy(operation="multiply") # Multiplicative scoring
+
+# After calling, self.energy_scores is populated:
+# List[float] of length num_candidates
+```
+
+### `_initialize_sequence_pools()`
+
+Sets up `candidate_sequences` from `selected_sequences` with cycling:
+
+```python
+# If num_candidates > num_results, cycles through selected to fill
+# If num_candidates < num_results, takes first N
+# Preserves diversity by round-robin assignment
+```
+
+### `_save_progress_snapshot(time_step)`
+
+Saves current state to `self.history`:
+
+```python
+self._save_progress_snapshot(step)
+# Appends: {"time_step": step, "constructs": [...], "energy_scores": [...]}
+```
+
+### `_validate_optimizer()`
+
+Comprehensive validation called in `__init__`:
+- Non-empty constructs, generators, constraints lists
+- All generators assigned to segments
+- No duplicate constraint labels
+- All constraint inputs reference segments in constructs
+- Generator segments exist in constructs
+
+### State Management
+
+```python
+self._prepare_run()              # Reset history, prepare for fresh run
+self._capture_initial_state()    # Snapshot state before run (for multi-run)
+self._restore_initial_state()    # Restore to captured state
+```
+
+## Single-Segment Optimizer Pattern
+
+If your optimizer only works with one segment (like BeamSearch or Cycling):
+
+```python
+# In optimizer_registry.py:
+OPTIMIZERS_WITH_TARGET_SEGMENT = frozenset({"beam-search", "cycling", "my-optimizer"})
+
+# In your optimizer:
+def __init__(
+    self,
+    target_segment: Segment,      # First parameter for single-segment optimizers
+    constructs: List[Construct],
+    generators: List[Generator],
+    constraints: List[Constraint],
+    config: MyOptimizerConfig,
+    ...
+) -> None:
+```
+
+This enables the `target_segment` field in the API parser for single-segment selection.
+
 ## Config Class Template
 
 File: `proto_language/language/optimizer/{name}_optimizer.py`

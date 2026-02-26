@@ -2,6 +2,27 @@
 
 Complete templates for config class and generator class by category. Load this file on demand when implementing a new generator.
 
+## `_validate_generator()` Per-Category Behavior
+
+The category determines what `_validate_generator()` does at the start of `sample()`:
+- **mutation**: If candidate has no sequence, initializes random from `valid_chars`
+- **autoregressive**: No random init (generates entirely new sequences)
+- **inverse_folding**: If candidate has no sequence, initializes with `"X"` (unknown)
+
+## Batching Data Flow
+
+```
+Generator.sample()
+    -> Collects ALL candidate sequences from segment
+    -> Creates ToolInput with all sequences
+    -> Creates ToolConfig with batch_size=self.batch_size
+    -> Calls run_tool(inputs, config)
+         -> Tool chunks sequences into batches of batch_size
+         -> Processes each batch on GPU
+         -> Returns concatenated results
+    -> Updates candidate_sequences in-place from results
+```
+
 ## Config Class Template
 
 File: `proto_language/language/generator/{name}_generator.py`

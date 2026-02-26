@@ -129,7 +129,7 @@ Generators do NOT implement batching loops. The tool layer owns all batching log
 1. Default `batch_size = 1` — safe by default, prevents OOM
 2. Generator config stores `batch_size` — passed through to tool config unchanged
 3. Never write a batching loop in a generator — the tool handles chunking internally
-4. Inverse folding special case: when one structure generates N sequences, `batch_size` controls sequences per forward pass
+4. Inverse folding special case (e.g., ProteinMPNN): When one structure generates N sequences, `batch_size` controls sequences per forward pass. When N structures each generate 1 sequence, `batch_size` is forced to 1 by the generator.
 
 ## Documentation
 

@@ -2,6 +2,21 @@
 
 Detailed examples of common program patterns. Load this file on demand when composing programs.
 
+## Construct Identity (CORRECT vs WRONG)
+
+All optimizers in a multi-stage program MUST share the **same construct objects by identity** (not copies). This is how state flows between stages:
+
+```python
+# CORRECT: Same construct object
+construct = Construct([segment])
+opt1 = TopKOptimizer(constructs=[construct], ...)
+opt2 = MCMCOptimizer(constructs=[construct], ...)  # Same object
+
+# WRONG: Different construct objects — state won't flow between stages!
+opt1 = TopKOptimizer(constructs=[Construct([segment])], ...)
+opt2 = MCMCOptimizer(constructs=[Construct([segment])], ...)  # Different!
+```
+
 ## Multi-Stage: TopK -> MCMC
 
 Broad exploration then fine-tuning. See `examples/scripts/toy-multiple-optimizers.py`.

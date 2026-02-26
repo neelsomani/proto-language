@@ -158,7 +158,7 @@ Read the source file to see the config class and its `ConfigField` parameters:
 
 ### Component categories:
 
-Constraints: `sequence_composition/`, `protein_structure/`, `protein_quality/`, `rna_secondary_structure/`, `rna_splicing/`, `sequence_annotation/`, `sequence_alignment/`
+Constraints: `sequence_composition/` (GC content, homopolymers, k-mers, length), `protein_structure/` (pLDDT, pTM, RMSD, TM-score, symmetry, globularity, binding), `protein_quality/` (complexity, repetitiveness, diversity, balanced amino acids), `rna_secondary_structure/` (property/motif/feature/basepair similarity), `rna_splicing/` (intron boundary, tissue specificity), `sequence_annotation/` (sequence similarity, promoter strength, motifs), `sequence_alignment/` (sequence alignment similarity scoring)
 
 Generators: **mutation** (UniformMutation, ESM2, MSA), **autoregressive** (Evo2, ProGen2), **inverse_folding** (ProteinMPNN, LigandMPNN)
 

@@ -972,6 +972,102 @@ class TestBeamSearchCandidateTracking:
         assert all_rejectors.issubset(valid_rejectors)
 
 
+class TestBeamSearchNonTargetSegmentSync:
+    """Tests that BeamSearch syncs non-target segment pools when resizing target.
+
+    BeamSearch dynamically resizes target_segment.candidate_sequences during its
+    run (to batch_count, N*K, etc.). _sync_candidate_pools ensures non-target
+    segments stay in sync so Constraint.evaluate() sees equal pool sizes.
+    """
+
+    def test_non_target_segment_constraint(self):
+        """BeamSearch with a constraint on a non-target segment runs without pool-size errors."""
+        target_segment = Segment(length=40, sequence_type="dna")
+        context_segment = Segment(sequence="ATCGATCGATCGATCGATCG", sequence_type="dna")
+        construct = Construct([target_segment, context_segment])
+
+        generator = MockAutoregressiveGenerator(use_kv_caching=False)
+        generator._assigned_segment = target_segment
+
+        # Constraint on non-target segment
+        non_target_constraint = Constraint(
+            inputs=[context_segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
+        )
+
+        config = BeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_length=20,
+            num_results=2,
+            candidates_per_result=3,
+            use_kv_caching=False,
+        )
+
+        optimizer = BeamSearchOptimizer(
+            target_segment=target_segment,
+            constructs=[construct],
+            generators=[generator],
+            constraints=[non_target_constraint],
+            config=config,
+        )
+
+        # Should run without ValueError from mask-length mismatch
+        optimizer.run()
+
+        assert len(target_segment.selected_sequences) == 2
+        for seq in target_segment.selected_sequences:
+            assert len(seq.sequence) == 44  # prompt (4) + segment_length (40)
+
+    def test_multi_segment_constraint(self):
+        """Constraint reading from both target and non-target segments runs without errors."""
+        target_segment = Segment(length=40, sequence_type="dna")
+        context_segment = Segment(sequence="ATCGATCGATCGATCGATCG", sequence_type="dna")
+        construct = Construct([target_segment, context_segment])
+
+        generator = MockAutoregressiveGenerator(use_kv_caching=False)
+        generator._assigned_segment = target_segment
+
+        # Custom scoring function that reads from both segments
+        def multi_seg_score(input_sequences, config=None):
+            scores = []
+            for seq_tuple in input_sequences:
+                target_seq, context_seq = seq_tuple
+                gc_target = sum(1 for c in target_seq.sequence if c in "GC") / max(len(target_seq.sequence), 1)
+                gc_context = sum(1 for c in context_seq.sequence if c in "GC") / max(len(context_seq.sequence), 1)
+                scores.append(abs(gc_target - gc_context))
+            return scores
+        multi_seg_score._constraint_supported_sequence_types = ["dna"]
+        multi_seg_score._constraint_num_input_sequences_per_tuple = 2
+
+        cross_segment_constraint = Constraint(
+            inputs=[target_segment, context_segment],
+            function=multi_seg_score,
+            function_config={},
+        )
+
+        config = BeamSearchOptimizerConfig(
+            prompt="ATCG",
+            beam_length=20,
+            num_results=2,
+            candidates_per_result=3,
+            use_kv_caching=False,
+        )
+
+        optimizer = BeamSearchOptimizer(
+            target_segment=target_segment,
+            constructs=[construct],
+            generators=[generator],
+            constraints=[cross_segment_constraint],
+            config=config,
+        )
+
+        # Should run without pool-size mismatch errors
+        optimizer.run()
+
+        assert len(target_segment.selected_sequences) == 2
+
+
 class TestBeamSearchTrackingInterval:
     """Test tracking_interval in BeamSearchOptimizer."""
 

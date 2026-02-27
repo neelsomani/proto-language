@@ -433,6 +433,7 @@ class BeamSearchOptimizer(Optimizer):
                 Sequence(sequence="", sequence_type=self.target_segment.sequence_type)
                 for _ in range(batch_count)
             ]
+            self._sync_candidate_pools(self.target_segment)
 
             if self.verbose and batch_start == 0:
                 self._log_cache_state(kv_cache)
@@ -486,6 +487,7 @@ class BeamSearchOptimizer(Optimizer):
             Sequence(sequence=beam.running_sequence, sequence_type=self.target_segment.sequence_type)
             for beam in all_candidates
         ]
+        self._sync_candidate_pools(self.target_segment)
         self.score_energy()
 
         # Collect valid candidates (those that passed filter constraints)
@@ -515,6 +517,7 @@ class BeamSearchOptimizer(Optimizer):
                     Sequence(sequence=beam.running_sequence, sequence_type=self.target_segment.sequence_type)
                     for beam in candidates
                 ]
+                self._sync_candidate_pools(self.target_segment)
                 self.score_energy()
 
                 for j, (candidate, score) in enumerate(zip(candidates, self.energy_scores)):
@@ -583,6 +586,7 @@ class BeamSearchOptimizer(Optimizer):
             )
             for beam in candidate_beams
         ]
+        self._sync_candidate_pools(self.target_segment)
         self.target_segment.selected_sequences = [
             Sequence(
                 sequence=beam.running_sequence if self.prepend_prompt else beam.running_sequence[len(self.prompt):],

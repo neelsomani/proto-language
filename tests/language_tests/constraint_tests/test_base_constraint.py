@@ -279,7 +279,7 @@ class TestConstraintMask:
         assert all(math.isnan(s) for s in scores)
 
     def test_mask_invalid_length_raises_error(self):
-        """Test that mask with incorrect length raises ValueError."""
+        """Test that mask with incorrect length raises ValueError (both shorter and longer)."""
         sequences = ["ATCG", "GGGG", "TTTT"]
         segment = _make_segment_with_candidates(sequences, "dna")
 
@@ -289,8 +289,13 @@ class TestConstraintMask:
             function_config=MockConstraintConfig(),
         )
 
-        with pytest.raises(ValueError, match=r"Mask length .* must match"):
-            constraint.evaluate(mask=[True, False])  # Wrong length
+        # Longer than pool
+        with pytest.raises(ValueError, match=r"Mask length .* does not match"):
+            constraint.evaluate(mask=[True, False, True, True])
+
+        # Shorter than pool
+        with pytest.raises(ValueError, match=r"Mask length .* does not match"):
+            constraint.evaluate(mask=[True, True])
 
 
 # =============================================================================

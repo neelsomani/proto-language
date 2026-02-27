@@ -235,7 +235,7 @@ class Constraint:
         if mask is None:
             mask = [True] * num_candidates
         if len(mask) != num_candidates:
-            raise ValueError(f"Mask length ({len(mask)}) must match number of candidates ({num_candidates})")
+            raise ValueError(f"Mask length ({len(mask)}) does not match num_candidates ({num_candidates})")
 
         # Convert mask to indices for sparse evaluation
         indices_to_evaluate = [i for i in range(num_candidates) if mask[i]]

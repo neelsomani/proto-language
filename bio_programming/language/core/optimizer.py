@@ -407,6 +407,29 @@ class Optimizer(ABC):
                 "is not in any of the provided constructs"
             )
 
+    def _sync_candidate_pools(self, target_segment: "Segment") -> None:
+        """Sync non-target segment candidate pools to match target_segment's pool size.
+
+        Maintains the invariant that all segments have equal num_candidates.
+        Non-target segments are populated by cycling through their selected_sequences.
+
+        Called after an optimizer resizes target_segment.candidate_sequences
+        (e.g., BeamSearch expanding to N*K for batch scoring).
+
+        Args:
+            target_segment: The segment whose candidate pool was just resized.
+                All other segments will be synced to match its size.
+        """
+        target_size = len(target_segment.candidate_sequences)
+        for segment in self.segments:
+            if segment is target_segment:
+                continue
+            source = segment.selected_sequences or [segment.original_sequence]
+            segment.candidate_sequences = [
+                copy.deepcopy(source[i % len(source)])
+                for i in range(target_size)
+            ]
+
     def _initialize_sequence_pools(self) -> None:
         """Initialize sequence pools from previous optimizer's results or original sequence.
 

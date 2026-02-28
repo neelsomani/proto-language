@@ -26,3 +26,15 @@ repos:
       - id: check-added-large-files
         args: ['--maxkb=1000']
       - id: check-merge-conflict
+
+  # Export chain validation
+  - repo: local
+    hooks:
+      - id: validate-exports
+        name: Validate export chain consistency
+        entry: python .github/scripts/validate_exports.py
+        language: python
+        pass_filenames: false
+        always_run: false
+        files: '__init__\.py$'
+        types: [python]

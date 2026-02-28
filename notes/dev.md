@@ -12,6 +12,9 @@ pytest --cpu --skip-ci                 # Run by Unit Test CI to run CPU-only uni
 python tests/run_integration_tests.py  # Run by Integration Test CI to run integration tests
 
 python deployment/deploy_cloud_functions.py # Deploy all services to cloud and run simple execution tests (you should do this if you modify cloud service implementations)
+
+python .github/scripts/validate_exports.py          # Validate export chain consistency across both repos
+python .github/scripts/validate_exports.py --verbose # Same, with detailed output
 ```
 
 ## Table of Contents
@@ -19,6 +22,7 @@ python deployment/deploy_cloud_functions.py # Deploy all services to cloud and r
 - [Keeping the Submodule in Sync](#keeping-the-submodule-in-sync)
 - [Git Worktrees](#git-worktrees)
 - [Pre-commit Hooks](#pre-commit-hooks)
+- [Export Chain Validator](#export-chain-validator)
 - [Continuous Integration (CI) Checks](#continuous-integration-ci-checks)
 
 ---
@@ -123,6 +127,7 @@ pre-commit install
 
 1. **Import sorting** - Runs `isort` to sort imports
 2. **Basic checks** - Removes trailing whitespace, fixes end-of-file issues, validates YAML, checks for large files
+3. **Export chain validation** - Validates `__init__.py` export chains when any `__init__.py` is staged (see [Export Chain Validator](#export-chain-validator))
 
 ### Running Hooks Manually
 
@@ -144,6 +149,36 @@ git commit --no-verify
 ```
 
 **Note:** CI will still catch issues if you bypass hooks.
+
+---
+
+## Export Chain Validator
+
+AST-based tool that validates `__init__.py` export chains across both `proto-language` and `proto-tools`. Catches the #1 silent failure mode: adding a new tool/constraint/generator but missing an `__init__.py` export level, causing `ImportError` at runtime.
+
+### What It Checks
+
+1. **Upward chain completeness** — Every symbol in `__all__` at level N is importable at level N+1
+2. **`__all__` consistency** — Every item in `__all__` is actually imported or defined in that module (catches stale entries)
+3. **Registry registration** — Every `@tool`/`@constraint`/`@generator`/`@optimizer` decorated function is exported by its parent `__init__.py`
+
+### Running It
+
+```bash
+python .github/scripts/validate_exports.py                # All domains
+python .github/scripts/validate_exports.py --domain Tools  # Single domain
+python .github/scripts/validate_exports.py --verbose       # Show all checks
+```
+
+Exit code 0 = pass, 1 = errors found. Errors go to stderr with actionable messages.
+
+### Exceptions
+
+Known intentional omissions (internal base configs, private subpackages, etc.) are listed in the `exceptions` section of `.github/scripts/export_config.json`. Add new exceptions there if a symbol is intentionally not propagated.
+
+### CI Integration
+
+Runs automatically on PRs and pushes to main when any `__init__.py`, the validator script, or the exceptions file changes (`.github/workflows/validate_exports.yml`).
 
 ---
 

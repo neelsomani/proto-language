@@ -1,0 +1,62 @@
+{
+  "_comment": "Domain-based configuration for the export chain validator. Each domain is an independent validation scope with its own root, checks, and registry decorators.",
+
+  "_note_tooling": "Currently, adding a new component TYPE (e.g. a new @scorer decorator) requires manually adding a domain entry here. We do NOT yet auto-update this config via /implement-tool or similar commands. This is a known gap — if a new decorator is introduced and this config is not updated, the validator will silently miss it. The zero-decorated-functions warning mitigates this partially. Automating config updates when new component types are added is a future improvement to flag on PRs that introduce new decorators.",
+
+  "domains": [
+    {
+      "name": "Constraints",
+      "root": "proto_language/language/constraint",
+      "package_root": "proto_language",
+      "registry_decorators": ["constraint"],
+      "checks": ["all_consistency", "registry_exports"]
+    },
+    {
+      "name": "Generators",
+      "root": "proto_language/language/generator",
+      "package_root": "proto_language",
+      "registry_decorators": ["generator"],
+      "checks": ["all_consistency", "registry_exports"]
+    },
+    {
+      "name": "Optimizers",
+      "root": "proto_language/language/optimizer",
+      "package_root": "proto_language",
+      "registry_decorators": ["optimizer"],
+      "checks": ["all_consistency", "registry_exports"]
+    },
+    {
+      "name": "Package Root",
+      "root": "proto_language",
+      "checks": ["all_consistency"],
+      "depth": 0
+    },
+    {
+      "name": "Tools",
+      "root": "proto_tools/tools",
+      "root_search": ["proto-tools/proto_tools/tools", "../proto-tools/proto_tools/tools"],
+      "registry_decorators": ["tool"],
+      "checks": ["all_consistency", "registry_exports"]
+    },
+    {
+      "name": "Tools Package Root",
+      "root": "proto_tools",
+      "root_search": ["proto-tools/proto_tools", "../proto-tools/proto_tools"],
+      "checks": ["all_consistency"],
+      "depth": 0
+    }
+  ],
+
+  "exceptions": {
+    "_comment": "Symbols in sub-package __all__ that are not registered via decorators.",
+    "internal_base_configs": [
+      "StructureBasedConstraintConfig",
+      "RNAPropertySimilarityConfig",
+      "RNAMotifSimilarityConfig",
+      "RNAFeatureSimilarityConfig",
+      "RNABasePairSimilarityConfig",
+      "BaseOptimizerConfig",
+      "OPTIMIZERS_WITH_TARGET_SEGMENT"
+    ]
+  }
+}

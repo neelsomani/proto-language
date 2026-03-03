@@ -4,10 +4,11 @@ Base registry pattern for decorator-based component registration.
 Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry.
 """
 from __future__ import annotations
-from typing import Any, Dict, Generic, List, Type, TypeVar
-from abc import ABC, abstractmethod
-from pydantic import BaseModel, Field, field_serializer
 
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Generic, List, Type, TypeVar
+
+from pydantic import BaseModel, Field, field_serializer
 
 SpecType = TypeVar('SpecType', bound='BaseSpec')
 
@@ -27,6 +28,7 @@ class BaseSpec(BaseModel):
     key: str = Field(description="Internal identifier (e.g., 'mcmc', 'gc-content')")
     label: str = Field(description="External UI display name (e.g., 'MCMC Optimizer', 'GC Content Range')")
     description: str = Field(description="Detailed description of component functionality")
+    uses_gpu: bool = Field(default=False, description="Whether this component requires GPU")
 
     # Configuration model
     config_model: Type[BaseModel] = Field(
@@ -64,20 +66,20 @@ class BaseSpec(BaseModel):
 class BaseRegistry(ABC, Generic[SpecType]):
     """
     Base registry for decorator-based component registration.
-    
+
     Provides discovery, schema generation, and factory methods for constraints,
     generators, and tools. Registration happens at import time via decorators.
-    
+
     Abstract Methods (implemented by subclasses):
     - register(): Decorator to register components
     - list_all(): List all components with metadata
-    
+
     Public Methods:
     - get(): Retrieve component spec by key
     - get_schema(): Get JSON schema for component configuration
     - count(): Get number of registered components
     """
-    
+
     # Subclasses must define their own _registry class variable
     _registry: Dict[str, SpecType] = {}
 
@@ -86,24 +88,24 @@ class BaseRegistry(ABC, Generic[SpecType]):
     def register(cls, key: str, **kwargs):
         """Decorator to register a component. Implemented by subclasses."""
         raise NotImplementedError(f"{cls.__name__}.register() must be implemented by subclass")
-    
+
     @classmethod
     @abstractmethod
     def list_all(cls) -> List[SpecType]:
         """List all components as Pydantic models. Implemented by subclasses."""
         raise NotImplementedError(f"{cls.__name__}.list_all() must be implemented by subclass")
-    
+
     @classmethod
     def get(cls, key: str) -> SpecType:
         """
         Get component spec by key.
-        
+
         Args:
             key: Component identifier
-            
+
         Returns:
             Component specification object
-            
+
         Raises:
             ValueError: If key not found in registry
         """
@@ -112,18 +114,18 @@ class BaseRegistry(ABC, Generic[SpecType]):
             component_type = cls._component_type() # Get the component type (e.g. "constraint", "generator", "tool")
             raise ValueError(f"Unknown {component_type}: '{key}'. Available {component_type}s: {available}")
         return cls._registry[key]
-    
+
     @classmethod
     def get_schema(cls, key: str) -> Dict[str, Any]:
         """
         Get the JSON schema for a specific component's configuration.
-        
+
         The schema includes parameter names, types, defaults, validation rules,
         and descriptions - everything needed to generate a client form.
-        
+
         Args:
             key: Component identifier
-            
+
         Returns:
             JSON Schema dict with structure:
             {
@@ -140,7 +142,7 @@ class BaseRegistry(ABC, Generic[SpecType]):
                 "title": "ConfigModelName",
                 ...
             }
-        
+
         Examples:
             >>> schema = MyRegistry.get_schema("my_component")
             >>> # Client uses this to generate form fields:
@@ -149,53 +151,53 @@ class BaseRegistry(ABC, Generic[SpecType]):
         """
         spec = cls.get(key)
         return spec.config_model.model_json_schema()
-    
+
     @classmethod
     def count(cls) -> int:
         """
         Get count of registered components.
-        
+
         Returns:
             Number of registered components
         """
         return len(cls._registry)
-    
+
     @classmethod
     def _check_duplicate(cls, key: str, attempted_component_name: str = None) -> None:
         """
         Check for duplicate registration.
-        
+
         Args:
             key: Component identifier to check
             attempted_component_name: Name of component attempting registration (optional)
-            
+
         Raises:
             ValueError: If key already exists in registry
         """
         if key in cls._registry:
             component_type = cls._component_type()
             existing_spec = cls._registry[key]
-            
+
             # Try to get name from the existing spec label
             existing_name = getattr(existing_spec, 'label', 'unknown')
-            
+
             error_msg = (
                 f"{component_type.capitalize()} '{key}' is already registered. "
                 "Duplicate registration is not allowed."
             )
-            
+
             if attempted_component_name:
                 error_msg += f"\nExisting: {existing_name}, Attempted: {attempted_component_name}"
             else:
                 error_msg += f"\nExisting component: {existing_name}"
-            
+
             raise ValueError(error_msg)
-        
+
     @classmethod
     def _component_type(cls) -> str:
         """
         Get component type derived from registry class name.
-        
+
         Returns:
             Component type string (e.g., 'constraint', 'generator', 'tool')
         """

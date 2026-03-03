@@ -51,7 +51,7 @@ class GyrationRadiusConfig(BaseConfig):
     label="Gyration Radius",
     config=GyrationRadiusConfig,
     description="Filter structures by radius of gyration (compactness)",
-    gpu_required=False,
+    uses_gpu=False,
     tools_called=["structure_metrics"],
     category="protein_structure",
     supported_sequence_types=["protein", "dna"],

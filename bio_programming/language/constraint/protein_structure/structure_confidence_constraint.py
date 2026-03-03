@@ -19,10 +19,7 @@ from __future__ import annotations
 from logging import getLogger
 from typing import Dict, List, Tuple
 
-from proto_tools import (
-    StructurePredictionComplex,
-    predict_structures,
-)
+from proto_tools import StructurePredictionComplex, predict_structures
 
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.protein_structure.structure_constraint_config import (
@@ -123,7 +120,7 @@ def _structure_confidence(
     label="Structure pLDDT Score",
     config=StructureBasedConstraintConfig,
     description="Evaluate structure quality using predicted LDDT score",
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -176,7 +173,7 @@ def structure_plddt_constraint(
     label="Structure pTM Score",
     config=StructureBasedConstraintConfig,
     description="Evaluate structure quality using predicted TM score",
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -217,7 +214,7 @@ def structure_ptm_constraint(
     label="Structure ipTM Score",
     config=StructureBasedConstraintConfig,
     description="Evaluate interface quality using predicted interface TM score",
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -277,7 +274,7 @@ def structure_iptm_constraint(
     label="Structure pAE Score",
     config=StructureBasedConstraintConfig,
     description="Evaluate structure quality using predicted aligned error",
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],

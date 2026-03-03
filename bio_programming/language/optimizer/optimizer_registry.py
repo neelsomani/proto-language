@@ -87,6 +87,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         label: str,
         config: Type[BaseModel],
         description: str,
+        uses_gpu: bool = False,
     ):
         """
         Decorator to register an optimizer class.
@@ -99,6 +100,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
             label: Readable external name (e.g., "MCMC Optimizer", "Beam Search")
             config: Pydantic model class for configuration validation
             description: Readable description
+            uses_gpu: If True, optimizer requires GPU for computation
 
         Returns:
             Decorator that registers the class and returns it unchanged
@@ -125,6 +127,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
                 description=description,
                 config_model=config,
                 optimizer_class=optimizer_class,
+                uses_gpu=uses_gpu,
             )
             return optimizer_class
         return decorator

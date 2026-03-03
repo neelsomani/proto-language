@@ -103,7 +103,7 @@ class ESM2GeneratorConfig(BaseConfig):
     label="ESM2 Protein Language Model",
     config=ESM2GeneratorConfig,
     description="ESM-2 protein language model for protein sequence generation",
-    requires_gpu=True,
+    uses_gpu=True,
     tools_called=["esm2-sample"],
     category="mutation",
     supported_sequence_types=["protein"],

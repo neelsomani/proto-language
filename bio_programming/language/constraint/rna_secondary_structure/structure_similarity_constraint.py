@@ -13,11 +13,7 @@ from logging import getLogger
 from typing import List, Set, Tuple
 
 import numpy as np
-from proto_tools import (
-    ViennaRNAConfig,
-    ViennaRNAInput,
-    run_viennarna,
-)
+from proto_tools import ViennaRNAConfig, ViennaRNAInput, run_viennarna
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
@@ -356,7 +352,7 @@ class RNABasePairSimilarityConfig(RNAStructureConstraintBaseConfig):
     label="RNA Structural Property Similarity",
     config=RNAPropertySimilarityConfig,
     description="Compare RNA structural properties (length, pairing ratio) against a reference.",
-    gpu_required=False,
+    uses_gpu=False,
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],
@@ -429,7 +425,7 @@ def rna_property_similarity_constraint(
     label="RNA Structural Motif Similarity",
     config=RNAMotifSimilarityConfig,
     description="Compare RNA structural motifs (stems, hairpins, bulges) using Jaccard similarity.",
-    gpu_required=False,
+    uses_gpu=False,
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],
@@ -496,7 +492,7 @@ def rna_motif_similarity_constraint(
     label="RNA Feature Vector Similarity",
     config=RNAFeatureSimilarityConfig,
     description="Compare RNA structures using cosine similarity of 10-dim feature vectors.",
-    gpu_required=False,
+    uses_gpu=False,
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],
@@ -562,7 +558,7 @@ def rna_feature_similarity_constraint(
     label="RNA Base Pair Similarity",
     config=RNABasePairSimilarityConfig,
     description="Compare RNA base pair sets using Jaccard similarity.",
-    gpu_required=False,
+    uses_gpu=False,
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],

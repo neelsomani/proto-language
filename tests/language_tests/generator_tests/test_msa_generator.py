@@ -391,7 +391,7 @@ class TestMSAGeneratorRegistry:
         assert spec.key == "msa"
         assert spec.label == "MSA Generator"
         assert spec.category == "mutation"
-        assert spec.requires_gpu is False
+        assert spec.uses_gpu is False
 
     def test_create_from_registry(self):
         """Test creating MSAGenerator via registry."""

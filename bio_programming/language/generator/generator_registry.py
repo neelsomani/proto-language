@@ -5,6 +5,7 @@ Provides a decorator-based API for registering generator classes with metadata a
 automatic schema generation for API/client integration.
 """
 from __future__ import annotations
+
 from typing import Any, Dict, List, Literal, Type
 
 from pydantic import BaseModel, Field
@@ -21,7 +22,6 @@ class GeneratorSpec(BaseSpec):
     """
 
     category: Literal["autoregressive", "mutation", "inverse_folding"] = Field(description="Generator category: 'autoregressive' (left-to-right, e.g. Evo2), 'mutation' (bidirectional/masked, e.g. ESM2), or 'inverse_folding' (structure-conditioned, e.g. ProteinMPNN)")
-    requires_gpu: bool = Field(description="Whether generator requires GPU")
     tools_called: List[str] = Field(description="List of tool keys this generator calls (e.g., ['esm3-sample', 'evo2-sample']). Helps agent find relevant tool documentation.")
     supported_sequence_types: List[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Empty list means supports all types.")
 
@@ -32,10 +32,10 @@ class GeneratorSpec(BaseSpec):
 class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     """
     Registry for generator discovery and schema generation.
-    
+
     Inherits common registry functionality from BaseRegistry and adds
-    generator-specific metadata (category, requires_gpu).
-    
+    generator-specific metadata (category, uses_gpu).
+
     Public Methods:
     - register(): Decorator to register generator classes
     - list_all(): List generators with metadata and schemas
@@ -43,7 +43,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     - get(): Get generator spec by key (inherited)
     - get_schema(): Get JSON schema for generator configuration (inherited)
     - count(): Get number of registered generators (inherited)
-    
+
     Examples:
         Registration (in generator files):
         >>> @generator(
@@ -51,34 +51,34 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         ...     config=UniformMutationConfig,
         ...     description="Random point mutations",
         ...     category="mutation",
-        ...     requires_gpu=False,
+        ...     uses_gpu=False,
         ... )
         ... class UniformMutationGenerator(Generator):
         ...     def __init__(self, config: UniformMutationConfig):
         ...         super().__init__(batch_size=config.batch_size)
         ...         # Implementation
-        
+
         API/Client Usage:
         >>> # List all available generators
         >>> generators = GeneratorRegistry.list_all()
-        >>> 
+        >>>
         >>> # Get form schema
         >>> schema = GeneratorRegistry.get_schema("uniform-mutation")
-        >>> 
+        >>>
         >>> # Create from config dict
         >>> config_dict = {"batch_size": 5, "num_mutations": 2}
         >>> generator = GeneratorRegistry.create("uniform-mutation", config_dict)
-        
+
         Direct Usage:
         >>> # Call generator class directly
         >>> from proto_language.language.generator import UniformMutationGenerator, UniformMutationConfig
         >>> config = UniformMutationConfig(batch_size=5, num_mutations=2)
         >>> generator = UniformMutationGenerator(config)
     """
-    
+
     # Each registry subclass must have its own _registry dict
     _registry: Dict[str, GeneratorSpec] = {}
-    
+
     @classmethod
     def register(
         cls,
@@ -87,7 +87,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         config: Type[BaseModel],
         description: str,
         category: Literal["autoregressive", "mutation", "inverse_folding"],
-        requires_gpu: bool,
+        uses_gpu: bool = False,
         tools_called: List[str] = [],
         supported_sequence_types: List[str] = [],
     ):
@@ -102,11 +102,11 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             label: Readable external name (e.g., "Uniform Mutation Generator", "EVO2 Generator")
             config: Pydantic model class for configuration validation
             description: Readable description
-            category: "autoregressive" (left-to-right), "mutation" (bidirectional/masked), 
+            category: "autoregressive" (left-to-right), "mutation" (bidirectional/masked),
                 or "inverse_folding" (structure-conditioned)
-            requires_gpu: If True, generator requires GPU for computation
+            uses_gpu: If True, generator requires GPU for computation
             tools_called: List of tool keys this generator calls
-            supported_sequence_types: List of supported sequence types (e.g., ["dna", "protein"]). 
+            supported_sequence_types: List of supported sequence types (e.g., ["dna", "protein"]).
                 Empty list means supports all types.
 
         Returns:
@@ -119,7 +119,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             ...     config=UniformMutationConfig,
             ...     description="Random point mutations",
             ...     category="mutation",
-            ...     requires_gpu=False,
+            ...     uses_gpu=False,
             ...     supported_sequence_types=[],
             ... )
             ... class UniformMutationGenerator(Generator):
@@ -138,13 +138,13 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
                 config_model=config,
                 generator_class=generator_class,
                 category=category,
-                requires_gpu=requires_gpu,
+                uses_gpu=uses_gpu,
                 tools_called=tools_called,
                 supported_sequence_types=supported_sequence_types,
             )
             return generator_class
         return decorator
-    
+
     @classmethod
     def create(
         cls,
@@ -153,23 +153,23 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     ) -> Generator:
         """
         Factory method to create Generator instance from JSON-compatible config.
-        
+
         This is the primary integration point with API/client layers. It:
         1. Retrieves the registered generator specification
         2. Validates config_dict using Pydantic (catches errors early)
         3. Creates a Generator instance with validated config
-        
+
         Args:
             key: Registered generator identifier (e.g., "uniform-mutation")
             config_dict: Configuration as plain dict (from JSON/client)
-            
+
         Returns:
             Configured Generator instance ready to use
-            
+
         Raises:
             ValueError: If key is not registered
             pydantic.ValidationError: If config_dict has invalid values
-            
+
         Examples:
             >>> # From API endpoint receiving JSON
             >>> generator = GeneratorRegistry.create(
@@ -186,7 +186,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
 
         # Create Generator with validated Pydantic model
         return spec.generator_class(validated_config)
-    
+
     @classmethod
     def get_key(cls, generator: Generator) -> str:
         """Get registry key for a generator instance."""

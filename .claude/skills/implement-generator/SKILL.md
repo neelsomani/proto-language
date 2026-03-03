@@ -84,7 +84,7 @@ Summary of the workflow:
 | `config` | `Type[BaseModel]` | Yes | Pydantic config class |
 | `description` | `str` | Yes | What this generator does |
 | `category` | `str` | Yes | `"mutation"`, `"autoregressive"`, or `"inverse_folding"` |
-| `requires_gpu` | `bool` | Yes | Whether generator requires GPU |
+| `uses_gpu` | `bool` | No | Whether generator requires GPU |
 | `tools_called` | `List[str]` | No | Default `[]` |
 | `supported_sequence_types` | `List[str]` | No | Default `[]` (= all types). Options: `"dna"`, `"rna"`, `"protein"` |
 

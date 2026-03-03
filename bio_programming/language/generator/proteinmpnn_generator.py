@@ -212,7 +212,7 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
     label="ProteinMPNN Inverse Folding",
     config=ProteinMPNNGeneratorConfig,
     description="ProteinMPNN structure-conditioned protein sequence design",
-    requires_gpu=True,
+    uses_gpu=True,
     tools_called=["proteinmpnn-sample"],
     category="inverse_folding",
     supported_sequence_types=["protein"],

@@ -151,7 +151,7 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     label="SpliceTransformer tissue specificity score",
     config=SpliceTransformerSpecificityConfig,
     description="Evaluate tissue-specific splicing with SpliceTransformer",
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["splice-transformer-prediction"],
     category="rna splicing",
     supported_sequence_types=["dna"],

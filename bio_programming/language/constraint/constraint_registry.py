@@ -5,6 +5,7 @@ Provides a decorator-based API for registering constraint functions and
 a factory method for creating Constraint instances.
 """
 from __future__ import annotations
+
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from pydantic import BaseModel, Field
@@ -13,10 +14,10 @@ from pydantic.json_schema import SkipJsonSchema
 from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Constraint, Segment
 
+
 class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
 
-    gpu_required: bool = Field(description="Whether constraint requires GPU")
     tools_called: List[str] = Field(description="List of tool keys this constraint calls (e.g., ['esmfold-prediction', 'prodigal-prediction']). Helps agent find relevant tool documentation.")
     category: Optional[str] = Field(default=None, description="Optional category for organization (e.g., 'protein_structure', 'sequence_composition'). Not required for custom constraints.")
     supported_sequence_types: List[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Must be non-empty.")
@@ -35,7 +36,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
 
     Public Methods:
     - register(): Decorator to register constraint functions
-    - list_all(): List constraints with metadata (gpu_required, etc.)
+    - list_all(): List constraints with metadata (uses_gpu, etc.)
     - create(): Factory to create Constraint instances from config dicts
     - get(): Get constraint spec by key (inherited)
     - get_schema(): Get JSON schema for constraint configuration (inherited)
@@ -51,7 +52,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         ...     supported_sequence_types=["dna", "rna"],
         ... )
         ... def gc_content_constraint(
-        ...     input_sequences: List[Tuple[Sequence, ...]], 
+        ...     input_sequences: List[Tuple[Sequence, ...]],
         ...     config: GCContentConfig
         ... ) -> List[float]:
         ...     return [calculate_penalty(seq_tuple[0], config) for seq_tuple in input_sequences]
@@ -89,7 +90,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         label: str,
         config: Type[BaseModel],
         description: str,
-        gpu_required: bool = False,
+        uses_gpu: bool = False,
         tools_called: List[str] = [],
         category: Optional[str] = None,
         supported_sequence_types: List[str] = [],
@@ -106,7 +107,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             label: Readable external name (e.g., "GC Content Range", "Protein Length")
             config: Pydantic model class for configuration validation
             description: Readable description
-            gpu_required: If True, constraint requires GPU for computation (e.g., ESMFold, Boltz).
+            uses_gpu: If True, constraint requires GPU for computation (e.g., ESMFold, Boltz).
             tools_called: List of tool keys this constraint calls (helps agent find relevant documentation).
             category: Optional category for organization (e.g., 'protein_structure', 'sequence_composition').
             supported_sequence_types: List of supported sequence types (e.g., ["dna", "protein"]).
@@ -121,11 +122,11 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             ...     label="GC Content Range",
             ...     config=GCContentConfig,
             ...     description="GC content within range",
-            ...     gpu_required=False,
+            ...     uses_gpu=False,
             ...     supported_sequence_types=["dna", "rna"],
             ... )
             ... def gc_content_constraint(
-            ...     input_sequences: List[Tuple[Sequence, ...]], 
+            ...     input_sequences: List[Tuple[Sequence, ...]],
             ...     config: GCContentConfig
             ... ) -> List[float]:
             ...     return [calculate_penalty(seq_tuple[0], config) for seq_tuple in input_sequences]
@@ -142,14 +143,14 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             func._constraint_config_class = config
             func._constraint_supported_sequence_types = supported_sequence_types
             func._constraint_num_input_sequences_per_tuple = num_input_sequences_per_tuple
-            
+
             cls._registry[key] = ConstraintSpec(
                 key=key,
                 label=label,
                 config_model=config,
                 description=description,
                 function=func,
-                gpu_required=gpu_required,
+                uses_gpu=uses_gpu,
                 tools_called=tools_called,
                 category=category,
                 supported_sequence_types=supported_sequence_types,
@@ -170,12 +171,12 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     ) -> Constraint:
         """
         Factory method to create Constraint instance from JSON-compatible config.
-        
+
         This is the primary integration point with API/client layers. It:
         1. Retrieves the registered constraint specification
         2. Validates config_dict using Pydantic (catches errors early)
         3. Creates a Constraint instance with validated config
-        
+
         Args:
             key: Registered constraint identifier (e.g., "gc-content")
             segments: List of Segment objects to evaluate
@@ -185,14 +186,14 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 scores <= threshold are accepted (True), scores > threshold are rejected (False).
                 If None, returns raw float scores for optimization.
             weight: Optional weight to scale constraint scores. Defaults to 1.0 if not provided.
-            
+
         Returns:
             Configured Constraint instance ready to evaluate
-            
+
         Raises:
             ValueError: If key is not registered
             pydantic.ValidationError: If config_dict has invalid values
-            
+
         Examples:
             >>> # Scoring mode (default)
             >>> constraint = ConstraintRegistry.create(

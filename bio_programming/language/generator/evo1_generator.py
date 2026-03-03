@@ -101,7 +101,7 @@ class Evo1GeneratorConfig(BaseConfig):
     label="Evo1 DNA Language Model",
     config=Evo1GeneratorConfig,
     description="Evo1 genome language model for DNA sequence generation",
-    requires_gpu=True,
+    uses_gpu=True,
     tools_called=["evo1"],
     category="autoregressive",
     supported_sequence_types=["dna"],

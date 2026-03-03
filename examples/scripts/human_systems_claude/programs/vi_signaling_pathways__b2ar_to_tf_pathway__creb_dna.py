@@ -116,7 +116,7 @@ class BorzoiDNADesignConfig(BaseConfig):
     config=BorzoiDNADesignConfig,
     description="Compute activity of Borzoi-predicted CREB1 ChIP-seq",
     supported_sequence_types=["dna"],
-    gpu_required=False,
+    uses_gpu=False,
     tools_called=["borzoi"],
     category="epigenomic_sequence_scoring",
 )

@@ -218,7 +218,7 @@ class BoltzBindingStrengthConfig(BaseConfig):
     label="Boltz2 Binding Strength",
     config=BoltzBindingStrengthConfig,
     description="Evaluate protein-protein/protein-ligand binding using Boltz2 structure prediction",
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["boltz2-prediction"],
     category="protein_structure",
     supported_sequence_types=["dna", "rna", "protein", "ligand"],

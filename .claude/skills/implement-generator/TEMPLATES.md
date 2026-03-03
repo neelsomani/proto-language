@@ -90,7 +90,7 @@ class MyGeneratorConfig(BaseConfig):
     config=MyGeneratorConfig,
     description="Generates sequences using ...",
     category="mutation",
-    requires_gpu=True,
+    uses_gpu=True,
     tools_called=["my-tool"],
     supported_sequence_types=["protein"],
 )
@@ -150,7 +150,7 @@ Autoregressive generators often support prompts and KV caching:
     config=MyGeneratorConfig,
     description="Generates sequences left-to-right using ...",
     category="autoregressive",
-    requires_gpu=True,
+    uses_gpu=True,
     tools_called=["my-tool"],
     supported_sequence_types=["dna"],
 )
@@ -185,7 +185,7 @@ Inverse folding generators take structure inputs:
     config=MyGeneratorConfig,
     description="Designs sequences conditioned on structure using ...",
     category="inverse_folding",
-    requires_gpu=True,
+    uses_gpu=True,
     tools_called=["my-tool"],
     supported_sequence_types=["protein"],
 )

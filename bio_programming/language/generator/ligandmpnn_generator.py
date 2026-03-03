@@ -219,7 +219,7 @@ class LigandMPNNGeneratorConfig(BaseConfig):
     label="LigandMPNN Inverse Folding",
     config=LigandMPNNGeneratorConfig,
     description="LigandMPNN structure-conditioned protein sequence design with ligand awareness",
-    requires_gpu=True,
+    uses_gpu=True,
     tools_called=["ligandmpnn-sample"],
     category="inverse_folding",
     supported_sequence_types=["protein"],

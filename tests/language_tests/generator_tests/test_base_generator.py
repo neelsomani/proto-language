@@ -270,5 +270,5 @@ class TestGeneratorRegistry:
             assert hasattr(spec, "label")
             assert hasattr(spec, "description")
             assert hasattr(spec, "category")
-            assert hasattr(spec, "requires_gpu")
+            assert hasattr(spec, "uses_gpu")
             assert hasattr(spec, "supported_sequence_types")

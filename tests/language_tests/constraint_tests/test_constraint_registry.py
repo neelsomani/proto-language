@@ -10,12 +10,12 @@ Tests cover:
 6. Import-time registration verification
 """
 import copy
+
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
 from proto_language.language.constraint import ConstraintRegistry, constraint
-from proto_language.language.core import Segment, Constraint
-
+from proto_language.language.core import Constraint, Segment
 
 # ============================================================================
 # Test Fixtures
@@ -150,13 +150,13 @@ class TestDiscovery:
             assert spec.key is not None
             assert spec.label is not None
             assert spec.description is not None
-            assert hasattr(spec, "gpu_required")
+            assert hasattr(spec, "uses_gpu")
             # Verify config_model is present and can generate JSON schema
             assert spec.config_model is not None
             schema = spec.config_model.model_json_schema()
             assert isinstance(schema, dict)
             assert "properties" in schema
-            assert isinstance(spec.gpu_required, bool)
+            assert isinstance(spec.uses_gpu, bool)
 
     def test_count_returns_correct_number(self):
         """Test that count returns the correct number of registered constraints."""
@@ -196,32 +196,32 @@ class TestDiscovery:
 
 class TestSchemaGeneration:
     """Test JSON schema generation for client integration."""
-    
+
     def test_get_schema_returns_valid_json_schema(self):
         """Test that get_schema returns valid JSON Schema."""
         schema = ConstraintRegistry.get_schema("gc-content")
-        
+
         assert isinstance(schema, dict)
         assert "properties" in schema
         assert "title" in schema
-        
+
         # Check for expected properties
         properties = schema["properties"]
         assert "min_gc" in properties
         assert "max_gc" in properties
-        
+
         # Check property structure
         for prop_name, prop_info in properties.items():
             assert "type" in prop_info or "anyOf" in prop_info
             assert "description" in prop_info
-    
+
     def test_schema_includes_field_descriptions(self):
         """Test that generated schemas include field descriptions."""
         schema = ConstraintRegistry.get_schema("sequence-length")
-        
+
         properties = schema["properties"]
         assert "target_length" in properties
-        
+
         target_length_info = properties["target_length"]
         assert "description" in target_length_info
         assert len(target_length_info["description"]) > 10  # Should be meaningful
@@ -342,33 +342,33 @@ class TestFactoryMethod:
 
 class TestIntegration:
     """Integration tests for end-to-end workflows."""
-    
+
     def test_full_workflow_list_create_evaluate(self, dna_segment):
         """Test complete workflow: list → get schema → create → evaluate."""
         # 1. List all constraints
         constraints = ConstraintRegistry.list_all()
         constraint_keys = {spec.key for spec in constraints}
         assert "gc-content" in constraint_keys
-        
+
         # 2. Get schema for form generation
         schema = ConstraintRegistry.get_schema("gc-content")
         assert "properties" in schema
-        
+
         # 3. Create constraint from user input
         constraint = ConstraintRegistry.create(
             key="gc-content",
             segments=[dna_segment],
             config_dict={"min_gc": 40.0, "max_gc": 60.0}
         )
-        
+
         # 4. Create candidates before evaluation (constraints evaluate candidate_sequences)
         dna_segment.candidate_sequences = [copy.deepcopy(dna_segment.original_sequence) for _ in range(1)]
-        
+
         # 5. Evaluate
         scores = constraint.evaluate()
         assert len(scores) == 1
         assert 0.0 <= scores[0] <= 1.0
-    
+
     def test_all_registered_constraints_are_creatable(self, dna_segment, protein_segment):
         """Test that all registered constraints can be instantiated."""
         all_constraints = ConstraintRegistry.list_all()
@@ -378,18 +378,18 @@ class TestIntegration:
             try:
                 # Try to get schema (should not raise)
                 schema = ConstraintRegistry.get_schema(spec.key)
-                
+
                 # Extract defaults from schema
                 _ = {k: v.get("default") for k, v in schema.get("properties", {}).items() if "default" in v}
-                
+
                 # Note: We can't create all constraints without proper config values
                 # This test just verifies the registry methods work for all
 
             except Exception as e:
                 errors.append(f"{spec.key}: {str(e)}")
-        
+
         assert len(errors) == 0, f"Errors accessing constraints: {errors}"
-    
+
     def test_registry_methods_consistent(self):
         """Test that different registry methods return consistent data."""
         # Get constraint keys from different methods
@@ -409,7 +409,7 @@ class TestIntegration:
 
 class TestBuiltinConstraints:
     """Test that all expected builtin constraints are registered."""
-    
+
     def test_all_sequence_composition_constraints_registered(self):
         """Test that all sequence composition constraints are registered."""
         expected = [
@@ -418,11 +418,11 @@ class TestBuiltinConstraints:
             "max-homopolymer",
             "kmer-frequency",  # Replaces dinucleotide-frequency and tetranucleotide-usage
         ]
-        
+
         registered = sorted(ConstraintRegistry._registry.keys())
         for key in expected:
             assert key in registered, f"Missing constraint: {key}"
-    
+
     def test_all_protein_quality_constraints_registered(self):
         """Test that all protein quality constraints are registered."""
         expected = [
@@ -434,11 +434,11 @@ class TestBuiltinConstraints:
             "protein-domain",
             "overall-protein-quality"
         ]
-        
+
         registered = sorted(ConstraintRegistry._registry.keys())
         for key in expected:
             assert key in registered, f"Missing constraint: {key}"
-    
+
     def test_all_protein_structure_constraints_registered(self):
         """Test that all protein structure constraints are registered."""
         expected = [
@@ -452,11 +452,11 @@ class TestBuiltinConstraints:
             "protein-globularity",
             "boltz2-binding-strength"
         ]
-        
+
         registered = sorted(ConstraintRegistry._registry.keys())
         for key in expected:
             assert key in registered, f"Missing constraint: {key}"
-    
+
     def test_all_sequence_annotation_constraints_registered(self):
         """Test that all sequence annotation constraints are registered."""
         expected = [
@@ -465,11 +465,11 @@ class TestBuiltinConstraints:
             "seq-motif",
             "promoter-strength"
         ]
-        
+
         registered = sorted(ConstraintRegistry._registry.keys())
         for key in expected:
             assert key in registered, f"Missing constraint: {key}"
-    
+
     def test_gpu_constraints_marked_correctly(self):
         """Test that GPU-requiring constraints are properly marked."""
         # Constraints that should be marked as GPU-required
@@ -498,19 +498,19 @@ class TestBuiltinConstraints:
         # Check GPU constraints
         for key in gpu_constraints:
             assert key in constraints_dict, f"GPU constraint {key} not registered"
-            assert constraints_dict[key].gpu_required == True, \
-                f"Constraint {key} should be marked as gpu_required=True"
+            assert constraints_dict[key].uses_gpu == True, \
+                f"Constraint {key} should be marked as uses_gpu=True"
 
         # Check CPU constraints
         for key in cpu_constraints:
             assert key in constraints_dict, f"CPU constraint {key} not registered"
-            assert constraints_dict[key].gpu_required is False, \
-                f"Constraint {key} should be marked as gpu_required=False"
+            assert constraints_dict[key].uses_gpu is False, \
+                f"Constraint {key} should be marked as uses_gpu=False"
 
     def test_supported_sequence_types_field_present(self):
         """Test that all constraints have supported_sequence_types field."""
         all_constraints = ConstraintRegistry.list_all()
-        
+
         for spec in all_constraints:
             assert hasattr(spec, 'supported_sequence_types'), \
                 f"Constraint {spec.key} missing supported_sequence_types field"
@@ -589,14 +589,14 @@ class TestBuiltinConstraints:
         expected_types = {"dna", "rna", "protein", "ligand"}
         assert set(spec.supported_sequence_types) == expected_types, \
             f"boltz2-binding-strength should support {expected_types}, got {spec.supported_sequence_types}"
-    
+
     def test_config_validation_patterns(self):
         """
         Test that Pydantic config validation works through registry.
         This tests the pattern once rather than per-constraint.
         """
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
-        
+
         # Test 1: Invalid type for numeric parameter
         with pytest.raises(Exception):  # Pydantic ValidationError
             ConstraintRegistry.create(
@@ -607,7 +607,7 @@ class TestBuiltinConstraints:
                     "max_gc": 60
                 }
             )
-        
+
         # Test 2: Missing required parameter
         with pytest.raises(Exception):  # Pydantic ValidationError
             ConstraintRegistry.create(
@@ -615,7 +615,7 @@ class TestBuiltinConstraints:
                 segments=[segment],
                 config_dict={"min_gc": 40}  # Missing max_gc
             )
-        
+
         # Test 3: Valid config should work
         constraint = ConstraintRegistry.create(
             key="gc-content",
@@ -624,11 +624,11 @@ class TestBuiltinConstraints:
         )
         assert constraint.function_config.min_gc == 40
         assert constraint.function_config.max_gc == 60
-    
+
     def test_config_with_optional_parameters(self):
         """Test constraints with optional config parameters."""
         segment = Segment(sequence="MVLSPADKTN", sequence_type="protein")
-        
+
         # protein-complexity has optional segmasker_path
         # Should work with defaults
         constraint = ConstraintRegistry.create(
@@ -637,7 +637,7 @@ class TestBuiltinConstraints:
             config_dict={"max_low_complexity": 0.3}
         )
         assert constraint.function_config.max_low_complexity == 0.3
-        
+
         # Should also work with custom path
         constraint_custom = ConstraintRegistry.create(
             key="protein-complexity",
@@ -648,14 +648,14 @@ class TestBuiltinConstraints:
             }
         )
         assert constraint_custom.function_config.segmasker_path == "/custom/path"
-    
+
     def test_config_validation_with_constraints(self):
         """Test that Pydantic validators work through registry."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
-        
+
         # Many constraints have validators (e.g., min < max, values in range)
         # Test with gc-content which should validate min_gc < max_gc
-        
+
         # This should fail if there's a validator for min < max
         # (if not, it's just documenting current behavior)
         try:

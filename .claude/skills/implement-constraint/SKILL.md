@@ -97,7 +97,7 @@ class MyConstraintConfig(BaseConfig):
     label="My Constraint",                        # Human-readable display name
     config=MyConstraintConfig,                    # Config class from Step 1
     description="Evaluates sequences for ...",    # UI description
-    gpu_required=False,                           # True if calls GPU tools
+    uses_gpu=False,                               # True if calls GPU tools
     tools_called=[],                              # e.g. ["esmfold", "segmasker"]
     category="sequence_composition",              # Must match directory name
     supported_sequence_types=["dna", "rna"],      # MUST be non-empty
@@ -153,7 +153,7 @@ def my_constraint(
 | `label` | `str` | Yes | Human-readable name for UI |
 | `config` | `Type[BaseModel]` | Yes | Pydantic config class |
 | `description` | `str` | Yes | What this constraint evaluates |
-| `gpu_required` | `bool` | No | Default `False`. Set `True` if calling GPU tools |
+| `uses_gpu` | `bool` | No | Default `False`. Set `True` if calling GPU tools |
 | `tools_called` | `List[str]` | No | Default `[]`. Tool names this constraint invokes |
 | `category` | `str` | No | Must match the subdirectory name (e.g., `"sequence_composition"`) |
 | `supported_sequence_types` | `List[str]` | Yes | Non-empty list from: `"dna"`, `"rna"`, `"protein"`, `"ligand"` |

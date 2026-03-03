@@ -109,7 +109,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
     label="Protein Symmetry Ring Structure",
     config=ProteinSymmetryRingConfig,
     description="Constrain protein to form symmetric ring-like multimeric structure",
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["esmfold-prediction", "prodigal-prediction"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],

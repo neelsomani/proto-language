@@ -82,7 +82,7 @@ class MSAGeneratorConfig(BaseConfig):
     config=MSAGeneratorConfig,
     description="Sample mutations from MSA position-specific distributions",
     category="mutation",
-    requires_gpu=False,
+    uses_gpu=False,
 )
 @final
 class MSAGenerator(Generator):

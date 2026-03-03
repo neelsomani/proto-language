@@ -446,7 +446,7 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
         "Generate conformational ensemble and compute RMSD against "
         "an experimental target structure using PyMOL alignment."
     ),
-    gpu_required=True,
+    uses_gpu=True,
     tools_called=["bioemu-sample", "pymol"],
     category="protein_structure",
     supported_sequence_types=["protein"],

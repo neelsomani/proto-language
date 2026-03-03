@@ -83,7 +83,7 @@ class Evo2RNAConstraintConfig(BaseConfig):
     supported_sequence_types=["dna"],
     batched=True,
     multi_input=False,
-    gpu_required=False,
+    uses_gpu=False,
     tools_called=["viennarna"],
     category="rna_secondary_structure",
 )
@@ -135,7 +135,7 @@ class RNAPairwiseSimilarityConfig(BaseConfig):
     supported_sequence_types=["rna"],
     batched=True,
     multi_input=False,
-    gpu_required=False,
+    uses_gpu=False,
     category="sequence_composition",
 )
 def rna_pairwise_similarity_constraint(

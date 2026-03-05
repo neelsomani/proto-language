@@ -6,10 +6,7 @@ automatic schema generation for API/client integration.
 """
 from __future__ import annotations
 
-from typing import Dict, FrozenSet, List, Type
-
-# Optimizers that operate on a single target segment (require target_segment parameter)
-OPTIMIZERS_WITH_TARGET_SEGMENT: FrozenSet[str] = frozenset({"beam-search", "cycling"})
+from typing import Dict, List, Type
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +20,11 @@ class OptimizerSpec(BaseSpec):
 
     Extends BaseSpec with optimizer-specific metadata for discovery and schema generation.
     """
+
+    targets_single_segment: bool = Field(
+        default=False,
+        description="Whether this optimizer requires a target_segment parameter",
+    )
 
     # Private field - excluded from serialization
     optimizer_class: Type[Optimizer] = Field(exclude=True)
@@ -88,6 +90,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         config: Type[BaseModel],
         description: str,
         uses_gpu: bool = False,
+        targets_single_segment: bool = False,
     ):
         """
         Decorator to register an optimizer class.
@@ -101,6 +104,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
             config: Pydantic model class for configuration validation
             description: Readable description
             uses_gpu: If True, optimizer requires GPU for computation
+            targets_single_segment: If True, optimizer operates on a single target segment
 
         Returns:
             Decorator that registers the class and returns it unchanged
@@ -128,6 +132,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
                 config_model=config,
                 optimizer_class=optimizer_class,
                 uses_gpu=uses_gpu,
+                targets_single_segment=targets_single_segment,
             )
             return optimizer_class
         return decorator

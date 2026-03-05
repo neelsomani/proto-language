@@ -10,12 +10,7 @@ from .cycling_optimizer import CyclingOptimizer, CyclingOptimizerConfig
 
 # Optimizers
 from .mcmc_optimizer import MCMCOptimizer, MCMCOptimizerConfig
-from .optimizer_registry import (
-    OPTIMIZERS_WITH_TARGET_SEGMENT,
-    OptimizerRegistry,
-    OptimizerSpec,
-    optimizer,
-)
+from .optimizer_registry import OptimizerRegistry, OptimizerSpec, optimizer
 from .topk_optimizer import TopKOptimizer, TopKOptimizerConfig
 
 __all__ = [
@@ -23,7 +18,6 @@ __all__ = [
     "BaseOptimizerConfig",
     "OptimizerRegistry",
     "OptimizerSpec",
-    "OPTIMIZERS_WITH_TARGET_SEGMENT",
     "optimizer",
     # MCMC Optimizer
     "MCMCOptimizer",

@@ -240,6 +240,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
     label="Cycling Optimizer",
     config=CyclingOptimizerConfig,
     description="Iterative optimizer that cycles between a conditioning function and generator",
+    targets_single_segment=True,
 )
 @final
 class CyclingOptimizer(Optimizer):

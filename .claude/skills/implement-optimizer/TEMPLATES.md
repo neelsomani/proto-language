@@ -90,10 +90,16 @@ self._restore_initial_state()    # Restore to captured state
 If your optimizer only works with one segment (like BeamSearch or Cycling):
 
 ```python
-# In optimizer_registry.py:
-OPTIMIZERS_WITH_TARGET_SEGMENT = frozenset({"beam-search", "cycling", "my-optimizer"})
+# In the @optimizer decorator, set targets_single_segment=True:
+@optimizer(
+    key="my-optimizer",
+    label="My Optimizer",
+    config=MyOptimizerConfig,
+    description="...",
+    targets_single_segment=True,
+)
 
-# In your optimizer:
+# In __init__, add target_segment as the first parameter:
 def __init__(
     self,
     target_segment: Segment,      # First parameter for single-segment optimizers
@@ -105,7 +111,7 @@ def __init__(
 ) -> None:
 ```
 
-This enables the `target_segment` field in the API parser for single-segment selection.
+This enables the `target_segment` field in the API parser and client UI for single-segment selection.
 
 ## Config Class Template
 

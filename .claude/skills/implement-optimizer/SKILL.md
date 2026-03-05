@@ -104,7 +104,7 @@ Summary of the workflow:
 
 If your optimizer only works with one segment (like BeamSearch or Cycling):
 
-1. Add the key to `OPTIMIZERS_WITH_TARGET_SEGMENT` in `optimizer_registry.py`
+1. Set `targets_single_segment=True` in the `@optimizer(...)` decorator
 2. Add `target_segment: Segment` as the first parameter in `__init__` (before constructs)
 
 ## Export Chain

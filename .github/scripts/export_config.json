@@ -55,8 +55,7 @@
       "RNAMotifSimilarityConfig",
       "RNAFeatureSimilarityConfig",
       "RNABasePairSimilarityConfig",
-      "BaseOptimizerConfig",
-      "OPTIMIZERS_WITH_TARGET_SEGMENT"
+      "BaseOptimizerConfig"
     ]
   }
 }

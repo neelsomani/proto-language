@@ -441,7 +441,7 @@ class TestFlattenOptimization:
             assert "energy_score" in row
 
     def test_per_segment_sequences(self, sample_history):
-        """Per-segment data uses {segment}.sequence columns."""
+        """Single-construct: per-segment data uses {segment}.sequence columns."""
         rows = flatten_optimization(sample_history)
         # First timepoint, result 0
         t0_b0 = [r for r in rows if r["timepoint"] == 0 and r["result_idx"] == 0][0]
@@ -449,7 +449,7 @@ class TestFlattenOptimization:
         assert t0_b0["energy_score"] == 0.8
 
     def test_per_segment_constraint_scores(self, sample_history):
-        """Constraint scores use {segment}.{constraint}.{field} prefix."""
+        """Single-construct: constraint scores use {segment}.{constraint}.{field} prefix."""
         rows = flatten_optimization(sample_history)
         t10_b0 = [r for r in rows if r["timepoint"] == 10 and r["result_idx"] == 0][0]
         assert t10_b0["promoter.gc_constraint.score"] == 0.2
@@ -464,6 +464,47 @@ class TestFlattenOptimization:
     def test_empty_history(self):
         """Handles empty history."""
         assert flatten_optimization([]) == []
+
+    def test_multi_construct_prefixed(self):
+        """Multi-construct results prefix columns with construct label."""
+        history = [
+            {
+                "time_step": 0,
+                "results": [
+                    {
+                        "result_idx": 0,
+                        "energy_score": 0.5,
+                        "constructs": [
+                            {
+                                "label": "dna_construct",
+                                "type": "dna",
+                                "segments": [
+                                    {"label": "seg", "sequence": "AAAA", "constraints": {}, "metadata": {}},
+                                ],
+                            },
+                            {
+                                "label": "rna_construct",
+                                "type": "rna",
+                                "segments": [
+                                    {"label": "seg", "sequence": "UUUU", "constraints": {}, "metadata": {}},
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ]
+        rows = flatten_optimization(history)
+        assert len(rows) == 1
+        row = rows[0]
+        # Both constructs have a segment named "seg" — prefix disambiguates
+        assert row["dna_construct.seg.sequence"] == "AAAA"
+        assert row["rna_construct.seg.sequence"] == "UUUU"
+        assert row["dna_construct.sequence_type"] == "dna"
+        assert row["rna_construct.sequence_type"] == "rna"
+        # No unprefixed keys
+        assert "seg.sequence" not in row
+        assert "sequence_type" not in row
 
 
 # =============================================================================

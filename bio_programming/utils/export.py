@@ -432,8 +432,8 @@ def flatten_optimization(
 
     Columns:
         Fixed: timepoint, result_idx, energy_score
-        Per segment: {segment}.sequence
-        Per segment x constraint: {segment}.{constraint}.score, etc.
+        Single construct: sequence_type, {segment}.sequence, {segment}.{constraint}.score, ...
+        Multi-construct: {construct}.sequence_type, {construct}.{segment}.sequence, ...
         When include_candidates=True:
             pool, candidate_idx, accepted, rejected_by, energy_score
     """
@@ -452,12 +452,17 @@ def flatten_optimization(
                 row["stage"] = entry["stage"]
             if include_candidates:
                 row["pool"] = "result"
-            for construct in result_entry["constructs"]:
-                row["sequence_type"] = construct.get("type", "")
+            multi_construct = len(result_entry["constructs"]) > 1
+            for ci, construct in enumerate(result_entry["constructs"]):
+                con = construct.get("label") or f"construct_{ci}"
+                if multi_construct:
+                    row[f"{con}.sequence_type"] = construct.get("type", "")
+                else:
+                    row["sequence_type"] = construct.get("type", "")
                 for segment in construct["segments"]:
                     if segments is not None and segment["label"] not in segments:
                         continue
-                    seg = segment["label"]
+                    seg = f"{con}.{segment['label']}" if multi_construct else segment["label"]
                     row[f"{seg}.sequence"] = segment["sequence"]
                     row.update(
                         _flatten_constraint_columns(
@@ -480,12 +485,17 @@ def flatten_optimization(
                 }
                 if "stage" in entry:
                     row["stage"] = entry["stage"]
-                for construct in candidate["constructs"]:
-                    row["sequence_type"] = construct.get("type", "")
+                multi_construct = len(candidate["constructs"]) > 1
+                for ci, construct in enumerate(candidate["constructs"]):
+                    con = construct.get("label") or f"construct_{ci}"
+                    if multi_construct:
+                        row[f"{con}.sequence_type"] = construct.get("type", "")
+                    else:
+                        row["sequence_type"] = construct.get("type", "")
                     for segment in construct["segments"]:
                         if segments is not None and segment["label"] not in segments:
                             continue
-                        seg = segment["label"]
+                        seg = f"{con}.{segment['label']}" if multi_construct else segment["label"]
                         row[f"{seg}.sequence"] = segment["sequence"]
                         row.update(
                             _flatten_constraint_columns(

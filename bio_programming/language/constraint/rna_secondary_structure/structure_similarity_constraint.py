@@ -328,7 +328,7 @@ class RNABasePairSimilarityConfig(RNAStructureConstraintBaseConfig):
             ``RNAStructureConstraintBaseConfig``. Default: 37.0.
 
         max_length_ratio_diff (float): Maximum allowed relative length difference
-            between reference and candidate sequences. If exceeded, similarity
+            between reference and proposal sequences. If exceeded, similarity
             returns 0.0 (and score returns 1.0, i.e., the worst value).
             Computed as |len1 - len2| / max(len1, len2).
             Range: 0.0-1.0. Default: 0.5.
@@ -363,7 +363,7 @@ def rna_property_similarity_constraint(
     config: RNAPropertySimilarityConfig,
 ) -> List[float]:
     """
-    Compare basic structural properties (length, pairing ratio) between candidates
+    Compare basic structural properties (length, pairing ratio) between proposals
     and reference.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
@@ -379,9 +379,9 @@ def rna_property_similarity_constraint(
     ref_pairs = ref_structure.count('(')
     ref_ratio = ref_pairs / ref_len if ref_len > 0 else 0
 
-    # Fold all candidates
-    candidate_seqs = [seq.sequence for (seq,) in input_sequences]
-    cand_results = _fold_sequences(candidate_seqs, config.temperature)
+    # Fold all proposals
+    proposal_seqs = [seq.sequence for (seq,) in input_sequences]
+    cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
     for (cand_structure, _), (seq,) in zip(cand_results, input_sequences):
@@ -436,7 +436,7 @@ def rna_motif_similarity_constraint(
     config: RNAMotifSimilarityConfig,
 ) -> List[float]:
     """
-    Compare structural motifs (stems, hairpins, bulges) between candidates and
+    Compare structural motifs (stems, hairpins, bulges) between proposals and
     reference using Jaccard similarity.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
@@ -449,9 +449,9 @@ def rna_motif_similarity_constraint(
         return [1.0] * len(input_sequences)
     ref_motifs = set(_extract_structural_motifs(ref_structure))
 
-    # Fold all candidates
-    candidate_seqs = [seq.sequence for (seq,) in input_sequences]
-    cand_results = _fold_sequences(candidate_seqs, config.temperature)
+    # Fold all proposals
+    proposal_seqs = [seq.sequence for (seq,) in input_sequences]
+    cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
     for (cand_structure, _), (seq,) in zip(cand_results, input_sequences):
@@ -516,9 +516,9 @@ def rna_feature_similarity_constraint(
     ref_features = _extract_structure_features(ref_structure, ref_mfe)
     ref_norm = np.linalg.norm(ref_features)
 
-    # Fold all candidates
-    candidate_seqs = [seq.sequence for (seq,) in input_sequences]
-    cand_results = _fold_sequences(candidate_seqs, config.temperature)
+    # Fold all proposals
+    proposal_seqs = [seq.sequence for (seq,) in input_sequences]
+    cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
     for (cand_structure, cand_mfe), (seq,) in zip(cand_results, input_sequences):
@@ -569,7 +569,7 @@ def rna_basepair_similarity_constraint(
     config: RNABasePairSimilarityConfig,
 ) -> List[float]:
     """
-    Compare base pair sets between candidates and reference using Jaccard similarity.
+    Compare base pair sets between proposals and reference using Jaccard similarity.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
     """
@@ -582,9 +582,9 @@ def rna_basepair_similarity_constraint(
     ref_pairs = _get_base_pairs(ref_structure)
     ref_len = len(ref_structure)
 
-    # Fold all candidates
-    candidate_seqs = [seq.sequence for (seq,) in input_sequences]
-    cand_results = _fold_sequences(candidate_seqs, config.temperature)
+    # Fold all proposals
+    proposal_seqs = [seq.sequence for (seq,) in input_sequences]
+    cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
     for (cand_structure, _), (seq,) in zip(cand_results, input_sequences):

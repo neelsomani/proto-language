@@ -742,7 +742,7 @@ class TestBeamSearchOptimizerSerialization:
                         "prompt": "ATGC",
                         "beam_length": 10,
                         "num_results": 4,
-                        "candidates_per_result": 8,
+                        "proposals_per_result": 8,
                     }
                 },
                 "generators": [{"key": "evo2", "target": "seg0", "config": {"prompts": ["ATGC"]}}],

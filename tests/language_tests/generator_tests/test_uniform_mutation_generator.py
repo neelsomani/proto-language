@@ -29,12 +29,12 @@ class TestUniformMutationGenerator:
 
         assert gen._assigned_segment is segment
         assert segment.num_results == 1  # assign() initializes one result sequence
-        assert len(segment.candidate_sequences[0].sequence) == 0
-        assert all(c in "ACGU" for c in segment.candidate_sequences[0].sequence)
+        assert len(segment.proposal_sequences[0].sequence) == 0
+        assert all(c in "ACGU" for c in segment.proposal_sequences[0].sequence)
 
         gen.sample()
-        assert len(segment.candidate_sequences[0].sequence) == seq_len
-        assert all(c in "ACGU" for c in segment.candidate_sequences[0].sequence)
+        assert len(segment.proposal_sequences[0].sequence) == seq_len
+        assert all(c in "ACGU" for c in segment.proposal_sequences[0].sequence)
 
         # Test assign with a pre-defined sequence
         predefined_seq = "A" * seq_len
@@ -50,13 +50,13 @@ class TestUniformMutationGenerator:
         segment = Segment(sequence="A" * seq_len, sequence_type="protein")
         gen.assign(segment)
 
-        # Create candidates before sampling (sample() mutates candidate_sequences)
-        segment.candidate_sequences = [
+        # Create proposals before sampling (sample() mutates proposal_sequences)
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(1)
         ]
-        initial_sequence = segment.candidate_sequences[0].sequence
+        initial_sequence = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated_sequence = segment.candidate_sequences[0].sequence
+        mutated_sequence = segment.proposal_sequences[0].sequence
 
         assert len(mutated_sequence) == seq_len
         # Check that exactly one position has changed
@@ -75,19 +75,19 @@ class TestUniformMutationGenerator:
         assert mutated_char != initial_sequence[diff_indices[0]]
 
     def test_sample_batch(self):
-        """Tests that sample mutates all sequences in a batch of candidates independently."""
+        """Tests that sample mutates all sequences in a batch of proposals independently."""
         config = UniformMutationGeneratorConfig(num_mutations=1)
         gen = UniformMutationGenerator(config)
         segment = Segment(sequence="A" * 30, sequence_type="dna")
         gen.assign(segment)
 
-        # Create multiple candidates
-        segment.candidate_sequences = [
+        # Create multiple proposals
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(5)
         ]
-        initial_sequences = [s.sequence for s in segment.candidate_sequences]
+        initial_sequences = [s.sequence for s in segment.proposal_sequences]
         gen.sample()
-        mutated_sequences = [s.sequence for s in segment.candidate_sequences]
+        mutated_sequences = [s.sequence for s in segment.proposal_sequences]
 
         for i in range(len(initial_sequences)):
             assert initial_sequences[i] != mutated_sequences[i]
@@ -105,12 +105,12 @@ class TestUniformMutationGenerator:
         segment = Segment(sequence="A", sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(1)
         ]
-        initial_char = segment.candidate_sequences[0].sequence
+        initial_char = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated_char = segment.candidate_sequences[0].sequence
+        mutated_char = segment.proposal_sequences[0].sequence
 
         assert len(mutated_char) == 1
         assert mutated_char in "CGT"
@@ -125,12 +125,12 @@ class TestUniformMutationGenerator:
         segment = Segment(sequence="A" * seq_len, sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(1)
         ]
-        initial_sequence = segment.candidate_sequences[0].sequence
+        initial_sequence = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated_sequence = segment.candidate_sequences[0].sequence
+        mutated_sequence = segment.proposal_sequences[0].sequence
 
         diff_count = sum(
             1 for a, b in zip(initial_sequence, mutated_sequence) if a != b
@@ -146,12 +146,12 @@ class TestUniformMutationGenerator:
         segment = Segment(sequence="A" * seq_len, sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(1)
         ]
-        initial_sequence = segment.candidate_sequences[0].sequence
+        initial_sequence = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated_sequence = segment.candidate_sequences[0].sequence
+        mutated_sequence = segment.proposal_sequences[0].sequence
 
         diff_count = sum(
             1 for a, b in zip(initial_sequence, mutated_sequence) if a != b
@@ -167,10 +167,10 @@ class TestUniformMutationGenerator:
         segment = Segment(sequence="A" * 100, sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
-        initial = segment.candidate_sequences[0].sequence
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
+        initial = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated = segment.candidate_sequences[0].sequence
+        mutated = segment.proposal_sequences[0].sequence
 
         # Mutations only in window [10, 20)
         assert initial[:10] == mutated[:10]
@@ -212,13 +212,13 @@ class TestUniformMutationGenerator:
         segment = Segment(sequence="A" * 100, sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
-        initial = segment.candidate_sequences[0].sequence
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
+        initial = segment.proposal_sequences[0].sequence
 
         # Should not raise ValueError
         gen.sample()
 
-        mutated = segment.candidate_sequences[0].sequence
+        mutated = segment.proposal_sequences[0].sequence
         assert len(mutated) == 100
 
         # Outside window must be unchanged

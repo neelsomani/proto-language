@@ -30,9 +30,9 @@ class TestProteinMPNNGenerator:
 
         generator.sample()
 
-        assert segment.candidate_sequences[0].sequence is not None
-        assert len(segment.candidate_sequences[0].sequence) == 5
-        assert segment.candidate_sequences[0].sequence_type == "protein"
+        assert segment.proposal_sequences[0].sequence is not None
+        assert len(segment.proposal_sequences[0].sequence) == 5
+        assert segment.proposal_sequences[0].sequence_type == "protein"
 
     def test_fixed_positions(self, temp_pdb_file):
         """Test that fixed positions are preserved in generated sequences."""
@@ -51,12 +51,12 @@ class TestProteinMPNNGenerator:
         generator.sample()
 
         # Fixed positions should match original PDB residues
-        assert segment.candidate_sequences[0].sequence[0] == "A"  # Position 1 is ALA
-        assert segment.candidate_sequences[0].sequence[1] == "G"  # Position 2 is GLY
+        assert segment.proposal_sequences[0].sequence[0] == "A"  # Position 1 is ALA
+        assert segment.proposal_sequences[0].sequence[1] == "G"  # Position 2 is GLY
 
     def test_batch_sampling(self, temp_pdb_file):
         """Test generating multiple sequences from single structure."""
-        num_candidates = 3
+        num_proposals = 3
         generator = ProteinMPNNGenerator(
             ProteinMPNNGeneratorConfig(
                 structure_inputs=temp_pdb_file,
@@ -66,19 +66,19 @@ class TestProteinMPNNGenerator:
 
         segment = Segment(sequence="AGSVL", sequence_type="protein")
         generator.assign(segment)
-        segment.candidate_sequences = [
-            copy.deepcopy(segment.original_sequence) for _ in range(num_candidates)
+        segment.proposal_sequences = [
+            copy.deepcopy(segment.original_sequence) for _ in range(num_proposals)
         ]
 
         generator.sample()
 
-        for i in range(num_candidates):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) == 5
+        for i in range(num_proposals):
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) == 5
 
     def test_batch_size_sampling(self, temp_pdb_file):
         """Test ProteinMPNN generator with batch_size>1 for GPU memory management."""
-        num_candidates = 4
+        num_proposals = 4
         generator = ProteinMPNNGenerator(
             ProteinMPNNGeneratorConfig(
                 structure_inputs=temp_pdb_file,
@@ -89,18 +89,18 @@ class TestProteinMPNNGenerator:
 
         segment = Segment(sequence="AGSVL", sequence_type="protein")
         generator.assign(segment)
-        segment.candidate_sequences = [
-            copy.deepcopy(segment.original_sequence) for _ in range(num_candidates)
+        segment.proposal_sequences = [
+            copy.deepcopy(segment.original_sequence) for _ in range(num_proposals)
         ]
 
         assert generator.batch_size == 2
 
         generator.sample()
 
-        for i in range(num_candidates):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) == 5
-            assert segment.candidate_sequences[i].sequence_type == "protein"
+        for i in range(num_proposals):
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) == 5
+            assert segment.proposal_sequences[i].sequence_type == "protein"
 
 
 class TestProteinMPNNGeneratorValidation:

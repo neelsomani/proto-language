@@ -14,10 +14,10 @@ class Optimizer(ABC):
         constraints: List[Constraint],
         num_results: int | None,
         tracking_interval: int,
-        track_candidates: bool,
+        track_proposals: bool,
         verbose: bool,
-        candidates_per_result: int = 1,
-        num_candidates: int | None = None,
+        proposals_per_result: int = 1,
+        num_proposals: int | None = None,
         clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
         custom_logging: Optional[Callable] = None,
     ) -> None:
@@ -31,14 +31,14 @@ class Optimizer(ABC):
     @abstractmethod
     def run(self) -> None:
         # Executes the optimization loop
-        # Modifies segments' result_sequences and candidate_sequences
+        # Modifies segments' result_sequences and proposal_sequences
 ```
 
 ## Key Base Class Methods
 
 ### `score_energy(operation="add", filter_penalty=float("inf"))`
 
-Evaluates ALL constraints on current `candidate_sequences`:
+Evaluates ALL constraints on current `proposal_sequences`:
 
 ```python
 # In your run() method:
@@ -46,16 +46,16 @@ self.score_energy(operation="add")      # Additive scoring (default)
 self.score_energy(operation="multiply") # Multiplicative scoring
 
 # After calling, self.energy_scores is populated:
-# List[float] of length num_candidates
+# List[float] of length num_proposals
 ```
 
 ### `_initialize_sequence_pools()`
 
-Sets up `candidate_sequences` from `result_sequences` with cycling:
+Sets up `proposal_sequences` from `result_sequences` with cycling:
 
 ```python
-# If num_candidates > num_results, cycles through results to fill
-# If num_candidates < num_results, takes first N
+# If num_proposals > num_results, cycles through results to fill
+# If num_proposals < num_results, takes first N
 # Preserves diversity by round-robin assignment
 ```
 
@@ -138,7 +138,7 @@ class MyOptimizerConfig(BaseOptimizerConfig):
 
     Detailed description of the optimization algorithm and its parameters.
 
-    Note: tracking_interval, track_candidates, and verbose are inherited
+    Note: tracking_interval, track_proposals, and verbose are inherited
     from BaseOptimizerConfig — do NOT redeclare them here.
     """
 
@@ -197,7 +197,7 @@ class MyOptimizer(Optimizer):
             custom_logging=custom_logging,
             verbose=config.verbose,
             tracking_interval=config.tracking_interval,
-            track_candidates=config.track_candidates,
+            track_proposals=config.track_proposals,
         )
 
         self.num_steps: int = config.num_steps
@@ -214,17 +214,17 @@ class MyOptimizer(Optimizer):
         self._save_progress_snapshot(0)
 
         for step in range(1, self.num_steps + 1):
-            # 1. Prepare candidates from results
+            # 1. Prepare proposals from results
             self._initialize_sequence_pools()
 
-            # 2. Apply generators (mutate candidates)
+            # 2. Apply generators (mutate proposals)
             for gen in self.generators:
                 gen.sample()
 
-            # 3. Score candidates
+            # 3. Score proposals
             self.score_energy()
 
-            # 4. Update result_sequences with best candidates
+            # 4. Update result_sequences with best proposals
             # NOTE: Each optimizer implements its own selection logic.
             # See MCMCOptimizer for MH acceptance, TopKOptimizer for sorted insertion.
             self._update_results(step)
@@ -237,7 +237,7 @@ class MyOptimizer(Optimizer):
                     logger.info(f"Step {step}/{self.num_steps}: best={best_score:.4f}")
 
     def _update_results(self, step: int) -> None:
-        """Update result_sequences with top candidates.
+        """Update result_sequences with top proposals.
 
         This is optimizer-specific. Common patterns:
         - Greedy: sort by energy, take top num_results (see TopKOptimizer._insert_into_topk)
@@ -248,7 +248,7 @@ class MyOptimizer(Optimizer):
         for seg in self.segments:
             new_results = []
             for _, idx in scored[:self.num_results]:
-                new_results.append(copy.deepcopy(seg.candidate_sequences[idx]))
+                new_results.append(copy.deepcopy(seg.proposal_sequences[idx]))
             seg.result_sequences = new_results
 ```
 
@@ -262,22 +262,22 @@ def _update_results(self, step):
     for seg in self.segments:
         new_results = []
         for _, idx in scored[:self.num_results]:
-            new_results.append(copy.deepcopy(seg.candidate_sequences[idx]))
+            new_results.append(copy.deepcopy(seg.proposal_sequences[idx]))
         seg.result_sequences = new_results
 ```
 
 ### MCMC (Metropolis-Hastings acceptance)
 ```python
 def _update_results(self, step):
-    # Compare each candidate to its corresponding result sequence
+    # Compare each proposal to its corresponding result sequence
     for i, (new_score, old_score) in enumerate(
         zip(self.energy_scores, self._previous_scores)
     ):
         delta = new_score - old_score
         if delta <= 0 or random.random() < math.exp(-delta / self.temperature):
-            # Accept: copy candidate into results
+            # Accept: copy proposal into results
             for seg in self.segments:
-                seg.result_sequences[i] = copy.deepcopy(seg.candidate_sequences[i])
+                seg.result_sequences[i] = copy.deepcopy(seg.proposal_sequences[i])
 ```
 
 ### Setup Helper for Tests

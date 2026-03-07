@@ -66,9 +66,9 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
             energy score are selected to continue. Higher values explore more
             paths but increase computation. Must be at least 1.
 
-        candidates_per_result (int): Number of candidate sequences to generate per
-            result sequence (beam) at each beam search step. Total candidates per step is
-            ``num_results x candidates_per_result``. Higher values increase
+        proposals_per_result (int): Number of proposal sequences to generate per
+            result sequence (beam) at each beam search step. Total proposals per step is
+            ``num_results x proposals_per_result``. Higher values increase
             diversity but also increase computation. Must be at least 1.
 
         score_by (str): How to aggregate beam scores when selecting beams.
@@ -87,8 +87,8 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
             generators (e.g., Evo2). Default: ``True``.
 
         max_resample_attempts (int): Maximum number of resampling attempts when
-            beams produce invalid (inf/NaN) energy candidates. The optimizer will
-            resample beams until each has ``candidates_per_result`` valid candidates,
+            beams produce invalid (inf/NaN) energy proposals. The optimizer will
+            resample beams until each has ``proposals_per_result`` valid proposals,
             up to this many attempts. Higher values increase robustness but may
             slow down optimization with very restrictive constraints. Must be at
             least 1. Default: ``3``.
@@ -110,10 +110,10 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
         description="Number of result sequences (beam width) to maintain at each step. Overrides program Num Results.",
         advanced=True,
     )
-    candidates_per_result: int = ConfigField(
+    proposals_per_result: int = ConfigField(
         ge=1,
-        title="Candidates Per Result",
-        description="Number of candidates to generate per result sequence at each beam step.",
+        title="Proposals Per Result",
+        description="Number of proposals to generate per result sequence at each beam step.",
     )
 
     # Generation parameters
@@ -167,7 +167,7 @@ class BeamSearchOptimizer(Optimizer):
 
     This optimizer implements beam search for sequence optimization where a single target
     segment is generated with beam search. The optimizer maintains K beams (running sequences)
-    and generates K x N total candidates at each step by producing N variations per beam.
+    and generates K x N total proposals at each step by producing N variations per beam.
     After constraint evaluation on the FULL accumulated sequence, only the top K sequences by
     energy are retained for the next step.
 
@@ -177,7 +177,7 @@ class BeamSearchOptimizer(Optimizer):
         prompt (str): Initial prompt sequence starting all beams.
         beam_length (int): Tokens per beam.
         num_results (int): Number of beams to maintain (K).
-        candidates_per_result (int): Candidates generated per result sequence (N).
+        proposals_per_result (int): Proposals generated per result sequence (N).
         score_by (str): Score aggregation method ('mean' or 'last').
         use_kv_caching (bool): Whether KV caching is enabled.
         beams (List[BeamState]): Current beam states.
@@ -192,7 +192,7 @@ class BeamSearchOptimizer(Optimizer):
         ...     prompt="ATCG",
         ...     beam_length=2000,
         ...     num_results=5,
-        ...     candidates_per_result=10
+        ...     proposals_per_result=10
         ... )
         >>> beam_search = BeamSearchOptimizer(
         ...     target_segment=segment,
@@ -253,12 +253,12 @@ class BeamSearchOptimizer(Optimizer):
             generators=generators,
             constraints=constraints,
             num_results=config.num_results,
-            candidates_per_result=config.candidates_per_result,
+            proposals_per_result=config.proposals_per_result,
             clear_tool_cache=clear_tool_cache,
             custom_logging=custom_logging,
             verbose=config.verbose,
             tracking_interval=config.tracking_interval,
-            track_candidates=config.track_candidates,
+            track_proposals=config.track_proposals,
         )
 
         self.prepend_prompt: bool = config.prepend_prompt
@@ -340,9 +340,9 @@ class BeamSearchOptimizer(Optimizer):
 
         For each beam:
         1. Use K accumulated prompts from previous beams
-        2. Generate K x N candidates (N per beam)
-        3. Score all candidates using FULL accumulated sequence
-        4. Select top K candidates and update beam states for next beam
+        2. Generate K x N proposals (N per beam)
+        3. Score all proposals using FULL accumulated sequence
+        4. Select top K proposals and update beam states for next beam
         """
         self._prepare_run()
 
@@ -370,11 +370,11 @@ class BeamSearchOptimizer(Optimizer):
 
             prepend_prompt_to_first_beam = self.prepend_prompt and beam_num == 1
 
-            # Generate and score candidates, resampling until all beams have valid candidates
-            candidate_beams = self._generate_and_score_with_resampling(prepend_prompt_to_first_beam, beam_tokens)
+            # Generate and score proposals, resampling until all beams have valid proposals
+            proposal_beams = self._generate_and_score_with_resampling(prepend_prompt_to_first_beam, beam_tokens)
 
-            # Select top num_results candidates and update beam states
-            self._select_topk_beams(candidate_beams)
+            # Select top num_results proposals and update beam states
+            self._select_topk_beams(proposal_beams)
 
             # Save per-beam snapshot (result_sequences set by _select_topk_beams)
             if beam_num % self.tracking_interval == 0 or beam_num == self.num_beams:
@@ -393,32 +393,32 @@ class BeamSearchOptimizer(Optimizer):
             for beam in self.beams
         ]
 
-    def _generate_candidates_for_beam(
+    def _generate_proposals_for_beam(
         self,
         beam_idx: int,
         prepend_prompt: bool = False,
         num_tokens: Optional[int] = None,
     ) -> List[BeamState]:
         """
-        Generate candidate BeamStates for a single beam.
+        Generate proposal BeamStates for a single beam.
 
-        Generates candidates in batches (sized by generator batch_size) to manage GPU memory.
+        Generates proposals in batches (sized by generator batch_size) to manage GPU memory.
 
         Args:
-            beam_idx: Index of the beam to generate candidates for
+            beam_idx: Index of the beam to generate proposals for
             prepend_prompt: Whether to prepend prompt to generated sequences
 
         Returns:
-            List of BeamState candidates (length=candidates_per_result)
+            List of BeamState proposals (length=proposals_per_result)
         """
         beam = self.beams[beam_idx]
 
         if self.verbose:
             self._log_beam_generation_start(beam_idx, beam)
 
-        candidates = []
-        for batch_start in range(0, self._candidates_per_result, self.batch_size):
-            batch_count = min(self.batch_size, self._candidates_per_result - batch_start)
+        proposals = []
+        for batch_start in range(0, self._proposals_per_result, self.batch_size):
+            batch_count = min(self.batch_size, self._proposals_per_result - batch_start)
 
             # Replicate prompt and KV cache for this batch
             prompts = [beam.running_sequence] * batch_count
@@ -428,17 +428,17 @@ class BeamSearchOptimizer(Optimizer):
                 else None
             )
 
-            # Resize candidate pool to match batch for zip(strict=True) compatibility
-            self.target_segment.candidate_sequences = [
+            # Resize proposal pool to match batch for zip(strict=True) compatibility
+            self.target_segment.proposal_sequences = [
                 Sequence(sequence="", sequence_type=self.target_segment.sequence_type)
                 for _ in range(batch_count)
             ]
-            self._sync_candidate_pools(self.target_segment)
+            self._sync_proposal_pools(self.target_segment)
 
             if self.verbose and batch_start == 0:
                 self._log_cache_state(kv_cache)
 
-            # Generate candidates
+            # Generate proposals
             self.generator.sample(
                 prompts=prompts,
                 prepend_prompt=prepend_prompt,
@@ -449,144 +449,144 @@ class BeamSearchOptimizer(Optimizer):
             # Collect results from this batch
             kv_caches = self.generator.kv_caches if self.use_kv_caching else [None] * batch_count
             for i in range(batch_count):
-                generated_seq = self.target_segment.candidate_sequences[i].sequence
+                generated_seq = self.target_segment.proposal_sequences[i].sequence
                 new_prompt = generated_seq if prepend_prompt else beam.running_sequence + generated_seq
 
-                candidates.append(BeamState(
+                proposals.append(BeamState(
                     running_sequence=new_prompt,
                     kv_cache=kv_caches[i],
                     beam_scores=beam.beam_scores.copy(),
                 ))
 
-        return candidates
+        return proposals
 
     def _generate_and_score_with_resampling(self, prepend_prompt: bool = False, num_tokens: Optional[int] = None) -> List[BeamState]:
         """
-        Generate and score candidates, resampling beams until each has valid candidates.
+        Generate and score proposals, resampling beams until each has valid proposals.
 
         Args:
             prepend_prompt: Whether to prepend prompt to generated sequences
 
         Returns:
-            List of all valid candidate BeamStates with scores populated
+            List of all valid proposal BeamStates with scores populated
 
         Raises:
-            RuntimeError: If unable to get enough valid candidates after max attempts
+            RuntimeError: If unable to get enough valid proposals after max attempts
         """
-        # Track valid candidates per beam
-        beam_candidates: Dict[int, List[BeamState]] = {b: [] for b in range(self.num_results)}
+        # Track valid proposals per beam
+        beam_proposals: Dict[int, List[BeamState]] = {b: [] for b in range(self.num_results)}
 
-        # Initial generation: Generate candidates for all beams
-        all_candidates = []
+        # Initial generation: Generate proposals for all beams
+        all_proposals = []
         for beam_idx in range(self.num_results):
-            candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt, num_tokens)
-            all_candidates.extend(candidates)
+            proposals = self._generate_proposals_for_beam(beam_idx, prepend_prompt, num_tokens)
+            all_proposals.extend(proposals)
 
-        # Score all candidates on their FULL accumulated sequences
-        self.target_segment.candidate_sequences = [
+        # Score all proposals on their FULL accumulated sequences
+        self.target_segment.proposal_sequences = [
             Sequence(sequence=beam.running_sequence, sequence_type=self.target_segment.sequence_type)
-            for beam in all_candidates
+            for beam in all_proposals
         ]
-        self._sync_candidate_pools(self.target_segment)
+        self._sync_proposal_pools(self.target_segment)
         self.score_energy()
 
-        # Collect valid candidates (those that passed filter constraints)
-        for i, (candidate, score) in enumerate(zip(all_candidates, self.energy_scores)):
-            if self._candidate_outcomes[i] == "accepted":
-                beam_idx = i // self._candidates_per_result
-                candidate.beam_scores.append(score)
-                beam_candidates[beam_idx].append(candidate)
+        # Collect valid proposals (those that passed filter constraints)
+        for i, (proposal, score) in enumerate(zip(all_proposals, self.energy_scores)):
+            if self._proposal_outcomes[i] == "accepted":
+                beam_idx = i // self._proposals_per_result
+                proposal.beam_scores.append(score)
+                beam_proposals[beam_idx].append(proposal)
 
-        # Resample beams until each has candidates_per_result valid candidates
+        # Resample beams until each has proposals_per_result valid proposals
         for attempt in range(1, self.max_resample_attempts + 1):
             beams_to_resample = [b for b in range(self.num_results)
-                                if len(beam_candidates[b]) < self._candidates_per_result]
+                                if len(beam_proposals[b]) < self._proposals_per_result]
 
             if not beams_to_resample:
-                break  # All beams have enough valid candidates
+                break  # All beams have enough valid proposals
 
             if self.verbose:
-                counts = {b: len(beam_candidates[b]) for b in beams_to_resample}
+                counts = {b: len(beam_proposals[b]) for b in beams_to_resample}
                 logger.info(f"Resampling {len(beams_to_resample)} beams (attempt {attempt}): counts={counts}")
 
             for beam_idx in beams_to_resample:
-                candidates = self._generate_candidates_for_beam(beam_idx, prepend_prompt, num_tokens)
+                proposals = self._generate_proposals_for_beam(beam_idx, prepend_prompt, num_tokens)
 
-                # Score candidates on their FULL accumulated sequences
-                self.target_segment.candidate_sequences = [
+                # Score proposals on their FULL accumulated sequences
+                self.target_segment.proposal_sequences = [
                     Sequence(sequence=beam.running_sequence, sequence_type=self.target_segment.sequence_type)
-                    for beam in candidates
+                    for beam in proposals
                 ]
-                self._sync_candidate_pools(self.target_segment)
+                self._sync_proposal_pools(self.target_segment)
                 self.score_energy()
 
-                for j, (candidate, score) in enumerate(zip(candidates, self.energy_scores)):
-                    if self._candidate_outcomes[j] == "accepted":
-                        candidate.beam_scores.append(score)
-                        beam_candidates[beam_idx].append(candidate)
+                for j, (proposal, score) in enumerate(zip(proposals, self.energy_scores)):
+                    if self._proposal_outcomes[j] == "accepted":
+                        proposal.beam_scores.append(score)
+                        beam_proposals[beam_idx].append(proposal)
 
-        # Verify each beam has at least candidates_per_result valid candidates
+        # Verify each beam has at least proposals_per_result valid proposals
         insufficient_beams = [b for b in range(self.num_results)
-                             if len(beam_candidates[b]) < self._candidates_per_result]
+                             if len(beam_proposals[b]) < self._proposals_per_result]
         if insufficient_beams:
-            counts = {b: len(beam_candidates[b]) for b in insufficient_beams}
+            counts = {b: len(beam_proposals[b]) for b in insufficient_beams}
             raise RuntimeError(
                 f"After {self.max_resample_attempts} attempts, {len(insufficient_beams)} beams could not produce "
-                f"{self._candidates_per_result} valid candidates: {counts}. Constraints may be too restrictive."
+                f"{self._proposals_per_result} valid proposals: {counts}. Constraints may be too restrictive."
             )
 
-        # Flatten and sort by energy to get all valid candidates
-        all_valid_candidates = []
+        # Flatten and sort by energy to get all valid proposals
+        all_valid_proposals = []
         for beam_idx in range(self.num_results):
-            # Sort by most recent score and take top candidates_per_result
-            sorted_candidates = sorted(
-                beam_candidates[beam_idx], key=lambda b: b.beam_scores[-1]
-            )[: self._candidates_per_result]
-            all_valid_candidates.extend(sorted_candidates)
+            # Sort by most recent score and take top proposals_per_result
+            sorted_proposals = sorted(
+                beam_proposals[beam_idx], key=lambda b: b.beam_scores[-1]
+            )[: self._proposals_per_result]
+            all_valid_proposals.extend(sorted_proposals)
 
-        return all_valid_candidates
+        return all_valid_proposals
 
-    def _select_topk_beams(self, candidate_beams: List[BeamState]) -> None:
-        """Select top num_results candidates and update state for the next beam step.
+    def _select_topk_beams(self, proposal_beams: List[BeamState]) -> None:
+        """Select top num_results proposals and update state for the next beam step.
 
-        1. Score each candidate beam (mean or last score, per ``score_by``).
+        1. Score each proposal beam (mean or last score, per ``score_by``).
         2. Sort by score and keep the top ``num_results`` beams.
-        3. Update ``_candidate_outcomes`` — result beams get "accepted",
+        3. Update ``_proposal_outcomes`` — result beams get "accepted",
            pruned beams get "Beam pruned".
-        4. Write all candidate beams to ``candidate_sequences`` and result
+        4. Write all proposal beams to ``proposal_sequences`` and result
            beams to ``result_sequences`` so ``_save_progress_snapshot``
            captures the current state.
 
         Args:
-            candidate_beams: All valid candidate BeamStates from expansion.
+            proposal_beams: All valid proposal BeamStates from expansion.
         """
-        # 1. Score each candidate beam
-        scored_candidates = [
+        # 1. Score each proposal beam
+        scored_proposals = [
             (i, beam, self._get_aggregated_score(beam))
-            for i, beam in enumerate(candidate_beams)
+            for i, beam in enumerate(proposal_beams)
         ]
 
         # 2. Sort by score and keep top num_results
-        sorted_candidates = sorted(scored_candidates, key=lambda x: x[2])
-        result_indices = {orig_idx for orig_idx, _, _ in sorted_candidates[:self.num_results]}
-        self.beams = [beam for _, beam, _ in sorted_candidates[:self.num_results]]
-        self.energy_scores = [score for _, _, score in sorted_candidates[:self.num_results]]
+        sorted_proposals = sorted(scored_proposals, key=lambda x: x[2])
+        result_indices = {orig_idx for orig_idx, _, _ in sorted_proposals[:self.num_results]}
+        self.beams = [beam for _, beam, _ in sorted_proposals[:self.num_results]]
+        self.energy_scores = [score for _, _, score in sorted_proposals[:self.num_results]]
 
-        # 3. Update _candidate_outcomes and _candidate_energy_scores
-        self._candidate_outcomes = ["Beam pruned"] * len(candidate_beams)
-        self._candidate_energy_scores = [sc for _, _, sc in scored_candidates]
+        # 3. Update _proposal_outcomes and _proposal_energy_scores
+        self._proposal_outcomes = ["Beam pruned"] * len(proposal_beams)
+        self._proposal_energy_scores = [sc for _, _, sc in scored_proposals]
         for idx in result_indices:
-            self._candidate_outcomes[idx] = "accepted"
+            self._proposal_outcomes[idx] = "accepted"
 
-        # 4. Write candidate_sequences and result_sequences for snapshot
-        self.target_segment.candidate_sequences = [
+        # 4. Write proposal_sequences and result_sequences for snapshot
+        self.target_segment.proposal_sequences = [
             Sequence(
                 sequence=beam.running_sequence if self.prepend_prompt else beam.running_sequence[len(self.prompt):],
                 sequence_type=self.target_segment.sequence_type,
             )
-            for beam in candidate_beams
+            for beam in proposal_beams
         ]
-        self._sync_candidate_pools(self.target_segment)
+        self._sync_proposal_pools(self.target_segment)
         self.target_segment.result_sequences = [
             Sequence(
                 sequence=beam.running_sequence if self.prepend_prompt else beam.running_sequence[len(self.prompt):],
@@ -597,7 +597,7 @@ class BeamSearchOptimizer(Optimizer):
 
         if self.verbose:
             logger.info(f"Selected top {self.num_results} beams:")
-            for i, beam, score in sorted_candidates[:self.num_results]:
+            for i, beam, score in sorted_proposals[:self.num_results]:
                 logger.info(f"  [{i}] score={score:.4f}, prompt_len={len(beam.running_sequence)}")
 
     def _get_aggregated_score(self, beam: BeamState) -> float:
@@ -626,8 +626,8 @@ class BeamSearchOptimizer(Optimizer):
             self.custom_logging(beam_num, self.segments)
 
     def _log_beam_generation_start(self, beam_idx: int, beam: BeamState) -> None:
-        """Log the start of candidate generation for a beam."""
-        logger.debug(f"[Beam {beam_idx}] Generating {self._candidates_per_result} candidates")
+        """Log the start of proposal generation for a beam."""
+        logger.debug(f"[Beam {beam_idx}] Generating {self._proposals_per_result} proposals")
         logger.debug(f"  Prompt length: {len(beam.running_sequence)}")
         logger.debug(f"  Batch size: {self.batch_size}")
 
@@ -643,6 +643,6 @@ class BeamSearchOptimizer(Optimizer):
         """Log beam search configuration at the start of run()."""
         logger.debug(f"Processing segment with {self.num_beams} beams (beam_length={self.beam_length})")
         logger.debug(f"Total tokens to generate: {self.target_segment.sequence_length}")
-        logger.debug(f"Beam width: {self.num_results}, Candidates per beam: {self._candidates_per_result}")
+        logger.debug(f"Beam width: {self.num_results}, Proposals per beam: {self._proposals_per_result}")
         logger.debug(f"Score by: {self.score_by}")
         logger.debug(f"KV caching: {'enabled' if self.use_kv_caching else 'disabled'}")

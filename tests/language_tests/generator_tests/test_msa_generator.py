@@ -198,10 +198,10 @@ class TestMSAGeneratorSample:
         segment = Segment(sequence="GGGG", sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
-        initial = segment.candidate_sequences[0].sequence
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
+        initial = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated = segment.candidate_sequences[0].sequence
+        mutated = segment.proposal_sequences[0].sequence
 
         diff_count = sum(1 for a, b in zip(initial, mutated) if a != b)
         assert diff_count == 1
@@ -216,10 +216,10 @@ class TestMSAGeneratorSample:
         segment = Segment(sequence="GGGG", sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
-        initial = segment.candidate_sequences[0].sequence
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
+        initial = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated = segment.candidate_sequences[0].sequence
+        mutated = segment.proposal_sequences[0].sequence
 
         diff_count = sum(1 for a, b in zip(initial, mutated) if a != b)
         assert diff_count == 3
@@ -240,9 +240,9 @@ class TestMSAGeneratorSample:
         trials = 1000
 
         for _ in range(trials):
-            segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
+            segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
             gen.sample()
-            mutated = segment.candidate_sequences[0].sequence
+            mutated = segment.proposal_sequences[0].sequence
             # Find which position was mutated
             for i, (orig, mut) in enumerate(zip("XGGG", mutated)):
                 if orig != mut:
@@ -261,8 +261,8 @@ class TestMSAGeneratorSample:
             a_ratio = a_count / total_pos0_mutations
             assert a_ratio > 0.7  # Should be close to 0.9 but with some variance
 
-    def test_sample_batch_candidates(self):
-        """Test that sample mutates all candidates independently."""
+    def test_sample_batch_proposals(self):
+        """Test that sample mutates all proposals independently."""
         config = MSAGeneratorConfig(
             msa=["AAAA", "CCCC"],
             num_mutations=1,
@@ -271,11 +271,11 @@ class TestMSAGeneratorSample:
         segment = Segment(sequence="GGGG", sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(5)
         ]
         gen.sample()
-        mutated_seqs = [s.sequence for s in segment.candidate_sequences]
+        mutated_seqs = [s.sequence for s in segment.proposal_sequences]
 
         # Each should have exactly 1 mutation
         for seq in mutated_seqs:
@@ -295,9 +295,9 @@ class TestMSAGeneratorSample:
         segment = Segment(sequence="GGGG", sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
         gen.sample()
-        mutated = segment.candidate_sequences[0].sequence
+        mutated = segment.proposal_sequences[0].sequence
 
         # Positions 1 and 2 should be unchanged (all gaps in MSA)
         assert mutated[1] == "G"
@@ -316,9 +316,9 @@ class TestMSAGeneratorSample:
         segment = Segment(sequence="GGGG", sequence_type="dna")
         gen.assign(segment)
 
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
         gen.sample()
-        mutated = segment.candidate_sequences[0].sequence
+        mutated = segment.proposal_sequences[0].sequence
 
         # Only position 0 can be mutated
         diff_count = sum(1 for a, b in zip("GGGG", mutated) if a != b)
@@ -337,9 +337,9 @@ class TestMSAGeneratorSample:
             gen = MSAGenerator(config)
             segment = Segment(sequence="MMMM", sequence_type="protein")
             gen.assign(segment)
-            segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
+            segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
             gen.sample()
-            return segment.candidate_sequences[0].sequence
+            return segment.proposal_sequences[0].sequence
 
         seq1 = run_with_seed(42)
         seq2 = run_with_seed(42)

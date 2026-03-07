@@ -45,9 +45,9 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
             evaluates them, and accepts/rejects based on Metropolis-Hastings criterion.
             More steps allow better exploration but increase runtime.
 
-        candidates_per_result (int): Number of candidate proposals to generate per
+        proposals_per_result (int): Number of proposals to generate per
             result sequence at each step. Total proposals per step equals
-            ``num_results x candidates_per_result``.
+            ``num_results x proposals_per_result``.
             The best proposal (by energy) is selected, then MH acceptance is applied.
             Higher values increase exploration but also computation. Default: 1.
 
@@ -67,7 +67,7 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
     Note:
         - When ``num_results=1`` (default), behaves like standard single-chain MCMC.
         - When ``num_results > 1``, maintains that many independent trajectories and
-          generates ``candidates_per_result`` (default: 1) proposals per result sequence each step.
+          generates ``proposals_per_result`` (default: 1) proposals per result sequence each step.
         - Temperature annealing follows exponential decay:
           T(step) = T_max x (T_min / T_max)^(step / num_steps)
     """
@@ -86,11 +86,11 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
         description="Number of result sequences to optimize in parallel. Overrides program Num Results.",
         advanced=True,
     )
-    candidates_per_result: int = ConfigField(
+    proposals_per_result: int = ConfigField(
         default=1,
         ge=1,
-        title="Candidates Per Result",
-        description="Number of candidate proposals to generate per result sequence per MCMC step.",
+        title="Proposals Per Result",
+        description="Number of proposals to generate per result sequence per MCMC step.",
         advanced=True,
     )
     max_temperature: float = ConfigField(
@@ -132,8 +132,8 @@ class MCMCOptimizer(Optimizer):
     generators as proposal distributions and accepts/rejects proposals based on energy
     changes and temperature.
 
-    At each step, the optimizer generates ``num_results x candidates_per_result``
-    proposals by mutating each of the K sequences ``candidates_per_result`` times.
+    At each step, the optimizer generates ``num_results x proposals_per_result``
+    proposals by mutating each of the K sequences ``proposals_per_result`` times.
     Each trajectory (result index) is independent. For each trajectory, the best proposal
     (lowest energy) is selected, then MH acceptance is applied to decide whether to
     accept or reject that proposal. If rejected, the trajectory keeps its previous state.
@@ -141,7 +141,7 @@ class MCMCOptimizer(Optimizer):
     Attributes:
         num_results (int): Number of result sequences to optimize in parallel.
         num_steps (int): Total number of MCMC steps to run.
-        candidates_per_result (int): Number of proposals per result sequence.
+        proposals_per_result (int): Number of proposals per result sequence.
         max_temperature (float): Starting temperature for annealing.
         min_temperature (float): Ending temperature for annealing.
 
@@ -169,7 +169,7 @@ class MCMCOptimizer(Optimizer):
         - Simulated annealing: temperature decreases exponentially from
           ``max_temperature`` to ``min_temperature``
         - Lower energy scores are better (minimization objective)
-        - When ``candidates_per_result > 1``, generates multiple proposals per
+        - When ``proposals_per_result > 1``, generates multiple proposals per
           trajectory, selects the best one, then applies a single MH accept/reject decision
     """
     # Class attribute required by OptimizerRegistry
@@ -207,12 +207,12 @@ class MCMCOptimizer(Optimizer):
             generators=generators,
             constraints=constraints,
             num_results=config.num_results,
-            candidates_per_result=config.candidates_per_result,
+            proposals_per_result=config.proposals_per_result,
             clear_tool_cache=clear_tool_cache,
             custom_logging=custom_logging,
             verbose=config.verbose,
             tracking_interval=config.tracking_interval,
-            track_candidates=config.track_candidates,
+            track_proposals=config.track_proposals,
         )
 
         self.num_steps: int = config.num_steps
@@ -225,30 +225,30 @@ class MCMCOptimizer(Optimizer):
 
         Runs the specified number of MCMC steps, where each step:
         1. Maintains `num_results` independent trajectories in `result_sequences`
-        2. Creates `candidate_sequences` by replicating each result sequence `candidates_per_result` times
-        3. Generates proposals (mutates `candidate_sequences` in-place)
+        2. Creates `proposal_sequences` by replicating each result sequence `proposals_per_result` times
+        3. Generates proposals (mutates `proposal_sequences` in-place)
         4. For each trajectory, independently apply MH acceptance and select the best accepted proposal
 
         Note:
             - Each trajectory (result index) is independent with no cross-trajectory mixing.
             - Simulated annealing: T(step) = T_max * (T_min / T_max) ^ (step / num_steps)
-            - Total proposals per step: num_results x candidates_per_result
+            - Total proposals per step: num_results x proposals_per_result
             - Snapshots of constructs at tracked timesteps are stored in self.history.
         """
         self._prepare_run()
 
         # Score initial state if sequences are non-empty (skip for autoregressive generators like ProGen2)
-        if any(seq.sequence for segment in self.segments for seq in segment.candidate_sequences):
+        if any(seq.sequence for segment in self.segments for seq in segment.proposal_sequences):
             self.score_energy()
         else:
-            self.energy_scores = [float('inf')] * self.num_candidates
+            self.energy_scores = [float('inf')] * self.num_proposals
 
-        # Truncate to num_results for initial snapshot (score_energy sets to num_candidates)
+        # Truncate to num_results for initial snapshot (score_energy sets to num_proposals)
         self.energy_scores = self.energy_scores[:self.num_results]
 
         if self.verbose:
             logger.info("MCMC initialization:")
-            logger.info(f"  num_results={self.num_results}, candidates_per_result={self._candidates_per_result}")
+            logger.info(f"  num_results={self.num_results}, proposals_per_result={self._proposals_per_result}")
             logger.info(f"  Initial energy: {self.energy_scores[0]:.4f}")
 
         # Track initial state only if we have meaningful scores (not all inf/nan)
@@ -260,17 +260,17 @@ class MCMCOptimizer(Optimizer):
             # 1. Save state of result_sequences to revert if rejected by Metropolis-Hastings acceptance criterion
             old_result_sequences = self._save_sequence_state()
 
-            # 2. Populate candidate_sequences by replicating each result_sequence candidates_per_result times
-            self._populate_candidate_sequences()
+            # 2. Populate proposal_sequences by replicating each result_sequence proposals_per_result times
+            self._populate_proposal_sequences()
 
-            # 3. Generate proposals for candidate_sequences in-place by randomly sampling a generator
+            # 3. Generate proposals for proposal_sequences in-place by randomly sampling a generator
             generator = random.choice(self.generators)
             generator.sample()
 
-            # 4. Score candidate_sequences
+            # 4. Score proposal_sequences
             self.score_energy()
 
-            # 5. Metropolis-Hastings acceptance and update energy score, candidate_sequences, and result_sequences state
+            # 5. Metropolis-Hastings acceptance and update energy score, proposal_sequences, and result_sequences state
             self._select_topk_with_mcmc_acceptance(step, old_result_sequences)
 
             # Save snapshot and log at tracking interval or final step
@@ -295,17 +295,17 @@ class MCMCOptimizer(Optimizer):
             sequence_state.append((segments_dict, self.energy_scores[result_idx]))
         return sequence_state
 
-    def _populate_candidate_sequences(self) -> None:
-        """Populate candidate_sequences by replicating each result_sequence candidates_per_result times.
+    def _populate_proposal_sequences(self) -> None:
+        """Populate proposal_sequences by replicating each result_sequence proposals_per_result times.
 
-        Updates candidate_sequences in-place.
-        Layout: [sequence_0] * candidates_per_result + [sequence_1] * candidates_per_result + ...
+        Updates proposal_sequences in-place.
+        Layout: [sequence_0] * proposals_per_result + [sequence_1] * proposals_per_result + ...
         """
         for segment in self.segments:
             for result_idx in range(self.num_results):
-                start_idx = result_idx * self._candidates_per_result
-                for offset in range(self._candidates_per_result):
-                    segment.candidate_sequences[start_idx + offset] = copy.deepcopy(segment.result_sequences[result_idx])
+                start_idx = result_idx * self._proposals_per_result
+                for offset in range(self._proposals_per_result):
+                    segment.proposal_sequences[start_idx + offset] = copy.deepcopy(segment.result_sequences[result_idx])
 
     def _select_topk_with_mcmc_acceptance(
         self,
@@ -316,10 +316,10 @@ class MCMCOptimizer(Optimizer):
 
         For each trajectory (processed independently):
 
-        1. Find the best candidate by energy from the trajectory's proposal pool.
+        1. Find the best proposal by energy from the trajectory's proposal pool.
         2. Apply MH acceptance criterion: accept if ``random() < min(1, exp(-dE/T))``.
         3. Update the trajectory state (accept new or keep old).
-        4. Classify each candidate's outcome: "accepted", "Metropolis-Hastings
+        4. Classify each proposal's outcome: "accepted", "Metropolis-Hastings
            rejection", "Not best in proposal pool", or unchanged (filter-rejected).
         5. Truncate energy_scores to num_results (discard stale proposal energies).
 
@@ -327,50 +327,50 @@ class MCMCOptimizer(Optimizer):
             step: Current MCMC step (used for temperature annealing).
             old_result_sequences: Saved trajectory state before proposals.
         """
-        outcomes = list(self._candidate_outcomes)
+        outcomes = list(self._proposal_outcomes)
 
         for result_idx in range(self.num_results):
             old_segments_dict, old_result_energy = old_result_sequences[result_idx]
-            proposal_pool_start = result_idx * self._candidates_per_result
-            proposal_pool_end = (result_idx + 1) * self._candidates_per_result
+            proposal_pool_start = result_idx * self._proposals_per_result
+            proposal_pool_end = (result_idx + 1) * self._proposals_per_result
 
             # 1. Find the best proposal by energy
             best_energy = float('inf')
-            best_candidate_idx = None
-            for candidate_idx in range(proposal_pool_start, proposal_pool_end):
-                if outcomes[candidate_idx] != "accepted":
+            best_proposal_idx = None
+            for proposal_idx in range(proposal_pool_start, proposal_pool_end):
+                if outcomes[proposal_idx] != "accepted":
                     continue
-                if self.energy_scores[candidate_idx] < best_energy:
-                    best_energy = self.energy_scores[candidate_idx]
-                    best_candidate_idx = candidate_idx
+                if self.energy_scores[proposal_idx] < best_energy:
+                    best_energy = self.energy_scores[proposal_idx]
+                    best_proposal_idx = proposal_idx
 
             # 2. Apply MH acceptance criterion
-            valid_proposals_exist = best_candidate_idx is not None
+            valid_proposals_exist = best_proposal_idx is not None
             alpha = self._compute_mcmc_alpha(old_result_energy, best_energy, step)
             accepted = valid_proposals_exist and random.random() < alpha
 
             # 3. Update trajectory state
             if accepted:
                 for segment in self.segments:
-                    segment.result_sequences[result_idx] = copy.deepcopy(segment.candidate_sequences[best_candidate_idx])
+                    segment.result_sequences[result_idx] = copy.deepcopy(segment.proposal_sequences[best_proposal_idx])
             else:
                 best_energy = old_result_energy
                 for segment in self.segments:
                     segment.result_sequences[result_idx] = copy.deepcopy(old_segments_dict[id(segment)])
             self.energy_scores[result_idx] = best_energy
 
-            # 4. Classify each candidate's outcome
-            for candidate_idx in range(proposal_pool_start, proposal_pool_end):
-                if outcomes[candidate_idx] != "accepted":
+            # 4. Classify each proposal's outcome
+            for proposal_idx in range(proposal_pool_start, proposal_pool_end):
+                if outcomes[proposal_idx] != "accepted":
                     continue
-                if candidate_idx == best_candidate_idx and accepted:
-                    outcomes[candidate_idx] = "accepted"
-                elif candidate_idx == best_candidate_idx:
-                    outcomes[candidate_idx] = "Metropolis-Hastings rejection"
+                if proposal_idx == best_proposal_idx and accepted:
+                    outcomes[proposal_idx] = "accepted"
+                elif proposal_idx == best_proposal_idx:
+                    outcomes[proposal_idx] = "Metropolis-Hastings rejection"
                 else:
-                    outcomes[candidate_idx] = "Not best in proposal pool"
+                    outcomes[proposal_idx] = "Not best in proposal pool"
 
-        self._candidate_outcomes = outcomes
+        self._proposal_outcomes = outcomes
 
         # 5. Truncate to num_results (score_energy() resizes back each step)
         self.energy_scores = self.energy_scores[:self.num_results]
@@ -395,11 +395,11 @@ class MCMCOptimizer(Optimizer):
         - Always accepts improvements (proposed_energy < current_energy)
         - Accepts worse proposals with probability exp(-(ΔE / T)) where ΔE = proposed - current
 
-        Important: When candidates_per_result > 1, this is applied to the BEST proposal
+        Important: When proposals_per_result > 1, this is applied to the BEST proposal
         from the pool, not a randomly selected one. This "best-of-N then MH" strategy is a
         heuristic that accelerates convergence but does not satisfy detailed balance for the
         true Boltzmann distribution. For mathematically rigorous MCMC sampling, use
-        candidates_per_result=1.
+        proposals_per_result=1.
         """
         # Non-finite energies: guard against inf - inf = NaN.
         if math.isinf(proposed_energy):

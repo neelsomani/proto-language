@@ -112,26 +112,26 @@ def build_results(
     return {"results": results, "best_result_idx": best_idx}
 
 
-def build_candidate_results(
+def build_proposal_results(
     constructs: list,
     outcomes: list[str],
     energy_scores: list[float] | None = None,
 ) -> list[dict[str, Any]]:
-    """Build per-candidate results with accept/reject status from live Construct objects.
+    """Build per-proposal results with accept/reject status from live Construct objects.
 
-    Reads from ``candidate_sequences`` (all proposed sequences) and annotates each
+    Reads from ``proposal_sequences`` (all proposed sequences) and annotates each
     with whether it was accepted, the rejection reason (if any), and energy score.
 
     Args:
         constructs: List of Construct objects.
-        outcomes: Per-candidate outcome — ``"accepted"`` or a rejection reason string.
-        energy_scores: Per-candidate energy scores. Inf/NaN converted to None.
+        outcomes: Per-proposal outcome — ``"accepted"`` or a rejection reason string.
+        energy_scores: Per-proposal energy scores. Inf/NaN converted to None.
 
     Returns:
-        List of candidate dicts::
+        List of proposal dicts::
 
             [{
-                "candidate_idx": 0,
+                "proposal_idx": 0,
                 "accepted": True,
                 "rejected_by": None,
                 "energy_score": 0.42,
@@ -150,15 +150,15 @@ def build_candidate_results(
     if not constructs or not constructs[0].segments:
         return []
 
-    num_candidates = len(constructs[0].segments[0].candidate_sequences)
-    candidate_results = []
+    num_proposals = len(constructs[0].segments[0].proposal_sequences)
+    proposal_results = []
 
-    for cand_idx in range(num_candidates):
+    for prop_idx in range(num_proposals):
         structured_constructs = []
         for construct in constructs:
             structured_segments = []
             for seg_idx, segment in enumerate(construct.segments):
-                seq = segment.candidate_sequences[cand_idx]
+                seq = segment.proposal_sequences[prop_idx]
                 structured_segments.append({
                     "label": segment.label or f"segment_{seg_idx}",
                     "sequence": seq.sequence,
@@ -170,25 +170,25 @@ def build_candidate_results(
                 "type": construct.sequence_type,
                 "segments": structured_segments,
             })
-        if cand_idx >= len(outcomes):
-            raise ValueError(f"outcomes has {len(outcomes)} entries but there are {num_candidates} candidates — lengths must match")
-        if energy_scores is not None and cand_idx >= len(energy_scores):
-            raise ValueError(f"energy_scores has {len(energy_scores)} entries but there are {num_candidates} candidates — lengths must match")
-        outcome = outcomes[cand_idx]
+        if prop_idx >= len(outcomes):
+            raise ValueError(f"outcomes has {len(outcomes)} entries but there are {num_proposals} proposals — lengths must match")
+        if energy_scores is not None and prop_idx >= len(energy_scores):
+            raise ValueError(f"energy_scores has {len(energy_scores)} entries but there are {num_proposals} proposals — lengths must match")
+        outcome = outcomes[prop_idx]
         energy = (
-            filter_inf_nan_scores(energy_scores[cand_idx])
+            filter_inf_nan_scores(energy_scores[prop_idx])
             if energy_scores is not None
             else None
         )
-        candidate_results.append({
-            "candidate_idx": cand_idx,
+        proposal_results.append({
+            "proposal_idx": prop_idx,
             "accepted": outcome == "accepted",
             "rejected_by": None if outcome == "accepted" else outcome,
             "energy_score": energy,
             "constructs": structured_constructs,
         })
 
-    return candidate_results
+    return proposal_results
 
 
 # =============================================================================
@@ -413,7 +413,7 @@ def flatten_optimization(
     history: List[Dict[str, Any]],
     segments: Optional[Set[str]] = None,
     result_indices: Optional[Set[int]] = None,
-    include_candidates: bool = False,
+    include_proposals: bool = False,
 ) -> List[Dict[str, Any]]:
     """One row per (timepoint, result_idx). Sequences + constraint scores.
 
@@ -424,9 +424,9 @@ def flatten_optimization(
         history: List of history entries from optimizer(s).
         segments: If set, only include these segment labels.
         result_indices: If set, only include these result indices.
-        include_candidates: If True, add candidate rows alongside result rows.
-            Result rows get ``pool="result"``, candidate rows get
-            ``pool="candidate"`` with ``candidate_idx``, ``accepted``,
+        include_proposals: If True, add proposal rows alongside result rows.
+            Result rows get ``pool="result"``, proposal rows get
+            ``pool="proposal"`` with ``proposal_idx``, ``accepted``,
             ``rejected_by`` columns. When False, output is identical to
             previous behavior (no new columns).
 
@@ -434,8 +434,8 @@ def flatten_optimization(
         Fixed: timepoint, result_idx, energy_score
         Single construct: sequence_type, {segment}.sequence, {segment}.{constraint}.score, ...
         Multi-construct: {construct}.sequence_type, {construct}.{segment}.sequence, ...
-        When include_candidates=True:
-            pool, candidate_idx, accepted, rejected_by, energy_score
+        When include_proposals=True:
+            pool, proposal_idx, accepted, rejected_by, energy_score
     """
     rows = []
     for entry in history:
@@ -450,7 +450,7 @@ def flatten_optimization(
             }
             if "stage" in entry:
                 row["stage"] = entry["stage"]
-            if include_candidates:
+            if include_proposals:
                 row["pool"] = "result"
             multi_construct = len(result_entry["constructs"]) > 1
             for ci, construct in enumerate(result_entry["constructs"]):
@@ -472,21 +472,21 @@ def flatten_optimization(
                     )
             rows.append(row)
 
-        # Append candidate rows when requested
-        if include_candidates:
-            for candidate in entry.get("candidate_results", []):
+        # Append proposal rows when requested
+        if include_proposals:
+            for proposal in entry.get("proposal_results", []):
                 row = {
                     "timepoint": timepoint,
-                    "pool": "candidate",
-                    "candidate_idx": candidate["candidate_idx"],
-                    "accepted": candidate["accepted"],
-                    "rejected_by": candidate["rejected_by"],
-                    "energy_score": candidate.get("energy_score"),
+                    "pool": "proposal",
+                    "proposal_idx": proposal["proposal_idx"],
+                    "accepted": proposal["accepted"],
+                    "rejected_by": proposal["rejected_by"],
+                    "energy_score": proposal.get("energy_score"),
                 }
                 if "stage" in entry:
                     row["stage"] = entry["stage"]
-                multi_construct = len(candidate["constructs"]) > 1
-                for ci, construct in enumerate(candidate["constructs"]):
+                multi_construct = len(proposal["constructs"]) > 1
+                for ci, construct in enumerate(proposal["constructs"]):
                     con = construct.get("label") or f"construct_{ci}"
                     if multi_construct:
                         row[f"{con}.sequence_type"] = construct.get("type", "")
@@ -519,7 +519,7 @@ def flatten_table(
     segments: Optional[Set[str]] = None,
     result_indices: Optional[Set[int]] = None,
     constraints: Optional[Set[str]] = None,
-    include_candidates: bool = False,
+    include_proposals: bool = False,
 ) -> List[Dict[str, Any]]:
     """Dispatch to the appropriate flatten function for *table*.
 
@@ -531,7 +531,7 @@ def flatten_table(
         segments: Only include these segment labels.
         result_indices: Only include these result indices.
         constraints: Only include these constraint labels (constraints table only).
-        include_candidates: Include candidate rows (optimization table only).
+        include_proposals: Include proposal rows (optimization table only).
 
     Raises:
         ValueError: If *table* is not a recognized name.
@@ -539,7 +539,7 @@ def flatten_table(
     filters = {"segments": segments, "result_indices": result_indices}
     if table == "optimization":
         return flatten_optimization(
-            history, include_candidates=include_candidates, **filters
+            history, include_proposals=include_proposals, **filters
         )
     if table == "sequences":
         return flatten_sequences(results, **filters)

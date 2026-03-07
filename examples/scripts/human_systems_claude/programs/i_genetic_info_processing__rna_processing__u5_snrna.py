@@ -143,7 +143,7 @@ def rna_pairwise_similarity_constraint(
     config: RNAPairwiseSimilarityConfig,
 ) -> List[float]:
     """
-    Compute similarity of candidate RNA sequences to a reference.
+    Compute similarity of proposal RNA sequences to a reference.
 
     Greater novelty (lower similarity) is considered better.
     """

@@ -34,11 +34,11 @@ class MockResult(NamedTuple):
 def _match(
     constraint: str,
     structure_tool: str,
-    candidate_seq: str,
+    proposal_seq: str,
     target_seq: str,
 ) -> float:
     """
-    Compute similarity between the candidate and target sequences using the
+    Compute similarity between the proposal and target sequences using the
     specified constraint and structure prediction tool.
     """
     if constraint == "rmsd":
@@ -47,7 +47,7 @@ def _match(
             structure_tool=structure_tool,
         )
         score = structure_rmsd_constraint(
-            [(Sequence(candidate_seq, 'protein'),)],
+            [(Sequence(proposal_seq, 'protein'),)],
             config,
         )[0]
 
@@ -57,7 +57,7 @@ def _match(
             structure_tool=structure_tool,
         )
         score = structure_tmscore_constraint(
-            [(Sequence(candidate_seq, 'protein'),)],
+            [(Sequence(proposal_seq, 'protein'),)],
             config,
         )[0]
 
@@ -265,7 +265,7 @@ class TestESMFoldTMscoreConstraint:
         Verify the math for structure1 vs structure2 vs mean/max/min.
         """
         # Setup the mock to return distinct scores
-        # Structure 1 (Candidate) Norm = 0.8  (Good match)
+        # Structure 1 (Proposal) Norm = 0.8  (Good match)
         # Structure 2 (Target) Norm    = 0.4  (Bad match, maybe target is huge)
         from proto_tools import TMalignOutput
         mock_tmalign.return_value = TMalignOutput(

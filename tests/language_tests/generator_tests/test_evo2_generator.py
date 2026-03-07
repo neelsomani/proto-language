@@ -26,9 +26,9 @@ class TestEvo2Generator:
 
         evo2_generator.sample()
 
-        assert segment.candidate_sequences[0].sequence is not None
-        assert len(segment.candidate_sequences[0].sequence) > len(prompts[0])
-        assert segment.candidate_sequences[0].sequence_type == "dna"
+        assert segment.proposal_sequences[0].sequence is not None
+        assert len(segment.proposal_sequences[0].sequence) > len(prompts[0])
+        assert segment.proposal_sequences[0].sequence_type == "dna"
 
     def test_evo2_batch_sampling(self):
         """Test Evo2 generator with multiple prompt sequences."""
@@ -41,18 +41,18 @@ class TestEvo2Generator:
         evo2_generator = Evo2Generator(config)
 
         segment = Segment(length=expected_length, sequence_type="dna")
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
         evo2_generator.assign(segment)
 
         assert evo2_generator._assigned_segment is segment
-        assert len(segment.candidate_sequences) == len(prompts)
+        assert len(segment.proposal_sequences) == len(prompts)
 
         evo2_generator.sample()
 
         for i in range(len(prompts)):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) > len(prompts[i])
-            assert segment.candidate_sequences[i].sequence_type == "dna"
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) > len(prompts[i])
+            assert segment.proposal_sequences[i].sequence_type == "dna"
 
     def test_evo2_assign_errors(self):
         """Test error conditions for Evo2 generator assignment."""
@@ -61,18 +61,18 @@ class TestEvo2Generator:
         config_single = Evo2GeneratorConfig(prompts=prompts_single)
         evo2_generator_single = Evo2Generator(config_single)
 
-        segment_two_candidates = Segment(length=expected_length, sequence_type="dna")
-        segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
-        evo2_generator_single.assign(segment_two_candidates)
+        segment_two_proposals = Segment(length=expected_length, sequence_type="dna")
+        segment_two_proposals.proposal_sequences = [copy.deepcopy(segment_two_proposals.original_sequence) for _ in range(2)]
+        evo2_generator_single.assign(segment_two_proposals)
         evo2_generator_single.sample()
 
         prompts_multi = ["ATCG", "GGCC", "TTAA"]
         config_multi = Evo2GeneratorConfig(prompts=prompts_multi)
         evo2_generator_multi = Evo2Generator(config_multi)
 
-        segment_two_candidates2 = Segment(length=expected_length, sequence_type="dna")
-        segment_two_candidates2.candidate_sequences = [copy.deepcopy(segment_two_candidates2.original_sequence) for _ in range(2)]
-        evo2_generator_multi.assign(segment_two_candidates2)
+        segment_two_proposals2 = Segment(length=expected_length, sequence_type="dna")
+        segment_two_proposals2.proposal_sequences = [copy.deepcopy(segment_two_proposals2.original_sequence) for _ in range(2)]
+        evo2_generator_multi.assign(segment_two_proposals2)
 
         with pytest.raises(ValueError, match="Expected 1 or"):
             evo2_generator_multi.sample()
@@ -99,8 +99,8 @@ class TestEvo2Generator:
 
         evo2_generator.sample()
 
-        assert segment.candidate_sequences[0].sequence is not None
-        assert segment.candidate_sequences[0].sequence_type == "dna"
+        assert segment.proposal_sequences[0].sequence is not None
+        assert segment.proposal_sequences[0].sequence_type == "dna"
 
     def test_evo2_batch_size_parameter(self):
         """Test Evo2 generator with custom batch_size for GPU memory management."""
@@ -114,7 +114,7 @@ class TestEvo2Generator:
         evo2_generator = Evo2Generator(config)
 
         segment = Segment(length=expected_length, sequence_type="dna")
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
         evo2_generator.assign(segment)
 
         assert evo2_generator.batch_size == 2
@@ -122,9 +122,9 @@ class TestEvo2Generator:
         evo2_generator.sample()
 
         for i in range(len(prompts)):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) > len(prompts[i])
-            assert segment.candidate_sequences[i].sequence_type == "dna"
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) > len(prompts[i])
+            assert segment.proposal_sequences[i].sequence_type == "dna"
 
 
 class TestEvo2GeneratorValidation:

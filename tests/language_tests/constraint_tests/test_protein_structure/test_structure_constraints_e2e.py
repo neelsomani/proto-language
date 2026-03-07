@@ -123,7 +123,7 @@ class TestStructureConstraintsProteinLigandComplex:
         expected_metadata_keys,
     ):
         """Test that constraint runs end-to-end with protein-ligand complex."""
-        candidates = [(protein_sequence, ligand_sequence)]
+        proposals = [(protein_sequence, ligand_sequence)]
 
         # Create appropriate config based on constraint type
         if config_class == StructureBasedConstraintConfig:
@@ -145,7 +145,7 @@ class TestStructureConstraintsProteinLigandComplex:
             )
 
         # Run constraint
-        scores = constraint_fn(candidates, config)
+        scores = constraint_fn(proposals, config)
 
         # Verify score structure
         assert len(scores) == 1, f"{constraint_name}: Expected 1 score"
@@ -233,7 +233,7 @@ class TestESMFoldLigandRejection:
         config_class,
     ):
         """Test that ESMFold raises ValueError for ligand-containing complexes."""
-        candidates = [(protein_sequence, ligand_sequence)]
+        proposals = [(protein_sequence, ligand_sequence)]
 
         # Create appropriate config with ESMFold
         if config_class == StructureBasedConstraintConfig:
@@ -256,4 +256,4 @@ class TestESMFoldLigandRejection:
 
         # Verify that the constraint raises a ValueError
         with pytest.raises(ValueError):
-            constraint_fn(candidates, config)
+            constraint_fn(proposals, config)

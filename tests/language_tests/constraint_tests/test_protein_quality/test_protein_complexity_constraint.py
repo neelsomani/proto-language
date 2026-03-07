@@ -61,7 +61,7 @@ class TestProteinComplexityConstraint:
             assert abs(scores[0] - expected_score) < 0.01
 
             # Check constraint-specific metadata fields
-            constraints = segment.candidate_sequences[0]._constraints_metadata
+            constraints = segment.proposal_sequences[0]._constraints_metadata
             assert "low_complexity_fraction" in constraints["protein_complexity_constraint"]["data"]
             assert (
                 abs(

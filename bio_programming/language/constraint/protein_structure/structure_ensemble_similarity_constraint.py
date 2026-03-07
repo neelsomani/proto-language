@@ -297,7 +297,7 @@ def _extract_residue_range_from_pdb(
 class StructureEnsembleSimilarityConfig(BaseConfig):
     """Configuration for structure ensemble similarity constraints.
 
-    This constraint generates a conformational ensemble for a candidate protein
+    This constraint generates a conformational ensemble for a proposal protein
     sequence and computes the RMSD between ensemble members and an experimental
     target structure using PyMOL's align command.
 
@@ -315,8 +315,8 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
             If specified, extract only residues within this range (1-indexed,
             inclusive) from the target structure.
 
-        candidate_residue_range (Optional[Tuple[int, int]]):
-            If specified, use only this range (1-indexed) of the candidate
+        proposal_residue_range (Optional[Tuple[int, int]]):
+            If specified, use only this range (1-indexed) of the proposal
             sequence for ensemble sampling.
 
         bioemu_config (BioEmuConfig):
@@ -372,11 +372,11 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
         advanced=True,
     )
 
-    # Candidate subsetting
-    candidate_residue_range: Optional[Tuple[int, int]] = ConfigField(
-        title="Candidate Residue Range",
+    # Proposal subsetting
+    proposal_residue_range: Optional[Tuple[int, int]] = ConfigField(
+        title="Proposal Residue Range",
         default=None,
-        description="Residue range (start, end) of the candidate sequence to use.",
+        description="Residue range (start, end) of the proposal sequence to use.",
         advanced=True,
     )
 
@@ -419,7 +419,7 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
         hidden=True,
     )
 
-    @field_validator("target_residue_range", "candidate_residue_range", mode="after")
+    @field_validator("target_residue_range", "proposal_residue_range", mode="after")
     @classmethod
     def validate_residue_range(
         cls, v: Optional[Tuple[int, int]]
@@ -462,7 +462,7 @@ def structure_ensemble_rmsd_constraint(
 
     This constraint:
     1. Prepares the target structure (extracting chain/residue range if specified).
-    2. For each candidate sequence, generate a conformational ensemble.
+    2. For each proposal sequence, generate a conformational ensemble.
     3. Computes PyMOL-aligned RMSD between each ensemble frame and the target.
     4. Summarizes the RMSDs using the specified aggregation method.
     5. Converts the summarized RMSD to a 0-1 score using a sigmoid function.
@@ -493,16 +493,16 @@ def structure_ensemble_rmsd_constraint(
             logger.info(f"Processing sequence {seq_idx + 1}/{len(input_sequences)}")
 
         try:
-            # Extract candidate subsequence if range is specified.
-            candidate_sequence = seq.sequence
-            if config.candidate_residue_range is not None:
-                start_res, end_res = config.candidate_residue_range
+            # Extract proposal subsequence if range is specified.
+            proposal_sequence = seq.sequence
+            if config.proposal_residue_range is not None:
+                start_res, end_res = config.proposal_residue_range
                 # Convert from 1-indexed to 0-indexed for Python slicing.
-                candidate_sequence = seq.sequence[start_res - 1 : end_res]
+                proposal_sequence = seq.sequence[start_res - 1 : end_res]
                 if config.verbose:
                     logger.info(
                         f"Using residue range {start_res}-{end_res}: "
-                        f"{len(candidate_sequence)} residues"
+                        f"{len(proposal_sequence)} residues"
                     )
 
             # Configure and run ensemble prediction.
@@ -510,7 +510,7 @@ def structure_ensemble_rmsd_constraint(
             bioemu_input = BioEmuInput(
                 complexes=[
                     StructurePredictionComplex(
-                        chains=[{"sequence": candidate_sequence, "entity_type": "protein"}]
+                        chains=[{"sequence": proposal_sequence, "entity_type": "protein"}]
                     )
                 ]
             )
@@ -522,7 +522,7 @@ def structure_ensemble_rmsd_constraint(
             if config.verbose:
                 logger.info(
                     f"Running BioEmu: {config.bioemu_config.num_samples} samples for "
-                    f"sequence of length {len(candidate_sequence)}"
+                    f"sequence of length {len(proposal_sequence)}"
                 )
 
             result = run_bioemu(bioemu_input, config.bioemu_config)

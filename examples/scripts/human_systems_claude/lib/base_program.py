@@ -306,7 +306,7 @@ def gene_ids_to_program(
     # Configure optimizer
     mcmc_optimizer_config = MCMCOptimizerConfig(
         num_results=1,
-        candidates_per_result=1,
+        proposals_per_result=1,
         num_steps=len(generators) * n_steps_per_generator,
         max_temperature=0.1,
         min_temperature=0.01,

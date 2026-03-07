@@ -21,7 +21,7 @@ class TestProteinLengthConstraint:
         )
 
         assert constraint.evaluate()[0] == 0.0
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 21
 
     def test_protein_too_short(self):
@@ -37,7 +37,7 @@ class TestProteinLengthConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 5
 
     def test_protein_too_long(self):
@@ -53,7 +53,7 @@ class TestProteinLengthConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 100
 
     def test_invalid_sequence_type(self):

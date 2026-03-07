@@ -61,7 +61,7 @@ class TestConfig:
         with pytest.raises(ValueError, match="must be >= start"):
             StructureEnsembleSimilarityConfig(
                 target_structure=MOCK_PDB,
-                candidate_residue_range=(10, 5),
+                proposal_residue_range=(10, 5),
             )
 
     def test_default_values(self):
@@ -148,11 +148,11 @@ class TestConstraintWithMocks:
         assert seq._metadata["ensemble_rmsd_mean"] == 2.0
         assert seq._metadata["ensemble_size"] == 3
 
-    def test_candidate_residue_range_subsets_sequence(self, mock_bioemu, mock_pymol_rmsd):
-        """Verify candidate_residue_range subsets sequence before BioEmu."""
+    def test_proposal_residue_range_subsets_sequence(self, mock_bioemu, mock_pymol_rmsd):
+        """Verify proposal_residue_range subsets sequence before BioEmu."""
         config = StructureEnsembleSimilarityConfig(
             target_structure=MOCK_PDB,
-            candidate_residue_range=(5, 15),  # 11 residues
+            proposal_residue_range=(5, 15),  # 11 residues
             bioemu_config=BioEmuConfig(num_samples=3),
         )
 

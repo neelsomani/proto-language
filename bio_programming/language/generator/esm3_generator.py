@@ -171,7 +171,7 @@ class ESM3Generator(Generator):
         actual_mutations = min(self.num_mutations, self._assigned_segment.sequence_length)
 
         # Create input and config objects
-        sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
+        sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
         esm3_input = ESM3SampleInput(sequences=sequences)
         config = ESM3SampleConfig(
             model_checkpoint=self.model_checkpoint,
@@ -185,7 +185,7 @@ class ESM3Generator(Generator):
         result = run_esm3_sample(inputs=esm3_input, config=config)
         mutated_sequences = result.sequences
 
-        for candidate, sequence in zip(
-            self._assigned_segment.candidate_sequences, mutated_sequences, strict=True
+        for proposal, sequence in zip(
+            self._assigned_segment.proposal_sequences, mutated_sequences, strict=True
         ):
-            candidate.sequence = sequence
+            proposal.sequence = sequence

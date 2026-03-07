@@ -18,7 +18,7 @@ import pandas as pd
 from proto_tools.utils.tool_cache import ToolCache, _program_tool_cache
 
 from proto_language.utils.export import (
-    build_candidate_results,
+    build_proposal_results,
     build_results,
     export_tables,
     flatten_table,
@@ -51,15 +51,15 @@ class Optimizer(ABC):
 
     Filter Constraints:
         Constraints with a threshold parameter act as binary filters that accept or reject
-        candidates before scoring. Rejected candidates receive infinite penalty scores
+        proposals before scoring. Rejected proposals receive infinite penalty scores
         and skip all subsequent constraint evaluations, improving performance when
         constraints are computationally expensive.
 
         Filter evaluation order:
         1. All filter constraints (those with threshold set) are evaluated first
-        2. Candidates must pass ALL filters (AND logic)
-        3. Only accepted candidates are evaluated by scoring constraints
-        4. Rejected candidates receive filter_penalty score (default: inf)
+        2. Proposals must pass ALL filters (AND logic)
+        3. Only accepted proposals are evaluated by scoring constraints
+        4. Rejected proposals receive filter_penalty score (default: inf)
     """
 
     _require_non_empty_constraints: bool = True
@@ -72,10 +72,10 @@ class Optimizer(ABC):
         constraints: List[Constraint],
         num_results: int | None,
         tracking_interval: int,
-        track_candidates: bool,
+        track_proposals: bool,
         verbose: bool,
-        candidates_per_result: int = 1,
-        num_candidates: int | None = None,
+        proposals_per_result: int = 1,
+        num_proposals: int | None = None,
         clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
         custom_logging: Optional[Callable] = None,
     ) -> None:
@@ -90,12 +90,12 @@ class Optimizer(ABC):
                 May be None to defer resolution to Program(num_results=N).
             tracking_interval: Save history snapshot and log progress every N steps.
                 Step 0 (initial) and the final step are always saved.
-            track_candidates: Include per-candidate results in history snapshots.
+            track_proposals: Include per-proposal results in history snapshots.
             verbose: Whether to print detailed progress information.
-            candidates_per_result: Number of candidate proposals per result sequence.
-                Used to compute num_candidates when deferred.
-            num_candidates: Number of candidate proposals to generate per iteration.
-                Computed as ``num_results * candidates_per_result`` when None.
+            proposals_per_result: Number of proposals per result sequence.
+                Used to compute num_proposals when deferred.
+            num_proposals: Number of proposals to generate per iteration.
+                Computed as ``num_results * proposals_per_result`` when None.
             clear_tool_cache: (int) Maximum size of cache in bytes, defaults to 100 MB.
                               (bool) Whether to clear the tool cache on each iteration.
                               (List[str]) Restrict clearing cache to a list of tool names.
@@ -107,10 +107,10 @@ class Optimizer(ABC):
         self.constraints = constraints
         self.num_results = num_results
         self.tracking_interval = tracking_interval
-        self.track_candidates = track_candidates
+        self.track_proposals = track_proposals
         self.verbose = verbose
-        self._candidates_per_result = candidates_per_result
-        self.num_candidates = num_candidates
+        self._proposals_per_result = proposals_per_result
+        self.num_proposals = num_proposals
         self.clear_tool_cache = clear_tool_cache
         self.custom_logging = custom_logging
         self.energy_scores: List[float] = []
@@ -118,9 +118,9 @@ class Optimizer(ABC):
         self._initial_state: Optional[Dict] = None  # Captured on first run() for restart
         self._labels_deduplicated: bool = False
 
-        # Per-candidate tracking (set by score_energy / optimizer-specific logic)
-        self._candidate_outcomes: list[str] = []
-        self._candidate_energy_scores: list[float] = []
+        # Per-proposal tracking (set by score_energy / optimizer-specific logic)
+        self._proposal_outcomes: list[str] = []
+        self._proposal_energy_scores: list[float] = []
 
         # Default value for progress tracking (can be overridden by subclasses)
         self.num_steps: int = 1
@@ -134,7 +134,7 @@ class Optimizer(ABC):
         if self.num_results is not None:
             self._resolve_num_results(self.num_results)
 
-        logger.debug(f"Optimizer initialized: {self.__class__.__name__}, candidates={num_candidates}, results={num_results}")
+        logger.debug(f"Optimizer initialized: {self.__class__.__name__}, proposals={num_proposals}, results={num_results}")
 
     @property
     def segments(self):
@@ -160,21 +160,21 @@ class Optimizer(ABC):
         filter_penalty: float = float("inf"),
     ) -> None:
         """
-        Compute energy scores by combining all constraint evaluation scores on the candidate sequences.
+        Compute energy scores by combining all constraint evaluation scores on the proposal sequences.
 
-        Filter constraints are evaluated first. Rejected candidates skip subsequent
-        constraint evaluations for performance. Sets ``_candidate_outcomes`` with
-        "accepted" for passing candidates or the rejecting constraint's label.
+        Filter constraints are evaluated first. Rejected proposals skip subsequent
+        constraint evaluations for performance. Sets ``_proposal_outcomes`` with
+        "accepted" for passing proposals or the rejecting constraint's label.
 
         Evaluation order:
             1. Filter constraints (with threshold) evaluated first
-            2. Candidates must pass ALL filters (AND logic)
-            3. Scoring constraints (without threshold) only evaluate candidates that passed all filters
-            4. Rejected candidates receive filter_penalty without further evaluation
+            2. Proposals must pass ALL filters (AND logic)
+            3. Scoring constraints (without threshold) only evaluate proposals that passed all filters
+            4. Rejected proposals receive filter_penalty without further evaluation
 
         Args:
             operation: How to combine scores: 'add' (sum) or 'multiply' (product)
-            filter_penalty: Score for rejected candidates (default: inf)
+            filter_penalty: Score for rejected proposals (default: inf)
 
         Raises:
             ValueError: If optimizer is not properly initialized or operation is not 'add' or 'multiply'.
@@ -182,7 +182,7 @@ class Optimizer(ABC):
         self._validate_optimizer()
 
         num_sequences = (
-            len(self.segments[0].candidate_sequences) if self.segments else 0
+            len(self.segments[0].proposal_sequences) if self.segments else 0
         )
         passed = [True] * num_sequences
 
@@ -197,18 +197,18 @@ class Optimizer(ABC):
                 f"Formula: energy = {op}(weight_i x constraint_score_i)"
             )
 
-        # Pass 1: Evaluate filter constraints first to skip expensive scoring on rejected candidates.
-        self._candidate_outcomes = ["accepted"] * num_sequences
+        # Pass 1: Evaluate filter constraints first to skip expensive scoring on rejected proposals.
+        self._proposal_outcomes = ["accepted"] * num_sequences
         for idx, constraint in enumerate(filters):
             if self.verbose:
                 logger.info(f"Filter {idx+1}: {constraint.label}")
             results = constraint.evaluate(mask=passed, verbose=self.verbose)
             for i, (p, r) in enumerate(zip(passed, results)):
                 if p and not r:
-                    self._candidate_outcomes[i] = constraint.label
+                    self._proposal_outcomes[i] = constraint.label
             passed = [p and r for p, r in zip(passed, results)]
 
-        # Pass 2: Score passing candidates (skip rejected candidates for performance)
+        # Pass 2: Score passing proposals (skip rejected proposals for performance)
         all_scores = []
         for idx, constraint in enumerate(scorers):
             if self.verbose:
@@ -220,10 +220,10 @@ class Optimizer(ABC):
             identity = "0.0" if operation == "add" else "1.0"
             logger.warning(
                 f"All constraints are filters (have threshold set). "
-                f"Passing candidates will receive energy score {identity} since there are no scoring constraints."
+                f"Passing proposals will receive energy score {identity} since there are no scoring constraints."
             )
 
-        # Aggregate scores across all scoring constraints into a single energy score per candidate.
+        # Aggregate scores across all scoring constraints into a single energy score per proposal.
         # NaN propagates through sum/prod operations, resulting in NaN if any constraint is unevaluated.
         if operation == "add":
             self.energy_scores = [sum(s[i] for s in all_scores) for i in range(num_sequences)]
@@ -234,30 +234,30 @@ class Optimizer(ABC):
 
         # Check for inconsistent state
         assert len(self.energy_scores) == num_sequences, \
-            ("Inconsistent state: energy scores should have the same length as candidates")
+            ("Inconsistent state: energy scores should have the same length as proposals")
 
         # NaN signals "not evaluated" and propagates through arithmetic, making bugs visible
         for i, score in enumerate(self.energy_scores):
-            if self._candidate_outcomes[i] == "accepted" and math.isnan(score):
-                raise RuntimeError(f"Inconsistent state: candidate {i} passed all filters but has NaN score.")
+            if self._proposal_outcomes[i] == "accepted" and math.isnan(score):
+                raise RuntimeError(f"Inconsistent state: proposal {i} passed all filters but has NaN score.")
 
-        # Apply filter_penalty to rejected candidates
+        # Apply filter_penalty to rejected proposals
         self.energy_scores = [
-            score if self._candidate_outcomes[i] == "accepted" else filter_penalty
+            score if self._proposal_outcomes[i] == "accepted" else filter_penalty
             for i, score in enumerate(self.energy_scores)
         ]
 
         if self.verbose:
             logger.info("Final Energy Scores:")
             for i, score in enumerate(self.energy_scores):
-                outcome = self._candidate_outcomes[i]
+                outcome = self._proposal_outcomes[i]
                 if outcome == "accepted":
-                    logger.info(f"  Candidate {i}: {score:.4f} [ACCEPTED]")
+                    logger.info(f"  Proposal {i}: {score:.4f} [ACCEPTED]")
                 else:
-                    logger.info(f"  Candidate {i}: {score:.4f} [REJECTED by {outcome}]")
+                    logger.info(f"  Proposal {i}: {score:.4f} [REJECTED by {outcome}]")
 
-        # Snapshot candidate energies before optimizers truncate/swap energy_scores
-        self._candidate_energy_scores = list(self.energy_scores)
+        # Snapshot proposal energies before optimizers truncate/swap energy_scores
+        self._proposal_energy_scores = list(self.energy_scores)
 
         self._clear_tool_cache()
 
@@ -407,25 +407,25 @@ class Optimizer(ABC):
                 "is not in any of the provided constructs"
             )
 
-    def _sync_candidate_pools(self, target_segment: "Segment") -> None:
-        """Sync non-target segment candidate pools to match target_segment's pool size.
+    def _sync_proposal_pools(self, target_segment: "Segment") -> None:
+        """Sync non-target segment proposal pools to match target_segment's pool size.
 
-        Maintains the invariant that all segments have equal num_candidates.
+        Maintains the invariant that all segments have equal num_proposals.
         Non-target segments are populated by cycling through their result_sequences.
 
-        Called after an optimizer resizes target_segment.candidate_sequences
+        Called after an optimizer resizes target_segment.proposal_sequences
         (e.g., BeamSearch expanding to N*K for batch scoring).
 
         Args:
-            target_segment: The segment whose candidate pool was just resized.
+            target_segment: The segment whose proposal pool was just resized.
                 All other segments will be synced to match its size.
         """
-        target_size = len(target_segment.candidate_sequences)
+        target_size = len(target_segment.proposal_sequences)
         for segment in self.segments:
             if segment is target_segment:
                 continue
             source = segment.result_sequences or [segment.original_sequence]
-            segment.candidate_sequences = [
+            segment.proposal_sequences = [
                 copy.deepcopy(source[i % len(source)])
                 for i in range(target_size)
             ]
@@ -437,7 +437,7 @@ class Optimizer(ABC):
         1. ``segment.result_sequences`` (if populated) - from previous optimizer
         2. ``[segment.original_sequence]`` (if first optimizer) - falls back to original
 
-        Both ``result_sequences`` and ``candidate_sequences`` are initialized by cycling
+        Both ``result_sequences`` and ``proposal_sequences`` are initialized by cycling
         through source to preserve diversity when pool sizes differ.
 
         Example: source=[A,B,C], num_results=5 → [A,B,C,A,B]
@@ -470,10 +470,10 @@ class Optimizer(ABC):
                 for i in range(self.num_results)
             ]
 
-            # Candidate pool: cycle through source to preserve diversity
-            segment.candidate_sequences = [
+            # Proposal pool: cycle through source to preserve diversity
+            segment.proposal_sequences = [
                 copy.deepcopy(source[i % len(source)])
-                for i in range(self.num_candidates)
+                for i in range(self.num_proposals)
             ]
 
     def _resolve_num_results(self, num_results: int) -> None:
@@ -489,11 +489,11 @@ class Optimizer(ABC):
         self.num_results = num_results
         if hasattr(self, "config"):
             self.config.num_results = num_results
-        if self.num_candidates is None:
-            self.num_candidates = num_results * self._candidates_per_result
-        if self.num_candidates < 1:
-            raise ValueError(f"num_candidates must be >= 1, got {self.num_candidates}")
-        self.energy_scores = [float("inf")] * self.num_candidates
+        if self.num_proposals is None:
+            self.num_proposals = num_results * self._proposals_per_result
+        if self.num_proposals < 1:
+            raise ValueError(f"num_proposals must be >= 1, got {self.num_proposals}")
+        self.energy_scores = [float("inf")] * self.num_proposals
         self._initialize_sequence_pools()
 
     def _prepare_run(self) -> None:
@@ -511,7 +511,7 @@ class Optimizer(ABC):
             'segments': [
                 {
                     'result': [seq.to_dict() for seq in seg.result_sequences],
-                    'candidates': [seq.to_dict() for seq in seg.candidate_sequences],
+                    'proposals': [seq.to_dict() for seq in seg.proposal_sequences],
                 }
                 for seg in self.segments
             ],
@@ -523,10 +523,10 @@ class Optimizer(ABC):
         for i, seg in enumerate(self.segments):
             state = self._initial_state['segments'][i]
             seg.result_sequences = [Sequence.from_dict(s) for s in state['result']]
-            seg.candidate_sequences = [Sequence.from_dict(s) for s in state['candidates']]
+            seg.proposal_sequences = [Sequence.from_dict(s) for s in state['proposals']]
         self.energy_scores = self._initial_state['energy_scores'].copy()
-        self._candidate_outcomes = []
-        self._candidate_energy_scores = []
+        self._proposal_outcomes = []
+        self._proposal_energy_scores = []
         self._labels_deduplicated = False
         self.history = []
 
@@ -547,8 +547,8 @@ class Optimizer(ABC):
         result = build_results(self.constructs, self.energy_scores)
         result["time_step"] = time_step
 
-        if self.track_candidates and self._candidate_outcomes:
-            result["candidate_results"] = build_candidate_results(self.constructs, self._candidate_outcomes, self._candidate_energy_scores)
+        if self.track_proposals and self._proposal_outcomes:
+            result["proposal_results"] = build_proposal_results(self.constructs, self._proposal_outcomes, self._proposal_energy_scores)
 
         self.history.append(result)
 
@@ -566,7 +566,7 @@ class Optimizer(ABC):
         segments: set[str] | None = None,
         result_indices: set[int] | None = None,
         constraints: set[str] | None = None,
-        include_candidates: bool = False,
+        include_proposals: bool = False,
     ) -> Path:
         """Export results to files.
 
@@ -583,14 +583,14 @@ class Optimizer(ABC):
             segments: Only include these segment labels.
             result_indices: Only include these result indices.
             constraints: Only include these constraint labels (constraints table only).
-            include_candidates: Include candidate rows (optimization table only).
+            include_proposals: Include proposal rows (optimization table only).
         """
         results = build_results(self.constructs, self.energy_scores)
         filters = dict(
             segments=segments,
             result_indices=result_indices,
             constraints=constraints,
-            include_candidates=include_candidates,
+            include_proposals=include_proposals,
         )
         return export_tables(
             lambda t: flatten_table(t, results, self.history, **filters),
@@ -603,7 +603,7 @@ class Optimizer(ABC):
         segments: set[str] | None = None,
         constraints: set[str] | None = None,
         result_indices: set[int] | None = None,
-        include_candidates: bool = False,
+        include_proposals: bool = False,
     ) -> pd.DataFrame:
         """Get a result table as a pandas DataFrame.
 
@@ -616,7 +616,7 @@ class Optimizer(ABC):
             segments=segments,
             result_indices=result_indices,
             constraints=constraints,
-            include_candidates=include_candidates,
+            include_proposals=include_proposals,
         ))
 
     def to_fasta(

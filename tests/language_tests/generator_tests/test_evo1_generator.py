@@ -27,7 +27,7 @@ class TestEvo1Generator:
         assert gen.batch_size == 2
 
         segment = Segment(length=expected_length, sequence_type="dna")
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(3)
         ]
         gen.assign(segment)
@@ -36,18 +36,18 @@ class TestEvo1Generator:
         gen.sample()
 
         for i in range(3):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) > len(prompts[0])
-            assert segment.candidate_sequences[i].sequence_type == "dna"
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) > len(prompts[0])
+            assert segment.proposal_sequences[i].sequence_type == "dna"
 
     def test_evo1_prompt_mismatch_raises(self):
-        """3 prompts with 2 candidates should raise ValueError."""
+        """3 prompts with 2 proposals should raise ValueError."""
         prompts = ["ATCG", "GGCC", "TTAA"]
         config = Evo1GeneratorConfig(prompts=prompts)
         gen = Evo1Generator(config)
 
         segment = Segment(length=104, sequence_type="dna")
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(2)
         ]
         gen.assign(segment)

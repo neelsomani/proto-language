@@ -72,7 +72,7 @@ class MockAutoregressiveGenerator(Generator):
         for prompt in prompts:
             new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
-        self._assigned_segment.candidate_sequences = [
+        self._assigned_segment.proposal_sequences = [
             Sequence(sequence=seq, sequence_type="dna") for seq in sequences
         ]
         if self.use_kv_caching:
@@ -97,8 +97,8 @@ class MockCyclingGenerator(Generator):
         self._assigned_segment = assigned_segment
 
     def sample(self, structure_inputs=None) -> None:
-        # Mutate each candidate sequence slightly
-        for seq in self._assigned_segment.candidate_sequences:
+        # Mutate each proposal sequence slightly
+        for seq in self._assigned_segment.proposal_sequences:
             chars = list(seq.sequence)
             if chars:
                 idx = random.randint(0, len(chars) - 1)
@@ -161,7 +161,7 @@ def create_beamsearch_optimizer(construct, segment, num_results=3, beam_length=1
             prompt=prompt,
             beam_length=beam_length,
             num_results=num_results,
-            candidates_per_result=3,
+            proposals_per_result=3,
             use_kv_caching=True,
         ),
         target_segment=segment,
@@ -273,7 +273,7 @@ class TestTopKTransitions:
         assert len(topk_seqs) == 3
 
         program.run_stage(1)
-        # CyclingOptimizer should have run with 2 candidates
+        # CyclingOptimizer should have run with 2 proposals
         assert len(segment.result_sequences) == 2
 
 

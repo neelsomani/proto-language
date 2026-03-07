@@ -89,7 +89,7 @@ class TestOverallProteinQualityConstraint:
         assert scores[0] < 0.5
 
         # Check constraint-specific metadata fields (nested under constraints)
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "overall_protein_quality_constraint" in constraints
         constraint_data = constraints["overall_protein_quality_constraint"]
         assert "avg_constraint_score" in constraint_data["data"]

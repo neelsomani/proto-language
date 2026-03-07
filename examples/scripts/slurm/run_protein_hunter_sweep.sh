@@ -31,10 +31,10 @@ echo "Configuration: Tool=${TOOL} | Length=${LENGTH}"
 echo "=========================================================="
 
 # Run Protein Hunter.
-# Using --cycles 5 and --candidates 1 to keep it lightweight.
+# Using --cycles 5 and --proposals 1 to keep it lightweight.
 python examples/scripts/protein_hunter.py \
     --structure-tool $TOOL \
     --length $LENGTH \
     --cycles 5 \
-    --candidates 1 \
+    --proposals 1 \
     --output-dir ./outputs

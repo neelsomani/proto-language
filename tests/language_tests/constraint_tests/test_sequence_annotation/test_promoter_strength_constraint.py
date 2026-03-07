@@ -83,7 +83,7 @@ class TestPromoterStrengthConstraint:
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         scores, _ = _evaluate(segment, PromoterStrengthConfig(), return_value)
         assert scores == [1.0]
-        data = segment.candidate_sequences[0]._constraints_metadata
+        data = segment.proposal_sequences[0]._constraints_metadata
         meta = data["promoter_strength_constraint"]["data"]["promoter_strength"]
         assert meta["penalty"] == 1.0
         assert meta["reason"] == "no_promoter_found"
@@ -94,7 +94,7 @@ class TestPromoterStrengthConstraint:
         config = PromoterStrengthConfig(scoring_type="dG")
         _evaluate(segment, config, [_mock_result(dG_total=-4.0)])
 
-        data = segment.candidate_sequences[0]._constraints_metadata
+        data = segment.proposal_sequences[0]._constraints_metadata
         meta = data["promoter_strength_constraint"]["data"]["promoter_strength"]
         assert meta["dG_rate"] == -4.0
         assert "penalty" in meta

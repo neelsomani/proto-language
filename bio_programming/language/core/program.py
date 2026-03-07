@@ -40,7 +40,7 @@ class Program:
 
         1. ``_initialize_sequence_pools()`` reads from ``result_sequences``
            (or ``original_sequence`` if first optimizer)
-        2. Both ``result_sequences`` and ``candidate_sequences`` are initialized by
+        2. Both ``result_sequences`` and ``proposal_sequences`` are initialized by
            cycling through source to preserve diversity when pool sizes differ
            (e.g., source=[A,B,C], num_results=5 -> [A,B,C,A,B])
 
@@ -49,8 +49,8 @@ class Program:
         - **TopK**: Clears ``result_sequences`` and repopulates dynamically during run
           (always sorted by energy)
         - **MCMC**: Uses ``result_sequences`` as parallel trajectories, overwrites
-          ``candidate_sequences`` each step via ``_populate_candidate_sequences()``
-        - **CyclingOptimizer**: Works directly on ``candidate_sequences``
+          ``proposal_sequences`` each step via ``_populate_proposal_sequences()``
+        - **CyclingOptimizer**: Works directly on ``proposal_sequences``
         - **BeamSearch**: Ignores previous state entirely, starts fresh from configured prompt
 
     Examples:
@@ -369,7 +369,7 @@ class Program:
             for segment in construct.segments:
                 for seq in segment.result_sequences:
                     seq._constraints_metadata = {}
-                for seq in segment.candidate_sequences:
+                for seq in segment.proposal_sequences:
                     seq._constraints_metadata = {}
 
     def extract_results(self, energy_scores: List[float]) -> Dict[str, Any]:
@@ -471,7 +471,7 @@ class Program:
         segments: set[str] | None = None,
         result_indices: set[int] | None = None,
         constraints: set[str] | None = None,
-        include_candidates: bool = False,
+        include_proposals: bool = False,
     ) -> Path:
         """Export results to files.
 
@@ -489,7 +489,7 @@ class Program:
             segments: Only include these segment labels.
             result_indices: Only include these result indices.
             constraints: Only include these constraint labels (constraints table only).
-            include_candidates: Include candidate rows (optimization table only).
+            include_proposals: Include proposal rows (optimization table only).
         """
         results = self._results_for_stage(stage)
         history = self._collect_history(stage)
@@ -497,7 +497,7 @@ class Program:
             segments=segments,
             result_indices=result_indices,
             constraints=constraints,
-            include_candidates=include_candidates,
+            include_proposals=include_proposals,
         )
         return export_tables(
             lambda t: flatten_table(t, results, history, **filters),
@@ -513,7 +513,7 @@ class Program:
         segments: set[str] | None = None,
         constraints: set[str] | None = None,
         result_indices: set[int] | None = None,
-        include_candidates: bool = False,
+        include_proposals: bool = False,
     ) -> pd.DataFrame:
         """Get a result table as a pandas DataFrame.
 
@@ -526,7 +526,7 @@ class Program:
             segments=segments,
             result_indices=result_indices,
             constraints=constraints,
-            include_candidates=include_candidates,
+            include_proposals=include_proposals,
         ))
 
     def to_fasta(

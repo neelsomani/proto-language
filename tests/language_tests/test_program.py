@@ -132,18 +132,18 @@ class TestProgramRestart:
         assert len(program.optimizers[0]._initial_state['segments']) == 1
         captured_state = program.optimizers[0]._initial_state['segments'][0]
         captured_result = captured_state['result']
-        captured_candidates = captured_state['candidates']
+        captured_proposals = captured_state['proposals']
 
         # Verify captured sequences match original (cycled to num_results=2)
         assert len(captured_result) == 2  # Cycled from single source to num_results=2
         assert all(s['sequence'] == original_seq for s in captured_result)
-        assert len(captured_candidates) > 0
-        assert all(c['sequence'] == original_seq for c in captured_candidates)
+        assert len(captured_proposals) > 0
+        assert all(c['sequence'] == original_seq for c in captured_proposals)
 
         # Manually modify sequences to all G's to verify restore works
         for seq in segment.result_sequences:
             seq.sequence = "G" * 20
-        for seq in segment.candidate_sequences:
+        for seq in segment.proposal_sequences:
             seq.sequence = "G" * 20
 
         # Second run should restore from opt1's initial state
@@ -155,11 +155,11 @@ class TestProgramRestart:
         ]
         assert any(seq != "G" * 20 for seq in current_sequences)
 
-        # Verify candidates were also restored (and mutations applied)
-        candidate_sequences = [
-            seq.sequence for seq in segment.candidate_sequences
+        # Verify proposals were also restored (and mutations applied)
+        proposal_sequences = [
+            seq.sequence for seq in segment.proposal_sequences
         ]
-        assert any(seq != "G" * 20 for seq in candidate_sequences)
+        assert any(seq != "G" * 20 for seq in proposal_sequences)
 
 
 def _make_topk(segment, construct, num_results=None):

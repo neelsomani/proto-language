@@ -5,22 +5,22 @@ Complete templates for config class and generator class by category. Load this f
 ## `_validate_generator()` Per-Category Behavior
 
 The category determines what `_validate_generator()` does at the start of `sample()`:
-- **mutation**: If candidate has no sequence, initializes random from `valid_chars`
+- **mutation**: If proposal has no sequence, initializes random from `valid_chars`
 - **autoregressive**: No random init (generates entirely new sequences)
-- **inverse_folding**: If candidate has no sequence, initializes with `"X"` (unknown)
+- **inverse_folding**: If proposal has no sequence, initializes with `"X"` (unknown)
 
 ## Batching Data Flow
 
 ```
 Generator.sample()
-    -> Collects ALL candidate sequences from segment
+    -> Collects ALL proposal sequences from segment
     -> Creates ToolInput with all sequences
     -> Creates ToolConfig with batch_size=self.batch_size
     -> Calls run_tool(inputs, config)
          -> Tool chunks sequences into batches of batch_size
          -> Processes each batch on GPU
          -> Returns concatenated results
-    -> Updates candidate_sequences in-place from results
+    -> Updates proposal_sequences in-place from results
 ```
 
 ## Config Class Template
@@ -117,8 +117,8 @@ class MyGenerator(Generator):
     def sample(self) -> None:
         self._validate_generator()
 
-        candidates = self._assigned_segment.candidate_sequences
-        sequences = [seq.sequence for seq in candidates]
+        proposals = self._assigned_segment.proposal_sequences
+        sequences = [seq.sequence for seq in proposals]
 
         # Call external tool or compute locally
         result = run_my_tool(
@@ -128,12 +128,12 @@ class MyGenerator(Generator):
         )
 
         # Update sequences IN PLACE
-        for candidate, new_seq in zip(candidates, result.sequences):
-            candidate.sequence = new_seq
+        for proposal, new_seq in zip(proposals, result.sequences):
+            proposal.sequence = new_seq
 
         # Optionally store metadata
-        for candidate, score in zip(candidates, result.scores):
-            candidate._metadata.update({
+        for proposal, score in zip(proposals, result.scores):
+            proposal._metadata.update({
                 "my_generator_score": score,
                 "my_generator_model": self.model_name,
             })
@@ -218,7 +218,7 @@ from proto_tools import (
 def sample(self) -> None:
     self._validate_generator()
 
-    sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
+    sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
 
     # Build tool input/config
     tool_input = ToolInput(sequences=sequences)
@@ -232,7 +232,7 @@ def sample(self) -> None:
     result = run_tool(inputs=tool_input, config=tool_config)
     generated = result.sequences
 
-    # Update candidates in-place
+    # Update proposals in-place
     for i, sequence in enumerate(generated):
-        self._assigned_segment.candidate_sequences[i].sequence = sequence
+        self._assigned_segment.proposal_sequences[i].sequence = sequence
 ```

@@ -34,7 +34,7 @@ mkdir -p logs/slurm
 python examples/scripts/evocas9_topk.py \
     --n-samples 2000 \
     --batch-size 200 \
-    --output cas9_topk_2000_candidates.fasta \
+    --output cas9_topk_2000_proposals.fasta \
     --verbose
 
 echo "=========================================="

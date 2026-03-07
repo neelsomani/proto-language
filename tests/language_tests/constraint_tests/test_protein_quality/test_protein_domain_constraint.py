@@ -68,7 +68,7 @@ class TestProteinDomainConstraint:
         ), f"Keyword should be found, score should be 0.0, but got {scores[0]}"
 
         # Check constraint-specific metadata
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert (
             "domain_keywords_found" in constraints["protein_domain_constraint"]["data"]
         ), f"Metadata should contain domain keywords found, but got {constraints}"
@@ -96,7 +96,7 @@ class TestProteinDomainConstraint:
         ), f"Keyword should NOT be found, score should be 1.0, but got {scores[0]}"
 
         # Check constraint-specific metadata
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "domain_keywords_found" in constraints["protein_domain_constraint"]["data"]
         assert constraints["protein_domain_constraint"]["data"]["domain_keywords_found"] == []
         assert "domain_matching_hits" in constraints["protein_domain_constraint"]["data"]

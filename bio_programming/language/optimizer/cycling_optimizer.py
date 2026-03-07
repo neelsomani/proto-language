@@ -3,7 +3,7 @@ Cycling Optimizer that cycles between a conditioning function and a generator.
 
 A generalized optimizer that iteratively runs a user-defined conditioning function
 and passes its output to a generator. Supports optional constraint filtering with
-accept pattern for passing candidates.
+accept pattern for passing proposals.
 """
 
 from __future__ import annotations
@@ -152,7 +152,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
     """Configuration for CyclingOptimizer.
 
     This optimizer cycles between a conditioning function and a generator.
-    On each cycle, the conditioning function receives the current candidate sequences,
+    On each cycle, the conditioning function receives the current proposal sequences,
     produces conditioning data, which is then passed to the generator's sample() method.
 
     The conditioning function can be provided either:
@@ -164,8 +164,8 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
             Each cycle calls the conditioning function, then the generator.
             Must be >= 1.
 
-        num_results (Optional[int]): Number of independent candidate trajectories
-            to maintain. Each candidate is processed independently through the
+        num_results (Optional[int]): Number of independent proposal trajectories
+            to maintain. Each proposal is processed independently through the
             conditioning function and generator. Overrides program-level ``num_results``
             if set.
 
@@ -209,7 +209,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
         default=None,
         ge=1,
         title="Num Results",
-        description="Number of independent candidate trajectories to maintain. Overrides program Num Results.",
+        description="Number of independent proposal trajectories to maintain. Overrides program Num Results.",
         advanced=True,
     )
     conditioning_param_name: str = ConfigField(
@@ -251,8 +251,8 @@ class CyclingOptimizer(Optimizer):
     and a generator:
 
     1. Call conditioning function with current sequences (from result_sequences)
-    2. Pass conditioning output to generator's sample() method (into candidate_sequences)
-    3. Accept passing candidates into result_sequences (failed stay unchanged)
+    2. Pass conditioning output to generator's sample() method (into proposal_sequences)
+    3. Accept passing proposals into result_sequences (failed stay unchanged)
     4. Repeat for num_steps
 
     This enables flexible optimization patterns such as:
@@ -265,7 +265,7 @@ class CyclingOptimizer(Optimizer):
         conditioning_fn (Callable): User-defined function that produces conditioning data.
         conditioning_param_name (str): Generator sample() parameter name for conditioning data.
         num_steps (int): Number of cycles to run.
-        num_results (int): Number of independent candidate trajectories.
+        num_results (int): Number of independent proposal trajectories.
 
     Example:
         >>> def my_conditioning_fn(sequences):
@@ -288,7 +288,7 @@ class CyclingOptimizer(Optimizer):
 
     Note:
         - Constraints are optional; if provided, must be filter constraints
-          (have ``threshold`` set) - only passing candidates update result_sequences
+          (have ``threshold`` set) - only passing proposals update result_sequences
     """
 
     config_class = CyclingOptimizerConfig
@@ -318,7 +318,7 @@ class CyclingOptimizer(Optimizer):
             config: Configuration object with algorithm parameters.
             conditioning_fn: User-defined function that produces conditioning data.
                 Signature: ``(sequences: List[Sequence]) -> List[Any]``
-                Returns one conditioning item per candidate.
+                Returns one conditioning item per proposal.
                 Mutually exclusive with ``config.pipeline`` - use one or the other.
             custom_logging: Optional callback called at tracked steps (governed by ``tracking_interval``)
                 with signature ``(step: int, segments: tuple) -> None``.
@@ -358,7 +358,7 @@ class CyclingOptimizer(Optimizer):
             custom_logging=custom_logging,
             verbose=config.verbose,
             tracking_interval=config.tracking_interval,
-            track_candidates=config.track_candidates,
+            track_proposals=config.track_proposals,
         )
 
         self.num_steps: int = config.num_steps
@@ -368,7 +368,7 @@ class CyclingOptimizer(Optimizer):
         self._prepare_run()
 
         if self.verbose:
-            logger.info(f"CyclingOptimizer: {self.num_steps} steps, {self.num_candidates} candidates")
+            logger.info(f"CyclingOptimizer: {self.num_steps} steps, {self.num_proposals} proposals")
 
         # Track initial state only if we have meaningful scores (not all inf/nan)
         if any(math.isfinite(score) for score in self.energy_scores):
@@ -380,27 +380,27 @@ class CyclingOptimizer(Optimizer):
             conditioning_data = self.conditioning_fn(current_sequences)
 
             # Validate conditioning_fn returned the correct number of items
-            if len(conditioning_data) != self.num_candidates:
-                raise ValueError(f"conditioning_fn returned {len(conditioning_data)} items, expected {self.num_candidates}. The conditioning function must return one conditioning item per candidate.")
+            if len(conditioning_data) != self.num_proposals:
+                raise ValueError(f"conditioning_fn returned {len(conditioning_data)} items, expected {self.num_proposals}. The conditioning function must return one conditioning item per proposal.")
 
-            # 2. Generate proposals into candidate_sequences
+            # 2. Generate proposals into proposal_sequences
             self.generator.sample(**{self.conditioning_param_name: conditioning_data})
 
             # 3. Evaluate and accept/reject
             if self.constraints:
                 prev_energies = list(self.energy_scores)
                 self.score_energy()
-                for i in range(self.num_candidates):
+                for i in range(self.num_proposals):
                     # accept
-                    if self._candidate_outcomes[i] == "accepted":
-                        self.target_segment.result_sequences[i] = copy.deepcopy(self.target_segment.candidate_sequences[i])
+                    if self._proposal_outcomes[i] == "accepted":
+                        self.target_segment.result_sequences[i] = copy.deepcopy(self.target_segment.proposal_sequences[i])
                     else: # reject
                         self.energy_scores[i] = prev_energies[i]
             else:
-                self.target_segment.result_sequences = [copy.deepcopy(seq) for seq in self.target_segment.candidate_sequences]
-                self.energy_scores = [0] * self.num_candidates
-                self._candidate_outcomes = ["accepted"] * self.num_candidates
-                self._candidate_energy_scores = [0] * self.num_candidates
+                self.target_segment.result_sequences = [copy.deepcopy(seq) for seq in self.target_segment.proposal_sequences]
+                self.energy_scores = [0] * self.num_proposals
+                self._proposal_outcomes = ["accepted"] * self.num_proposals
+                self._proposal_energy_scores = [0] * self.num_proposals
 
             if step % self.tracking_interval == 0 or step == self.num_steps:
                 self._save_progress_snapshot(time_step=step)
@@ -439,10 +439,10 @@ class CyclingOptimizer(Optimizer):
     def _log_step_progress(self, step: int) -> None:
         """Log step progress."""
         if self.verbose:
-            num_accepted = self._candidate_outcomes.count("accepted")
+            num_accepted = self._proposal_outcomes.count("accepted")
             first_seq = self.target_segment.result_sequences[0].sequence
             logger.info(f"Step {step}/{self.num_steps}")
-            logger.info(f"  Accepted: {num_accepted}/{self.num_candidates}")
+            logger.info(f"  Accepted: {num_accepted}/{self.num_proposals}")
             logger.info(f"  First seq: {first_seq}")
         if self.custom_logging:
             self.custom_logging(step, self.segments)

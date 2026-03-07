@@ -134,10 +134,10 @@ class TestGeneratorBase:
         # Call sample() to trigger lazy initialization
         gen.sample()
 
-        # candidate_sequences should now have a random sequence of the correct length
-        assert len(segment.candidate_sequences[0].sequence) == seq_len
+        # proposal_sequences should now have a random sequence of the correct length
+        assert len(segment.proposal_sequences[0].sequence) == seq_len
         # All characters should be valid DNA nucleotides
-        assert all(c in "ACGT" for c in segment.candidate_sequences[0].sequence)
+        assert all(c in "ACGT" for c in segment.proposal_sequences[0].sequence)
         # has_sequence flag should still be False (segment was created with length)
         # This ensures serialization outputs "length" not "sequence"
         assert not segment.has_original_sequence
@@ -160,10 +160,10 @@ class TestGeneratorBase:
         # Should preserve the original sequence (has_sequence is True)
         assert segment.has_original_sequence
         # The sequence may be mutated but should still have same length
-        assert len(segment.candidate_sequences[0].sequence) == len(predefined_seq)
+        assert len(segment.proposal_sequences[0].sequence) == len(predefined_seq)
 
-    def test_mutation_candidates_get_unique_random_sequences(self):
-        """Regression: each candidate must get a unique random sequence (Bug 4)."""
+    def test_mutation_proposals_get_unique_random_sequences(self):
+        """Regression: each proposal must get a unique random sequence (Bug 4)."""
         import random
 
         from proto_language.language.core import Sequence
@@ -178,17 +178,17 @@ class TestGeneratorBase:
         gen = UniformMutationGenerator(config)
         gen.assign(segment)
 
-        # Set up multiple empty candidates
-        segment.candidate_sequences = [
+        # Set up multiple empty proposals
+        segment.proposal_sequences = [
             Sequence(sequence="", sequence_type="dna") for _ in range(5)
         ]
         gen._validate_generator()
 
-        sequences = [s.sequence for s in segment.candidate_sequences]
+        sequences = [s.sequence for s in segment.proposal_sequences]
         assert all(len(s) == 50 for s in sequences)
         assert all(all(c in "ACGT" for c in s) for s in sequences)
         assert len(set(sequences)) > 1, (
-            "All candidates got the same random sequence — diversity is wasted"
+            "All proposals got the same random sequence — diversity is wasted"
         )
 
     def test_assign_autoregressive_generator_no_random_init(self):
@@ -216,8 +216,8 @@ class TestGeneratorBase:
         assert segment.original_sequence.sequence == ""
 
 
-    def test_validate_generator_empty_candidate_pool_raises(self):
-        """Tests that _validate_generator raises on empty candidate_sequences (I7)."""
+    def test_validate_generator_empty_proposal_pool_raises(self):
+        """Tests that _validate_generator raises on empty proposal_sequences (I7)."""
         from proto_language.language.generator import (
             UniformMutationGenerator,
             UniformMutationGeneratorConfig,
@@ -228,9 +228,9 @@ class TestGeneratorBase:
         segment = Segment(sequence="ATCG", sequence_type="dna")
 
         gen.assign(segment)
-        segment.candidate_sequences = []
+        segment.proposal_sequences = []
 
-        with pytest.raises(RuntimeError, match="empty candidate_sequences pool"):
+        with pytest.raises(RuntimeError, match="empty proposal_sequences pool"):
             gen._validate_generator()
 
 

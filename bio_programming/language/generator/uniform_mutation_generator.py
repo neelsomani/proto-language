@@ -194,22 +194,22 @@ class UniformMutationGenerator(Generator):
 
     def sample(self) -> None:
         """
-        Introduce random point mutations in candidate sequences.
+        Introduce random point mutations in proposal sequences.
 
-        Mutates each sequence in the candidate pool by selecting random positions
+        Mutates each sequence in the proposal pool by selecting random positions
         and replacing characters with different random characters from the vocabulary.
 
         Raises:
             RuntimeError: If called before assign().
-            ValueError: If candidate pool is empty.
+            ValueError: If proposal pool is empty.
         """
         self._validate_generator()
         # Sleep for testing purposes if debug_with_sleep_calls is enabled
         if self.debug_with_sleep_calls:
             time.sleep(1.0)
 
-        # Mutate each candidate sequence
-        for sequence in self._assigned_segment.candidate_sequences:
+        # Mutate each proposal sequence
+        for sequence in self._assigned_segment.proposal_sequences:
             current_sequence = sequence.sequence
             sequence_length = len(current_sequence)
 

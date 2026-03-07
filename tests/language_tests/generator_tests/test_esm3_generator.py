@@ -26,13 +26,13 @@ class TestESM3Generator:
 
         esm3_generator.sample()
 
-        assert segment.candidate_sequences[0].sequence is not None
-        assert len(segment.candidate_sequences[0].sequence) == 20
-        assert segment.candidate_sequences[0].sequence_type == "protein"
+        assert segment.proposal_sequences[0].sequence is not None
+        assert len(segment.proposal_sequences[0].sequence) == 20
+        assert segment.proposal_sequences[0].sequence_type == "protein"
 
     def test_esm3_batch_sampling(self):
         """Test ESM3 generator with batch processing."""
-        num_candidates = 3
+        num_proposals = 3
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
                 temperature=1.0,
@@ -44,16 +44,16 @@ class TestESM3Generator:
         starting_seq = "MKKLLVVGGGGAAAA"
         segment = Segment(sequence=starting_seq, sequence_type="protein")
         esm3_generator.assign(segment)
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(num_candidates)]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(num_proposals)]
 
-        assert len(segment.candidate_sequences) == num_candidates
+        assert len(segment.proposal_sequences) == num_proposals
 
         esm3_generator.sample()
 
-        for i in range(num_candidates):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) == 15
-            assert segment.candidate_sequences[i].sequence_type == "protein"
+        for i in range(num_proposals):
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) == 15
+            assert segment.proposal_sequences[i].sequence_type == "protein"
 
     def test_esm3_batch_size_parameter(self):
         """Test ESM3 generator with batch_size for GPU memory management."""
@@ -69,16 +69,16 @@ class TestESM3Generator:
         starting_seq = "MKKLLVVGGGGAAAA"
         segment = Segment(sequence=starting_seq, sequence_type="protein")
         esm3_generator.assign(segment)
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(3)]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(3)]
 
         assert esm3_generator.batch_size == 2
 
         esm3_generator.sample()
 
         for i in range(3):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) == 15
-            assert segment.candidate_sequences[i].sequence_type == "protein"
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) == 15
+            assert segment.proposal_sequences[i].sequence_type == "protein"
 
 
 class TestESM3GeneratorValidation:

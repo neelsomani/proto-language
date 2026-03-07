@@ -3,7 +3,7 @@ name: implement-optimizer
 description: >
   Implements, modifies, or debugs optimizers in the proto-language DSL.
   Covers the full lifecycle: BaseOptimizerConfig with ConfigField, Optimizer
-  subclass with __init__/run, dual-pool architecture (result/candidate sequences),
+  subclass with __init__/run, dual-pool architecture (result/proposal sequences),
   constraint evaluation (filter + scoring), decorator registration, export chain,
   and pytest test coverage. Use when working with optimizers, MCMC, beam search,
   TopK selection, cycling, or sequence optimization algorithms.
@@ -34,7 +34,7 @@ allowed-tools:
 The `Optimizer` ABC requires two abstract methods: `__init__` and `run`.
 
 - **`__init__`**: Takes `constructs`, `generators`, `constraints`, plus config. Calls `super().__init__()` which runs `_validate_optimizer()`.
-- **`run`**: Executes the optimization loop. Modifies segments' `result_sequences` and `candidate_sequences`.
+- **`run`**: Executes the optimization loop. Modifies segments' `result_sequences` and `proposal_sequences`.
 
 **Note**: Subclass `__init__` signatures take `config` as a single parameter and unpack it into the ABC's individual parameters via `super().__init__()`.
 
@@ -46,35 +46,35 @@ Every optimizer manages two sequence pools per segment:
 result_sequences    Persistent top-K results across iterations
                       Size: num_results (from config or program-level default)
 
-candidate_sequences   Temporary proposals generated each step
-                      Size: num_candidates (computed from config)
+proposal_sequences   Temporary proposals generated each step
+                      Size: num_proposals (computed from config)
 ```
 
 **Flow per optimization step**:
-1. Copy `result_sequences` -> `candidate_sequences` (expanded/contracted as needed)
-2. Apply generators to mutate `candidate_sequences`
-3. Evaluate constraints on `candidate_sequences`
+1. Copy `result_sequences` -> `proposal_sequences` (expanded/contracted as needed)
+2. Apply generators to mutate `proposal_sequences`
+3. Evaluate constraints on `proposal_sequences`
 4. Update `result_sequences` based on scores
 
 ## Filter vs Scoring Constraints
 
 ```
 Filter constraints (threshold set)     Evaluated FIRST, binary pass/fail
-    | only passing candidates proceed
+    | only passing proposals proceed
 Scoring constraints (no threshold)     Evaluated on survivors only
     |
 Aggregate score = weighted sum/product of scoring constraint results
 ```
 
-- Rejected candidates receive `filter_penalty` (default: `inf`) and skip scoring entirely
-- Use `constraint.evaluate(mask=...)` to selectively evaluate only certain candidates
+- Rejected proposals receive `filter_penalty` (default: `inf`) and skip scoring entirely
+- Use `constraint.evaluate(mask=...)` to selectively evaluate only certain proposals
 
 ## Key Base Class Methods
 
 | Method | Purpose |
 |--------|---------|
 | `score_energy(operation="add")` | Evaluate ALL constraints; populates `self.energy_scores` |
-| `_initialize_sequence_pools()` | Set up `candidate_sequences` from `result_sequences` with cycling |
+| `_initialize_sequence_pools()` | Set up `proposal_sequences` from `result_sequences` with cycling |
 | `_save_progress_snapshot(step)` | Save current state to `self.history` |
 | `_validate_optimizer()` | Comprehensive validation (called in `__init__`) |
 | `_prepare_run()` | Reset history, prepare for fresh run |

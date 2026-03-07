@@ -24,23 +24,23 @@ class ConcreteOptimizer(Optimizer):
         constructs: List[Construct],
         generators: List[Generator],
         constraints: List[Constraint],
-        num_candidates: int | None,
+        num_proposals: int | None,
         num_results: int | None,
         clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
         verbose: bool = False,
         tracking_interval: int = 1,
-        track_candidates: bool = False,
+        track_proposals: bool = False,
     ) -> None:
         super().__init__(
             constructs=constructs,
             generators=generators,
             constraints=constraints,
-            num_candidates=num_candidates,
+            num_proposals=num_proposals,
             num_results=num_results,
             clear_tool_cache=clear_tool_cache,
             verbose=verbose,
             tracking_interval=tracking_interval,
-            track_candidates=track_candidates,
+            track_proposals=track_proposals,
         )
 
     def run(self) -> None:
@@ -62,7 +62,7 @@ class MockGenerator(Generator):
         pass
 
 
-def _setup_optimizer_components(num_candidates: int = 4):
+def _setup_optimizer_components(num_proposals: int = 4):
     """Helper function to set up components for testing Optimizer."""
     segment = Segment(sequence="ATCG", sequence_type="dna")
     construct = Construct([segment])
@@ -75,7 +75,7 @@ def _setup_optimizer_components(num_candidates: int = 4):
     constraint.label = "MockConstraint"
     constraint.threshold = None
     constraint.weight = 1.0
-    constraint.evaluate.return_value = [1.0] * num_candidates
+    constraint.evaluate.return_value = [1.0] * num_proposals
 
     return construct, generator, constraint, segment
 
@@ -102,7 +102,7 @@ class TestOptimizerValidation:
         with pytest.raises(ValueError, match="Constraints list cannot be empty"):
             ConcreteOptimizer([construct], [generator], [], 4, 2)
 
-    # num_results / num_candidates validation
+    # num_results / num_proposals validation
     @pytest.mark.parametrize("num_results", [0, -1, -100])
     def test_invalid_num_results_raises(self, num_results):
         """Tests that num_results < 1 raises ValueError."""
@@ -110,12 +110,12 @@ class TestOptimizerValidation:
         with pytest.raises(ValueError, match="num_results must be >= 1"):
             ConcreteOptimizer([construct], [generator], [constraint], 4, num_results)
 
-    @pytest.mark.parametrize("num_candidates", [0, -1, -100])
-    def test_invalid_num_candidates_raises(self, num_candidates):
-        """Tests that num_candidates < 1 raises ValueError."""
+    @pytest.mark.parametrize("num_proposals", [0, -1, -100])
+    def test_invalid_num_proposals_raises(self, num_proposals):
+        """Tests that num_proposals < 1 raises ValueError."""
         construct, generator, constraint, _ = _setup_optimizer_components()
-        with pytest.raises(ValueError, match="num_candidates must be >= 1"):
-            ConcreteOptimizer([construct], [generator], [constraint], num_candidates, 2)
+        with pytest.raises(ValueError, match="num_proposals must be >= 1"):
+            ConcreteOptimizer([construct], [generator], [constraint], num_proposals, 2)
 
     # 2. Type validation
     def test_invalid_generator_type_raises(self):
@@ -405,10 +405,10 @@ class TestOptimizerInitialization:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=4,
+            num_proposals=4,
             num_results=2,
         )
-        assert optimizer.num_candidates == 4
+        assert optimizer.num_proposals == 4
         assert optimizer.num_results == 2
 
 
@@ -416,10 +416,10 @@ class TestSequencePoolInitialization:
     """Tests for sequence pool initialization behavior."""
 
     def test_fresh_initialization(self):
-        """Tests initialization when no previous candidates exist."""
+        """Tests initialization when no previous proposals exist."""
         original_seq = "ATCG"
         segment = Segment(sequence=original_seq, sequence_type="dna")
-        segment.candidate_sequences = []
+        segment.proposal_sequences = []
         segment.result_sequences = []
         construct = Construct([segment])
         generator = MockGenerator()
@@ -435,7 +435,7 @@ class TestSequencePoolInitialization:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=5,
+            num_proposals=5,
             num_results=2,
         )
         assert optimizer.constructs == [construct]
@@ -444,17 +444,17 @@ class TestSequencePoolInitialization:
         assert len(segment.result_sequences) == 2
         assert all(s.sequence == original_seq for s in segment.result_sequences)
 
-        # Candidate sequences initialized from original
-        assert len(segment.candidate_sequences) == 5
-        assert all(s.sequence == original_seq for s in segment.candidate_sequences)
+        # Proposal sequences initialized from original
+        assert len(segment.proposal_sequences) == 5
+        assert all(s.sequence == original_seq for s in segment.proposal_sequences)
 
         # Verify independence (deep copy)
         segment.result_sequences[0].sequence = "GGGG"
-        assert segment.candidate_sequences[0].sequence == original_seq
+        assert segment.proposal_sequences[0].sequence == original_seq
 
     def test_chained_initialization(self):
         """Tests initialization when inheriting from previous optimizer."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=5)
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=5)
 
         # Simulate previous optimizer results
         prev_best = Sequence(sequence="AAAA", sequence_type="dna")
@@ -465,7 +465,7 @@ class TestSequencePoolInitialization:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=5,
+            num_proposals=5,
             num_results=3,  # Requesting 3, but only 2 available
         )
         assert optimizer.constructs == [construct]
@@ -476,11 +476,11 @@ class TestSequencePoolInitialization:
         assert segment.result_sequences[1].sequence == "TTTT"
         assert segment.result_sequences[2].sequence == "AAAA"  # Cycles back
 
-        # Candidates also initialized by cycling: [AAAA, TTTT, AAAA, TTTT, AAAA]
-        assert len(segment.candidate_sequences) == 5
+        # Proposals also initialized by cycling: [AAAA, TTTT, AAAA, TTTT, AAAA]
+        assert len(segment.proposal_sequences) == 5
         expected = ["AAAA", "TTTT", "AAAA", "TTTT", "AAAA"]
-        for i, seq in enumerate(segment.candidate_sequences):
-            assert seq.sequence == expected[i], f"candidate[{i}] expected {expected[i]}, got {seq.sequence}"
+        for i, seq in enumerate(segment.proposal_sequences):
+            assert seq.sequence == expected[i], f"proposal[{i}] expected {expected[i]}, got {seq.sequence}"
 
 
 class TestScoreEnergy:
@@ -488,7 +488,7 @@ class TestScoreEnergy:
 
     def test_add_operation(self):
         """Tests energy scoring with 'add' operation."""
-        construct, generator, constraint1, segment = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint1, segment = _setup_optimizer_components(num_proposals=2)
 
         constraint1.weight = 1.0
         constraint1.threshold = None
@@ -505,10 +505,10 @@ class TestScoreEnergy:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint1, constraint2],
-            num_candidates=2,
+            num_proposals=2,
             num_results=2,
         )
-        segment.candidate_sequences = [Sequence("A"), Sequence("C")]
+        segment.proposal_sequences = [Sequence("A"), Sequence("C")]
         optimizer.score_energy(operation="add")
 
         # Expected: [10+4, 20+8] = [14, 28]
@@ -516,7 +516,7 @@ class TestScoreEnergy:
 
     def test_multiply_operation(self):
         """Tests energy scoring with 'multiply' operation."""
-        construct, generator, constraint1, segment = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint1, segment = _setup_optimizer_components(num_proposals=2)
 
         constraint1.weight = 1.0
         constraint1.evaluate.return_value = [2.0, 3.0]
@@ -532,10 +532,10 @@ class TestScoreEnergy:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint1, constraint2],
-            num_candidates=2,
+            num_proposals=2,
             num_results=2,
         )
-        segment.candidate_sequences = [Sequence("A"), Sequence("C")]
+        segment.proposal_sequences = [Sequence("A"), Sequence("C")]
         optimizer.score_energy(operation="multiply")
 
         # Expected: [2*4, 3*5] = [8, 15]
@@ -545,7 +545,7 @@ class TestScoreEnergy:
         """Tests that invalid operation raises ValueError."""
         construct, generator, constraint, segment = _setup_optimizer_components()
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 2)
-        segment.candidate_sequences = [Sequence("A"), Sequence("C")]
+        segment.proposal_sequences = [Sequence("A"), Sequence("C")]
 
         with pytest.raises(ValueError, match="Operation must be 'add' or 'multiply'"):
             optimizer.score_energy(operation="invalid")
@@ -555,15 +555,15 @@ class TestFilterConstraints:
     """Tests for filter constraint behavior in scoring."""
 
     def test_filter_rejection_applies_penalty(self):
-        """Tests that filter constraints reject candidates and apply penalty."""
-        construct, generator, filter_constraint, segment = _setup_optimizer_components(num_candidates=3)
-        segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
+        """Tests that filter constraints reject proposals and apply penalty."""
+        construct, generator, filter_constraint, segment = _setup_optimizer_components(num_proposals=3)
+        segment.proposal_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
-        # Filter rejects candidate 1
+        # Filter rejects proposal 1
         filter_constraint.threshold = 0.5
         filter_constraint.evaluate.return_value = [True, False, True]
 
-        # Scoring constraint (returns NaN for skipped candidate 1)
+        # Scoring constraint (returns NaN for skipped proposal 1)
         scoring_constraint = MagicMock(spec=Constraint)
         scoring_constraint.inputs = [segment]
         scoring_constraint.label = "ScoringConstraint"
@@ -575,23 +575,23 @@ class TestFilterConstraints:
             constructs=[construct],
             generators=[generator],
             constraints=[filter_constraint, scoring_constraint],
-            num_candidates=3,
+            num_proposals=3,
             num_results=2,
         )
 
         optimizer.score_energy(operation="add", filter_penalty=999.0)
 
-        # Candidate 0: passed → 10.0
-        # Candidate 1: rejected → 999.0 (penalty)
-        # Candidate 2: passed → 20.0
+        # Proposal 0: passed → 10.0
+        # Proposal 1: rejected → 999.0 (penalty)
+        # Proposal 2: passed → 20.0
         assert optimizer.energy_scores == [10.0, 999.0, 20.0]
 
     def test_filter_skips_subsequent_evaluation(self):
-        """Tests that rejected candidates skip subsequent constraint evaluations."""
-        construct, generator, filter_constraint, segment = _setup_optimizer_components(num_candidates=3)
-        segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
+        """Tests that rejected proposals skip subsequent constraint evaluations."""
+        construct, generator, filter_constraint, segment = _setup_optimizer_components(num_proposals=3)
+        segment.proposal_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
-        # Filter rejects candidate 1
+        # Filter rejects proposal 1
         filter_constraint.threshold = 0.0
         filter_constraint.evaluate.return_value = [True, False, True]
 
@@ -606,7 +606,7 @@ class TestFilterConstraints:
             constructs=[construct],
             generators=[generator],
             constraints=[filter_constraint, scoring_constraint],
-            num_candidates=3,
+            num_proposals=3,
             num_results=2,
         )
 
@@ -618,8 +618,8 @@ class TestFilterConstraints:
 
     def test_filter_only_constraints_warns(self, caplog):
         """Tests that filter-only constraints (no scoring constraints) logs a warning."""
-        construct, generator, filter_constraint, segment = _setup_optimizer_components(num_candidates=2)
-        segment.candidate_sequences = [Sequence("A"), Sequence("C")]
+        construct, generator, filter_constraint, segment = _setup_optimizer_components(num_proposals=2)
+        segment.proposal_sequences = [Sequence("A"), Sequence("C")]
 
         # Only a filter constraint, no scoring constraints
         filter_constraint.threshold = 0.5
@@ -629,7 +629,7 @@ class TestFilterConstraints:
             constructs=[construct],
             generators=[generator],
             constraints=[filter_constraint],
-            num_candidates=2,
+            num_proposals=2,
             num_results=2,
         )
 
@@ -637,41 +637,41 @@ class TestFilterConstraints:
             optimizer.score_energy()
 
         assert any("All constraints are filters" in msg for msg in caplog.messages)
-        # Passing candidates get energy 0.0 (sum of empty list)
+        # Passing proposals get energy 0.0 (sum of empty list)
         assert optimizer.energy_scores == [0.0, 0.0]
 
     def test_inconsistent_state_raises_error(self):
-        """Tests that passed candidate with NaN score raises RuntimeError."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=3)
-        segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
+        """Tests that passed proposal with NaN score raises RuntimeError."""
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=3)
+        segment.proposal_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
-        # No filter - all candidates should pass
+        # No filter - all proposals should pass
         constraint.threshold = None
         constraint.weight = 1.0
-        # Bug: returns NaN for candidate 1 even though it wasn't filtered
+        # Bug: returns NaN for proposal 1 even though it wasn't filtered
         constraint.evaluate.return_value = [1.0, float('nan'), 1.0]
 
         optimizer = ConcreteOptimizer(
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=3,
+            num_proposals=3,
             num_results=2,
         )
 
-        with pytest.raises(RuntimeError, match="Inconsistent state: candidate 1 passed all filters but has NaN score"):
+        with pytest.raises(RuntimeError, match="Inconsistent state: proposal 1 passed all filters but has NaN score"):
             optimizer.score_energy(operation="add")
 
     def test_verbose_logs_rejection_reasons(self, caplog):
         """Tests that verbose logging accurately attributes rejections to the filter that evaluated them.
 
-        Filter 1 (pLDDT): passes candidate 0, rejects candidate 1
-        Filter 2 (Length): rejects candidate 2 (candidate 1 was already masked, so Length never evaluated it)
+        Filter 1 (pLDDT): passes proposal 0, rejects proposal 1
+        Filter 2 (Length): rejects proposal 2 (proposal 1 was already masked, so Length never evaluated it)
 
-        Expected: candidate 1 → "pLDDT Filter" only, candidate 2 → "Length Filter" only.
+        Expected: proposal 1 → "pLDDT Filter" only, proposal 2 → "Length Filter" only.
         """
-        construct, generator, _, segment = _setup_optimizer_components(num_candidates=3)
-        segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
+        construct, generator, _, segment = _setup_optimizer_components(num_proposals=3)
+        segment.proposal_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
         filter1 = MagicMock(spec=Constraint)
         filter1.inputs = [segment]
@@ -691,7 +691,7 @@ class TestFilterConstraints:
             constructs=[construct],
             generators=[generator],
             constraints=[filter1, filter2],
-            num_candidates=3,
+            num_proposals=3,
             num_results=2,
             verbose=True,
         )
@@ -699,16 +699,16 @@ class TestFilterConstraints:
         with caplog.at_level(logging.INFO, logger="proto_language.language.core.optimizer"):
             optimizer.score_energy()
 
-        # Candidate 0 passed both filters
-        assert any("Candidate 0" in m and "ACCEPTED" in m for m in caplog.messages)
-        # Candidate 1 rejected by pLDDT Filter only (Length Filter never evaluated it)
+        # Proposal 0 passed both filters
+        assert any("Proposal 0" in m and "ACCEPTED" in m for m in caplog.messages)
+        # Proposal 1 rejected by pLDDT Filter only (Length Filter never evaluated it)
         assert any(
-            "Candidate 1" in m and "REJECTED by pLDDT Filter" in m and "Length Filter" not in m
+            "Proposal 1" in m and "REJECTED by pLDDT Filter" in m and "Length Filter" not in m
             for m in caplog.messages
         )
-        # Candidate 2 rejected by Length Filter only (pLDDT Filter passed it)
+        # Proposal 2 rejected by Length Filter only (pLDDT Filter passed it)
         assert any(
-            "Candidate 2" in m and "REJECTED by Length Filter" in m and "pLDDT" not in m
+            "Proposal 2" in m and "REJECTED by Length Filter" in m and "pLDDT" not in m
             for m in caplog.messages
         )
 
@@ -747,7 +747,7 @@ class TestProgressSnapshot:
 
     def test_snapshot_captures_state(self):
         """Tests that history snapshots capture correct state."""
-        construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint, _ = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
 
         # energy_scores must have length num_results before snapshot
@@ -765,7 +765,7 @@ class TestProgressSnapshot:
 
     def test_snapshot_validates_energy_scores_matches_result(self):
         """Tests that snapshot raises error if energy_scores length != result_sequences length."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
 
         # energy_scores doesn't match result_sequences length (1)
@@ -776,7 +776,7 @@ class TestProgressSnapshot:
 
     def test_snapshot_allows_partial_result(self):
         """Tests that snapshot allows partial result_sequences (e.g. TopK mid-run)."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=4)
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=4)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 4, 3)
 
         # Simulate partial state: only 2 of 3 result
@@ -794,7 +794,7 @@ class TestStateRestartBehavior:
 
     def test_prepare_run_captures_state_on_first_call(self):
         """Tests that _prepare_run captures state on first call."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 2)
 
         assert optimizer._initial_state is None
@@ -807,49 +807,49 @@ class TestStateRestartBehavior:
 
     def test_prepare_run_restores_state_on_subsequent_calls(self):
         """Tests that _prepare_run restores state on subsequent calls."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 2)
 
         # Capture initial state
-        original_seq = segment.candidate_sequences[0].sequence
+        original_seq = segment.proposal_sequences[0].sequence
         optimizer._prepare_run()
 
         # Modify state
-        segment.candidate_sequences[0].sequence = "GGGG"
+        segment.proposal_sequences[0].sequence = "GGGG"
         segment.result_sequences[0].sequence = "CCCC"
         optimizer.energy_scores = [999.0, 999.0]
         optimizer.history = [{"test": "data"}]
-        optimizer._candidate_outcomes = ["accepted", "GC Filter"]
-        optimizer._candidate_energy_scores = [0.5, float("inf")]
+        optimizer._proposal_outcomes = ["accepted", "GC Filter"]
+        optimizer._proposal_energy_scores = [0.5, float("inf")]
 
         # Restore
         optimizer._prepare_run()
 
         # Verify state restored
-        assert segment.candidate_sequences[0].sequence == original_seq
+        assert segment.proposal_sequences[0].sequence == original_seq
         assert segment.result_sequences[0].sequence == original_seq
         assert optimizer.energy_scores == [float("inf"), float("inf")]
         assert optimizer.history == []
-        assert optimizer._candidate_outcomes == []
-        assert optimizer._candidate_energy_scores == []
+        assert optimizer._proposal_outcomes == []
+        assert optimizer._proposal_energy_scores == []
 
     def test_state_independence_via_serialization(self):
         """Tests that captured state is independent of current state."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 2)
 
         optimizer._capture_initial_state()
 
         # Modify current state
-        segment.candidate_sequences[0].sequence = "XXXX"
+        segment.proposal_sequences[0].sequence = "XXXX"
 
         # Captured state should be unchanged (now stored as serialized dicts)
-        captured_seq = optimizer._initial_state['segments'][0]['candidates'][0]['sequence']
+        captured_seq = optimizer._initial_state['segments'][0]['proposals'][0]['sequence']
         assert captured_seq == "ATCG"
 
     def test_labels_deduplicated_resets_on_restore(self):
         """Tests that _labels_deduplicated flag resets on _restore_initial_state."""
-        construct, generator, _, segment = _setup_optimizer_components(num_candidates=2)
+        construct, generator, _, segment = _setup_optimizer_components(num_proposals=2)
 
         constraint1 = MagicMock(spec=Constraint)
         constraint1.inputs = [segment]
@@ -882,83 +882,83 @@ class TestStateRestartBehavior:
         assert optimizer._labels_deduplicated is False
 
 
-class TestCandidateTracking:
-    """Tests for _candidate_outcomes and candidate_results in snapshots."""
+class TestProposalTracking:
+    """Tests for _proposal_outcomes and proposal_results in snapshots."""
 
     def test_filter_outcomes_with_and_logic(self):
         """score_energy() sets outcomes to 'accepted' or the first failing filter's label."""
-        construct, generator, _, segment = _setup_optimizer_components(num_candidates=3)
-        segment.candidate_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
+        construct, generator, _, segment = _setup_optimizer_components(num_proposals=3)
+        segment.proposal_sequences = [Sequence("A"), Sequence("G"), Sequence("C")]
 
         filter1 = MagicMock(spec=Constraint)
         filter1.inputs = [segment]
         filter1.label = "Filter1"
         filter1.threshold = 0.5
         filter1.weight = 1.0
-        filter1.evaluate.return_value = [True, True, False]  # Candidate 2 fails
+        filter1.evaluate.return_value = [True, True, False]  # Proposal 2 fails
 
         filter2 = MagicMock(spec=Constraint)
         filter2.inputs = [segment]
         filter2.label = "Filter2"
         filter2.threshold = 0.5
         filter2.weight = 1.0
-        filter2.evaluate.return_value = [True, False, True]  # Candidate 1 fails
+        filter2.evaluate.return_value = [True, False, True]  # Proposal 1 fails
 
         optimizer = ConcreteOptimizer(
             [construct], [generator], [filter1, filter2], 3, 2
         )
         optimizer.score_energy()
 
-        assert optimizer._candidate_outcomes == ["accepted", "Filter2", "Filter1"]
+        assert optimizer._proposal_outcomes == ["accepted", "Filter2", "Filter1"]
 
-    def test_snapshot_includes_candidate_results(self):
-        """_save_progress_snapshot includes candidate_results when track_candidates=True."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_candidates=2)
+    def test_snapshot_includes_proposal_results(self):
+        """_save_progress_snapshot includes proposal_results when track_proposals=True."""
+        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
-        optimizer.track_candidates = True
+        optimizer.track_proposals = True
 
         optimizer.energy_scores = [0.5]
-        optimizer._candidate_outcomes = ["accepted", "GC Filter"]
-        optimizer._candidate_energy_scores = [0.5, float("inf")]
+        optimizer._proposal_outcomes = ["accepted", "GC Filter"]
+        optimizer._proposal_energy_scores = [0.5, float("inf")]
 
         optimizer._save_progress_snapshot(time_step=1)
 
         snapshot = optimizer.history[0]
-        assert "candidate_results" in snapshot
-        assert len(snapshot["candidate_results"]) == 2
-        assert snapshot["candidate_results"][0]["accepted"] is True
-        assert snapshot["candidate_results"][0]["rejected_by"] is None
-        assert snapshot["candidate_results"][0]["energy_score"] == 0.5
-        assert snapshot["candidate_results"][1]["accepted"] is False
-        assert snapshot["candidate_results"][1]["rejected_by"] == "GC Filter"
-        assert snapshot["candidate_results"][1]["energy_score"] is None  # inf → None
+        assert "proposal_results" in snapshot
+        assert len(snapshot["proposal_results"]) == 2
+        assert snapshot["proposal_results"][0]["accepted"] is True
+        assert snapshot["proposal_results"][0]["rejected_by"] is None
+        assert snapshot["proposal_results"][0]["energy_score"] == 0.5
+        assert snapshot["proposal_results"][1]["accepted"] is False
+        assert snapshot["proposal_results"][1]["rejected_by"] == "GC Filter"
+        assert snapshot["proposal_results"][1]["energy_score"] is None  # inf → None
 
-    def test_snapshot_omits_candidate_results_by_default(self):
-        """_save_progress_snapshot omits candidate_results when track_candidates=False (default)."""
-        construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
+    def test_snapshot_omits_proposal_results_by_default(self):
+        """_save_progress_snapshot omits proposal_results when track_proposals=False (default)."""
+        construct, generator, constraint, _ = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
 
         optimizer.energy_scores = [0.5]
-        optimizer._candidate_outcomes = ["accepted", "GC Filter"]
-        optimizer._candidate_energy_scores = [0.5, float("inf")]
+        optimizer._proposal_outcomes = ["accepted", "GC Filter"]
+        optimizer._proposal_energy_scores = [0.5, float("inf")]
         optimizer._save_progress_snapshot(time_step=1)
 
-        assert "candidate_results" not in optimizer.history[0]
+        assert "proposal_results" not in optimizer.history[0]
 
-    def test_snapshot_omits_candidate_results_when_outcomes_empty(self):
-        """_save_progress_snapshot omits candidate_results before any scoring."""
-        construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
+    def test_snapshot_omits_proposal_results_when_outcomes_empty(self):
+        """_save_progress_snapshot omits proposal_results before any scoring."""
+        construct, generator, constraint, _ = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
-        optimizer.track_candidates = True
+        optimizer.track_proposals = True
 
         optimizer.energy_scores = [0.5]
         optimizer._save_progress_snapshot(time_step=0)
 
-        assert "candidate_results" not in optimizer.history[0]
+        assert "proposal_results" not in optimizer.history[0]
 
     def test_tracking_interval_gates_snapshots(self):
         """tracking_interval>1 reduces the number of history snapshots."""
-        construct, generator, constraint, _ = _setup_optimizer_components(num_candidates=2)
+        construct, generator, constraint, _ = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
         optimizer.tracking_interval = 3
 
@@ -983,22 +983,22 @@ class TestDeferredNumResults:
 
         # Segment starts with 1 sequence in each pool from its constructor
         pre_result_len = len(segment.result_sequences)
-        pre_candidate_len = len(segment.candidate_sequences)
+        pre_proposal_len = len(segment.proposal_sequences)
 
         optimizer = ConcreteOptimizer(
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=None,
+            num_proposals=None,
             num_results=None,
         )
 
         assert optimizer.num_results is None
-        assert optimizer.num_candidates is None
+        assert optimizer.num_proposals is None
         assert optimizer.energy_scores == []
         # Pools should NOT have been resized by _initialize_sequence_pools
         assert len(segment.result_sequences) == pre_result_len
-        assert len(segment.candidate_sequences) == pre_candidate_len
+        assert len(segment.proposal_sequences) == pre_proposal_len
 
     def test_deferred_run_raises_runtime_error(self):
         """Calling run() on deferred optimizer raises RuntimeError."""
@@ -1008,7 +1008,7 @@ class TestDeferredNumResults:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=None,
+            num_proposals=None,
             num_results=None,
         )
 
@@ -1023,19 +1023,19 @@ class TestDeferredNumResults:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=None,
+            num_proposals=None,
             num_results=None,
         )
 
-        # Manually set num_candidates before resolving (subclasses do this in override)
-        optimizer.num_candidates = 4
+        # Manually set num_proposals before resolving (subclasses do this in override)
+        optimizer.num_proposals = 4
         optimizer._resolve_num_results(2)
 
         assert optimizer.num_results == 2
-        assert optimizer.num_candidates == 4
+        assert optimizer.num_proposals == 4
         assert len(optimizer.energy_scores) == 4
         assert len(segment.result_sequences) == 2
-        assert len(segment.candidate_sequences) == 4
+        assert len(segment.proposal_sequences) == 4
 
     def test_resolve_num_results_validates_value(self):
         """_resolve_num_results raises ValueError for invalid values."""
@@ -1045,10 +1045,10 @@ class TestDeferredNumResults:
             constructs=[construct],
             generators=[generator],
             constraints=[constraint],
-            num_candidates=None,
+            num_proposals=None,
             num_results=None,
         )
-        optimizer.num_candidates = 4
+        optimizer.num_proposals = 4
 
         with pytest.raises(ValueError, match="num_results must be >= 1"):
             optimizer._resolve_num_results(0)
@@ -1071,11 +1071,11 @@ class TestOptimizerExport:
             config_dict={"min_gc": 0, "max_gc": 100},
         )
         self.optimizer = ConcreteOptimizer(
-            [construct], [generator], [constraint], num_candidates=2, num_results=2,
+            [construct], [generator], [constraint], num_proposals=2, num_results=2,
         )
-        segment.candidate_sequences = [Sequence("ATCGATCG"), Sequence("GCTAGCTA")]
+        segment.proposal_sequences = [Sequence("ATCGATCG"), Sequence("GCTAGCTA")]
         self.optimizer.score_energy()
-        segment.result_sequences = list(segment.candidate_sequences)
+        segment.result_sequences = list(segment.proposal_sequences)
         self.optimizer._save_progress_snapshot(time_step=0)
 
     def test_export_all_tables(self, tmp_path):

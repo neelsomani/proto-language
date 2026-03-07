@@ -324,10 +324,10 @@ class Evo2Generator(Generator):
         generated_sequences = evo2_output.sequences
         self.kv_caches = evo2_output.kv_caches if self.store_kv_cache else []
 
-        for candidate, sequence in zip(
-            self._assigned_segment.candidate_sequences, generated_sequences, strict=True
+        for proposal, sequence in zip(
+            self._assigned_segment.proposal_sequences, generated_sequences, strict=True
         ):
-            candidate.sequence = sequence
+            proposal.sequence = sequence
 
     def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
         """Replicate cache N times for beam branching."""
@@ -410,14 +410,14 @@ class Evo2Generator(Generator):
         }
 
     def _replicate_prompts(self, prompts: List[str]) -> List[str]:
-        """Match prompt count to candidate count, replicating single prompts."""
-        num_candidates = len(self._assigned_segment.candidate_sequences)
-        if len(prompts) == num_candidates:
+        """Match prompt count to proposal count, replicating single prompts."""
+        num_proposals = len(self._assigned_segment.proposal_sequences)
+        if len(prompts) == num_proposals:
             return prompts
         if len(prompts) == 1:
-            return prompts * num_candidates
+            return prompts * num_proposals
         raise ValueError(
-            f"Expected 1 or {num_candidates} prompts, got {len(prompts)}"
+            f"Expected 1 or {num_proposals} prompts, got {len(prompts)}"
         )
 
     def _compute_num_tokens(

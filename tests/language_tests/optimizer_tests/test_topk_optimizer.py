@@ -96,8 +96,8 @@ class TestTopKOptimizerStandardMode:
         for i in range(len(optimizer.energy_scores) - 1):
             assert optimizer.energy_scores[i] <= optimizer.energy_scores[i + 1]
 
-    def test_topk_keeps_best_candidates(self):
-        """Test that TopK keeps the best (lowest energy) candidates."""
+    def test_topk_keeps_best_proposals(self):
+        """Test that TopK keeps the best (lowest energy) proposals."""
         segment = Segment(sequence="AAAAAAAA", sequence_type="dna")
         construct = Construct([segment])
 
@@ -267,7 +267,7 @@ class TestTopKOptimizerStandardMode:
         # Verify sequences were restored (not all G's - restoration happened)
         assert any(seq.sequence != "GGGGGGGG" for seq in segment.result_sequences)
 
-    def test_topk_with_candidates_per_round(self):
+    def test_topk_with_proposals_per_round(self):
         """Test TopK with samples_per_round > 1 for efficient batching."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
@@ -550,7 +550,7 @@ class TestTopKOptimizerInternals:
         assert optimizer._result_energies == optimizer.energy_scores
 
     def test_empty_result_when_all_rejected(self):
-        """Test that TopK returns empty lists when all candidates are rejected."""
+        """Test that TopK returns empty lists when all proposals are rejected."""
         segment = Segment(sequence="ATCG", sequence_type="dna")
         construct = Construct([segment])
 
@@ -579,11 +579,11 @@ class TestTopKOptimizerInternals:
         assert optimizer.energy_scores == []
         assert segment.result_sequences == []
 
-    def test_all_candidates_rejected_by_filter(self):
-        """Test TopK optimizer handles case where all candidates are rejected by filter.
+    def test_all_proposals_rejected_by_filter(self):
+        """Test TopK optimizer handles case where all proposals are rejected by filter.
 
         This is a regression test for a bug where the optimizer would crash with
-        RuntimeError when all candidates had inf/nan energies.
+        RuntimeError when all proposals had inf/nan energies.
         """
         from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
             GCContentConfig,
@@ -602,7 +602,7 @@ class TestTopKOptimizerInternals:
             inputs=[segment],
             function=gc_content_constraint,
             function_config=GCContentConfig(min_gc=99.0, max_gc=100.0),
-            threshold=0.0,  # Filter mode - rejected candidates get inf energy
+            threshold=0.0,  # Filter mode - rejected proposals get inf energy
         )
 
         config = TopKOptimizerConfig(
@@ -618,15 +618,15 @@ class TestTopKOptimizerInternals:
             config=config,
         )
 
-        # Should not crash - returns empty results when no valid candidates found
+        # Should not crash - returns empty results when no valid proposals found
         optimizer.run()
 
-        # No valid candidates found — empty results (no padding)
+        # No valid proposals found — empty results (no padding)
         assert len(optimizer.energy_scores) == 0
         assert len(segment.result_sequences) == 0
 
-    def test_partial_candidates_rejected_by_filter(self):
-        """Test TopK optimizer handles case where some but not all candidates pass filter."""
+    def test_partial_proposals_rejected_by_filter(self):
+        """Test TopK optimizer handles case where some but not all proposals pass filter."""
         from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
             GCContentConfig,
         )
@@ -671,10 +671,10 @@ class TestTopKOptimizerTrajectoryPreservation:
     """Test that TopK preserves trajectory diversity from handoff."""
 
     def test_topk_preserves_input_diversity(self):
-        """Test that TopK uses each candidate's own initial sequence, not just the first.
+        """Test that TopK uses each proposal's own initial sequence, not just the first.
 
         This verifies the fix for the single-seed bug where TopK was discarding
-        diversity by always using candidates[0] as the mutation seed.
+        diversity by always using proposals[0] as the mutation seed.
         """
         # Create segment with 3 distinct initial sequences (simulating handoff from previous optimizer)
         segment = Segment(sequence="AAAA", sequence_type="dna")
@@ -699,7 +699,7 @@ class TestTopKOptimizerTrajectoryPreservation:
         )
 
         # num_results=6 with 3 source sequences → cycling produces [A, C, G, A, C, G]
-        # samples_per_round=6 means 6 candidates per round
+        # samples_per_round=6 means 6 proposals per round
         config = TopKOptimizerConfig(
             num_samples=6,              # Generate 6 samples total
             num_results=6,              # Keep top 6
@@ -720,21 +720,21 @@ class TestTopKOptimizerTrajectoryPreservation:
         # Run one sampling round (with 0 mutations, sequences should stay as their seeds)
         optimizer._run_sampling_round(0)
 
-        # Verify that candidates come from different seeds (cycled pattern)
-        # With the fix: candidates should be [AAAA, CCCC, GGGG, AAAA, CCCC, GGGG]
-        # With the bug: candidates would all be [AAAA, AAAA, AAAA, AAAA, AAAA, AAAA]
-        candidates = [seq.sequence for seq in segment.candidate_sequences]
+        # Verify that proposals come from different seeds (cycled pattern)
+        # With the fix: proposals should be [AAAA, CCCC, GGGG, AAAA, CCCC, GGGG]
+        # With the bug: proposals would all be [AAAA, AAAA, AAAA, AAAA, AAAA, AAAA]
+        proposals = [seq.sequence for seq in segment.proposal_sequences]
 
         # At least 2 unique sequences should be present (proving diversity is preserved)
-        unique_candidates = set(candidates)
-        assert len(unique_candidates) >= 2, (
-            f"TopK should preserve input diversity but found only {unique_candidates}. "
-            f"This suggests all candidates are seeded from the first sequence."
+        unique_proposals = set(proposals)
+        assert len(unique_proposals) >= 2, (
+            f"TopK should preserve input diversity but found only {unique_proposals}. "
+            f"This suggests all proposals are seeded from the first sequence."
         )
 
         # Verify the expected cycling pattern
-        assert candidates == ["AAAA", "CCCC", "GGGG", "AAAA", "CCCC", "GGGG"], (
-            f"Expected cycled pattern but got {candidates}"
+        assert proposals == ["AAAA", "CCCC", "GGGG", "AAAA", "CCCC", "GGGG"], (
+            f"Expected cycled pattern but got {proposals}"
         )
 
     def test_topk_result_coherence_across_segments(self):
@@ -798,12 +798,12 @@ class TestTopKOptimizerTrajectoryPreservation:
         optimizer._run_sampling_round(0)
 
         # Verify result coherence: index i in segment1 should pair with index i in segment2
-        candidates1 = [seq.sequence for seq in segment1.candidate_sequences]
-        candidates2 = [seq.sequence for seq in segment2.candidate_sequences]
+        proposals1 = [seq.sequence for seq in segment1.proposal_sequences]
+        proposals2 = [seq.sequence for seq in segment2.proposal_sequences]
 
         # Expected: [AAAA, CCCC, AAAA, CCCC] and [TTTT, GGGG, TTTT, GGGG]
-        assert candidates1 == ["AAAA", "CCCC", "AAAA", "CCCC"]
-        assert candidates2 == ["TTTT", "GGGG", "TTTT", "GGGG"]
+        assert proposals1 == ["AAAA", "CCCC", "AAAA", "CCCC"]
+        assert proposals2 == ["TTTT", "GGGG", "TTTT", "GGGG"]
 
         # Verify pairing is preserved (same index = same source trajectory)
         for i in range(4):
@@ -811,9 +811,9 @@ class TestTopKOptimizerTrajectoryPreservation:
             # Index 1,3 should both be from source 1 (CCCC-GGGG pair)
             expected_source = i % 2
             if expected_source == 0:
-                assert candidates1[i] == "AAAA" and candidates2[i] == "TTTT"
+                assert proposals1[i] == "AAAA" and proposals2[i] == "TTTT"
             else:
-                assert candidates1[i] == "CCCC" and candidates2[i] == "GGGG"
+                assert proposals1[i] == "CCCC" and proposals2[i] == "GGGG"
 
 
 class TestTopKCustomLogging:
@@ -978,11 +978,11 @@ class TestTopKLabelDeduplication:
         assert label_after_first.count("_1") == 1
 
 
-class TestTopKCandidateTracking:
-    """Test candidate_results tracking in TopK history."""
+class TestTopKProposalTracking:
+    """Test proposal_results tracking in TopK history."""
 
-    def test_candidate_tracking(self):
-        """History has candidate_results with 'Not in top-k' for rejected candidates."""
+    def test_proposal_tracking(self):
+        """History has proposal_results with 'Not in top-k' for rejected proposals."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
         gen = UniformMutationGenerator(
@@ -1002,7 +1002,7 @@ class TestTopKCandidateTracking:
                 num_samples=20,
                 num_results=3,
                 verbose=False,
-                track_candidates=True,
+                track_proposals=True,
             ),
         )
         optimizer.run()
@@ -1010,9 +1010,9 @@ class TestTopKCandidateTracking:
         valid_rejectors = {"Not in top-k"}
         all_rejectors = set()
         for entry in optimizer.history:
-            if "candidate_results" not in entry:
+            if "proposal_results" not in entry:
                 continue
-            for cand in entry["candidate_results"]:
+            for cand in entry["proposal_results"]:
                 assert isinstance(cand["accepted"], bool)
                 if cand["accepted"]:
                     assert cand["rejected_by"] is None

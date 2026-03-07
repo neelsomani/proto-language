@@ -39,9 +39,9 @@ END
     return Structure(structure_filepath_or_content=pdb_content)
 
 
-def make_mock_conditioning_fn(num_candidates: int):
+def make_mock_conditioning_fn(num_proposals: int):
     """Create a mock conditioning function that returns structures."""
-    structures = [make_mock_structure() for _ in range(num_candidates)]
+    structures = [make_mock_structure() for _ in range(num_proposals)]
 
     def conditioning_fn(sequences: List[Sequence]) -> List[Structure]:
         return structures
@@ -271,9 +271,9 @@ class TestCyclingOptimizerRun:
 
     def test_run_completes_and_tracks_history(self):
         """Test run completes, calls conditioning_fn, and tracks history."""
-        num_steps, num_candidates = 3, 2
+        num_steps, num_proposals = 3, 2
         components = _setup_cycling_components(
-            num_steps=num_steps, num_results=num_candidates
+            num_steps=num_steps, num_results=num_proposals
         )
 
         # Track conditioning function calls
@@ -286,7 +286,7 @@ class TestCyclingOptimizerRun:
 
         # Mock the generator.sample to update sequences
         def mock_sample(structure_inputs=None):
-            for c in components["target_segment"].candidate_sequences:
+            for c in components["target_segment"].proposal_sequences:
                 c.sequence = "MKTAYIAKQRQISFVKSHFS"
 
         components["generator"].sample = mock_sample
@@ -307,7 +307,7 @@ class TestCyclingOptimizerRun:
             assert "time_step" in entry and "results" in entry
 
     def test_filter_constraint_rejection_preserves_result(self):
-        """Test that result_sequences stay unchanged when all candidates fail."""
+        """Test that result_sequences stay unchanged when all proposals fail."""
         components = _setup_cycling_components(
             num_steps=1,
             num_results=2,
@@ -316,7 +316,7 @@ class TestCyclingOptimizerRun:
         )
 
         def mock_sample(structure_inputs=None):
-            for c in components["target_segment"].candidate_sequences:
+            for c in components["target_segment"].proposal_sequences:
                 c.sequence = "NEWSEQENCEAAAAAAAAAAA"
 
         components["generator"].sample = mock_sample
@@ -343,7 +343,7 @@ class TestCyclingOptimizerRun:
             assert result_seq.sequence == original_seqs[i]
 
     def test_partial_filter_acceptance(self):
-        """Test that only passing candidates update result_sequences."""
+        """Test that only passing proposals update result_sequences."""
         target_segment = Segment(sequence="A" * 20, sequence_type="protein")
         construct = Construct([target_segment])
 
@@ -374,9 +374,9 @@ class TestCyclingOptimizerRun:
         pass_seq, fail_seq = "MKTAYIAKQRQISFVKSHFS", "FAILAYIAKQRQISFVKSHF"
 
         def mock_sample(structure_inputs=None):
-            target_segment.candidate_sequences[0].sequence = pass_seq
-            target_segment.candidate_sequences[1].sequence = fail_seq
-            target_segment.candidate_sequences[2].sequence = fail_seq
+            target_segment.proposal_sequences[0].sequence = pass_seq
+            target_segment.proposal_sequences[1].sequence = fail_seq
+            target_segment.proposal_sequences[2].sequence = fail_seq
 
         generator.sample = mock_sample
 
@@ -400,9 +400,9 @@ class TestCyclingOptimizerRun:
         ]
         optimizer.run()
 
-        # Candidate 0 passed → result updated
+        # Proposal 0 passed → result updated
         assert target_segment.result_sequences[0].sequence == pass_seq
-        # Candidates 1, 2 failed → result unchanged
+        # Proposals 1, 2 failed → result unchanged
         assert target_segment.result_sequences[1].sequence == original_seqs[1]
         assert target_segment.result_sequences[2].sequence == original_seqs[2]
 
@@ -416,12 +416,12 @@ class TestCyclingOptimizerRun:
 
         # Create a conditioning function that returns wrong number of items
         def wrong_length_conditioning_fn(sequences: List[Sequence]):
-            # Returns only 1 item instead of num_candidates (3)
+            # Returns only 1 item instead of num_proposals (3)
             return [make_mock_structure()]
 
         # Mock the generator.sample to not actually run
         def mock_sample(structure_inputs=None):
-            for c in components["target_segment"].candidate_sequences:
+            for c in components["target_segment"].proposal_sequences:
                 c.sequence = "MKTAYIAKQRQISFVKSHFS"
 
         components["generator"].sample = mock_sample
@@ -445,11 +445,11 @@ class TestCyclingOptimizerRun:
 
         # Create a conditioning function that returns too many items
         def too_many_conditioning_fn(sequences: List[Sequence]):
-            # Returns 5 items instead of num_candidates (2)
+            # Returns 5 items instead of num_proposals (2)
             return [make_mock_structure() for _ in range(5)]
 
         def mock_sample(structure_inputs=None):
-            for c in components["target_segment"].candidate_sequences:
+            for c in components["target_segment"].proposal_sequences:
                 c.sequence = "MKTAYIAKQRQISFVKSHFS"
 
         components["generator"].sample = mock_sample
@@ -473,7 +473,7 @@ class TestCyclingOptimizerRun:
 
 
 class TestAcceptPatternBehavior:
-    """Tests for the accept pattern: passing candidates update result, failed stay unchanged."""
+    """Tests for the accept pattern: passing proposals update result, failed stay unchanged."""
 
     def test_all_rejected_result_unchanged(self):
         """Test that all-fail → result stays at initial state, energy stays inf."""
@@ -508,7 +508,7 @@ class TestAcceptPatternBehavior:
         new_seq = "MKTAYIAKQRQISFVKSHFS"
 
         def mock_sample(structure_inputs=None):
-            for c in target_segment.candidate_sequences:
+            for c in target_segment.proposal_sequences:
                 c.sequence = new_seq
 
         generator.sample = mock_sample
@@ -554,7 +554,7 @@ class TestAcceptPatternBehavior:
         )
         generator.assign(target_segment)
 
-        # Filter that passes candidate 0, rejects candidate 1
+        # Filter that passes proposal 0, rejects proposal 1
         def partial_filter(input_sequences, config=None):
             return [0.0 if idx == 0 else 1.0 for idx, _ in enumerate(input_sequences)]
 
@@ -575,8 +575,8 @@ class TestAcceptPatternBehavior:
         fail_seq = "GPLAFVTNLTGLRSQNEEIR"
 
         def mock_sample(structure_inputs=None):
-            target_segment.candidate_sequences[0].sequence = pass_seq
-            target_segment.candidate_sequences[1].sequence = fail_seq
+            target_segment.proposal_sequences[0].sequence = pass_seq
+            target_segment.proposal_sequences[1].sequence = fail_seq
 
         generator.sample = mock_sample
 
@@ -597,18 +597,18 @@ class TestAcceptPatternBehavior:
 
         optimizer.run()
 
-        # Candidate 0 passed → result updated
+        # Proposal 0 passed → result updated
         assert target_segment.result_sequences[0].sequence == pass_seq
-        # Candidate 1 rejected → result unchanged
+        # Proposal 1 rejected → result unchanged
         assert target_segment.result_sequences[1].sequence == "A" * 20
 
-        # Energy for candidate 0: accepted score (0.0 from filter-only)
+        # Energy for proposal 0: accepted score (0.0 from filter-only)
         assert optimizer.energy_scores[0] == 0.0
-        # Energy for candidate 1: still inf (never accepted)
+        # Energy for proposal 1: still inf (never accepted)
         assert optimizer.energy_scores[1] == float("inf")
 
     def test_conditioning_reads_from_result_sequences(self):
-        """Test that conditioning fn receives result_sequences, not candidates."""
+        """Test that conditioning fn receives result_sequences, not proposals."""
         target_segment = Segment(sequence="A" * 20, sequence_type="protein")
         construct = Construct([target_segment])
 
@@ -628,7 +628,7 @@ class TestAcceptPatternBehavior:
             return [make_mock_structure() for _ in sequences]
 
         def mock_sample(structure_inputs=None):
-            for c in target_segment.candidate_sequences:
+            for c in target_segment.proposal_sequences:
                 c.sequence = "MKTAYIAKQRQISFVKSHFS"
 
         generator.sample = mock_sample
@@ -699,7 +699,7 @@ class TestAcceptPatternBehavior:
         def mock_sample(structure_inputs=None):
             sample_call_count[0] += 1
             seq = step1_seq if sample_call_count[0] == 1 else step2_seq
-            for c in target_segment.candidate_sequences:
+            for c in target_segment.proposal_sequences:
                 c.sequence = seq
 
         generator.sample = mock_sample
@@ -878,7 +878,7 @@ class TestCyclingOptimizerRestart:
                         "YWDEIKNPLGRAVTYDKWFP", "HCLQMNSGVEATRIDFWYKP"]
         def mock_sample(structure_inputs=None):
             call_count[0] += 1
-            for c in components["target_segment"].candidate_sequences:
+            for c in components["target_segment"].proposal_sequences:
                 c.sequence = protein_seqs[call_count[0] % len(protein_seqs)]
 
         components["generator"].sample = mock_sample
@@ -930,7 +930,7 @@ class TestCyclingOptimizerRestart:
 
         # Capture original sequences before run
         original_result = [copy.deepcopy(s) for s in components["target_segment"].result_sequences]
-        original_candidates = [copy.deepcopy(s) for s in components["target_segment"].candidate_sequences]
+        original_proposals = [copy.deepcopy(s) for s in components["target_segment"].proposal_sequences]
 
         optimizer.run()
 
@@ -940,17 +940,17 @@ class TestCyclingOptimizerRestart:
 
         # Verify captured state contains actual sequence content (using index 0)
         captured_result = optimizer._initial_state['segments'][0]['result']
-        captured_candidates = optimizer._initial_state['segments'][0]['candidates']
+        captured_proposals = optimizer._initial_state['segments'][0]['proposals']
 
         assert len(captured_result) == len(original_result)
-        assert len(captured_candidates) == len(original_candidates)
+        assert len(captured_proposals) == len(original_proposals)
 
         # Verify sequences match
         for orig, captured in zip(original_result, captured_result):
             assert orig.sequence == captured['sequence']
             assert orig.sequence_type == captured['sequence_type']
 
-        for orig, captured in zip(original_candidates, captured_candidates):
+        for orig, captured in zip(original_proposals, captured_proposals):
             assert orig.sequence == captured['sequence']
             assert orig.sequence_type == captured['sequence_type']
 
@@ -1106,11 +1106,11 @@ class TestCyclingOptimizerPipelineResolution:
         assert optimizer.pipeline == "protein-hunter"
 
 
-class TestCyclingCandidateTracking:
-    """Test candidate_results tracking in Cycling history."""
+class TestCyclingProposalTracking:
+    """Test proposal_results tracking in Cycling history."""
 
-    def test_candidate_tracking(self):
-        """History has candidate_results — all accepted when no filter rejects."""
+    def test_proposal_tracking(self):
+        """History has proposal_results — all accepted when no filter rejects."""
         components = _setup_cycling_components(
             num_steps=3, num_results=2, include_constraint=True, constraint_passes=True
         )
@@ -1122,10 +1122,10 @@ class TestCyclingCandidateTracking:
             config=components["config"],
             conditioning_fn=components["conditioning_fn"],
         )
-        optimizer.track_candidates = True
+        optimizer.track_proposals = True
 
         def mock_sample(structure_inputs=None):
-            for c in components["target_segment"].candidate_sequences:
+            for c in components["target_segment"].proposal_sequences:
                 c.sequence = "MKTAYIAKQRQISFVKSHFS"
 
         components["generator"].sample = mock_sample
@@ -1133,17 +1133,17 @@ class TestCyclingCandidateTracking:
         optimizer.run()
 
         for entry in optimizer.history:
-            if "candidate_results" not in entry:
+            if "proposal_results" not in entry:
                 continue
-            for cand in entry["candidate_results"]:
+            for cand in entry["proposal_results"]:
                 assert isinstance(cand["accepted"], bool)
                 if cand["accepted"]:
                     assert cand["rejected_by"] is None
                 else:
                     assert cand["rejected_by"] is not None
 
-        # At least one step should have candidate_results
-        assert any("candidate_results" in e for e in optimizer.history)
+        # At least one step should have proposal_results
+        assert any("proposal_results" in e for e in optimizer.history)
 
 
 class TestCyclingTrackingInterval:
@@ -1154,7 +1154,7 @@ class TestCyclingTrackingInterval:
         components = _setup_cycling_components(num_steps=10, num_results=2)
 
         def mock_sample(structure_inputs=None):
-            for c in components["target_segment"].candidate_sequences:
+            for c in components["target_segment"].proposal_sequences:
                 c.sequence = "MKTAYIAKQRQISFVKSHFS"
 
         components["generator"].sample = mock_sample

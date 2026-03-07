@@ -24,7 +24,7 @@ class TestProteinDiversityConstraint:
         score = constraint.evaluate()[0]
         assert score == 0.0
         # Check constraint-specific metadata fields
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "aa_diversity_score" in constraints["protein_diversity_constraint"]["data"]
         assert "unique_amino_acid_count" in constraints["protein_diversity_constraint"]["data"]
         assert constraints["protein_diversity_constraint"]["data"]["aa_diversity_score"] > 0.5
@@ -42,7 +42,7 @@ class TestProteinDiversityConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         diversity = constraints["protein_diversity_constraint"]["data"]["aa_diversity_score"]
         assert diversity < 0.5
         assert constraints["protein_diversity_constraint"]["data"]["unique_amino_acid_count"] == 3
@@ -60,7 +60,7 @@ class TestProteinDiversityConstraint:
 
         score = constraint.evaluate()[0]
         assert score > 0.0
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert constraints["protein_diversity_constraint"]["data"]["unique_amino_acid_count"] == 1
         assert constraints["protein_diversity_constraint"]["data"]["aa_diversity_score"] == 1 / 20  # 1 out of 20 standard AAs
 

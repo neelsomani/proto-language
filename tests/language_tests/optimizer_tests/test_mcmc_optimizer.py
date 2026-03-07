@@ -32,7 +32,7 @@ class EmptyConfig(BaseModel):
 def _setup_mcmc_components(
     seq_length: int = 10,
     num_results: int = 1,
-    candidates_per_result: int = None,
+    proposals_per_result: int = None,
     gc_target_range: Tuple[float, float] = (40.0, 60.0),
     num_mcmc_steps: int = 10,
 ):
@@ -55,14 +55,14 @@ def _setup_mcmc_components(
         ),
     )
 
-    # 3. Create the MCMC Optimizer config (candidates_per_result defaults to 1)
+    # 3. Create the MCMC Optimizer config (proposals_per_result defaults to 1)
     config_kwargs = {
         "num_results": num_results,
         "num_steps": num_mcmc_steps,
         "verbose": False,
     }
-    if candidates_per_result is not None:
-        config_kwargs["candidates_per_result"] = candidates_per_result
+    if proposals_per_result is not None:
+        config_kwargs["proposals_per_result"] = proposals_per_result
     config = MCMCOptimizerConfig(**config_kwargs)
 
     optimizer = MCMCOptimizer(
@@ -82,7 +82,7 @@ class TestMCMCOptimizer:
         assert optimizer.generators == [proposal_gen]
         assert optimizer.constraints == [constraint]
         assert optimizer.num_results == 1
-        assert optimizer.num_candidates == 1  # Defaults to num_trajectories
+        assert optimizer.num_proposals == 1  # Defaults to num_trajectories
 
         # Test validation errors - unassigned generator
         test_segment = Segment(sequence="A" * 10, sequence_type="dna")
@@ -114,9 +114,9 @@ class TestMCMCOptimizer:
         from pydantic import ValidationError
 
         # Valid configs
-        config = MCMCOptimizerConfig(num_results=5, candidates_per_result=10, num_steps=1)
+        config = MCMCOptimizerConfig(num_results=5, proposals_per_result=10, num_steps=1)
         assert config.num_results == 5
-        assert config.candidates_per_result == 10
+        assert config.proposals_per_result == 10
 
         # min_temperature >= max_temperature should fail
         with pytest.raises(ValidationError):
@@ -131,13 +131,13 @@ class TestMCMCOptimizer:
         optimizer, _, _, segment = _setup_mcmc_components(gc_target_range=(40.0, 60.0))
 
         # Test with a sequence within target GC range
-        segment.candidate_sequences[0].sequence = "GCGCGAATTA"  # 50% GC
+        segment.proposal_sequences[0].sequence = "GCGCGAATTA"  # 50% GC
         optimizer.score_energy()
-        assert len(optimizer.energy_scores) == optimizer.num_candidates
+        assert len(optimizer.energy_scores) == optimizer.num_proposals
         assert optimizer.energy_scores[0] == 0.0
 
         # Test with a sequence below target range
-        segment.candidate_sequences[0].sequence = "GCTTAATTAA"  # 20% GC
+        segment.proposal_sequences[0].sequence = "GCTTAATTAA"  # 20% GC
         optimizer.score_energy()
         expected_score = (40.0 - 20.0) / 40.0  # 0.5
         assert abs(optimizer.energy_scores[0] - expected_score) < 1e-9
@@ -145,7 +145,7 @@ class TestMCMCOptimizer:
     def test_score_energy_multiply(self):
         """Tests the score_energy method with operation='multiply'."""
         optimizer, _, _, segment = _setup_mcmc_components(gc_target_range=(40.0, 60.0))
-        segment.candidate_sequences[0].sequence = "GCTTAATTAA"  # 20% GC -> score 0.5
+        segment.proposal_sequences[0].sequence = "GCTTAATTAA"  # 20% GC -> score 0.5
 
         # With one constraint, multiply and add should be the same
         optimizer.score_energy(operation="add")
@@ -160,15 +160,15 @@ class TestMCMCOptimizer:
         optimizer, _, _, segment = _setup_mcmc_components(
             seq_length=10,
             num_results=1,
-            candidates_per_result=3,
+            proposals_per_result=3,
             num_mcmc_steps=1,
         )
 
         # Set up initial state
         initial_seq = "GCGCGAATTA"  # 50% GC, energy = 0
         segment.result_sequences[0].sequence = initial_seq
-        for i in range(optimizer.num_candidates):
-            segment.candidate_sequences[i] = copy.deepcopy(segment.result_sequences[0])
+        for i in range(optimizer.num_proposals):
+            segment.proposal_sequences[i] = copy.deepcopy(segment.result_sequences[0])
 
         optimizer.score_energy()
         old_result_sequences = optimizer._save_sequence_state()
@@ -178,13 +178,13 @@ class TestMCMCOptimizer:
         optimizer.energy_scores[1] = float('inf')
         optimizer.energy_scores[2] = float('nan')
 
-        # Mutate candidate sequences so we can detect if they get rejected
-        segment.candidate_sequences[0].sequence = "AAAAAAAAAA"
-        segment.candidate_sequences[1].sequence = "TTTTTTTTTT"
-        segment.candidate_sequences[2].sequence = "CCCCCCCCCC"
+        # Mutate proposal sequences so we can detect if they get rejected
+        segment.proposal_sequences[0].sequence = "AAAAAAAAAA"
+        segment.proposal_sequences[1].sequence = "TTTTTTTTTT"
+        segment.proposal_sequences[2].sequence = "CCCCCCCCCC"
 
-        # All candidates are "rejected" since energies are inf/nan
-        optimizer._candidate_outcomes = ["inf/nan energy"] * optimizer.num_candidates
+        # All proposals are "rejected" since energies are inf/nan
+        optimizer._proposal_outcomes = ["inf/nan energy"] * optimizer.num_proposals
         optimizer._select_topk_with_mcmc_acceptance(step=1, old_result_sequences=old_result_sequences)
 
         # After rejection of all inf/nan proposals, result_sequences should be restored
@@ -211,7 +211,7 @@ class TestMCMCOptimizer:
 
         # Score initial state
         for i in range(optimizer.num_results):
-            optimizer.segments[0].candidate_sequences[i] = copy.deepcopy(
+            optimizer.segments[0].proposal_sequences[i] = copy.deepcopy(
                 optimizer.segments[0].result_sequences[i]
             )
         optimizer.score_energy()
@@ -252,7 +252,7 @@ class TestMCMCOptimizer:
 
         assert optimizer.constraint_weights == [1.0, 2.0]
 
-        segment.candidate_sequences[0].sequence = "A" * 20  # Violates length and GC
+        segment.proposal_sequences[0].sequence = "A" * 20  # Violates length and GC
         expected_gc_score = (40 - 0) / 40  # = 1.0
         expected_len_score = (30 - 20) / 30 # = 0.333
 
@@ -315,19 +315,19 @@ class TestMCMCOptimizer:
     def test_topk_initialization(self):
         """Tests initialization of top-k MCMC with num_trajectories > 1."""
         optimizer, _, _, _ = _setup_mcmc_components(
-            num_results=3, candidates_per_result=10
+            num_results=3, proposals_per_result=10
         )
 
         assert optimizer.num_results == 3
-        # _candidates_per_result is the number of proposals per result sequence
-        assert optimizer._candidates_per_result == 10
-        # num_candidates is the total pool size (num_results * _candidates_per_result)
-        assert optimizer.num_candidates == 30
+        # _proposals_per_result is the number of proposals per result sequence
+        assert optimizer._proposals_per_result == 10
+        # num_proposals is the total pool size (num_results * _proposals_per_result)
+        assert optimizer.num_proposals == 30
 
     def test_topk_maintains_k_sequences(self):
         """Tests that top-k MCMC maintains exactly k sequences."""
         num_trajectories = 3
-        num_candidates = 4
+        num_proposals = 4
 
         proposal_gen = UniformMutationGenerator(
             UniformMutationGeneratorConfig(num_mutations=1)
@@ -348,7 +348,7 @@ class TestMCMCOptimizer:
             constraints=[constraint],
             config=MCMCOptimizerConfig(
                 num_results=num_trajectories,
-                candidates_per_result=num_candidates,
+                proposals_per_result=num_proposals,
                 num_steps=20,
                 max_temperature=1.0,
                 min_temperature=0.01,
@@ -531,7 +531,7 @@ class TestMCMCOptimizer:
 
         # Score initial state
         for i in range(optimizer.num_results):
-            optimizer.segments[0].candidate_sequences[i] = copy.deepcopy(
+            optimizer.segments[0].proposal_sequences[i] = copy.deepcopy(
                 optimizer.segments[0].result_sequences[i]
             )
         optimizer.score_energy()
@@ -770,13 +770,13 @@ class TestMCMCOptimizer:
         assert len(captured_result) == 1
         assert captured_result[0]['sequence'] == original_seq
 
-        # Verify energy scores were captured (initial state captures full num_candidates before first run)
+        # Verify energy scores were captured (initial state captures full num_proposals before first run)
         assert 'energy_scores' in optimizer._initial_state
-        assert len(optimizer._initial_state['energy_scores']) == optimizer.num_candidates
+        assert len(optimizer._initial_state['energy_scores']) == optimizer.num_proposals
 
         # Manually modify the sequence to verify restore works
         segment.result_sequences[0].sequence = "G" * 20
-        segment.candidate_sequences[0].sequence = "G" * 20
+        segment.proposal_sequences[0].sequence = "G" * 20
 
         # Second run should restore from initial state (original "AAAA...")
         optimizer.run()
@@ -797,7 +797,7 @@ class TestMCMCOptimizer:
         proposals from other trajectories.
         """
         num_trajectories = 3
-        candidates_per_result = 4
+        proposals_per_result = 4
         seq_length = 10
 
         proposal_gen = UniformMutationGenerator(
@@ -825,7 +825,7 @@ class TestMCMCOptimizer:
             constraints=[constraint],
             config=MCMCOptimizerConfig(
                 num_results=num_trajectories,
-                candidates_per_result=candidates_per_result,
+                proposals_per_result=proposals_per_result,
                 num_steps=1,
                 max_temperature=0.002,  # Very low temp = greedy
                 min_temperature=0.001,
@@ -848,36 +848,36 @@ class TestMCMCOptimizer:
         optimizer.energy_scores[1] = 10  # Trajectory 1
         optimizer.energy_scores[2] = 5   # Trajectory 2
 
-        # Save state BEFORE populating candidates (this is how the real loop works)
+        # Save state BEFORE populating proposals (this is how the real loop works)
         old_result_sequences = optimizer._save_sequence_state()
 
-        # Populate candidate_sequences by replicating each result_sequence
-        optimizer._populate_candidate_sequences()
+        # Populate proposal_sequences by replicating each result_sequence
+        optimizer._populate_proposal_sequences()
 
-        # Score all candidates
+        # Score all proposals
         optimizer.score_energy()
 
         # Verify the layout: each trajectory's proposals are in its own range
         # Trajectory 0: indices [0, 4), Trajectory 1: indices [4, 8), Trajectory 2: indices [8, 12)
         for traj_idx in range(num_trajectories):
-            start_idx = traj_idx * candidates_per_result
-            end_idx = (traj_idx + 1) * candidates_per_result
-            for cand_idx in range(start_idx, end_idx):
-                assert segment.candidate_sequences[cand_idx].sequence == segment.result_sequences[traj_idx].sequence
+            start_idx = traj_idx * proposals_per_result
+            end_idx = (traj_idx + 1) * proposals_per_result
+            for prop_idx in range(start_idx, end_idx):
+                assert segment.proposal_sequences[prop_idx].sequence == segment.result_sequences[traj_idx].sequence
 
         # Now manually set up a scenario where crossover would be visible:
-        # Give trajectory 1's candidates very good energies (better than trajectory 0's old energy)
+        # Give trajectory 1's proposals very good energies (better than trajectory 0's old energy)
         # If there's crossover, trajectory 0 would steal from trajectory 1's pool
 
-        # Make trajectory 1's first candidate have energy=0 (best possible)
-        segment.candidate_sequences[4].sequence = "A" * seq_length  # energy=0
+        # Make trajectory 1's first proposal have energy=0 (best possible)
+        segment.proposal_sequences[4].sequence = "A" * seq_length  # energy=0
         optimizer.energy_scores[4] = 0.0
 
-        # Keep trajectory 0's candidates at their original (energy=0)
-        # Keep trajectory 2's candidates at their original (energy=5)
+        # Keep trajectory 0's proposals at their original (energy=0)
+        # Keep trajectory 2's proposals at their original (energy=5)
 
         # Run acceptance step
-        optimizer._candidate_outcomes = ["accepted"] * optimizer.num_candidates
+        optimizer._proposal_outcomes = ["accepted"] * optimizer.num_proposals
         optimizer._select_topk_with_mcmc_acceptance(step=1, old_result_sequences=old_result_sequences)
 
         # Verify NO CROSSOVER with the new "best first, then MH" logic:
@@ -903,7 +903,7 @@ class TestMCMCOptimizer:
     def test_trajectory_isolation_with_different_starting_points(self):
         """Tests that trajectories starting from different sequences remain isolated."""
         num_trajectories = 2
-        candidates_per_result = 5
+        proposals_per_result = 5
         seq_length = 20
         num_steps = 10
 
@@ -926,7 +926,7 @@ class TestMCMCOptimizer:
             constraints=[constraint],
             config=MCMCOptimizerConfig(
                 num_results=num_trajectories,
-                candidates_per_result=candidates_per_result,
+                proposals_per_result=proposals_per_result,
                 num_steps=num_steps,
                 max_temperature=1.0,
                 min_temperature=0.01,
@@ -969,7 +969,7 @@ class TestMCMCOptimizer:
         3. If rejected, keep old state
         """
         num_trajectories = 1
-        candidates_per_result = 3
+        proposals_per_result = 3
         seq_length = 10
 
         proposal_gen = UniformMutationGenerator(
@@ -998,7 +998,7 @@ class TestMCMCOptimizer:
             constraints=[constraint],
             config=MCMCOptimizerConfig(
                 num_results=num_trajectories,
-                candidates_per_result=candidates_per_result,
+                proposals_per_result=proposals_per_result,
                 num_steps=1,
                 max_temperature=0.002,  # Very low temp = greedy
                 min_temperature=0.001,
@@ -1011,16 +1011,16 @@ class TestMCMCOptimizer:
         optimizer.energy_scores[0] = 5.0
 
         old_result_sequences = optimizer._save_sequence_state()
-        optimizer._populate_candidate_sequences()
+        optimizer._populate_proposal_sequences()
 
         # Set up proposals with different energies: [0.8, 0.3, 0.9]
         # Best is at index 1 with energy 0.3
-        segment.candidate_sequences[0].sequence = "AAAAAAAGGG"  # 3 non-A
-        segment.candidate_sequences[1].sequence = "AAAAAAAAAT"  # 1 non-A (best)
-        segment.candidate_sequences[2].sequence = "AAAAAAGGGG"  # 4 non-A
+        segment.proposal_sequences[0].sequence = "AAAAAAAGGG"  # 3 non-A
+        segment.proposal_sequences[1].sequence = "AAAAAAAAAT"  # 1 non-A (best)
+        segment.proposal_sequences[2].sequence = "AAAAAAGGGG"  # 4 non-A
         optimizer.energy_scores = [3.0, 1.0, 4.0]
 
-        optimizer._candidate_outcomes = ["accepted"] * optimizer.num_candidates
+        optimizer._proposal_outcomes = ["accepted"] * optimizer.num_proposals
         optimizer._select_topk_with_mcmc_acceptance(step=1, old_result_sequences=old_result_sequences)
 
         # With low temperature, the best proposal (energy=1.0) should be accepted
@@ -1038,7 +1038,7 @@ class TestMCMCOptimizer:
             constraints=[constraint],
             config=MCMCOptimizerConfig(
                 num_results=num_trajectories,
-                candidates_per_result=candidates_per_result,
+                proposals_per_result=proposals_per_result,
                 num_steps=1,
                 max_temperature=0.002,  # Very low temp
                 min_temperature=0.001,
@@ -1051,15 +1051,15 @@ class TestMCMCOptimizer:
         optimizer2.energy_scores[0] = 0.0
 
         old_result_sequences2 = optimizer2._save_sequence_state()
-        optimizer2._populate_candidate_sequences()
+        optimizer2._populate_proposal_sequences()
 
         # All proposals are worse than current (energy 0)
-        segment.candidate_sequences[0].sequence = "AAAAAAAAAT"  # 1 non-A
-        segment.candidate_sequences[1].sequence = "AAAAAAGGGG"  # 4 non-A
-        segment.candidate_sequences[2].sequence = "AAAAAAAAAC"  # 1 non-A
+        segment.proposal_sequences[0].sequence = "AAAAAAAAAT"  # 1 non-A
+        segment.proposal_sequences[1].sequence = "AAAAAAGGGG"  # 4 non-A
+        segment.proposal_sequences[2].sequence = "AAAAAAAAAC"  # 1 non-A
         optimizer2.energy_scores = [1.0, 4.0, 1.0]
 
-        optimizer2._candidate_outcomes = ["accepted"] * optimizer2.num_candidates
+        optimizer2._proposal_outcomes = ["accepted"] * optimizer2.num_proposals
         optimizer2._select_topk_with_mcmc_acceptance(step=1, old_result_sequences=old_result_sequences2)
 
         # At very low temperature, worse proposals should be rejected
@@ -1069,8 +1069,8 @@ class TestMCMCOptimizer:
         )
         assert optimizer2.energy_scores[0] == 0.0
 
-    def test_candidate_tracking(self):
-        """Tests that history has candidate_results with unified rejection reasons."""
+    def test_proposal_tracking(self):
+        """Tests that history has proposal_results with unified rejection reasons."""
         seq_length = 10
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen = UniformMutationGenerator(
@@ -1092,16 +1092,16 @@ class TestMCMCOptimizer:
             constraints=[gc_filter],
             config=MCMCOptimizerConfig(
                 num_results=2,
-                candidates_per_result=3,
+                proposals_per_result=3,
                 num_steps=10,
                 verbose=False,
-                track_candidates=True,
+                track_proposals=True,
             ),
         )
 
         optimizer.run()
 
-        # Every step has candidate_results with correct structure
+        # Every step has proposal_results with correct structure
         valid_rejectors = {
             "gc_content_constraint",
             "Not best in proposal pool",
@@ -1109,8 +1109,8 @@ class TestMCMCOptimizer:
         }
         all_rejectors = set()
         for entry in optimizer.history:
-            assert "candidate_results" in entry
-            for cand in entry["candidate_results"]:
+            assert "proposal_results" in entry
+            for cand in entry["proposal_results"]:
                 assert isinstance(cand["accepted"], bool)
                 assert "rejected_by" in cand
                 assert "constructs" in cand
@@ -1135,18 +1135,18 @@ class TestMCMCOptimizer:
         saved_steps = {entry["time_step"] for entry in optimizer.history}
         assert saved_steps == {0, 3, 6, 9, 10}
 
-    def test_track_candidates_default_false(self):
-        """track_candidates defaults to False — no candidate_results in snapshots."""
+    def test_track_proposals_default_false(self):
+        """track_proposals defaults to False — no proposal_results in snapshots."""
         optimizer, _, _, _ = _setup_mcmc_components(
             seq_length=10,
             num_results=1,
             num_mcmc_steps=3,
         )
-        # Don't set track_candidates — should default to False
+        # Don't set track_proposals — should default to False
         optimizer.run()
 
         for entry in optimizer.history:
-            assert "candidate_results" not in entry
+            assert "proposal_results" not in entry
 
     def test_mcmc_alpha_inf_inf_returns_zero(self):
         """inf vs inf should return 0.0 (reject, no improvement) instead of NaN."""

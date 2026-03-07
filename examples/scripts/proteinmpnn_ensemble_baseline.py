@@ -24,10 +24,7 @@ from proto_language.language.generator import (
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
 )
-from proto_language.language.optimizer import (
-    TopKOptimizer,
-    TopKOptimizerConfig,
-)
+from proto_language.language.optimizer import TopKOptimizer, TopKOptimizerConfig
 
 if __name__ == '__main__':
     n_samples = 200
@@ -59,7 +56,7 @@ if __name__ == '__main__':
             length=seq_len,
             sequence_type='protein',
         )
-        protein_segment.candidate_sequences = [
+        protein_segment.proposal_sequences = [
             copy.deepcopy(protein_segment.original_sequence)
             for _ in range(n_samples)
         ]
@@ -72,11 +69,11 @@ if __name__ == '__main__':
         # Pick the best sequence by perplexity.
         best_ppl = float('inf')
         best_seq = None
-        for candidate in protein_segment.candidate_sequences:
-            ppl = candidate._metadata['proteinmpnn_perplexity']
+        for proposal in protein_segment.proposal_sequences:
+            ppl = proposal._metadata['proteinmpnn_perplexity']
             if ppl < best_ppl:
                 best_ppl = ppl
-                best_seq = str(candidate.sequence)
+                best_seq = str(proposal.sequence)
 
         bioemu_input = BioEmuInput(
             complexes=[best_seq],

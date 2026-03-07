@@ -37,7 +37,7 @@ gc_constraint = Constraint(
 )
 
 def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
-    output_sequence: Sequence = outputs[0].candidate_sequences[0]
+    output_sequence: Sequence = outputs[0].proposal_sequences[0]
     gc_content = output_sequence._metadata["constraints"]["gc_content_constraint"]["data"].get("gc_content", "N/A")
     print(
         f"Custom Log - Step {step} | "
@@ -48,7 +48,7 @@ def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
 # Optimizer config
 optimizer_config = MCMCOptimizerConfig(
     num_results=1,
-    candidates_per_result=20,
+    proposals_per_result=20,
     num_steps=10,
     max_temperature=2.0,
 )

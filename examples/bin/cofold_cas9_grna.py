@@ -1,14 +1,14 @@
 """Cofold Cas9 proteins with their predicted sgRNAs using AlphaFold3.
 
-Reads one or more Cas9 candidate TSVs (from evocas9_topk),
+Reads one or more Cas9 proposal TSVs (from evocas9_topk),
 constructs chimeric sgRNAs from crRNA repeat + tracrRNA components,
 cofolds each Cas9-sgRNA complex with AF3, and aligns the resulting
 structures to the SpCas9-sgRNA reference (PDB 4OO8) using USalign.
 
 Usage:
-    python examples/bin/cofold_cas9_grna.py candidates.tsv
+    python examples/bin/cofold_cas9_grna.py proposals.tsv
     python examples/bin/cofold_cas9_grna.py a.tsv b.tsv c.tsv --output-dir my_output/
-    python examples/bin/cofold_cas9_grna.py cas9_topk_2000_*_candidates.tsv --no-msa
+    python examples/bin/cofold_cas9_grna.py cas9_topk_2000_*_proposals.tsv --no-msa
 """
 from __future__ import annotations
 
@@ -22,7 +22,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import requests
-
+from proto_tools.tools.sequence_alignment.colabfold_search.colabfold_search import (
+    ColabfoldSearchConfig,
+)
 from proto_tools.tools.structure_prediction.alphafold3 import (
     AlphaFold3Config,
     AlphaFold3Input,
@@ -31,9 +33,6 @@ from proto_tools.tools.structure_prediction.alphafold3 import (
 from proto_tools.tools.structure_prediction.shared_data_models import (
     Chain,
     StructurePredictionComplex,
-)
-from proto_tools.tools.sequence_alignment.colabfold_search.colabfold_search import (
-    ColabfoldSearchConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,11 +110,11 @@ def download_reference_pdb(output_dir: Path) -> Path:
 
 
 def run_usalign(
-    candidate_pdb: Path,
+    proposal_pdb: Path,
     reference_pdb: Path,
     output_prefix: Path,
 ) -> Dict[str, float]:
-    """Run USalign on candidate vs reference and return alignment metrics.
+    """Run USalign on proposal vs reference and return alignment metrics.
 
     Returns dict with keys: tm_score_1, tm_score_2, rmsd.
     Also saves the superposed PDB and raw USalign output.
@@ -129,7 +128,7 @@ def run_usalign(
 
     cmd = [
         usalign_path,
-        str(candidate_pdb),
+        str(proposal_pdb),
         str(reference_pdb),
         "-mm", "1",   # multimeric alignment mode
         "-ter", "1",  # treat each chain as separate entity
@@ -189,8 +188,8 @@ def run_usalign(
     }
 
 
-def cofold_candidate(
-    candidate_idx: int,
+def cofold_proposal(
+    proposal_idx: int,
     protein_sequence: str,
     sgrna_sequence: str,
     output_dir: Path,
@@ -198,15 +197,15 @@ def cofold_candidate(
     use_msa: bool,
     verbose: bool,
 ) -> Optional[Dict]:
-    """Run AF3 cofolding for a single Cas9-sgRNA candidate.
+    """Run AF3 cofolding for a single Cas9-sgRNA proposal.
 
     Returns dict with AF3 metrics and output paths, or None on failure.
     """
-    candidate_dir = output_dir / f"candidate_{candidate_idx}"
-    candidate_dir.mkdir(parents=True, exist_ok=True)
+    proposal_dir = output_dir / f"proposal_{proposal_idx}"
+    proposal_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(
-        f"Candidate {candidate_idx}: protein={len(protein_sequence)}aa, "
+        f"Proposal {proposal_idx}: protein={len(protein_sequence)}aa, "
         f"sgRNA={len(sgrna_sequence)}nt"
     )
 
@@ -216,24 +215,24 @@ def cofold_candidate(
     ])
     inputs = AlphaFold3Input(complexes=[complex_input])
     config = AlphaFold3Config(
-        name=f"cas9_grna_{candidate_idx}",
+        name=f"cas9_grna_{proposal_idx}",
         seeds=seeds,
         use_msa=use_msa,
         colabfold_search_config=ColabfoldSearchConfig(search_mode="local"),
-        output_dir=str(candidate_dir),
+        output_dir=str(proposal_dir),
         verbose=verbose,
     )
 
     af3_output = run_alphafold3(inputs, config)
 
     if not af3_output.structures:
-        logger.warning(f"Candidate {candidate_idx}: AF3 returned no structures")
+        logger.warning(f"Proposal {proposal_idx}: AF3 returned no structures")
         return None
 
     structure = af3_output.structures[0]
 
     # Write structure to a standard PDB file
-    standard_pdb = candidate_dir / "cas9_grna_af3.pdb"
+    standard_pdb = proposal_dir / "cas9_grna_af3.pdb"
     if not standard_pdb.exists():
         structure.write_pdb(standard_pdb)
 
@@ -254,7 +253,7 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
     parser.add_argument(
         "input_tsvs",
         nargs="+",
-        help="One or more Cas9 candidate TSVs (from evocas9_topk)",
+        help="One or more Cas9 proposal TSVs (from evocas9_topk)",
     )
     parser.add_argument(
         "--output-dir",
@@ -319,25 +318,25 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
         with open(input_tsv) as f:
             reader = csv.DictReader(f, delimiter="\t")
             rows.extend(reader)
-        logger.info(f"Loaded {len(rows)} candidates so far (added {input_tsv})")
+        logger.info(f"Loaded {len(rows)} proposals so far (added {input_tsv})")
 
-    logger.info(f"Total: {len(rows)} candidates from {len(parsed.input_tsvs)} TSV(s)")
+    logger.info(f"Total: {len(rows)} proposals from {len(parsed.input_tsvs)} TSV(s)")
 
-    # Process highest-pLDDT candidates first (most promising from generation).
+    # Process highest-pLDDT proposals first (most promising from generation).
     rows.sort(key=lambda r: float(r.get("plddt") or 0), reverse=True)
 
     max_tracr = None if parsed.full_length_tracr else parsed.max_tracr_length
 
     results = []
     for global_idx, row in enumerate(rows):
-        orig_idx = row.get("candidate_idx", "")
+        orig_idx = row.get("proposal_idx", "")
         protein_sequence = row["protein_sequence"]
         crispr_repeat = row["crispr_repeat"]
         tracr_rna_sequence = row["tracr_rna_sequence"]
 
         if not crispr_repeat or not tracr_rna_sequence:
             logger.warning(
-                f"Candidate {global_idx} (orig {orig_idx}): "
+                f"Proposal {global_idx} (orig {orig_idx}): "
                 f"missing crRNA or tracrRNA, skipping"
             )
             continue
@@ -345,7 +344,7 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
         sgrna = construct_sgrna(crispr_repeat, tracr_rna_sequence, max_tracr)
         tracr_used_len = len(sgrna) - len(SGRNA_SPACER) - len(dna_to_rna(crispr_repeat)) - len(TETRALOOP_LINKER)
         logger.info(
-            f"Candidate {global_idx} (orig {orig_idx}): constructed sgRNA "
+            f"Proposal {global_idx} (orig {orig_idx}): constructed sgRNA "
             f"({len(sgrna)}nt = {len(SGRNA_SPACER)}sp + "
             f"{len(dna_to_rna(crispr_repeat))}cr + "
             f"{len(TETRALOOP_LINKER)}loop + "
@@ -353,8 +352,8 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
         )
 
         # AF3 cofolding
-        af3_result = cofold_candidate(
-            candidate_idx=global_idx,
+        af3_result = cofold_proposal(
+            proposal_idx=global_idx,
             protein_sequence=protein_sequence,
             sgrna_sequence=sgrna,
             output_dir=output_dir,
@@ -364,21 +363,21 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
         )
 
         if af3_result is None:
-            logger.warning(f"Candidate {global_idx}: AF3 cofolding failed")
+            logger.warning(f"Proposal {global_idx}: AF3 cofolding failed")
             continue
 
         # USalign against reference
-        candidate_pdb = Path(af3_result["pdb_path"])
-        candidate_dir = candidate_pdb.parent
-        superposed_prefix = candidate_dir / "superposed_to_4OO8"
+        proposal_pdb = Path(af3_result["pdb_path"])
+        proposal_dir = proposal_pdb.parent
+        superposed_prefix = proposal_dir / "superposed_to_4OO8"
 
         try:
             usalign_metrics = run_usalign(
-                candidate_pdb, reference_pdb, superposed_prefix
+                proposal_pdb, reference_pdb, superposed_prefix
             )
         except subprocess.CalledProcessError as e:
             logger.warning(
-                f"Candidate {global_idx}: USalign failed: {e}"
+                f"Proposal {global_idx}: USalign failed: {e}"
             )
             usalign_metrics = {
                 "tm_score_1": None,
@@ -389,13 +388,13 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
         # Find superposed PDB (USalign writes {prefix}.pdb or {prefix}_all_atm.pdb)
         superposed_pdb = None
         for suffix in ["_all_atm.pdb", ".pdb", "_atm.pdb"]:
-            candidate_path = candidate_dir / f"superposed_to_4OO8{suffix}"
-            if candidate_path.exists():
-                superposed_pdb = str(candidate_path)
+            proposal_path = proposal_dir / f"superposed_to_4OO8{suffix}"
+            if proposal_path.exists():
+                superposed_pdb = str(proposal_path)
                 break
 
         result_row = {
-            "candidate_idx": global_idx,
+            "proposal_idx": global_idx,
             "temperature": row.get("temperature", ""),
             "top_k": row.get("top_k", ""),
             "protein_length": len(protein_sequence),
@@ -404,7 +403,7 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
             "ptm": af3_result.get("ptm"),
             "iptm": af3_result.get("iptm"),
             "ranking_score": af3_result.get("ranking_score"),
-            "tm_score_candidate": usalign_metrics.get("tm_score_1"),
+            "tm_score_proposal": usalign_metrics.get("tm_score_1"),
             "tm_score_reference": usalign_metrics.get("tm_score_2"),
             "rmsd": usalign_metrics.get("rmsd"),
             "pdb_path": af3_result.get("pdb_path"),
@@ -413,10 +412,10 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
         results.append(result_row)
 
         logger.info(
-            f"Candidate {global_idx}: "
+            f"Proposal {global_idx}: "
             f"pLDDT={result_row['avg_plddt']}, "
             f"ipTM={result_row['iptm']}, "
-            f"TM(cand)={result_row['tm_score_candidate']}, "
+            f"TM(cand)={result_row['tm_score_proposal']}, "
             f"TM(ref)={result_row['tm_score_reference']}, "
             f"RMSD={result_row['rmsd']}"
         )
@@ -425,10 +424,10 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
     if results:
         summary_path = output_dir / "summary.tsv"
         fieldnames = [
-            "candidate_idx", "temperature", "top_k",
+            "proposal_idx", "temperature", "top_k",
             "protein_length", "sgrna_length",
             "avg_plddt", "ptm", "iptm", "ranking_score",
-            "tm_score_candidate", "tm_score_reference", "rmsd",
+            "tm_score_proposal", "tm_score_reference", "rmsd",
             "pdb_path", "superposed_path",
         ]
         with open(summary_path, "w", newline="") as f:
@@ -439,7 +438,7 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
 
         # Print summary table to stdout
         print(f"\n{'='*80}")
-        print(f"Cas9-sgRNA Cofolding Summary ({len(results)} candidates)")
+        print(f"Cas9-sgRNA Cofolding Summary ({len(results)} proposals)")
         print(f"{'='*80}")
         header = (
             f"{'Idx':>4s}  {'Prot':>5s}  {'sgRNA':>5s}  "
@@ -453,19 +452,19 @@ def main(args: Optional[List[str]] = None) -> List[Dict]:
                 return f"{v:{w}.{d}f}" if v is not None else f"{'N/A':>{w}s}"
 
             print(
-                f"{r['candidate_idx']:>4}  "
+                f"{r['proposal_idx']:>4}  "
                 f"{r['protein_length']:>5d}  "
                 f"{r['sgrna_length']:>5d}  "
                 f"{fmt(r['avg_plddt'], 6, 1)}  "
                 f"{fmt(r['ptm'])}  "
                 f"{fmt(r['iptm'])}  "
                 f"{fmt(r['ranking_score'], 6, 3)}  "
-                f"{fmt(r['tm_score_candidate'], 6, 3)}  "
+                f"{fmt(r['tm_score_proposal'], 6, 3)}  "
                 f"{fmt(r['tm_score_reference'], 6, 3)}  "
                 f"{fmt(r['rmsd'], 6, 2)}"
             )
         print()
-        print("TM(c) = TM-score normalized by candidate length")
+        print("TM(c) = TM-score normalized by proposal length")
         print("TM(r) = TM-score normalized by reference (4OO8) length")
         print(f"{'='*80}\n")
 

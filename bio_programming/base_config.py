@@ -75,10 +75,10 @@ class BaseOptimizerConfig(BaseConfig):
         description="Save history and log progress every N steps. Step 0 and final step always saved.",
         advanced=True,
     )
-    track_candidates: bool = ConfigField(
+    track_proposals: bool = ConfigField(
         default=False,
-        title="Track Candidates",
-        description="Save granular per-candidate results (accept/reject) in history snapshots.",
+        title="Track Proposals",
+        description="Save granular per-proposal results (accept/reject) in history snapshots.",
         advanced=True,
     )
     verbose: bool = ConfigField(

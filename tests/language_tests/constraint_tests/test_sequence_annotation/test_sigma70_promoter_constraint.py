@@ -22,7 +22,7 @@ class TestSigma70PromoterConstraint:
 
         scores = constraint.evaluate()
         assert scores[0] < 0.5  # Should have low penalty
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "sigma70" in constraints["sigma70_promoter_constraint"]["data"]
         sigma70_data = constraints["sigma70_promoter_constraint"]["data"]["sigma70"]
         assert sigma70_data["spacer_len"] == 17
@@ -42,7 +42,7 @@ class TestSigma70PromoterConstraint:
         scores = constraint.evaluate()
         assert scores[0] > 0.4  # Should have moderate-to-high penalty
         # Check some metadata was stored
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "sigma70_promoter_constraint" in constraints
 
     def test_scanning_long_sequence(self):
@@ -61,7 +61,7 @@ class TestSigma70PromoterConstraint:
         scores = constraint.evaluate()
         assert scores[0] < 0.5
         # Check position metadata was stored
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "sigma70" in constraints["sigma70_promoter_constraint"]["data"]
         sigma70_data = constraints["sigma70_promoter_constraint"]["data"]["sigma70"]
         assert "pos" in sigma70_data
@@ -81,7 +81,7 @@ class TestSigma70PromoterConstraint:
         scores = constraint.evaluate()
         assert scores[0] == 1.0
         # Should indicate sequence is too short
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "sigma70" in constraints["sigma70_promoter_constraint"]["data"]
         sigma70_data = constraints["sigma70_promoter_constraint"]["data"]["sigma70"]
         assert "reason" in sigma70_data
@@ -105,7 +105,7 @@ class TestSigma70PromoterConstraint:
         assert scores[0] < 0.5
 
         # Check constraint-specific metadata
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "sigma70" in constraints["sigma70_promoter_constraint"]["data"]
         sigma70_data = constraints["sigma70_promoter_constraint"]["data"]["sigma70"]
         assert "spacer_len" in sigma70_data

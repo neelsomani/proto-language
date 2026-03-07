@@ -16,35 +16,35 @@ class TestSegment:
         assert segment.sequence_type == "dna"
         assert segment.sequence_length == 4
 
-    def test_candidate_sequences_manipulation(self):
-        """Tests that candidate_sequences can be directly manipulated."""
+    def test_proposal_sequences_manipulation(self):
+        """Tests that proposal_sequences can be directly manipulated."""
         import copy
 
         segment = Segment(
             sequence="ATCG", sequence_type="dna", metadata={"source": "original"}
         )
 
-        # Directly set candidate sequences (like optimizer does)
-        segment.candidate_sequences = [
+        # Directly set proposal sequences (like optimizer does)
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(5)
         ]
-        assert segment.num_candidates == 5
+        assert segment.num_proposals == 5
         for i in range(5):
-            assert segment.candidate_sequences[i].sequence == "ATCG"
-            assert segment.candidate_sequences[i]._metadata["source"] == "original"
+            assert segment.proposal_sequences[i].sequence == "ATCG"
+            assert segment.proposal_sequences[i]._metadata["source"] == "original"
 
-        # Check that candidate sequences are independent copies
-        segment.candidate_sequences[0].sequence = "GGGG"
-        segment.candidate_sequences[1]._metadata["source"] = "modified"
-        assert segment.candidate_sequences[0].sequence == "GGGG"
-        assert segment.candidate_sequences[1].sequence == "ATCG"
-        assert segment.candidate_sequences[0]._metadata["source"] == "original"
-        assert segment.candidate_sequences[1]._metadata["source"] == "modified"
+        # Check that proposal sequences are independent copies
+        segment.proposal_sequences[0].sequence = "GGGG"
+        segment.proposal_sequences[1]._metadata["source"] = "modified"
+        assert segment.proposal_sequences[0].sequence == "GGGG"
+        assert segment.proposal_sequences[1].sequence == "ATCG"
+        assert segment.proposal_sequences[0]._metadata["source"] == "original"
+        assert segment.proposal_sequences[1]._metadata["source"] == "modified"
 
     def test_iteration(self):
         """Tests iteration over the result sequences in a segment."""
         segment = Segment(sequence="A")
-        # Iteration is over result_sequences, not candidates
+        # Iteration is over result_sequences, not proposals
         segment.result_sequences.append(Sequence(sequence="T", sequence_type="dna"))
         segment.result_sequences.append(Sequence(sequence="C", sequence_type="dna"))
         sequences = [s.sequence for s in segment]
@@ -62,30 +62,30 @@ class TestSegment:
         assert segment_without_seq.sequence_length == 50
         assert segment_without_seq.original_sequence.sequence == ""
 
-    def test_candidates_populated_checks_all(self):
-        """Regression: candidates_populated must check ALL candidates (Bug 5)."""
+    def test_proposals_populated_checks_all(self):
+        """Regression: proposals_populated must check ALL proposals (Bug 5)."""
         segment = Segment(sequence="ATCG", sequence_type="dna")
 
         # One populated, one empty — should be False
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             Sequence(sequence="ATCG", sequence_type="dna"),
             Sequence(sequence="", sequence_type="dna"),
         ]
-        assert not segment.candidates_populated
+        assert not segment.proposals_populated
 
         # All populated — should be True
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             Sequence(sequence="ATCG", sequence_type="dna"),
             Sequence(sequence="GCTA", sequence_type="dna"),
         ]
-        assert segment.candidates_populated
+        assert segment.proposals_populated
 
         # All empty — should be False
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             Sequence(sequence="", sequence_type="dna"),
             Sequence(sequence="", sequence_type="dna"),
         ]
-        assert not segment.candidates_populated
+        assert not segment.proposals_populated
 
     def test_zero_length_raises_error(self):
         """Test that Segment(length=0) raises ValueError."""

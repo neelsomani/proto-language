@@ -249,19 +249,19 @@ class ProGen2Generator(Generator):
         output = run_progen2_sample(tool_input, tool_config)
         generated_sequences = output.sequences
 
-        for candidate, sequence in zip(
-            self._assigned_segment.candidate_sequences, generated_sequences, strict=True
+        for proposal, sequence in zip(
+            self._assigned_segment.proposal_sequences, generated_sequences, strict=True
         ):
-            candidate.sequence = sequence
+            proposal.sequence = sequence
 
     def _replicate_prompts(self, prompts: List[str]) -> List[str]:
-        """Match prompt count to candidate count, replicating single prompts."""
-        num_candidates = len(self._assigned_segment.candidate_sequences)
-        if len(prompts) == num_candidates:
+        """Match prompt count to proposal count, replicating single prompts."""
+        num_proposals = len(self._assigned_segment.proposal_sequences)
+        if len(prompts) == num_proposals:
             return prompts
         if len(prompts) == 1:
-            return prompts * num_candidates
-        raise ValueError(f"Expected 1 or {num_candidates} prompts, got {len(prompts)}")
+            return prompts * num_proposals
+        raise ValueError(f"Expected 1 or {num_proposals} prompts, got {len(prompts)}")
 
     def _compute_max_length(self, prompt_length: int, prepend_prompt: bool) -> int:
         """Compute max_length for ProGen2 based on segment length and prompt settings."""

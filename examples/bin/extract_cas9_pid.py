@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Extract PAM Interacting Domains (PIDs) from Cas9 candidates.
+"""Extract PAM Interacting Domains (PIDs) from Cas9 proposals.
 
-Reads Cas9 candidate TSVs (from evocas9_topk), aligns each protein to
+Reads Cas9 proposal TSVs (from evocas9_topk), aligns each protein to
 SpCas9 (UniProt Q99ZW2) using BioPython pairwise alignment, extracts the
 PID subsequence (residues 1099-1368 of SpCas9, 270 aa), and computes
 PID identity to the SpCas9 PID.
@@ -12,11 +12,11 @@ directory.
 Usage:
     # TSVs only:
     python examples/bin/extract_cas9_pid.py \\
-        --candidate-tsvs cas9_topk_2000_168954{5,6,7,8}_candidates.tsv
+        --proposal-tsvs cas9_topk_2000_168954{5,6,7,8}_proposals.tsv
 
     # With cofold metrics:
     python examples/bin/extract_cas9_pid.py \\
-        --candidate-tsvs cas9_topk_2000_168954{5,6,7,8}_candidates.tsv \\
+        --proposal-tsvs cas9_topk_2000_168954{5,6,7,8}_proposals.tsv \\
         --cofold-dir cofold_cas9_grna_output_v2 \\
         --output-dir pid_extraction_output
 """
@@ -95,11 +95,11 @@ def construct_sgrna(
 
 
 def extract_pid(
-    candidate_seq: str,
+    proposal_seq: str,
     pid_start: int = PID_START,
     pid_end: int = PID_END,
 ) -> Dict:
-    """Align candidate to SpCas9 and extract the PID region.
+    """Align proposal to SpCas9 and extract the PID region.
 
     Returns dict with keys: pid_sequence, pid_length, pid_identity, n_matches.
     """
@@ -110,14 +110,14 @@ def extract_pid(
         extend_gap_score=-0.5,
     )
 
-    alignments = aligner.align(SPCAS9_SEQUENCE, candidate_seq)
+    alignments = aligner.align(SPCAS9_SEQUENCE, proposal_seq)
     aln = alignments[0]
 
     # aln.indices is (2, alignment_length) where -1 means gap.
-    # Row 0 = SpCas9 positions (0-indexed), Row 1 = candidate positions.
+    # Row 0 = SpCas9 positions (0-indexed), Row 1 = proposal positions.
     indices = aln.indices  # shape (2, L)
 
-    # Extract candidate residues corresponding to SpCas9 PID positions
+    # Extract proposal residues corresponding to SpCas9 PID positions
     pid_residues = []
     n_matches = 0
     ref_pid = SPCAS9_SEQUENCE[pid_start - 1 : pid_end]
@@ -130,7 +130,7 @@ def extract_pid(
             continue
         # Check if this SpCas9 position falls within the PID
         if pid_start - 1 <= ref_pos < pid_end:
-            cand_aa = candidate_seq[cand_pos]
+            cand_aa = proposal_seq[cand_pos]
             pid_residues.append(cand_aa)
             ref_aa = SPCAS9_SEQUENCE[ref_pos]
             if cand_aa == ref_aa:
@@ -149,19 +149,19 @@ def extract_pid(
 
 
 # ---------------------------------------------------------------------------
-# Load candidates
+# Load proposals
 # ---------------------------------------------------------------------------
-def load_candidates(tsv_paths: List[str]) -> List[Dict]:
-    """Load candidate rows from TSVs, sorted by pLDDT descending."""
+def load_proposals(tsv_paths: List[str]) -> List[Dict]:
+    """Load proposal rows from TSVs, sorted by pLDDT descending."""
     rows = []
     for tsv_path in tsv_paths:
         with open(tsv_path) as f:
             reader = csv.DictReader(f, delimiter="\t")
             for row in reader:
                 rows.append(row)
-        logger.info(f"Loaded {len(rows)} candidates so far (added {tsv_path})")
+        logger.info(f"Loaded {len(rows)} proposals so far (added {tsv_path})")
 
-    logger.info(f"Total: {len(rows)} candidates from {len(tsv_paths)} TSV(s)")
+    logger.info(f"Total: {len(rows)} proposals from {len(tsv_paths)} TSV(s)")
 
     # Sort by pLDDT descending (same ordering as cofold script)
     rows.sort(key=lambda r: float(r.get("plddt") or 0), reverse=True)
@@ -179,7 +179,7 @@ def load_candidates(tsv_paths: List[str]) -> List[Dict]:
 def load_cofold_metrics(cofold_dir: str) -> Dict[int, Dict]:
     """Load cofold metrics from summary.tsv in the cofold output directory.
 
-    Returns dict mapping candidate_idx -> metrics dict.
+    Returns dict mapping proposal_idx -> metrics dict.
     """
     summary_path = Path(cofold_dir) / "summary.tsv"
     if not summary_path.exists():
@@ -190,17 +190,17 @@ def load_cofold_metrics(cofold_dir: str) -> Dict[int, Dict]:
     with open(summary_path) as f:
         reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
-            idx = int(row["candidate_idx"])
+            idx = int(row["proposal_idx"])
             metrics[idx] = {
                 "ptm": row.get("ptm", ""),
                 "iptm": row.get("iptm", ""),
                 "ranking_score": row.get("ranking_score", ""),
-                "tm_score_candidate": row.get("tm_score_candidate", ""),
+                "tm_score_proposal": row.get("tm_score_proposal", ""),
                 "tm_score_reference": row.get("tm_score_reference", ""),
                 "rmsd": row.get("rmsd", ""),
             }
 
-    logger.info(f"Loaded cofold metrics for {len(metrics)} candidates")
+    logger.info(f"Loaded cofold metrics for {len(metrics)} proposals")
     return metrics
 
 
@@ -209,13 +209,13 @@ def load_cofold_metrics(cofold_dir: str) -> Dict[int, Dict]:
 # ---------------------------------------------------------------------------
 def main(args: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Extract PAM Interacting Domains (PIDs) from Cas9 candidates.",
+        description="Extract PAM Interacting Domains (PIDs) from Cas9 proposals.",
     )
     parser.add_argument(
-        "--candidate-tsvs",
+        "--proposal-tsvs",
         nargs="+",
         required=True,
-        help="One or more Cas9 candidate TSVs (from evocas9_topk)",
+        help="One or more Cas9 proposal TSVs (from evocas9_topk)",
     )
     parser.add_argument(
         "--cofold-dir",
@@ -246,8 +246,8 @@ def main(args: Optional[List[str]] = None) -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
-    # Load candidates
-    rows = load_candidates(parsed.candidate_tsvs)
+    # Load proposals
+    rows = load_proposals(parsed.proposal_tsvs)
 
     # Load cofold metrics if provided
     cofold_metrics: Dict[int, Dict] = {}
@@ -258,14 +258,14 @@ def main(args: Optional[List[str]] = None) -> None:
     output_dir = Path(parsed.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Process each candidate
+    # Process each proposal
     results = []
     for row in rows:
         global_idx = row["global_idx"]
         protein_seq = row["protein_sequence"]
 
         logger.info(
-            f"Candidate {global_idx}: extracting PID "
+            f"Proposal {global_idx}: extracting PID "
             f"(protein length={len(protein_seq)})"
         )
 
@@ -301,7 +301,7 @@ def main(args: Optional[List[str]] = None) -> None:
             "ptm": cofold.get("ptm", ""),
             "iptm": cofold.get("iptm", ""),
             "ranking_score": cofold.get("ranking_score", ""),
-            "tm_score_candidate": cofold.get("tm_score_candidate", ""),
+            "tm_score_proposal": cofold.get("tm_score_proposal", ""),
             "tm_score_reference": cofold.get("tm_score_reference", ""),
             "rmsd": cofold.get("rmsd", ""),
             "protein_sequence": protein_seq,
@@ -321,7 +321,7 @@ def main(args: Optional[List[str]] = None) -> None:
     with open(fasta_path, "w") as f:
         for r in results:
             header = (
-                f">candidate_{r['global_idx']} "
+                f">proposal_{r['global_idx']} "
                 f"pid_identity={r['pid_identity']} "
                 f"pid_length={r['pid_length']} "
                 f"full_identity={r['identity']} "
@@ -355,7 +355,7 @@ def main(args: Optional[List[str]] = None) -> None:
         "ptm",
         "iptm",
         "ranking_score",
-        "tm_score_candidate",
+        "tm_score_proposal",
         "tm_score_reference",
         "rmsd",
         "protein_sequence",
@@ -413,7 +413,7 @@ def main(args: Optional[List[str]] = None) -> None:
                 f"{float(r['ptm'] or 0):>5.2f}  "
                 f"{float(r['iptm'] or 0):>5.2f}  "
                 f"{float(r['ranking_score'] or 0):>5.2f}  "
-                f"{float(r['tm_score_candidate'] or 0):>6.3f}  "
+                f"{float(r['tm_score_proposal'] or 0):>6.3f}  "
                 f"{float(r['tm_score_reference'] or 0):>6.3f}  "
                 f"{float(r['rmsd'] or 0):>6.2f}"
             )
@@ -422,7 +422,7 @@ def main(args: Optional[List[str]] = None) -> None:
     print(f"Output directory: {output_dir}")
     print(f"  PID FASTA:   {fasta_path}")
     print(f"  PID summary: {tsv_path}")
-    print(f"  Total candidates: {len(results)}")
+    print(f"  Total proposals: {len(results)}")
     ref_pid_len = parsed.pid_end - parsed.pid_start + 1
     print(f"  Reference PID: SpCas9 residues {parsed.pid_start}-{parsed.pid_end} ({ref_pid_len} aa)")
     print(f"{'='*100}\n")

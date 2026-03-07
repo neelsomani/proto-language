@@ -23,12 +23,12 @@ class MockConstraintConfig(BaseModel):
     pass
 
 
-def _make_segment_with_candidates(sequences: list[str], seq_type: str = "dna") -> Segment:
-    """Helper to create a segment with multiple candidate sequences for testing."""
+def _make_segment_with_proposals(sequences: list[str], seq_type: str = "dna") -> Segment:
+    """Helper to create a segment with multiple proposal sequences for testing."""
     segment = Segment(sequence=sequences[0], sequence_type=seq_type)
-    segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(sequences))]
+    segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(sequences))]
     for i, seq_str in enumerate(sequences):
-        segment.candidate_sequences[i].sequence = seq_str
+        segment.proposal_sequences[i].sequence = seq_str
     return segment
 
 
@@ -45,7 +45,7 @@ class TestConstraintEvaluation:
     ])
     def test_constraint_evaluation_contiguous(self, sequences, expected_scores):
         """Tests constraint evaluation with single and batched sequences."""
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
         config = MockConstraintConfig()
 
         # Test with mock_single_input_scoring_function
@@ -58,7 +58,7 @@ class TestConstraintEvaluation:
         assert scores_seq == expected_scores
 
         # Reset segment for next test
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         # Test with mock_multi_input_scoring_function
         constraint_batch = Constraint(
@@ -72,7 +72,7 @@ class TestConstraintEvaluation:
     def test_constraint_metadata_propagation(self):
         """Tests that metadata is correctly propagated back to sequences."""
         sequences = ["ACTGACTG", "TTTTTTTT"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
         config = MockConstraintConfig()
 
         constraint = Constraint(
@@ -83,7 +83,7 @@ class TestConstraintEvaluation:
         constraint.evaluate()
 
         # Check metadata was propagated in nested format
-        for i, seq in enumerate(segment.candidate_sequences):
+        for i, seq in enumerate(segment.proposal_sequences):
             constraints = seq._constraints_metadata
             assert "mock_multi_input_scoring_function" in constraints
             assert "t_count" in constraints["mock_multi_input_scoring_function"]["data"]
@@ -95,8 +95,8 @@ class TestConstraintEvaluation:
         sequences_a = ["AAAA", "AAAT", "AATT", "ATTT", "TTTT"]
         sequences_b = ["AAAA", "AAAC", "AACC", "ACCC", "CCCC"]
 
-        seg_a = _make_segment_with_candidates(sequences_a, "dna")
-        seg_b = _make_segment_with_candidates(sequences_b, "dna")
+        seg_a = _make_segment_with_proposals(sequences_a, "dna")
+        seg_b = _make_segment_with_proposals(sequences_b, "dna")
         config = MockConstraintConfig()
 
         constraint = Constraint(
@@ -112,8 +112,8 @@ class TestConstraintEvaluation:
 
         # Each segment should have its own metadata in nested format
         for i in range(len(sequences_a)):
-            constraints_a = seg_a.candidate_sequences[i]._constraints_metadata
-            constraints_b = seg_b.candidate_sequences[i]._constraints_metadata
+            constraints_a = seg_a.proposal_sequences[i]._constraints_metadata
+            constraints_b = seg_b.proposal_sequences[i]._constraints_metadata
             assert "mock_multi_input_scoring_function_disjoint" in constraints_a
             assert "mock_multi_input_scoring_function_disjoint" in constraints_b
             assert "t_percent" in constraints_a["mock_multi_input_scoring_function_disjoint"]["data"]
@@ -137,12 +137,12 @@ class TestConstraintValidation:
             )
 
     def test_mixed_batch_sizes_raises_error(self):
-        """Test that inconsistent candidate pool sizes raise ValueError."""
-        seg1 = _make_segment_with_candidates(["ATCG", "GGGG"])  # 2 candidates
-        seg2 = _make_segment_with_candidates(["TTTT"])  # 1 candidate
+        """Test that inconsistent proposal pool sizes raise ValueError."""
+        seg1 = _make_segment_with_proposals(["ATCG", "GGGG"])  # 2 proposals
+        seg2 = _make_segment_with_proposals(["TTTT"])  # 1 proposal
 
         # Use multi-input constraint to test batch size validation
-        with pytest.raises(ValueError, match="All segments must have the same number of candidate sequences"):
+        with pytest.raises(ValueError, match="All segments must have the same number of proposal sequences"):
             Constraint(
                 inputs=[seg1, seg2],
                 function=mock_multi_input_scoring_function_disjoint,
@@ -221,7 +221,7 @@ class TestConstraintLabel:
         constraint.evaluate()
 
         # Metadata should use custom label in nested format
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert "my_custom_label" in constraints
         assert "t_count" in constraints["my_custom_label"]["data"]
         # Should NOT use function name
@@ -235,10 +235,10 @@ class TestConstraintLabel:
 class TestConstraintMask:
     """Tests for mask-based selective evaluation."""
 
-    def test_mask_skips_unevaluated_candidates(self):
-        """Test that mask correctly skips evaluation of masked candidates."""
+    def test_mask_skips_unevaluated_proposals(self):
+        """Test that mask correctly skips evaluation of masked proposals."""
         sequences = ["ATTTTTTT", "AAAAAAAA", "TTTTTTTT", "AAAATTTT", "ATATATAT"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -246,7 +246,7 @@ class TestConstraintMask:
             function_config=MockConstraintConfig(),
         )
 
-        # Only evaluate candidates 0, 2, 4
+        # Only evaluate proposals 0, 2, 4
         mask = [True, False, True, False, True]
         scores = constraint.evaluate(mask=mask)
 
@@ -257,16 +257,16 @@ class TestConstraintMask:
         assert math.isnan(scores[3])  # Skipped
         assert scores[4] == pytest.approx(0.5)    # 4/8
 
-        # Verify metadata only propagated to evaluated candidates (nested under "constraints")
+        # Verify metadata only propagated to evaluated proposals (nested under "constraints")
         constraint_label = "mock_multi_input_scoring_function"
-        assert constraint_label in segment.candidate_sequences[0]._constraints_metadata
-        # Skipped candidate should have no constraint metadata (constraints dict always exists but is empty)
-        assert constraint_label not in segment.candidate_sequences[1]._constraints_metadata
+        assert constraint_label in segment.proposal_sequences[0]._constraints_metadata
+        # Skipped proposal should have no constraint metadata (constraints dict always exists but is empty)
+        assert constraint_label not in segment.proposal_sequences[1]._constraints_metadata
 
     def test_mask_all_false_returns_nan(self):
-        """Test that all-false mask returns NaN for all candidates."""
+        """Test that all-false mask returns NaN for all proposals."""
         sequences = ["ATCG", "GGGG", "TTTT"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -281,7 +281,7 @@ class TestConstraintMask:
     def test_mask_invalid_length_raises_error(self):
         """Test that mask with incorrect length raises ValueError (both shorter and longer)."""
         sequences = ["ATCG", "GGGG", "TTTT"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -313,7 +313,7 @@ class TestConstraintThreshold:
         mock_scoring._constraint_supported_sequence_types = ["dna"]
 
         sequences = ["ATCG", "ATCGATCG", "AT"]  # lengths 4, 8, 2 → scores 0.4, 0.8, 0.2
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -335,7 +335,7 @@ class TestConstraintThreshold:
         mock_scoring._constraint_supported_sequence_types = ["dna"]
 
         sequences = ["ATCG", "GGGG"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -374,7 +374,7 @@ class TestConstraintWeight:
         mock_scoring._constraint_supported_sequence_types = ["dna"]
 
         sequences = ["AT", "GC"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -410,7 +410,7 @@ class TestConstraintEdgeCases:
     def test_large_batch_processing(self):
         """Test constraint with large batch (100+ sequences)."""
         sequences = ["ATCG"] * 100
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -425,7 +425,7 @@ class TestConstraintEdgeCases:
     def test_empty_sequence_raises_error(self):
         """Test that empty sequence causes expected error (division by zero)."""
         sequences = ["ATCG", "", "GGGG"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -449,7 +449,7 @@ class TestConstraintEdgeCases:
         collision_scoring_function._constraint_supported_sequence_types = {"dna"}
         collision_scoring_function._constraint_num_input_sequences_per_tuple = 1
 
-        segment = _make_segment_with_candidates(["ATCG"], "dna")
+        segment = _make_segment_with_proposals(["ATCG"], "dna")
         constraint = Constraint(
             inputs=[segment],
             function=collision_scoring_function,
@@ -467,7 +467,7 @@ class TestConstraintEdgeCases:
         negative_scoring._constraint_supported_sequence_types = ["dna"]
 
         sequences = ["ATCG", "GGGG", "TTTT"]
-        segment = _make_segment_with_candidates(sequences, "dna")
+        segment = _make_segment_with_proposals(sequences, "dna")
 
         constraint = Constraint(
             inputs=[segment],
@@ -499,7 +499,7 @@ class TestConstraintEdgeCases:
         safe_scoring_function._constraint_supported_sequence_types = {"dna"}
         safe_scoring_function._constraint_num_input_sequences_per_tuple = 1
 
-        segment = _make_segment_with_candidates(["ATCG"], "dna")
+        segment = _make_segment_with_proposals(["ATCG"], "dna")
         constraint = Constraint(
             inputs=[segment],
             function=safe_scoring_function,
@@ -509,6 +509,6 @@ class TestConstraintEdgeCases:
         scores = constraint.evaluate()
         assert len(scores) == 1
         # Custom data should be in constraints_metadata under "data"
-        cdata = segment.candidate_sequences[0]._constraints_metadata["safe_scoring_function"]
+        cdata = segment.proposal_sequences[0]._constraints_metadata["safe_scoring_function"]
         assert cdata["data"]["gc_content"] == 50.0
         assert cdata["data"]["my_custom_metric"] == 42

@@ -6,8 +6,8 @@ returning values between 0.0 (perfect) and 1.0 (worst). Constraints can optional
 act as filters by providing a threshold parameter.
 
 Key Features:
-    - Evaluation of all candidates as a batch
-    - Multi-segment support (pass tuple of sequences per candidate)
+    - Evaluation of all proposals as a batch
+    - Multi-segment support (pass tuple of sequences per proposal)
     - Automatic metadata propagation back to original sequences
     - Threshold-based filtering (converts scores to boolean accept/reject)
 """
@@ -39,11 +39,11 @@ class ConstraintFunction(Protocol):
     """Protocol defining the standardized constraint function signature.
 
     All constraint functions must conform to this signature:
-    - Accept a list of sequence tuples (one tuple per candidate to evaluate)
+    - Accept a list of sequence tuples (one tuple per proposal to evaluate)
     - Accept a Pydantic config object
     - Return a list of float scores between 0.0 and 1.0
 
-    The input tuples allow multi-segment constraints where each candidate
+    The input tuples allow multi-segment constraints where each proposal
     consists of multiple sequences evaluated together (e.g., protein-protein
     interactions). For single-segment constraints, each tuple contains one sequence.
 
@@ -145,11 +145,11 @@ class Constraint:
         Initialize a constraint.
 
         Args:
-            inputs: List of Segment objects to evaluate. Each candidate is evaluated
+            inputs: List of Segment objects to evaluate. Each proposal is evaluated
                 as a tuple of sequences (one from each segment).
             function: The constraint scoring function with signature:
                 (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
-                Returns scores between 0.0-1.0 for each candidate.
+                Returns scores between 0.0-1.0 for each proposal.
             function_config: Configuration as Pydantic BaseModel or dict (auto-converted to BaseModel)
             label: Optional label for metadata tracking. Defaults to function.__name__
             threshold: Optional threshold for filtering mode. If provided, scores <= threshold are accepted (True),
@@ -210,39 +210,39 @@ class Constraint:
         verbose: bool = False
     ) -> List[float] | List[bool]:
         """
-        Evaluate the constraint on candidates.
+        Evaluate the constraint on proposals.
 
         This method orchestrates the evaluation:
-        1. Extract candidate sequences from input segments (only those that passed)
+        1. Extract proposal sequences from input segments (only those that passed)
         2. Call the scoring function with List[Tuple[Sequence, ...]]
-        3. Propagate scores back to original candidate sequence metadata
+        3. Propagate scores back to original proposal sequence metadata
         4. Convert scores to boolean filters if threshold is set, or apply weight if not
-        5. Build a dense result array (one entry per candidate)
+        5. Build a dense result array (one entry per proposal)
 
         Args:
-            mask: Boolean mask indicating which candidates to evaluate. If None, evaluates all.
+            mask: Boolean mask indicating which proposals to evaluate. If None, evaluates all.
             verbose: If true, logs evaluation details.
 
         Returns:
             List of results.
-            - Filter constraints: False for unevaluated candidates
-            - Scoring constraints: NaN for unevaluated candidates
+            - Filter constraints: False for unevaluated proposals
+            - Scoring constraints: NaN for unevaluated proposals
         """
-        num_candidates = self._inputs[0].num_candidates
-        logger.debug(f"Constraint.evaluate: {self.label}, candidates={num_candidates}, threshold={self._threshold}")
+        num_proposals = self._inputs[0].num_proposals
+        logger.debug(f"Constraint.evaluate: {self.label}, proposals={num_proposals}, threshold={self._threshold}")
 
-        # Default: evaluate all candidates
+        # Default: evaluate all proposals
         if mask is None:
-            mask = [True] * num_candidates
-        if len(mask) != num_candidates:
-            raise ValueError(f"Mask length ({len(mask)}) does not match num_candidates ({num_candidates})")
+            mask = [True] * num_proposals
+        if len(mask) != num_proposals:
+            raise ValueError(f"Mask length ({len(mask)}) does not match num_proposals ({num_proposals})")
 
         # Convert mask to indices for sparse evaluation
-        indices_to_evaluate = [i for i in range(num_candidates) if mask[i]]
+        indices_to_evaluate = [i for i in range(num_proposals) if mask[i]]
 
-        # Early return if no candidates to evaluate
+        # Early return if no proposals to evaluate
         if not indices_to_evaluate:
-            return [float('nan')] * num_candidates if self._threshold is None else [False] * num_candidates
+            return [float('nan')] * num_proposals if self._threshold is None else [False] * num_proposals
 
         # Prepare sequences for batched evaluation
         # indexed_sequences stores (original_idx, tuple_for_metadata) pairs
@@ -263,36 +263,36 @@ class Constraint:
         for j, (original_idx, scored_tuple) in enumerate(indexed_sequences):
             self._propagate_metadata_to_sequence(original_idx, scored_tuple, raw_scores[j])
 
-        # Rebuild dense result array. Skipped candidates get NaN (scoring) or False (filter)
+        # Rebuild dense result array. Skipped proposals get NaN (scoring) or False (filter)
         if self._threshold is None:
             # Scoring constraint: apply weight to raw scores
-            final_scores = [float('nan')] * num_candidates
+            final_scores = [float('nan')] * num_proposals
             for j, idx in enumerate(indices_to_evaluate):
                 final_scores[idx] = raw_scores[j] * self._weight
         else:
             # Filter constraint: convert scores to boolean (pass if score <= threshold)
-            final_scores = [False] * num_candidates
+            final_scores = [False] * num_proposals
             for j, idx in enumerate(indices_to_evaluate):
                 final_scores[idx] = raw_scores[j] <= self._threshold
 
         if verbose:
             evaluated_set = set(indices_to_evaluate)
-            for i in range(num_candidates):
+            for i in range(num_proposals):
                 if i in evaluated_set:
                     j = indices_to_evaluate.index(i)
                     # Get custom data from propagated constraints
-                    constraint_data = self._inputs[0].candidate_sequences[i]._constraints_metadata[self.label]
+                    constraint_data = self._inputs[0].proposal_sequences[i]._constraints_metadata[self.label]
                     custom_data = constraint_data["data"]
                     data_strs = [f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
                                  for k, v in custom_data.items()]
                     data_str = f" [{', '.join(data_strs)}]" if data_strs else ""
 
                     if self._threshold is None:
-                        logger.info(f"  Candidate {i}: {final_scores[i]:.4f} = {raw_scores[j]:.4f} * {self._weight}. Data: {data_str}")
+                        logger.info(f"  Proposal {i}: {final_scores[i]:.4f} = {raw_scores[j]:.4f} * {self._weight}. Data: {data_str}")
                     else:
-                        logger.info(f"  Candidate {i}: {'PASS' if final_scores[i] else 'FAIL'} ({raw_scores[j]:.4f}). Data: {data_str}")
+                        logger.info(f"  Proposal {i}: {'PASS' if final_scores[i] else 'FAIL'} ({raw_scores[j]:.4f}). Data: {data_str}")
                 else:
-                    logger.info(f"  Candidate {i}: SKIPPED")
+                    logger.info(f"  Proposal {i}: SKIPPED")
 
         return final_scores
 
@@ -311,7 +311,7 @@ class Constraint:
         # Example: sequence_idx=0, segments with sequences=[Seq("AAA"), ...], [Seq("CCC"), ...] → (Seq("AAA"), Seq("CCC"))
         dummy_sequences = []
         for seg in self._inputs:
-            original = seg.candidate_sequences[sequence_idx]
+            original = seg.proposal_sequences[sequence_idx]
             # Create clean Sequence with only essential properties
             dummy_seq = Sequence(
                 sequence=original.sequence,
@@ -373,7 +373,7 @@ class Constraint:
         processed_original_ids = set()
 
         for seg_idx, (segment, scored_seq) in enumerate(zip(self._inputs, scored_sequence)):
-            original_seq = segment.candidate_sequences[sequence_idx]
+            original_seq = segment.proposal_sequences[sequence_idx]
             original_id = id(original_seq)
             if original_id in processed_original_ids:
                 continue
@@ -405,7 +405,7 @@ class Constraint:
 
         Checks:
             1. Non-empty: At least one segment must be provided.
-            2. Consistent candidates: All segments must have the same number of candidates.
+            2. Consistent proposals: All segments must have the same number of proposals.
             3. Supported types: Constraint function must declare supported sequence types.
             4. Type compatibility: Each segment's sequence type must be supported by the constraint.
             5. Input count: Number of input segments must match num_input_sequences_per_tuple if specified.
@@ -416,10 +416,10 @@ class Constraint:
         if not self._inputs:
             raise ValueError("At least one segment must be provided")
 
-        # All segments must have same number of candidates
-        candidate_sizes = [seg.num_candidates for seg in self._inputs]
-        if not all(size == candidate_sizes[0] for size in candidate_sizes):
-            raise ValueError(f"All segments must have the same number of candidate sequences. Found: {candidate_sizes}")
+        # All segments must have same number of proposals
+        proposal_sizes = [seg.num_proposals for seg in self._inputs]
+        if not all(size == proposal_sizes[0] for size in proposal_sizes):
+            raise ValueError(f"All segments must have the same number of proposal sequences. Found: {proposal_sizes}")
 
         # Check sequence types are supported
         supported_types = getattr(self._function, '_constraint_supported_sequence_types', None)

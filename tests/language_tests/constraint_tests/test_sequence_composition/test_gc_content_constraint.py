@@ -32,9 +32,9 @@ class TestGCContentConstraint:
             function_config=config,
         )
         assert abs(constraint.evaluate()[0] - expected_score) < 1e-9
-        # Check metadata (stored in candidate sequences which constraints evaluate)
+        # Check metadata (stored in proposal sequences which constraints evaluate)
         gc_content = 100.0 * sum(nt in "GC" for nt in sequence) / max(len(sequence), 1)
-        constraints = segment.candidate_sequences[0]._constraints_metadata
+        constraints = segment.proposal_sequences[0]._constraints_metadata
         assert abs(constraints["gc_content_constraint"]["data"]["gc_content"] - gc_content) < 1e-9
 
     @pytest.mark.parametrize(

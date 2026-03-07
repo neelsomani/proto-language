@@ -250,7 +250,7 @@ class LigandMPNNGenerator(Generator):
         >>> gen = LigandMPNNGenerator(config)
         >>> segment = Segment(length=100, sequence_type="protein")
         >>> gen.assign(segment)
-        >>> gen.sample()  # Generates num_candidates sequences from the backbone
+        >>> gen.sample()  # Generates num_proposals sequences from the backbone
     """
 
     def __init__(self, config: LigandMPNNGeneratorConfig) -> None:
@@ -273,21 +273,21 @@ class LigandMPNNGenerator(Generator):
     def sample(
         self, structure_inputs: Optional[List[InverseFoldingStructureInput]] = None
     ) -> None:
-        """Generate protein sequences using LigandMPNN and update candidate sequences.
+        """Generate protein sequences using LigandMPNN and update proposal sequences.
 
         Args:
             structure_inputs: Optional structure inputs to use instead of config.
                 Accepts flexible formats (same as config): single structure, list of structures,
                 ``Structure`` objects, file paths, or ``InverseFoldingStructureInput`` objects.
                 If provided, generates one sequence per structure. If None, uses
-                config structure_inputs (single structure generates num_candidates
+                config structure_inputs (single structure generates num_proposals
                 sequences, multiple structures generate one sequence each).
 
         Raises:
             ValueError: If no structure_inputs provided and none configured.
         """
         self._validate_generator()
-        num_candidates = self._assigned_segment.num_candidates
+        num_proposals = self._assigned_segment.num_proposals
 
         # Normalize and use provided structure_inputs, or fall back to config
         sampling_structure_inputs = (
@@ -303,13 +303,13 @@ class LigandMPNNGenerator(Generator):
         all_metrics = []
 
         if len(sampling_structure_inputs) == 1:
-            # Single structure: generate num_candidates sequences in chunks of batch_size
-            num_seqs = num_candidates
+            # Single structure: generate num_proposals sequences in chunks of batch_size
+            num_seqs = num_proposals
             bs = self.batch_size
         else:
             # N structures: one sequence per structure
-            if len(sampling_structure_inputs) != num_candidates:
-                raise ValueError(f"Number of structure_inputs ({len(sampling_structure_inputs)}) must either be 1 or match num_candidates ({num_candidates})")
+            if len(sampling_structure_inputs) != num_proposals:
+                raise ValueError(f"Number of structure_inputs ({len(sampling_structure_inputs)}) must either be 1 or match num_proposals ({num_proposals})")
             num_seqs = 1
             bs = 1
 
@@ -331,11 +331,11 @@ class LigandMPNNGenerator(Generator):
             generated_sequences.extend(design.sequences)
             all_metrics.extend(design.ligandmpnn_metrics)
 
-        for candidate, sequence, score in zip(
-            self._assigned_segment.candidate_sequences,
+        for proposal, sequence, score in zip(
+            self._assigned_segment.proposal_sequences,
             generated_sequences,
             all_metrics,
             strict=True,
         ):
-            candidate.sequence = sequence
-            candidate._metadata.update({"ligandmpnn_metrics": score})
+            proposal.sequence = sequence
+            proposal._metadata.update({"ligandmpnn_metrics": score})

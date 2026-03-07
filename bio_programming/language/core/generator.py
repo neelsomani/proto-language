@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class Generator(ABC):
     """
-    Generator base class that modifies candidate_sequences of assigned segments during optimization.
+    Generator base class that modifies proposal_sequences of assigned segments during optimization.
 
     Subclasses must implement `__init__()` and `sample()`. Override `assign()` only if
     additional validation or initialization is needed (call super().assign() first).
@@ -74,7 +74,7 @@ class Generator(ABC):
     @abstractmethod
     def sample(self) -> None:
         """
-        Sample new sequences by modifying the assigned Segment's candidate_sequences in-place.
+        Sample new sequences by modifying the assigned Segment's proposal_sequences in-place.
         """
         raise NotImplementedError(f"Subclass {self.__class__.__name__} must implement the sample() method.")
 
@@ -83,29 +83,29 @@ class Generator(ABC):
         if self._assigned_segment is None:
             raise RuntimeError(f"Generator {self.__class__.__name__} has no segment assigned.")
 
-        if not self._assigned_segment.candidate_sequences:
+        if not self._assigned_segment.proposal_sequences:
             raise RuntimeError(
-                f"Segment '{self._assigned_segment.label or 'unlabeled'}' has an empty candidate_sequences pool."
+                f"Segment '{self._assigned_segment.label or 'unlabeled'}' has an empty proposal_sequences pool."
             )
 
         # Warn if segment already has populated sequences that will be overwritten (autoregressive only)
-        if self._spec.category == "autoregressive" and self._assigned_segment.candidates_populated:
+        if self._spec.category == "autoregressive" and self._assigned_segment.proposals_populated:
             warnings.warn(f"Segment '{self._assigned_segment.label or 'unlabeled'}' has an input sequence that will be overwritten by {self.__class__.__name__}.")
 
         # Initialize random sequences for mutation generators if no input template sequence provided.
         if self._spec.category == "mutation":
-            if not self._assigned_segment.candidates_populated:
-                warnings.warn(f"Generator {self.__class__.__name__} is a mutation generator, but candidates have no sequences. Initializing random starting sequences.")
+            if not self._assigned_segment.proposals_populated:
+                warnings.warn(f"Generator {self.__class__.__name__} is a mutation generator, but proposals have no sequences. Initializing random starting sequences.")
                 valid_chars = list(self._assigned_segment.valid_chars - set(" "))
-                for sequence in self._assigned_segment.candidate_sequences:
+                for sequence in self._assigned_segment.proposal_sequences:
                     random_sequence = "".join(random.choice(valid_chars) for _ in range(self._assigned_segment.sequence_length))
                     sequence.sequence = random_sequence
 
         # Initialize unknown (X) sequences for inverse folding generators if no input sequence provided.
         if self._spec.category == "inverse_folding":
-            if not self._assigned_segment.candidates_populated:
+            if not self._assigned_segment.proposals_populated:
                 unknown_sequence = "X" * self._assigned_segment.sequence_length
-                for sequence in self._assigned_segment.candidate_sequences:
+                for sequence in self._assigned_segment.proposal_sequences:
                     sequence.sequence = unknown_sequence
 
         logger.debug(f"Generator validated: {self.__class__.__name__}, category={self._spec.category}")

@@ -10,7 +10,7 @@ import pytest
 
 from proto_language.utils.export import (
     _serialize_value,
-    build_candidate_results,
+    build_proposal_results,
     flatten_constraints,
     flatten_constructs,
     flatten_optimization,
@@ -1315,23 +1315,23 @@ class TestSegmentBoundaries:
 
 
 # =============================================================================
-# Test build_candidate_results
+# Test build_proposal_results
 # =============================================================================
 
 
-class TestBuildCandidateResults:
-    """Tests for build_candidate_results function."""
+class TestBuildProposalResults:
+    """Tests for build_proposal_results function."""
 
-    def _make_constructs(self, candidate_sequences):
-        """Helper to create mock constructs with candidate_sequences."""
+    def _make_constructs(self, proposal_sequences):
+        """Helper to create mock constructs with proposal_sequences."""
         from unittest.mock import MagicMock
 
         from proto_language.language.core import Construct, Segment, Sequence
 
         segment = MagicMock(spec=Segment)
         segment.label = "promoter"
-        segment.candidate_sequences = [
-            Sequence(seq, sequence_type="dna") for seq in candidate_sequences
+        segment.proposal_sequences = [
+            Sequence(seq, sequence_type="dna") for seq in proposal_sequences
         ]
         construct = MagicMock(spec=Construct)
         construct.label = "construct_0"
@@ -1340,19 +1340,19 @@ class TestBuildCandidateResults:
         return [construct]
 
     def test_mixed_accepted_rejected(self):
-        """Candidates with mixed pass/fail status are correctly annotated."""
+        """Proposals with mixed pass/fail status are correctly annotated."""
         constructs = self._make_constructs(["ATCG", "GCTA", "TTAA"])
         outcomes = ["accepted", "GC Filter", "accepted"]
         energies = [0.5, float("inf"), 0.8]
 
-        results = build_candidate_results(constructs, outcomes, energies)
+        results = build_proposal_results(constructs, outcomes, energies)
 
         assert len(results) == 3
-        assert results[0]["candidate_idx"] == 0
+        assert results[0]["proposal_idx"] == 0
         assert results[0]["accepted"] is True
         assert results[0]["rejected_by"] is None
         assert results[0]["energy_score"] == 0.5
-        assert results[1]["candidate_idx"] == 1
+        assert results[1]["proposal_idx"] == 1
         assert results[1]["accepted"] is False
         assert results[1]["rejected_by"] == "GC Filter"
         assert results[1]["energy_score"] is None  # inf → None
@@ -1360,22 +1360,22 @@ class TestBuildCandidateResults:
         assert results[2]["energy_score"] == 0.8
 
     def test_all_accepted(self):
-        """All candidates accepted produces correct output."""
+        """All proposals accepted produces correct output."""
         constructs = self._make_constructs(["ATCG", "GCTA"])
         outcomes = ["accepted", "accepted"]
 
-        results = build_candidate_results(constructs, outcomes)
+        results = build_proposal_results(constructs, outcomes)
 
         assert len(results) == 2
         assert all(r["accepted"] for r in results)
         assert all(r["rejected_by"] is None for r in results)
 
     def test_all_rejected(self):
-        """All candidates rejected produces correct output."""
+        """All proposals rejected produces correct output."""
         constructs = self._make_constructs(["ATCG", "GCTA"])
         outcomes = ["Filter A", "Filter B"]
 
-        results = build_candidate_results(constructs, outcomes)
+        results = build_proposal_results(constructs, outcomes)
 
         assert len(results) == 2
         assert not any(r["accepted"] for r in results)
@@ -1383,9 +1383,9 @@ class TestBuildCandidateResults:
         assert results[1]["rejected_by"] == "Filter B"
 
     def test_construct_structure(self):
-        """Each candidate has correct construct/segment structure."""
+        """Each proposal has correct construct/segment structure."""
         constructs = self._make_constructs(["ATCG"])
-        results = build_candidate_results(constructs, ["accepted"])
+        results = build_proposal_results(constructs, ["accepted"])
 
         assert len(results) == 1
         cand = results[0]
@@ -1395,8 +1395,8 @@ class TestBuildCandidateResults:
         assert len(cand["constructs"][0]["segments"]) == 1
         assert cand["constructs"][0]["segments"][0]["sequence"] == "ATCG"
 
-    def test_constraint_metadata_on_rejected_candidate(self):
-        """Constraint metadata written to rejected candidates is exported."""
+    def test_constraint_metadata_on_rejected_proposal(self):
+        """Constraint metadata written to rejected proposals is exported."""
         from unittest.mock import MagicMock
 
         from proto_language.language.core import Sequence
@@ -1408,20 +1408,20 @@ class TestBuildCandidateResults:
 
         segment = MagicMock()
         segment.label = "seg"
-        segment.candidate_sequences = [seq]
+        segment.proposal_sequences = [seq]
         construct = MagicMock()
         construct.label = "c0"
         construct.sequence_type = "dna"
         construct.segments = [segment]
 
-        results = build_candidate_results([construct], ["GC Filter"])
+        results = build_proposal_results([construct], ["GC Filter"])
 
         assert results[0]["accepted"] is False
         assert "GC Filter" in results[0]["constructs"][0]["segments"][0]["constraints"]
 
     def test_empty_constructs(self):
         """Empty constructs list returns empty results."""
-        assert build_candidate_results([], ["accepted"]) == []
+        assert build_proposal_results([], ["accepted"]) == []
 
     def test_empty_segments(self):
         """Constructs with no segments returns empty results."""
@@ -1429,33 +1429,33 @@ class TestBuildCandidateResults:
 
         construct = MagicMock()
         construct.segments = []
-        assert build_candidate_results([construct], ["accepted"]) == []
+        assert build_proposal_results([construct], ["accepted"]) == []
 
-    def test_outcomes_shorter_than_candidates_raises(self):
+    def test_outcomes_shorter_than_proposals_raises(self):
         """Mismatched outcomes length raises ValueError."""
         constructs = self._make_constructs(["ATCG", "GCTA", "TTAA"])
         with pytest.raises(ValueError, match="lengths must match"):
-            build_candidate_results(constructs, ["accepted"])
+            build_proposal_results(constructs, ["accepted"])
 
-    def test_energy_scores_shorter_than_candidates_raises(self):
+    def test_energy_scores_shorter_than_proposals_raises(self):
         """Mismatched energy_scores length raises ValueError."""
         constructs = self._make_constructs(["ATCG", "GCTA", "TTAA"])
         outcomes = ["accepted", "accepted", "accepted"]
         with pytest.raises(ValueError, match="energy_scores.*lengths must match"):
-            build_candidate_results(constructs, outcomes, energy_scores=[0.5])
+            build_proposal_results(constructs, outcomes, energy_scores=[0.5])
 
 
 # =============================================================================
-# Test flatten_optimization with include_candidates
+# Test flatten_optimization with include_proposals
 # =============================================================================
 
 
-class TestFlattenOptimizationCandidates:
-    """Tests for flatten_optimization with include_candidates=True."""
+class TestFlattenOptimizationProposals:
+    """Tests for flatten_optimization with include_proposals=True."""
 
     @pytest.fixture
-    def history_with_candidates(self):
-        """History with candidate_results alongside results."""
+    def history_with_proposals(self):
+        """History with proposal_results alongside results."""
         return [
             {
                 "time_step": 0,
@@ -1469,9 +1469,9 @@ class TestFlattenOptimizationCandidates:
                         }],
                     },
                 ],
-                "candidate_results": [
+                "proposal_results": [
                     {
-                        "candidate_idx": 0,
+                        "proposal_idx": 0,
                         "accepted": True,
                         "rejected_by": None,
                         "energy_score": 0.5,
@@ -1481,7 +1481,7 @@ class TestFlattenOptimizationCandidates:
                         }],
                     },
                     {
-                        "candidate_idx": 1,
+                        "proposal_idx": 1,
                         "accepted": False,
                         "rejected_by": "GC Filter",
                         "energy_score": None,
@@ -1497,48 +1497,48 @@ class TestFlattenOptimizationCandidates:
             },
         ]
 
-    def test_include_candidates_false_unchanged(self, history_with_candidates):
-        """include_candidates=False produces identical output to default (no new columns)."""
-        rows_default = flatten_optimization(history_with_candidates)
-        rows_false = flatten_optimization(history_with_candidates, include_candidates=False)
+    def test_include_proposals_false_unchanged(self, history_with_proposals):
+        """include_proposals=False produces identical output to default (no new columns)."""
+        rows_default = flatten_optimization(history_with_proposals)
+        rows_false = flatten_optimization(history_with_proposals, include_proposals=False)
         assert rows_default == rows_false
         assert all("pool" not in r for r in rows_default)
 
-    def test_include_candidates_adds_pool_column(self, history_with_candidates):
-        """include_candidates=True adds pool column to result rows."""
-        rows = flatten_optimization(history_with_candidates, include_candidates=True)
+    def test_include_proposals_adds_pool_column(self, history_with_proposals):
+        """include_proposals=True adds pool column to result rows."""
+        rows = flatten_optimization(history_with_proposals, include_proposals=True)
         result_rows = [r for r in rows if r.get("pool") == "result"]
-        candidates = [r for r in rows if r.get("pool") == "candidate"]
+        proposals = [r for r in rows if r.get("pool") == "proposal"]
         assert len(result_rows) == 1
-        assert len(candidates) == 2
+        assert len(proposals) == 2
 
-    def test_candidate_rows_have_tracking_columns(self, history_with_candidates):
-        """Candidate rows have candidate_idx, accepted, rejected_by, energy_score columns."""
-        rows = flatten_optimization(history_with_candidates, include_candidates=True)
-        candidates = [r for r in rows if r.get("pool") == "candidate"]
+    def test_proposal_rows_have_tracking_columns(self, history_with_proposals):
+        """Proposal rows have proposal_idx, accepted, rejected_by, energy_score columns."""
+        rows = flatten_optimization(history_with_proposals, include_proposals=True)
+        proposals = [r for r in rows if r.get("pool") == "proposal"]
 
-        accepted_cand = [c for c in candidates if c["candidate_idx"] == 0][0]
+        accepted_cand = [c for c in proposals if c["proposal_idx"] == 0][0]
         assert accepted_cand["accepted"] is True
         assert accepted_cand["rejected_by"] is None
         assert accepted_cand["energy_score"] == 0.5
 
-        rejected_cand = [c for c in candidates if c["candidate_idx"] == 1][0]
+        rejected_cand = [c for c in proposals if c["proposal_idx"] == 1][0]
         assert rejected_cand["accepted"] is False
         assert rejected_cand["rejected_by"] == "GC Filter"
         assert rejected_cand["energy_score"] is None
 
-    def test_candidate_constraint_data_exported(self, history_with_candidates):
-        """Constraint data on candidate rows is properly flattened."""
-        rows = flatten_optimization(history_with_candidates, include_candidates=True)
-        rejected_cand = [r for r in rows if r.get("pool") == "candidate" and r.get("candidate_idx") == 1][0]
+    def test_proposal_constraint_data_exported(self, history_with_proposals):
+        """Constraint data on proposal rows is properly flattened."""
+        rows = flatten_optimization(history_with_proposals, include_proposals=True)
+        rejected_cand = [r for r in rows if r.get("pool") == "proposal" and r.get("proposal_idx") == 1][0]
         assert rejected_cand["seg.GC Filter.score"] == 1.0
         assert rejected_cand["seg.GC Filter.gc_content"] == 100.0
 
-    def test_backward_compat_no_candidate_results_key(self, sample_history):
-        """History without candidate_results key works with include_candidates=True."""
-        rows = flatten_optimization(sample_history, include_candidates=True)
+    def test_backward_compat_no_proposal_results_key(self, sample_history):
+        """History without proposal_results key works with include_proposals=True."""
+        rows = flatten_optimization(sample_history, include_proposals=True)
         result_rows = [r for r in rows if r.get("pool") == "result"]
-        candidates = [r for r in rows if r.get("pool") == "candidate"]
-        # All rows are result, no candidates
+        proposals = [r for r in rows if r.get("pool") == "proposal"]
+        # All rows are result, no proposals
         assert len(result_rows) == 4
-        assert len(candidates) == 0
+        assert len(proposals) == 0

@@ -40,10 +40,10 @@ Never use `print()`. Always use `logger.info()` / `logger.debug()` / `logger.war
 ```
 Sequence          A string + type (dna/rna/protein/ligand). Has ._metadata dict.
     ↓
-Segment           Groups candidate sequences for one design region.
+Segment           Groups proposal sequences for one design region.
                   Has: .sequence_type, .sequence_length, .valid_chars,
-                       .candidate_sequences (List[Sequence]), .result_sequences (List[Sequence]),
-                       .original_sequence (Sequence), .num_candidates, .num_results
+                       .proposal_sequences (List[Sequence]), .result_sequences (List[Sequence]),
+                       .original_sequence (Sequence), .num_proposals, .num_results
     ↓
 Construct         Joins multiple Segments into a complete design. List[Segment].
 ```

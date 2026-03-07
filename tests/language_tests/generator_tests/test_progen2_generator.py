@@ -25,9 +25,9 @@ class TestProGen2Generator:
 
         progen2_generator.sample()
 
-        assert segment.candidate_sequences[0].sequence is not None
-        assert len(segment.candidate_sequences[0].sequence) > len(prompts[0])
-        assert segment.candidate_sequences[0].sequence_type == "protein"
+        assert segment.proposal_sequences[0].sequence is not None
+        assert len(segment.proposal_sequences[0].sequence) > len(prompts[0])
+        assert segment.proposal_sequences[0].sequence_type == "protein"
 
     def test_progen2_batch_sampling(self):
         """Test ProGen2 generator with multiple prompt sequences."""
@@ -40,18 +40,18 @@ class TestProGen2Generator:
         progen2_generator = ProGen2Generator(config)
 
         segment = Segment(length=expected_length, sequence_type="protein")
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
         progen2_generator.assign(segment)
 
         assert progen2_generator._assigned_segment is segment
-        assert len(segment.candidate_sequences) == len(prompts)
+        assert len(segment.proposal_sequences) == len(prompts)
 
         progen2_generator.sample()
 
         for i in range(len(prompts)):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert len(segment.candidate_sequences[i].sequence) > len(prompts[i])
-            assert segment.candidate_sequences[i].sequence_type == "protein"
+            assert segment.proposal_sequences[i].sequence is not None
+            assert len(segment.proposal_sequences[i].sequence) > len(prompts[i])
+            assert segment.proposal_sequences[i].sequence_type == "protein"
 
     def test_progen2_assign_errors(self):
         """Test error conditions for ProGen2 generator assignment."""
@@ -60,9 +60,9 @@ class TestProGen2Generator:
         progen2_generator = ProGen2Generator(config)
 
         expected_length = 120
-        segment_two_candidates = Segment(length=expected_length, sequence_type="protein")
-        segment_two_candidates.candidate_sequences = [copy.deepcopy(segment_two_candidates.original_sequence) for _ in range(2)]
-        progen2_generator.assign(segment_two_candidates)
+        segment_two_proposals = Segment(length=expected_length, sequence_type="protein")
+        segment_two_proposals.proposal_sequences = [copy.deepcopy(segment_two_proposals.original_sequence) for _ in range(2)]
+        progen2_generator.assign(segment_two_proposals)
 
         with pytest.raises(ValueError, match="Expected 1 or"):
             progen2_generator.sample()
@@ -90,9 +90,9 @@ class TestProGen2Generator:
 
         progen2_generator.sample()
 
-        assert segment.candidate_sequences[0].sequence is not None
-        assert segment.candidate_sequences[0].sequence_type == "protein"
-        assert segment.candidate_sequences[0].sequence.startswith("1")
+        assert segment.proposal_sequences[0].sequence is not None
+        assert segment.proposal_sequences[0].sequence_type == "protein"
+        assert segment.proposal_sequences[0].sequence.startswith("1")
 
     def test_progen2_batch_size_parameter(self):
         """Test ProGen2 generator with batch_size for GPU memory management."""
@@ -104,7 +104,7 @@ class TestProGen2Generator:
         progen2_generator = ProGen2Generator(config)
 
         segment = Segment(length=100, sequence_type="protein")
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
         progen2_generator.assign(segment)
 
         assert progen2_generator.batch_size == 2
@@ -112,8 +112,8 @@ class TestProGen2Generator:
         progen2_generator.sample()
 
         for i in range(len(prompts)):
-            assert segment.candidate_sequences[i].sequence is not None
-            assert segment.candidate_sequences[i].sequence_type == "protein"
+            assert segment.proposal_sequences[i].sequence is not None
+            assert segment.proposal_sequences[i].sequence_type == "protein"
 
 
 class TestProGen2GeneratorValidation:

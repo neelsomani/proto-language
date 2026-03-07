@@ -89,7 +89,7 @@ class TestMMseqsSimilarityConstraint:
             assert scores[0] >= 0.0
 
             # Check metadata - verify results were stored
-            constraints = segment.candidate_sequences[0]._constraints_metadata
+            constraints = segment.proposal_sequences[0]._constraints_metadata
             assert "mmseqs_results" in constraints["mmseqs_similarity_constraint"]["data"]
             # Should have 1 hit from our mock
             results = constraints["mmseqs_similarity_constraint"]["data"]["mmseqs_results"]
@@ -208,18 +208,18 @@ class TestMMseqsSimilarityConstraint:
             assert isinstance(scores[0], float)
 
             # Check metadata shows correct hit counts
-            constraints = segment.candidate_sequences[0]._constraints_metadata
+            constraints = segment.proposal_sequences[0]._constraints_metadata
             assert constraints["mmseqs_similarity_constraint"]["data"]["total_orfs_with_hits"] == 3
             # 2 hits are within range (85 and 95), 1 is below (75)
             assert constraints["mmseqs_similarity_constraint"]["data"]["orfs_with_acceptable_similarity"] == 2
 
-    def test_multiple_candidates_in_segment(self, dummy_db_path):
-        """Test constraint with multiple candidate sequences in a single segment."""
-        # Create a segment with multiple candidates
+    def test_multiple_proposals_in_segment(self, dummy_db_path):
+        """Test constraint with multiple proposal sequences in a single segment."""
+        # Create a segment with multiple proposals
         segment = Segment(sequence="MVLSPADKTN", sequence_type="protein")
-        # Add another candidate sequence
+        # Add another proposal sequence
         from proto_language.language.core import Sequence
-        segment.candidate_sequences.append(Sequence("MKLLVVAAAA", "protein"))
+        segment.proposal_sequences.append(Sequence("MKLLVVAAAA", "protein"))
 
         config = MMseqsSimilarityConfig(
             min_similarity=80.0,
@@ -229,9 +229,9 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with results for both proteins
         with patch('proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins') as mock_mmseqs:
-            # The constraint evaluates candidates one at a time in batched mode
+            # The constraint evaluates proposals one at a time in batched mode
             # but mmseqs_similarity_constraint processes all proteins at once
-            # So mock needs to handle calls for each candidate
+            # So mock needs to handle calls for each proposal
             def mock_side_effect(inputs, config):
                 # Return appropriate number of results based on input
                 results = [
@@ -253,7 +253,7 @@ class TestMMseqsSimilarityConstraint:
             )
 
             scores = constraint.evaluate()
-            # Should have 2 scores, one for each candidate
+            # Should have 2 scores, one for each proposal
             assert len(scores) == 2
             assert all(isinstance(s, float) for s in scores)
 

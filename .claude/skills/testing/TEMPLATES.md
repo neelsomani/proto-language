@@ -61,8 +61,8 @@ class TestMyConstraint:
         )
         constraint.evaluate()
 
-        # Check metadata on candidate sequences
-        metadata = segment.candidate_sequences[0]._metadata
+        # Check metadata on proposal sequences
+        metadata = segment.proposal_sequences[0]._metadata
         constraints_meta = metadata["constraints"]
         assert "my_constraint" in constraints_meta
         assert "data" in constraints_meta["my_constraint"]
@@ -110,33 +110,33 @@ class TestMyGenerator:
         assert gen._assigned_segment is segment
 
     def test_sample_mutates_sequence(self):
-        """sample() modifies candidate sequences in-place."""
+        """sample() modifies proposal sequences in-place."""
         config = MyGeneratorConfig(model_name="model_a")
         gen = MyGenerator(config)
         segment = Segment(sequence="A" * 50, sequence_type="protein")
         gen.assign(segment)
 
-        segment.candidate_sequences = [copy.deepcopy(segment.original_sequence)]
-        initial = segment.candidate_sequences[0].sequence
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
+        initial = segment.proposal_sequences[0].sequence
         gen.sample()
-        mutated = segment.candidate_sequences[0].sequence
+        mutated = segment.proposal_sequences[0].sequence
 
         assert len(mutated) == 50
         assert mutated != initial  # Something changed
 
     def test_sample_batch(self):
-        """sample() handles multiple candidates independently."""
+        """sample() handles multiple proposals independently."""
         config = MyGeneratorConfig(model_name="model_a")
         gen = MyGenerator(config)
         segment = Segment(sequence="A" * 30, sequence_type="protein")
         gen.assign(segment)
 
-        segment.candidate_sequences = [
+        segment.proposal_sequences = [
             copy.deepcopy(segment.original_sequence) for _ in range(5)
         ]
         gen.sample()
 
-        sequences = [s.sequence for s in segment.candidate_sequences]
+        sequences = [s.sequence for s in segment.proposal_sequences]
         assert all(len(s) == 30 for s in sequences)
 
     def test_config_validation(self):
@@ -273,7 +273,7 @@ class TestMyOptimizer:
             )
 
     def test_filter_constraints(self):
-        """Filter constraints (with threshold) reject bad candidates."""
+        """Filter constraints (with threshold) reject bad proposals."""
         segment = Segment(sequence="A" * 20, sequence_type="dna")
         gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
         gen.assign(segment)

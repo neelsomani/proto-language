@@ -47,10 +47,10 @@ class MockAutoregressiveGenerator(Generator):
         for prompt in prompts:
             new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
-        for candidate, sequence in zip(
-            self._assigned_segment.candidate_sequences, sequences, strict=True
+        for proposal, sequence in zip(
+            self._assigned_segment.proposal_sequences, sequences, strict=True
         ):
-            candidate.sequence = sequence
+            proposal.sequence = sequence
         if self.use_kv_caching and getattr(self, "store_kv_cache", False):
             mock_mha = Mock()
             mock_mha.key_value_memory_dict = {0: Mock(shape=(1, 2, 3))}
@@ -107,17 +107,17 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
         for prompt in prompts:
             new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
-        for candidate, sequence in zip(
-            self._assigned_segment.candidate_sequences, sequences, strict=True
+        for proposal, sequence in zip(
+            self._assigned_segment.proposal_sequences, sequences, strict=True
         ):
-            candidate.sequence = sequence
+            proposal.sequence = sequence
 
 
 def _setup_beam_search(
     segment_length: int = 100,
     beam_length: int = 20,
     num_results: int = 3,
-    candidates_per_result: int = 5,
+    proposals_per_result: int = 5,
     gc_range: tuple = (40.0, 60.0),
     use_kv_caching: bool = True,
     prompt: str = "ATCG",
@@ -141,7 +141,7 @@ def _setup_beam_search(
         prompt=prompt,
         beam_length=beam_length,
         num_results=num_results,
-        candidates_per_result=candidates_per_result,
+        proposals_per_result=proposals_per_result,
         score_by=score_by,
         use_kv_caching=use_kv_caching,
         prepend_prompt=prepend_prompt,
@@ -165,7 +165,7 @@ class TestBeamSearchOptimizer:
         config = BeamSearchOptimizerConfig(
             prompt="ATCG",
             num_results=5,
-            candidates_per_result=10,
+            proposals_per_result=10,
             beam_length=2000,
             score_by="mean",
         )
@@ -178,7 +178,7 @@ class TestBeamSearchOptimizer:
 
         with pytest.raises(ValidationError):
             BeamSearchOptimizerConfig(
-                prompt="", num_results=3, candidates_per_result=5, beam_length=10
+                prompt="", num_results=3, proposals_per_result=5, beam_length=10
             )
 
     def test_invalid_num_results_fails(self):
@@ -186,7 +186,7 @@ class TestBeamSearchOptimizer:
 
         with pytest.raises(ValidationError):
             BeamSearchOptimizerConfig(
-                prompt="ATCG", num_results=0, candidates_per_result=5, beam_length=10
+                prompt="ATCG", num_results=0, proposals_per_result=5, beam_length=10
             )
 
     def test_invalid_score_by_fails(self):
@@ -194,7 +194,7 @@ class TestBeamSearchOptimizer:
 
         with pytest.raises(ValidationError):
             BeamSearchOptimizerConfig(
-                prompt="ATCG", num_results=5, candidates_per_result=10, score_by="invalid"
+                prompt="ATCG", num_results=5, proposals_per_result=10, score_by="invalid"
             )
 
     # --- Initialization ---
@@ -203,7 +203,7 @@ class TestBeamSearchOptimizer:
         assert optimizer.target_segment == segment
         assert optimizer.generator == generator
         assert optimizer.num_results == 3
-        assert optimizer._candidates_per_result == 5
+        assert optimizer._proposals_per_result == 5
         assert len(optimizer.beams) == optimizer.num_results
         assert all(isinstance(beam, BeamState) for beam in optimizer.beams)
 
@@ -224,7 +224,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(
-            prompt="ATCG", beam_length=10, num_results=3, candidates_per_result=5
+            prompt="ATCG", beam_length=10, num_results=3, proposals_per_result=5
         )
         # Should work when target_segment is specified
         optimizer = BeamSearchOptimizer(
@@ -250,7 +250,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(
-            prompt="ATCG", beam_length=10, num_results=2, candidates_per_result=3
+            prompt="ATCG", beam_length=10, num_results=2, proposals_per_result=3
         )
 
         optimizer = BeamSearchOptimizer(
@@ -274,7 +274,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(
-            prompt="ATCG", beam_length=10, num_results=2, candidates_per_result=3
+            prompt="ATCG", beam_length=10, num_results=2, proposals_per_result=3
         )
 
         with pytest.raises(ValueError, match="appears multiple times"):
@@ -299,7 +299,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(
-            prompt="ATCG", beam_length=10, num_results=3, candidates_per_result=5
+            prompt="ATCG", beam_length=10, num_results=3, proposals_per_result=5
         )
         with pytest.raises(
             ValueError, match="is not in any of the provided constructs"
@@ -325,7 +325,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(
-            prompt="ATCG", beam_length=10, num_results=3, candidates_per_result=5
+            prompt="ATCG", beam_length=10, num_results=3, proposals_per_result=5
         )
 
         # Should work - context segment has a sequence
@@ -349,7 +349,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(
-            prompt="ATCG", beam_length=10, num_results=3, candidates_per_result=5
+            prompt="ATCG", beam_length=10, num_results=3, proposals_per_result=5
         )
         with pytest.raises(ValueError, match="requires autoregressive generators"):
             BeamSearchOptimizer(
@@ -375,7 +375,7 @@ class TestBeamSearchOptimizer:
             prompt="ATCG",
             beam_length=10,
             num_results=3,
-            candidates_per_result=5,
+            proposals_per_result=5,
             use_kv_caching=True,
         )
         with pytest.raises(ValueError, match="does not support KV caching"):
@@ -402,7 +402,7 @@ class TestBeamSearchOptimizer:
             prompt="ATCG",
             beam_length=10,
             num_results=3,
-            candidates_per_result=5,
+            proposals_per_result=5,
             use_kv_caching=False,
         )
         # Should not raise - KV caching is disabled
@@ -426,7 +426,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(
-            prompt="ATCG", beam_length=100, num_results=3, candidates_per_result=5
+            prompt="ATCG", beam_length=100, num_results=3, proposals_per_result=5
         )
         with pytest.raises(
             ValueError,
@@ -550,14 +550,14 @@ class TestBeamSearchOptimizer:
             assert beam.kv_cache is None
 
     # --- Batch Size ---
-    def test_batch_size_smaller_than_candidates(self):
+    def test_batch_size_smaller_than_proposals(self):
         mock_gen = MockAutoregressiveGenerator(use_kv_caching=True)
         mock_gen.batch_size = 2
         optimizer, _, _, segment = _setup_beam_search(
             segment_length=40,
             beam_length=20,
             num_results=2,
-            candidates_per_result=6,
+            proposals_per_result=6,
             mock_generator=mock_gen,
         )
         assert optimizer.generator.batch_size == 2
@@ -580,7 +580,7 @@ class TestBeamSearchOptimizer:
             prompt="ATCG",
             beam_length=20,
             num_results=2,
-            candidates_per_result=3,
+            proposals_per_result=3,
             max_resample_attempts=3,
             use_kv_caching=False,
             verbose=False,
@@ -592,20 +592,20 @@ class TestBeamSearchOptimizer:
             config=config,
             target_segment=segment,
         )
-        with pytest.raises(RuntimeError, match="could not produce.*valid candidates"):
+        with pytest.raises(RuntimeError, match="could not produce.*valid proposals"):
             optimizer.run()
 
     # --- Edge Cases ---
     def test_num_results_one(self):
         optimizer, _, _, segment = _setup_beam_search(
-            num_results=1, candidates_per_result=5
+            num_results=1, proposals_per_result=5
         )
         optimizer.run()
         assert len(segment.result_sequences) == 1
 
-    def test_candidates_per_result_one(self):
+    def test_proposals_per_result_one(self):
         optimizer, _, _, segment = _setup_beam_search(
-            num_results=3, candidates_per_result=1
+            num_results=3, proposals_per_result=1
         )
         optimizer.run()
         assert len(segment.result_sequences) == 3
@@ -667,7 +667,7 @@ class TestBeamSearchOptimizerGPU:
             prompt=prompt,
             beam_length=50,
             num_results=3,
-            candidates_per_result=5,
+            proposals_per_result=5,
             use_kv_caching=True,
         )
         optimizer = BeamSearchOptimizer(
@@ -709,7 +709,7 @@ class TestBeamSearchOptimizerGPU:
                 prompt=prompt,
                 beam_length=20,
                 num_results=3,
-                candidates_per_result=3,
+                proposals_per_result=3,
                 use_kv_caching=use_kv_caching,
             )
             optimizer = BeamSearchOptimizer(
@@ -762,7 +762,7 @@ class TestBeamSearchMultiStepOptimization:
             prompt="ATCG",
             beam_length=20,
             num_results=2,
-            candidates_per_result=3,
+            proposals_per_result=3,
             use_kv_caching=False,
         )
 
@@ -805,7 +805,7 @@ class TestBeamSearchMultiStepOptimization:
             prompt="ATCG",
             beam_length=20,
             num_results=2,
-            candidates_per_result=3,
+            proposals_per_result=3,
             use_kv_caching=False,
         )
 
@@ -840,7 +840,7 @@ class TestBeamSearchMultiStepOptimization:
             prompt="ATCG",
             beam_length=20,
             num_results=2,
-            candidates_per_result=3,
+            proposals_per_result=3,
         )
 
         optimizer = BeamSearchOptimizer(
@@ -863,7 +863,7 @@ class TestBeamSearchOptimizerRestart:
         optimizer, generator, constraint, segment = _setup_beam_search(
             prompt=prompt,
             num_results=2,
-            candidates_per_result=2,
+            proposals_per_result=2,
             segment_length=40,
             beam_length=20,
         )
@@ -889,7 +889,7 @@ class TestBeamSearchOptimizerRestart:
 
         # Manually modify sequences to invalid values to verify restore
         segment.result_sequences[0].sequence = "G" * 44  # prompt (4) + segment_length (40)
-        segment.candidate_sequences[0].sequence = "G" * 44
+        segment.proposal_sequences[0].sequence = "G" * 44
 
         # Second run should restart - beams should be reset to prompt
         optimizer.run()
@@ -910,7 +910,7 @@ class TestBeamSearchOptimizerRestart:
         optimizer, _, _, segment = _setup_beam_search(
             prompt=prompt,
             num_results=3,
-            candidates_per_result=2,
+            proposals_per_result=2,
             segment_length=40,
             beam_length=20,
         )
@@ -946,23 +946,23 @@ class TestBeamSearchOptimizerRestart:
             assert orig == restored
 
 
-class TestBeamSearchCandidateTracking:
-    """Test candidate_results tracking in BeamSearch history."""
+class TestBeamSearchProposalTracking:
+    """Test proposal_results tracking in BeamSearch history."""
 
-    def test_candidate_tracking(self):
-        """History has candidate_results with 'Beam pruned' for rejected candidates."""
+    def test_proposal_tracking(self):
+        """History has proposal_results with 'Beam pruned' for rejected proposals."""
         optimizer, _, _, _ = _setup_beam_search(
-            num_results=3, candidates_per_result=2, beam_length=10
+            num_results=3, proposals_per_result=2, beam_length=10
         )
-        optimizer.track_candidates = True
+        optimizer.track_proposals = True
         optimizer.run()
 
         valid_rejectors = {"Beam pruned"}
         all_rejectors = set()
         for entry in optimizer.history:
-            if "candidate_results" not in entry:
+            if "proposal_results" not in entry:
                 continue
-            for cand in entry["candidate_results"]:
+            for cand in entry["proposal_results"]:
                 assert isinstance(cand["accepted"], bool)
                 if cand["accepted"]:
                     assert cand["rejected_by"] is None
@@ -975,8 +975,8 @@ class TestBeamSearchCandidateTracking:
 class TestBeamSearchNonTargetSegmentSync:
     """Tests that BeamSearch syncs non-target segment pools when resizing target.
 
-    BeamSearch dynamically resizes target_segment.candidate_sequences during its
-    run (to batch_count, N*K, etc.). _sync_candidate_pools ensures non-target
+    BeamSearch dynamically resizes target_segment.proposal_sequences during its
+    run (to batch_count, N*K, etc.). _sync_proposal_pools ensures non-target
     segments stay in sync so Constraint.evaluate() sees equal pool sizes.
     """
 
@@ -1000,7 +1000,7 @@ class TestBeamSearchNonTargetSegmentSync:
             prompt="ATCG",
             beam_length=20,
             num_results=2,
-            candidates_per_result=3,
+            proposals_per_result=3,
             use_kv_caching=False,
         )
 
@@ -1050,7 +1050,7 @@ class TestBeamSearchNonTargetSegmentSync:
             prompt="ATCG",
             beam_length=20,
             num_results=2,
-            candidates_per_result=3,
+            proposals_per_result=3,
             use_kv_caching=False,
         )
 
@@ -1086,7 +1086,7 @@ class TestBeamSearchTrackingInterval:
             prompt="ATCG",
             beam_length=20,
             num_results=3,
-            candidates_per_result=5,
+            proposals_per_result=5,
             use_kv_caching=False,
             verbose=False,
             tracking_interval=2,

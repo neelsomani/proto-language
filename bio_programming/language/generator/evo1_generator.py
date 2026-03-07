@@ -168,26 +168,26 @@ class Evo1Generator(Generator):
         evo1_output = run_evo1_sample(inputs=inputs, config=sample_config)
         generated_sequences = evo1_output.sequences
 
-        for candidate, sequence in zip(
-            self._assigned_segment.candidate_sequences, generated_sequences, strict=True
+        for proposal, sequence in zip(
+            self._assigned_segment.proposal_sequences, generated_sequences, strict=True
         ):
-            candidate.sequence = sequence
+            proposal.sequence = sequence
 
 
         if evo1_output.scores:
-            for candidate, score in zip(
-                self._assigned_segment.candidate_sequences, evo1_output.scores, strict=True
+            for proposal, score in zip(
+                self._assigned_segment.proposal_sequences, evo1_output.scores, strict=True
             ):
-                candidate._metadata["evo1_score"] = score
+                proposal._metadata["evo1_score"] = score
 
     def _replicate_prompts(self, prompts: List[str]) -> List[str]:
-        """Match prompt count to candidate count, replicating single prompts."""
-        num_candidates = len(self._assigned_segment.candidate_sequences)
-        if len(prompts) == num_candidates:
+        """Match prompt count to proposal count, replicating single prompts."""
+        num_proposals = len(self._assigned_segment.proposal_sequences)
+        if len(prompts) == num_proposals:
             return prompts
         if len(prompts) == 1:
-            return prompts * num_candidates
-        raise ValueError(f"Expected 1 or {num_candidates} prompts, got {len(prompts)}")
+            return prompts * num_proposals
+        raise ValueError(f"Expected 1 or {num_proposals} prompts, got {len(prompts)}")
 
     def _compute_num_tokens(
         self, prompt_length: int, prepend_prompt: bool

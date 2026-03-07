@@ -34,7 +34,7 @@ from proto_language.language.optimizer import (
 TOTAL_TOKEN_COUNT: int = 1_000
 BEAM_LENGTH: int = 100
 NUM_RESULTS: int = 2
-N_CANDIDATES_PER_RESULT: int = 2
+N_PROPOSALS_PER_RESULT: int = 2
 
 # Score aggregation method: "mean" or "last"
 SCORE_BY: str = "mean"
@@ -55,7 +55,7 @@ NUM_TIMING_RUNS: int = 1
 def run_beam_search(
     use_kv_caching: bool,
     num_results: int,
-    candidates_per_result: int,
+    proposals_per_result: int,
     beam_length: int,
     total_token_count: int,
     prompt: str,
@@ -70,7 +70,7 @@ def run_beam_search(
     Args:
         use_kv_caching: Whether to enable KV caching
         num_results: Number of result sequences to return
-        candidates_per_result: Candidates to generate per result
+        proposals_per_result: Proposals to generate per result
         beam_length: Number of tokens to generate per beam
         total_token_count: Total tokens to generate
         prompt: Initial prompt for beam search
@@ -109,7 +109,7 @@ def run_beam_search(
         prompt=prompt,
         beam_length=beam_length,
         num_results=num_results,
-        candidates_per_result=candidates_per_result,
+        proposals_per_result=proposals_per_result,
         score_by=score_by,
         use_kv_caching=use_kv_caching,
         prepend_prompt=True,
@@ -158,7 +158,7 @@ def main():
     print(f"  Tokens per beam: {BEAM_LENGTH:,}")
     print(f"  Number of beams: {num_beams}")
     print(f"  Num results: {NUM_RESULTS}")
-    print(f"  Candidates per result: {N_CANDIDATES_PER_RESULT}")
+    print(f"  Proposals per result: {N_PROPOSALS_PER_RESULT}")
     print(f"  Score aggregation: {SCORE_BY}")
     print(f"  Target GC content: {TARGET_GC_MIN:.1f}% - {TARGET_GC_MAX:.1f}%")
     print(f"  Number of timing runs: {NUM_TIMING_RUNS}")
@@ -176,7 +176,7 @@ def main():
         elapsed, sequences = run_beam_search(
             use_kv_caching=False,
             num_results=NUM_RESULTS,
-            candidates_per_result=N_CANDIDATES_PER_RESULT,
+            proposals_per_result=N_PROPOSALS_PER_RESULT,
             beam_length=BEAM_LENGTH,
             total_token_count=TOTAL_TOKEN_COUNT,
             prompt=INITIAL_PROMPT,
@@ -202,7 +202,7 @@ def main():
         elapsed, sequences = run_beam_search(
             use_kv_caching=True,
             num_results=NUM_RESULTS,
-            candidates_per_result=N_CANDIDATES_PER_RESULT,
+            proposals_per_result=N_PROPOSALS_PER_RESULT,
             beam_length=BEAM_LENGTH,
             total_token_count=TOTAL_TOKEN_COUNT,
             prompt=INITIAL_PROMPT,

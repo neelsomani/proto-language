@@ -165,7 +165,7 @@ def main():
             'target_structure': 'examples/data/pdb_cache/6au6.pdb',
             'target_chain_id': 'A',
             'target_residue_range': (85, 394),
-            'candidate_residue_range': (85, 394),
+            'proposal_residue_range': (85, 394),
             'bioemu_config': {
                 'num_samples': 3000,
                 'output_dir': bioemu_dir_prefix + '_gnas',
@@ -189,7 +189,7 @@ def main():
             'target_structure': 'examples/data/pdb_cache/3sn6.pdb',
             'target_chain_id': 'A',
             'target_residue_range': (85, 394),
-            'candidate_residue_range': (85, 394),
+            'proposal_residue_range': (85, 394),
             'bioemu_config': {
                 'num_samples': 3000,
                 'output_dir': bioemu_dir_prefix + '_gnas',
@@ -213,7 +213,7 @@ def main():
             'target_structure': 'examples/data/pdb_cache/1rl3.pdb',
             'target_chain_id': 'A',
             'target_residue_range': (119, 379),
-            'candidate_residue_range': (119, 379),
+            'proposal_residue_range': (119, 379),
             'bioemu_config': {
                 'num_samples': 1000,
                 'output_dir': bioemu_dir_prefix + '_prkar1a',
@@ -237,7 +237,7 @@ def main():
             'target_structure': 'examples/data/pdb_cache/2qcs.pdb',
             'target_chain_id': 'B',
             'target_residue_range': (119, 379),
-            'candidate_residue_range': (119, 379),
+            'proposal_residue_range': (119, 379),
             'bioemu_config': {
                 'num_samples': 1000,
                 'output_dir': bioemu_dir_prefix + '_prkar1a',

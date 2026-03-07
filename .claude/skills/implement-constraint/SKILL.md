@@ -181,9 +181,9 @@ seq._metadata["my_detail"] = {"sub_key": sub_value}
 
 After constraint evaluation, metadata is accessible via:
 ```python
-segment.candidate_sequences[i]._constraints_metadata["my_constraint"]["data"]["my_metric"]
+segment.proposal_sequences[i]._constraints_metadata["my_constraint"]["data"]["my_metric"]
 # Or via the computed .metadata property:
-segment.candidate_sequences[i].metadata["constraints"]["my_constraint"]["data"]["my_metric"]
+segment.proposal_sequences[i].metadata["constraints"]["my_constraint"]["data"]["my_metric"]
 ```
 
 ## Tool Integration Pattern

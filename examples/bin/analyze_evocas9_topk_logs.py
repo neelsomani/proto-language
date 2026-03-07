@@ -4,7 +4,7 @@ Parses the 8-stage filter pipeline from evocas9_topk.py SLURM logs and
 reports per-filter pass rates, both per-job and aggregated across all jobs.
 
 These logs are produced by evocas9_topk.py (examples/scripts/evocas9_topk.py),
-which generates Cas9 candidates via TopK optimization on SLURM. Each job writes
+which generates Cas9 proposals via TopK optimization on SLURM. Each job writes
 a log file named slurm_evocas9_topk_*_{SLURM_JOB_ID}.log.
 
 The 8-stage filter pipeline:
@@ -140,7 +140,7 @@ def print_aggregate_table(
         total_out = all_stats[last_filter]["passed"]
         if total_in > 0:
             yield_pct = total_out / total_in * 100
-            print(f"\n{total_in:,} samples in -> {total_out} candidates out "
+            print(f"\n{total_in:,} samples in -> {total_out} proposals out "
                   f"({yield_pct:.3f}% end-to-end yield)")
 
 

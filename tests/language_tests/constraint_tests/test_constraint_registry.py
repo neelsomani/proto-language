@@ -361,8 +361,8 @@ class TestIntegration:
             config_dict={"min_gc": 40.0, "max_gc": 60.0}
         )
 
-        # 4. Create candidates before evaluation (constraints evaluate candidate_sequences)
-        dna_segment.candidate_sequences = [copy.deepcopy(dna_segment.original_sequence) for _ in range(1)]
+        # 4. Create proposals before evaluation (constraints evaluate proposal_sequences)
+        dna_segment.proposal_sequences = [copy.deepcopy(dna_segment.original_sequence) for _ in range(1)]
 
         # 5. Evaluate
         scores = constraint.evaluate()

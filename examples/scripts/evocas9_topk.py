@@ -4,7 +4,7 @@ Cas9 generation pipeline using a single TopK optimizer with filter constraints.
 Expresses the multi-stage Cas9 generation pipeline as a proto-language Program
 with one TopKOptimizer. All filtering steps are expressed as constraints ordered
 cheap -> expensive. The optimizer's built-in filter short-circuiting (score_energy
-mask propagation) ensures expensive filters (AF3) only run on candidates that pass
+mask propagation) ensures expensive filters (AF3) only run on proposals that pass
 all cheaper ones.
 
 Architecture:
@@ -628,7 +628,7 @@ def structure_filter(
         # AF3 structure prediction
         af3_idx = structure_filter._next_idx
         structure_filter._next_idx += 1
-        candidate_dir = f"{af3_dir}/{af3_name}_{af3_idx}"
+        proposal_dir = f"{af3_dir}/{af3_name}_{af3_idx}"
         try:
             af3_result = run_alphafold3(
                 AlphaFold3Input(
@@ -636,7 +636,7 @@ def structure_filter(
                 ),
                 AlphaFold3Config(
                     name=af3_name,
-                    output_dir=candidate_dir,
+                    output_dir=proposal_dir,
                     use_msa=True,
                     colabfold_search_config=ColabfoldSearchConfig(
                         search_mode="local"
@@ -644,7 +644,7 @@ def structure_filter(
                 ),
             )
         except Exception as e:
-            logger.error(f"  structure_filter: AF3 failed for candidate: {e}")
+            logger.error(f"  structure_filter: AF3 failed for proposal: {e}")
             continue
 
         structure = af3_result.structures[0]
@@ -652,7 +652,7 @@ def structure_filter(
         CACHE[dna]["plddt"] = plddt
 
         # Find PDB path
-        output_dir = Path(f"{candidate_dir}_af3_results")
+        output_dir = Path(f"{proposal_dir}_af3_results")
         pdb_file = output_dir / f"{af3_name}_0_af3.pdb"
         if not pdb_file.exists():
             # Try to find any PDB in the output directory
@@ -661,7 +661,7 @@ def structure_filter(
                 pdb_file = pdb_files[0]
             else:
                 logger.error(
-                    f"  structure_filter: PDB not found for candidate"
+                    f"  structure_filter: PDB not found for proposal"
                 )
                 continue
 
@@ -885,7 +885,7 @@ def collect_results(
     temperature: float,
     top_k_val: int,
 ) -> List[dict]:
-    """Collect passing candidates from segment result_sequences and cache."""
+    """Collect passing proposals from segment result_sequences and cache."""
     results = []
     for i, seq in enumerate(segment.result_sequences):
         dna = seq.sequence
@@ -895,7 +895,7 @@ def collect_results(
         entry = cache.get(dna, {})
         results.append(
             {
-                "candidate_idx": i,
+                "proposal_idx": i,
                 "temperature": temperature,
                 "top_k": top_k_val,
                 "score": seq._metadata.get("evo1_score"),
@@ -924,7 +924,7 @@ def save_results(
 ) -> None:
     """Save results to TSV and FASTA files."""
     columns = [
-        "candidate_idx",
+        "proposal_idx",
         "temperature",
         "top_k",
         "score",
@@ -948,7 +948,7 @@ def save_results(
         for r in results:
             writer.writerow(
                 {
-                    "candidate_idx": r["candidate_idx"],
+                    "proposal_idx": r["proposal_idx"],
                     "temperature": r["temperature"],
                     "top_k": r["top_k"],
                     "score": (
@@ -1007,7 +1007,7 @@ def save_results(
                 f" plddt={r['plddt']:.1f}" if r["plddt"] is not None else ""
             )
             header = (
-                f">cas9_candidate_{r['candidate_idx']} "
+                f">cas9_proposal_{r['proposal_idx']} "
                 f"temp={r['temperature']} top_k={r['top_k']}"
                 f"{plddt_str}"
             )
@@ -1040,8 +1040,8 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default="cas9_candidates.fasta",
-        help="Output FASTA for passing candidates (default: cas9_candidates.fasta)",
+        default="cas9_proposals.fasta",
+        help="Output FASTA for passing proposals (default: cas9_proposals.fasta)",
     )
     parser.add_argument(
         "--verbose",
@@ -1085,7 +1085,7 @@ def main():
             CACHE.clear()
             structure_filter._next_idx = 0
 
-            output_base = Path(args.output).stem.replace("_candidates", "")
+            output_base = Path(args.output).stem.replace("_proposals", "")
             af3_output_dir = (
                 f"{output_base}_af3_pdbs/temp{temp}_topk{top_k_val}"
             )
@@ -1103,7 +1103,7 @@ def main():
             all_results.extend(results)
 
             logger.info(
-                f"Combo {combo_idx}: {len(results)} candidates passed "
+                f"Combo {combo_idx}: {len(results)} proposals passed "
                 f"all filters"
             )
 
@@ -1112,17 +1112,17 @@ def main():
     logger.info("=" * 60)
     logger.info(f"Total combos: {n_combos}")
     logger.info(f"Total sequences generated: {total_seqs}")
-    logger.info(f"Total passing candidates: {len(all_results)}")
+    logger.info(f"Total passing proposals: {len(all_results)}")
     logger.info("=" * 60)
 
     if all_results:
         output_fasta = Path(args.output)
         output_tsv = output_fasta.with_suffix(".tsv")
         save_results(all_results, output_tsv, output_fasta)
-        logger.info(f"\nPassing candidates written to: {output_fasta}")
+        logger.info(f"\nPassing proposals written to: {output_fasta}")
         logger.info(f"Summary TSV written to: {output_tsv}")
     else:
-        logger.info("\nNo candidates passed all filters.")
+        logger.info("\nNo proposals passed all filters.")
 
     return all_results
 

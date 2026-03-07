@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 class Segment:
     """
-    Building block for biological constructs with two sequence pools: candidate (work space) and result (results space):
-    - candidate_sequences: Working space for optimizer proposals (mutations, offspring, rollouts)
+    Building block for biological constructs with two sequence pools: proposal (work space) and result (results space):
+    - proposal_sequences: Working space for optimizer proposals (mutations, offspring, rollouts)
     - result_sequences: Results space containing current best sequences (user-facing)
 
     Examples:
@@ -89,9 +89,9 @@ class Segment:
             metadata=metadata,
             valid_chars=valid_chars,
         )
-        # Dual pools: candidates (work space) and result (results space)
+        # Dual pools: proposals (work space) and result (results space)
         # These are deep copies so modifications don't affect original_sequence
-        self.candidate_sequences: List[Sequence] = [copy.deepcopy(self._original_sequence)]
+        self.proposal_sequences: List[Sequence] = [copy.deepcopy(self._original_sequence)]
         self.result_sequences: List[Sequence] = [copy.deepcopy(self._original_sequence)]
 
         self.label: Optional[str] = label
@@ -114,9 +114,9 @@ class Segment:
         return len(self.result_sequences)
 
     @property
-    def num_candidates(self) -> int:
-        """Number of sequences in candidate pool (proposal space)."""
-        return len(self.candidate_sequences)
+    def num_proposals(self) -> int:
+        """Number of sequences in proposal pool (proposal space)."""
+        return len(self.proposal_sequences)
 
     @property
     def original_sequence(self) -> Sequence:
@@ -133,7 +133,7 @@ class Segment:
         """
         Whether segment has sequences from original input or previous optimization.
         Only checks original sequence (original user input) and result sequences (previous optimization results).
-        Candidate sequences are not considered because they the staging area for optimizations.
+        Proposal sequences are not considered because they the staging area for optimizations.
         """
         return bool(
             self._original_sequence.sequence or
@@ -141,9 +141,9 @@ class Segment:
         )
 
     @property
-    def candidates_populated(self) -> bool:
-        """Whether all candidate sequences have actual sequences (not empty)."""
-        return all(bool(seq.sequence) for seq in self.candidate_sequences)
+    def proposals_populated(self) -> bool:
+        """Whether all proposal sequences have actual sequences (not empty)."""
+        return all(bool(seq.sequence) for seq in self.proposal_sequences)
 
     @property
     def is_ligand(self) -> bool:
@@ -163,7 +163,7 @@ class Segment:
         return {
             "original_sequence": self.original_sequence.to_dict(),
             "sequence_length": self.sequence_length,
-            "candidate_sequences": [seq.to_dict() for seq in self.candidate_sequences],
+            "proposal_sequences": [seq.to_dict() for seq in self.proposal_sequences],
             "result_sequences": [seq.to_dict() for seq in self.result_sequences],
             "sequence_type": self.sequence_type,
             "valid_chars": list(self.valid_chars) if self.valid_chars else None,
@@ -187,7 +187,7 @@ class Segment:
         )
 
         # Restore sequence pools
-        segment.candidate_sequences = [Sequence.from_dict(seq_data) for seq_data in data["candidate_sequences"]]
+        segment.proposal_sequences = [Sequence.from_dict(seq_data) for seq_data in data["proposal_sequences"]]
         segment.result_sequences = [Sequence.from_dict(seq_data) for seq_data in data["result_sequences"]]
 
         return segment

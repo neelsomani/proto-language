@@ -253,9 +253,9 @@ def resolve_domain_root(domain: dict, repo_root: Path) -> Optional[Path]:
         return primary
 
     for alt in domain.get("root_search", []):
-        candidate = repo_root / alt
-        if candidate.is_dir():
-            return candidate
+        proposal = repo_root / alt
+        if proposal.is_dir():
+            return proposal
 
     return None
 

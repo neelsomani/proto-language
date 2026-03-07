@@ -127,7 +127,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     """Base configuration for structure similarity constraints.
 
     This configuration manages the setup for predicting protein structures from
-    candidate sequences and defining the target structure against which candidates
+    proposal sequences and defining the target structure against which proposals
     are compared. It supports defining targets via direct sequence folding or
     by providing an existing structure.
 
@@ -141,7 +141,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
 
         structure_tool (Literal["esmfold", "alphafold3", "boltz2", "chai1"]):
             The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the candidate sequences. Supported options:
+            as a sequence) and the proposal sequences. Supported options:
             - "esmfold": ESMFold (Meta AI)
             - "alphafold3": AlphaFold 3 (Google DeepMind)
             - "boltz2": Boltz2 (MIT)
@@ -210,7 +210,7 @@ class StructureRMSDConfig(StructureSimilarityConfig):
 
     This configuration extends `StructureSimilarityConfig` with specific parameters
     for calculating the Root Mean Square Deviation (RMSD) between the target and
-    candidate structures. The raw RMSD value is transformed into a 0-1 constraint
+    proposal structures. The raw RMSD value is transformed into a 0-1 constraint
     score using a sigmoid function, where 0 represents a perfect match (low RMSD)
     and 1 represents a poor match (high RMSD).
 
@@ -239,7 +239,7 @@ class StructureRMSDConfig(StructureSimilarityConfig):
 
         structure_tool (Literal["esmfold", "alphafold3", "boltz2", "chai1"]):
             The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the candidate sequences. Supported options:
+            as a sequence) and the proposal sequences. Supported options:
             - "esmfold": ESMFold (Meta AI)
             - "alphafold3": AlphaFold 3 (Google DeepMind)
             - "boltz2": Boltz2 (MIT)
@@ -277,7 +277,7 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
     Configuration for TM-score based structure similarity.
 
     This configuration extends `StructureSimilarityConfig` for calculating the
-    Template Modeling score (TM-score) between the target and candidate structures.
+    Template Modeling score (TM-score) between the target and proposal structures.
     TM-score is a metric for assessing the topological similarity of protein structures
     and is less sensitive to local variations than RMSD.
 
@@ -294,7 +294,7 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
             How to select or combine the two TM-scores (normalized by different structure
             lengths). Importantly, the ``target_chains`` are passed as the second structure
             to the alignment programs. Options:
-            - "structure1": Use TM-score normalized by candidate structure length.
+            - "structure1": Use TM-score normalized by proposal structure length.
             - "structure2": Use TM-score normalized by target structure length.
             - "max": Take the maximum of both TM-scores (most lenient).
             - "min": Take the minimum of both TM-scores (most strict).
@@ -314,7 +314,7 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
 
         structure_tool (Literal["esmfold", "alphafold3", "boltz2", "chai1"]):
             The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the candidate sequences. Supported options:
+            as a sequence) and the proposal sequences. Supported options:
             - "esmfold": ESMFold (Meta AI)
             - "alphafold3": AlphaFold 3 (Google DeepMind)
             - "boltz2": Boltz2 (MIT)
@@ -337,7 +337,7 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
     plddt_threshold: Optional[float] = ConfigField(
         title="pLDDT Threshold",
         default=None,
-        description="Ignore residues in the candidate with pLDDT < threshold (e.g. 70).",
+        description="Ignore residues in the proposal with pLDDT < threshold (e.g. 70).",
     )
     tm_score_normalization: Literal[
         "structure1", "structure2", "max", "min", "mean"
@@ -416,7 +416,7 @@ def structure_rmsd_constraint(
     input_sequences: List[Tuple[Sequence, ...]], config: StructureRMSDConfig
 ) -> List[float]:
     """
-    Predicts structure of input candidates and compares RMSD against a target.
+    Predicts structure of input proposals and compares RMSD against a target.
     Returns a score 0-1 (0 is perfect match).
     """
 
@@ -426,17 +426,17 @@ def structure_rmsd_constraint(
         logger.warning("Target preparation failed, returning worst score.")
         return [1.0] * len(input_sequences)
 
-    # Prepare candidates.
+    # Prepare proposals.
     structure_complexes = []
-    for candidate_tuple in input_sequences:
+    for proposal_tuple in input_sequences:
         # Extract sequences and types
         chains = [
             {"sequence": s.sequence, "entity_type": s.sequence_type}
-            for s in candidate_tuple
+            for s in proposal_tuple
         ]
         structure_complexes.append(StructurePredictionComplex(chains=chains))
 
-    # Run prediction on candidates.
+    # Run prediction on proposals.
     try:
         results = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
     except Exception as e:
@@ -445,8 +445,8 @@ def structure_rmsd_constraint(
 
     # Compute RMSD scores.
     scores = []
-    for candidate_structure, candidate_tuple in zip(results.structures, input_sequences):
-        rmsd_data = _compute_ce_aligned_rmsd(target_pdb, candidate_structure.structure_pdb)
+    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences):
+        rmsd_data = _compute_ce_aligned_rmsd(target_pdb, proposal_structure.structure_pdb)
         rmsd_val = rmsd_data['rmsd']
 
         score = sigmoid_score(
@@ -454,11 +454,11 @@ def structure_rmsd_constraint(
         )
 
         # Metadata storage (attach to the first sequence in the tuple to ensure visibility)
-        if candidate_tuple:
-            candidate_tuple[0]._metadata.update({
+        if proposal_tuple:
+            proposal_tuple[0]._metadata.update({
                 "rmsd_val": rmsd_val,
                 "rmsd_score": score,
-                "pdb_output": store_file(candidate_structure.structure_pdb, FileType.PDB),
+                "pdb_output": store_file(proposal_structure.structure_pdb, FileType.PDB),
             })
 
         scores.append(score)
@@ -515,16 +515,16 @@ def structure_tmscore_constraint(
 
     n_target_chains = _count_pdb_chains(target_pdb)
 
-    # Prepare candidates.
+    # Prepare proposals.
     structure_complexes = []
-    for candidate_tuple in input_sequences:
+    for proposal_tuple in input_sequences:
         chains = [
             {"sequence": s.sequence, "entity_type": s.sequence_type}
-            for s in candidate_tuple
+            for s in proposal_tuple
         ]
         structure_complexes.append(StructurePredictionComplex(chains=chains))
 
-    # Run prediction on candidates.
+    # Run prediction on proposals.
     try:
         results = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
     except Exception as e:
@@ -533,17 +533,17 @@ def structure_tmscore_constraint(
 
     # Compute TMscores.
     scores = []
-    for candidate_structure, candidate_tuple in zip(results.structures, input_sequences):
-        n_cand_chains = len(candidate_tuple)
+    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences):
+        n_cand_chains = len(proposal_tuple)
 
         # Apply pLDDT filtering at the constraint level before alignment.
-        candidate_pdb = candidate_structure.structure_pdb
+        proposal_pdb = proposal_structure.structure_pdb
         if config.plddt_threshold is not None:
-            candidate_pdb = _filter_pdb_by_plddt(
-                candidate_pdb, config.plddt_threshold
+            proposal_pdb = _filter_pdb_by_plddt(
+                proposal_pdb, config.plddt_threshold
             )
             if not any(
-                line.startswith("ATOM") for line in candidate_pdb.splitlines()
+                line.startswith("ATOM") for line in proposal_pdb.splitlines()
             ):
                 scores.append(1.0)
                 continue
@@ -551,7 +551,7 @@ def structure_tmscore_constraint(
         if n_target_chains == 1 and n_cand_chains == 1:
             _tmalign_out = run_tmalign(
                 TMalignInput(
-                    pdb_text_1=candidate_pdb,
+                    pdb_text_1=proposal_pdb,
                     pdb_text_2=target_pdb,
                 ),
                 TMalignConfig(),
@@ -564,7 +564,7 @@ def structure_tmscore_constraint(
         else:
             _usalign_out = run_usalign(
                 USalignInput(
-                    pdb_text_1=candidate_pdb,
+                    pdb_text_1=proposal_pdb,
                     pdb_text_2=target_pdb,
                 ),
                 USalignConfig(),
@@ -592,11 +592,11 @@ def structure_tmscore_constraint(
 
         score = 1.0 - tm_val
 
-        if candidate_tuple:
-            candidate_tuple[0]._metadata.update({
+        if proposal_tuple:
+            proposal_tuple[0]._metadata.update({
                 "tm_score_raw": tm_val,
                 "tm_score_inverted": score,
-                "pdb_output": store_file(candidate_structure.structure_pdb, FileType.PDB),
+                "pdb_output": store_file(proposal_structure.structure_pdb, FileType.PDB),
             })
 
         scores.append(score)

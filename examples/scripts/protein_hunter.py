@@ -14,7 +14,7 @@ Algorithm:
 3. Repeat for num_steps iterations
 
 Usage:
-    python protein_hunter.py --length 100 --cycles 5 --candidates 2 --output-dir ./outputs
+    python protein_hunter.py --length 100 --cycles 5 --proposals 2 --output-dir ./outputs
 """
 from __future__ import annotations
 
@@ -86,10 +86,10 @@ def parse_args():
         help="Number of structure prediction -> inverse folding cycles (default: 5)",
     )
     parser.add_argument(
-        "--candidates",
+        "--proposals",
         type=int,
         default=2,
-        help="Number of parallel candidate trajectories (default: 2)",
+        help="Number of parallel proposal trajectories (default: 2)",
     )
     parser.add_argument(
         "--structure-tool",
@@ -114,7 +114,7 @@ def parse_args():
 def run_protein_hunter(
     design_length: int,
     num_cycles: int,
-    num_candidates: int,
+    num_proposals: int,
     structure_tool: str,
     output_dir: str,
 ) -> None:
@@ -132,7 +132,7 @@ def run_protein_hunter(
         print("=" * 60)
         print(f"  Design Length: {design_length}")
         print(f"  Num Cycles:    {num_cycles}")
-        print(f"  Candidates:    {num_candidates}")
+        print(f"  Proposals:    {num_proposals}")
         print(f"  Structure Tool: {structure_tool}")
         print(f"  Output Dir:    {run_dir}")
         print("=" * 60)
@@ -173,14 +173,14 @@ def run_protein_hunter(
             return structures
 
         def step_logging(cycle: int, segments: Tuple[Segment, ...]) -> None:
-            """Log progress for the best candidate after each cycle."""
-            # Just grab the first candidate to show progress
+            """Log progress for the best proposal after each cycle."""
+            # Just grab the first proposal to show progress
             best_seq = segments[0].result_sequences[0]
             print(f"Cycle {cycle}/{num_cycles}: {best_seq.sequence}... (len={len(best_seq)})")
 
         optimizer_config = CyclingOptimizerConfig(
             num_steps=num_cycles,
-            num_results=num_candidates,
+            num_results=num_proposals,
             conditioning_param_name="structure_inputs",
             verbose=True,
         )
@@ -195,7 +195,7 @@ def run_protein_hunter(
             custom_logging=step_logging,
         )
 
-        program = Program(optimizers=[optimizer], num_results=num_candidates)
+        program = Program(optimizers=[optimizer], num_results=num_proposals)
         program.run()
 
         print("\n" + "=" * 60)
@@ -209,20 +209,20 @@ def run_protein_hunter(
             f.write(f"# Timestamp: {datetime.now().isoformat()}\n\n")
 
             for i, seq in enumerate(protein.result_sequences):
-                candidate_id = i + 1
+                proposal_id = i + 1
 
                 # Save PDB if available.
                 pdb_content = seq.metadata.get("designed_structure_pdb")
                 if pdb_content:
-                    pdb_filename = f"candidate_{candidate_id}.pdb"
+                    pdb_filename = f"proposal_{proposal_id}.pdb"
                     pdb_path = os.path.join(run_dir, pdb_filename)
                     with open(pdb_path, "w") as pdb_f:
                         pdb_f.write(pdb_content)
                     print(f"Saved {pdb_filename}")
                 else:
-                    print(f"Warning: No structure found for Candidate {candidate_id}")
+                    print(f"Warning: No structure found for Proposal {proposal_id}")
 
-                info = f"\nCandidate {candidate_id}\n"
+                info = f"\nProposal {proposal_id}\n"
                 info += f"Sequence: {seq.sequence}\n"
                 info += f"Length:   {len(seq)}\n"
                 info += "-" * 30 + "\n"
@@ -247,7 +247,7 @@ def main():
     run_protein_hunter(
         design_length=args.length,
         num_cycles=args.cycles,
-        num_candidates=args.candidates,
+        num_proposals=args.proposals,
         structure_tool=args.structure_tool,
         output_dir=args.output_dir,
     )

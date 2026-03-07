@@ -1,11 +1,12 @@
-import json
-import pandas as pd
 import argparse
-import sys
+import json
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Dict, Optional, Set, List, Any
+from typing import Any, Dict, List, Optional, Set
+
+import pandas as pd
 
 # --- DNA/RNA Scan Configuration ---
 _DNA_RESNAMES = {"DA", "DT", "DG", "DC", "DI"}
@@ -78,12 +79,12 @@ def find_pdb_file(pdb_dir: Path, pdb_id: str) -> Optional[Path]:
     if not pdb_id:
         return None
     clean_id = pdb_id.strip().split('_')[0]
-    candidates = [
+    proposals = [
         f"{clean_id}.pdb", f"{clean_id}.cif",
         f"{clean_id.lower()}.pdb", f"pdb{clean_id.lower()}.ent",
         f"{clean_id.upper()}.pdb"
     ]
-    for name in candidates:
+    for name in proposals:
         p = pdb_dir / name
         if p.exists():
             return p
@@ -338,17 +339,17 @@ def analyze_and_report(df, used_pdb_dir=False):
     print("\n[Method: Description Keyword Search (Supplementary)]")
     keywords = [r'\bDNA\b', r'\bRNA\b', r'nucleosome', r'promoter', r'replication', r'telomere']
 
-    candidates = []
+    proposals = []
     for idx, row in df.iterrows():
         if row['complex_id'] in confirmed_ids: continue
         desc = str(row.get('description', ''))
         if any(re.search(k, desc, re.IGNORECASE) for k in keywords):
             if row['status'] != 'Success' or (row['tm_score'] is not None and row['tm_score'] < 0.6):
-                candidates.append(row)
+                proposals.append(row)
 
-    if candidates:
-        cand_df = pd.DataFrame(candidates)
-        print(f"Found {len(candidates)} additional candidates based on text description:")
+    if proposals:
+        cand_df = pd.DataFrame(proposals)
+        print(f"Found {len(proposals)} additional proposals based on text description:")
         print(cand_df[['complex_id', 'description']].to_string(index=False))
 
 def main():

@@ -43,7 +43,7 @@ class Generator(ABC):
 
     @abstractmethod
     def sample(self) -> None:
-        # Modifies self._assigned_segment.candidate_sequences IN PLACE
+        # Modifies self._assigned_segment.proposal_sequences IN PLACE
 
     def _validate_generator(self) -> None:
         # Called at start of sample(). Validates state, performs lazy initialization.
@@ -113,12 +113,12 @@ from proto_tools import run_{tool}, {Tool}Input, {Tool}Config
 
 def sample(self) -> None:
     self._validate_generator()
-    sequences = [seq.sequence for seq in self._assigned_segment.candidate_sequences]
+    sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
     tool_input = ToolInput(sequences=sequences)
     tool_config = ToolConfig(model=self.model_name, temperature=self.temperature, batch_size=self.batch_size)
     result = run_tool(inputs=tool_input, config=tool_config)
     for i, sequence in enumerate(result.sequences):
-        self._assigned_segment.candidate_sequences[i].sequence = sequence
+        self._assigned_segment.proposal_sequences[i].sequence = sequence
 ```
 
 ## Batching Architecture
@@ -143,7 +143,7 @@ Every generator needs these tests:
 1. **Initialization** — verify config values stored correctly
 2. **Assign** — verify segment assignment, custom validation
 3. **Sample** — verify sequences are modified in-place
-4. **Batch** — verify multiple candidates are mutated independently
+4. **Batch** — verify multiple proposals are mutated independently
 5. **Sequence type validation** — verify supported/unsupported types
 6. **Config validation** — verify invalid configs raise errors
 7. **Edge cases** — short sequences, large num_mutations, etc.
@@ -163,7 +163,7 @@ Copy this and check off as you go:
 - [ ] `__init__` calls `super().__init__()`
 - [ ] `assign()` calls `super().assign(assigned_segment)` first
 - [ ] `sample()` calls `self._validate_generator()` first
-- [ ] `sample()` modifies `candidate_sequences` in-place (returns nothing)
+- [ ] `sample()` modifies `proposal_sequences` in-place (returns nothing)
 - [ ] No batching loop in generator (tool handles batching)
 - [ ] Export chain updated: `generator/__init__.py` (class + config)
 - [ ] Tests cover: init, assign, sample, batch, type validation, config validation

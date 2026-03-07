@@ -50,7 +50,7 @@ PAE_MAXIMUM: float = 31.75 # Angstroms.
 
 
 def _structure_confidence(
-    candidates: List[Tuple[Sequence, ...]],
+    proposals: List[Tuple[Sequence, ...]],
     config: StructureBasedConstraintConfig,
     target_metric: str,
 ) -> List[float]:
@@ -58,7 +58,7 @@ def _structure_confidence(
     Core helper for structure confidence constraints.
 
     Args:
-        candidates: List of sequence tuples, where each tuple represents a
+        proposals: List of sequence tuples, where each tuple represents a
             complex (monomer = 1-tuple, dimer = 2-tuple, etc.).
         config: Configuration specifying tool and tool-specific parameters.
         target_metric: Metric to extract from structure predictions.
@@ -77,12 +77,12 @@ def _structure_confidence(
             f"Available metrics: {', '.join(sorted(available))}"
         )
 
-    # Build complexes from candidate tuples.
+    # Build complexes from proposal tuples.
     complexes = []
-    for candidate_tuple in candidates:
+    for proposal_tuple in proposals:
         chains = [
             {"sequence": seq.sequence, "entity_type": seq.sequence_type}
-            for seq in candidate_tuple
+            for seq in proposal_tuple
         ]
         complexes.append(StructurePredictionComplex(chains=chains))
 
@@ -91,7 +91,7 @@ def _structure_confidence(
 
     # Extract and return raw requested metric.
     raw_metrics = []
-    for structure, candidate_tuple in zip(output.structures, candidates):
+    for structure, proposal_tuple in zip(output.structures, proposals):
         metric_value = structure.metrics.get(target_metric)
 
         if metric_value is None:
@@ -103,8 +103,8 @@ def _structure_confidence(
             continue
 
         # Attach metadata to first sequence in tuple for visibility.
-        if candidate_tuple:
-            candidate_tuple[0]._metadata.update({
+        if proposal_tuple:
+            proposal_tuple[0]._metadata.update({
                 target_metric: metric_value,
                 "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
                 "structure_tool": config.structure_tool,

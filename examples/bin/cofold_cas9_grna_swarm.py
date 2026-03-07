@@ -1,17 +1,17 @@
 """Distributed Cas9-sgRNA cofolding via evoswarm (SLURM).
 
-Upstream: examples/scripts/evocas9_topk.py generates Cas9 candidates via TopK
-optimization. Each SLURM job writes a *_candidates.tsv (named with its SLURM job ID,
-e.g. cas9_topk_2000_1689545_candidates.tsv). Multiple jobs run in parallel, producing
-one TSV each with ~8-13 candidates per job.
+Upstream: examples/scripts/evocas9_topk.py generates Cas9 proposals via TopK
+optimization. Each SLURM job writes a *_proposals.tsv (named with its SLURM job ID,
+e.g. cas9_topk_2000_1689545_proposals.tsv). Multiple jobs run in parallel, producing
+one TSV each with ~8-13 proposals per job.
 
-This script collates all candidate TSVs, constructs chimeric sgRNAs, cofolds each
+This script collates all proposal TSVs, constructs chimeric sgRNAs, cofolds each
 Cas9-sgRNA pair with AF3, aligns to the SpCas9-sgRNA reference (PDB 4OO8) using
 USalign, and ranks by structural similarity (TM-score). Each cofold runs on its own
 SLURM worker (1 GPU) via evoswarm for parallel execution.
 
 Usage:
-    # Auto-discover all *_candidates.tsv in a directory:
+    # Auto-discover all *_proposals.tsv in a directory:
     python examples/bin/cofold_cas9_grna_swarm.py --input-dir .
 
     # Or specify TSVs explicitly:
@@ -36,8 +36,8 @@ from evoswarm import Swarm
 logger = logging.getLogger(__name__)
 
 # Glob pattern for TSVs produced by evocas9_topk SLURM jobs.
-# Each job writes cas9_topk_{n_samples}_{SLURM_JOB_ID}_candidates.tsv.
-CANDIDATE_TSV_GLOB = "*_candidates.tsv"
+# Each job writes cas9_topk_{n_samples}_{SLURM_JOB_ID}_proposals.tsv.
+PROPOSAL_TSV_GLOB = "*_proposals.tsv"
 
 REFERENCE_PDB_ID = "4OO8"
 RCSB_PDB_URL = f"https://files.rcsb.org/download/{REFERENCE_PDB_ID}.pdb"
@@ -76,15 +76,15 @@ def download_reference_pdb(output_dir: Path) -> Path:
     return pdb_path
 
 
-def discover_candidate_tsvs(input_dir: str) -> List[str]:
-    """Find all *_candidates.tsv files in the given directory."""
-    pattern = str(Path(input_dir) / CANDIDATE_TSV_GLOB)
+def discover_proposal_tsvs(input_dir: str) -> List[str]:
+    """Find all *_proposals.tsv files in the given directory."""
+    pattern = str(Path(input_dir) / PROPOSAL_TSV_GLOB)
     paths = sorted(glob.glob(pattern))
     if not paths:
         raise FileNotFoundError(
-            f"No candidate TSVs matching '{CANDIDATE_TSV_GLOB}' found in {input_dir}"
+            f"No proposal TSVs matching '{PROPOSAL_TSV_GLOB}' found in {input_dir}"
         )
-    logger.info(f"Discovered {len(paths)} candidate TSVs in {input_dir}")
+    logger.info(f"Discovered {len(paths)} proposal TSVs in {input_dir}")
     for p in paths:
         logger.info(f"  {p}")
     return paths
@@ -92,7 +92,7 @@ def discover_candidate_tsvs(input_dir: str) -> List[str]:
 SUMMARY_COLUMNS = [
     "global_id",
     "job_id",
-    "candidate_idx",
+    "proposal_idx",
     "temperature",
     "top_k",
     "identity",
@@ -102,7 +102,7 @@ SUMMARY_COLUMNS = [
     "ptm",
     "iptm",
     "ranking_score",
-    "tm_score_candidate",
+    "tm_score_proposal",
     "tm_score_reference",
     "rmsd",
     "cofold_pdb_path",
@@ -110,7 +110,7 @@ SUMMARY_COLUMNS = [
 ]
 
 
-def collate_candidates(
+def collate_proposals(
     tsv_paths: List[str],
     repo_root: str,
     output_dir: str,
@@ -118,14 +118,14 @@ def collate_candidates(
     seeds: List[int],
     use_msa: bool,
 ) -> List[Dict]:
-    """Read all candidate TSVs and build a flat list of work items."""
-    candidates = []
+    """Read all proposal TSVs and build a flat list of work items."""
+    proposals = []
     global_id = 0
     for tsv_path in tsv_paths:
-        # Extract job_id from filename: cas9_topk_2000_1689545_candidates.tsv -> 1689545
-        tsv_name = Path(tsv_path).stem  # cas9_topk_2000_1689545_candidates
+        # Extract job_id from filename: cas9_topk_2000_1689545_proposals.tsv -> 1689545
+        tsv_name = Path(tsv_path).stem  # cas9_topk_2000_1689545_proposals
         parts = tsv_name.split("_")
-        # job_id is the numeric part before "candidates"
+        # job_id is the numeric part before "proposals"
         job_id = parts[-2] if len(parts) >= 2 else tsv_name
 
         with open(tsv_path) as f:
@@ -133,15 +133,15 @@ def collate_candidates(
             for row in reader:
                 if not row.get("crispr_repeat") or not row.get("tracr_rna_sequence"):
                     logger.warning(
-                        f"Skipping candidate {row.get('candidate_idx')} from "
+                        f"Skipping proposal {row.get('proposal_idx')} from "
                         f"{tsv_path}: missing crRNA or tracrRNA"
                     )
                     continue
 
-                candidates.append({
+                proposals.append({
                     "global_id": global_id,
                     "job_id": job_id,
-                    "candidate_idx": row.get("candidate_idx", str(global_id)),
+                    "proposal_idx": row.get("proposal_idx", str(global_id)),
                     "temperature": row.get("temperature", ""),
                     "top_k": row.get("top_k", ""),
                     "identity": row.get("identity", ""),
@@ -157,12 +157,12 @@ def collate_candidates(
                 })
                 global_id += 1
 
-    logger.info(f"Collated {len(candidates)} candidates from {len(tsv_paths)} TSVs")
-    return candidates
+    logger.info(f"Collated {len(proposals)} proposals from {len(tsv_paths)} TSVs")
+    return proposals
 
 
 def cofold_worker(data: dict) -> dict:
-    """Worker function for evoswarm: cofold one Cas9-sgRNA candidate.
+    """Worker function for evoswarm: cofold one Cas9-sgRNA proposal.
 
     Must be a module-level function (picklable). Handles its own imports
     since it runs on remote SLURM nodes.
@@ -177,12 +177,13 @@ def cofold_worker(data: dict) -> dict:
         _sys.path.insert(0, repo_root)
 
     try:
+        from pathlib import Path as _Path
+
         from examples.bin.cofold_cas9_grna import (
-            cofold_candidate,
+            cofold_proposal,
             construct_sgrna,
             run_usalign,
         )
-        from pathlib import Path as _Path
 
         global_id = data["global_id"]
         output_dir = _Path(data["_output_dir"])
@@ -198,8 +199,8 @@ def cofold_worker(data: dict) -> dict:
         )
 
         # Run AF3 cofolding.
-        af3_result = cofold_candidate(
-            candidate_idx=global_id,
+        af3_result = cofold_proposal(
+            proposal_idx=global_id,
             protein_sequence=data["protein_sequence"],
             sgrna_sequence=sgrna,
             output_dir=output_dir,
@@ -212,18 +213,18 @@ def cofold_worker(data: dict) -> dict:
             return {
                 "global_id": global_id,
                 "job_id": data["job_id"],
-                "candidate_idx": data["candidate_idx"],
+                "proposal_idx": data["proposal_idx"],
                 "error": "AF3 returned no structures",
             }
 
         # USalign against reference.
-        candidate_pdb = _Path(af3_result["pdb_path"])
-        candidate_dir = candidate_pdb.parent
-        superposed_prefix = candidate_dir / "superposed_to_4OO8"
+        proposal_pdb = _Path(af3_result["pdb_path"])
+        proposal_dir = proposal_pdb.parent
+        superposed_prefix = proposal_dir / "superposed_to_4OO8"
 
         try:
             usalign_metrics = run_usalign(
-                candidate_pdb, reference_pdb, superposed_prefix
+                proposal_pdb, reference_pdb, superposed_prefix
             )
         except Exception as e:
             usalign_metrics = {
@@ -234,7 +235,7 @@ def cofold_worker(data: dict) -> dict:
             return {
                 "global_id": global_id,
                 "job_id": data["job_id"],
-                "candidate_idx": data["candidate_idx"],
+                "proposal_idx": data["proposal_idx"],
                 "error": f"USalign failed: {e}",
                 **{k: af3_result.get(k) for k in ["avg_plddt", "ptm", "iptm", "ranking_score"]},
                 "cofold_pdb_path": af3_result.get("pdb_path"),
@@ -243,15 +244,15 @@ def cofold_worker(data: dict) -> dict:
         # Find superposed PDB.
         superposed_pdb = None
         for suffix in ["_all_atm.pdb", ".pdb", "_atm.pdb"]:
-            candidate_path = candidate_dir / f"superposed_to_4OO8{suffix}"
-            if candidate_path.exists():
-                superposed_pdb = str(candidate_path)
+            proposal_path = proposal_dir / f"superposed_to_4OO8{suffix}"
+            if proposal_path.exists():
+                superposed_pdb = str(proposal_path)
                 break
 
         return {
             "global_id": global_id,
             "job_id": data["job_id"],
-            "candidate_idx": data["candidate_idx"],
+            "proposal_idx": data["proposal_idx"],
             "temperature": data["temperature"],
             "top_k": data["top_k"],
             "identity": data["identity"],
@@ -261,7 +262,7 @@ def cofold_worker(data: dict) -> dict:
             "ptm": af3_result.get("ptm"),
             "iptm": af3_result.get("iptm"),
             "ranking_score": af3_result.get("ranking_score"),
-            "tm_score_candidate": usalign_metrics.get("tm_score_1"),
+            "tm_score_proposal": usalign_metrics.get("tm_score_1"),
             "tm_score_reference": usalign_metrics.get("tm_score_2"),
             "rmsd": usalign_metrics.get("rmsd"),
             "cofold_pdb_path": af3_result.get("pdb_path"),
@@ -272,7 +273,7 @@ def cofold_worker(data: dict) -> dict:
         return {
             "global_id": data.get("global_id"),
             "job_id": data.get("job_id"),
-            "candidate_idx": data.get("candidate_idx"),
+            "proposal_idx": data.get("proposal_idx"),
             "error": f"{type(e).__name__}: {e}\n{traceback.format_exc()}",
         }
 
@@ -284,12 +285,12 @@ def write_summary(results: List[Dict], output_dir: Path) -> Path:
     failures = [r for r in results if "error" in r]
 
     if failures:
-        logger.warning(f"{len(failures)} candidates failed:")
+        logger.warning(f"{len(failures)} proposals failed:")
         for f in failures:
             logger.warning(
                 f"  global_id={f.get('global_id')}, "
                 f"job_id={f.get('job_id')}, "
-                f"candidate_idx={f.get('candidate_idx')}: "
+                f"proposal_idx={f.get('proposal_idx')}: "
                 f"{f.get('error', 'unknown error')}"
             )
 
@@ -327,19 +328,19 @@ def write_summary(results: List[Dict], output_dir: Path) -> Path:
         print(
             f"{r['global_id']:>4}  "
             f"{r.get('job_id', ''):>8s}  "
-            f"{str(r.get('candidate_idx', '')):>4s}  "
+            f"{str(r.get('proposal_idx', '')):>4s}  "
             f"{r.get('protein_length', 0):>5d}  "
             f"{r.get('sgrna_length', 0):>5d}  "
             f"{fmt(r.get('avg_plddt'), 6, 1)}  "
             f"{fmt(r.get('ptm'))}  "
             f"{fmt(r.get('iptm'))}  "
             f"{fmt(r.get('ranking_score'), 6, 3)}  "
-            f"{fmt(r.get('tm_score_candidate'), 6, 3)}  "
+            f"{fmt(r.get('tm_score_proposal'), 6, 3)}  "
             f"{fmt(r.get('tm_score_reference'), 6, 3)}  "
             f"{fmt(r.get('rmsd'), 6, 2)}"
         )
     print()
-    print("TM(c) = TM-score normalized by candidate length")
+    print("TM(c) = TM-score normalized by proposal length")
     print("TM(r) = TM-score normalized by reference (4OO8) length")
     print(f"{'=' * 100}\n")
 
@@ -348,17 +349,17 @@ def write_summary(results: List[Dict], output_dir: Path) -> Path:
 
 def main(args: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Cofold Cas9-sgRNA candidates via evoswarm (distributed SLURM).",
+        description="Cofold Cas9-sgRNA proposals via evoswarm (distributed SLURM).",
     )
     input_group = parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument(
         "--input-dir",
-        help="Directory to scan for *_candidates.tsv files (from evocas9_topk runs)",
+        help="Directory to scan for *_proposals.tsv files (from evocas9_topk runs)",
     )
     input_group.add_argument(
         "--input-tsvs",
         nargs="+",
-        help="Explicit list of candidate TSV files",
+        help="Explicit list of proposal TSV files",
     )
     parser.add_argument(
         "--output-dir",
@@ -436,7 +437,7 @@ def main(args: Optional[List[str]] = None) -> None:
 
     # Resolve input TSV paths.
     if parsed.input_dir:
-        tsv_paths = [str(Path(p).resolve()) for p in discover_candidate_tsvs(parsed.input_dir)]
+        tsv_paths = [str(Path(p).resolve()) for p in discover_proposal_tsvs(parsed.input_dir)]
     else:
         tsv_paths = []
         for tsv in parsed.input_tsvs:
@@ -445,8 +446,8 @@ def main(args: Optional[List[str]] = None) -> None:
                 raise FileNotFoundError(f"Input TSV not found: {tsv}")
             tsv_paths.append(str(p.resolve()))
 
-    # Section 1: Collate candidates.
-    candidates = collate_candidates(
+    # Section 1: Collate proposals.
+    proposals = collate_proposals(
         tsv_paths=tsv_paths,
         repo_root=repo_root,
         output_dir=output_dir_abs,
@@ -455,15 +456,15 @@ def main(args: Optional[List[str]] = None) -> None:
         use_msa=not parsed.no_msa,
     )
 
-    if not candidates:
-        logger.error("No valid candidates found in input TSVs")
+    if not proposals:
+        logger.error("No valid proposals found in input TSVs")
         sys.exit(1)
 
-    logger.info(f"Dispatching {len(candidates)} candidates to {parsed.num_workers} workers")
+    logger.info(f"Dispatching {len(proposals)} proposals to {parsed.num_workers} workers")
 
     # Section 3: Swarm dispatch.
     swarm = Swarm(
-        input_data=candidates,
+        input_data=proposals,
         slurm_partition=parsed.partition,
         output_log_dir=str(output_dir / "evoswarm_log"),
         slurm_gpus_per_node=1,

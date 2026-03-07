@@ -89,7 +89,7 @@ class MSAGenerator(Generator):
     """Generator that samples mutations from MSA position-specific distributions.
 
     This generator computes empirical probability distributions for each position
-    in a multiple sequence alignment, then mutates candidate sequences by sampling
+    in a multiple sequence alignment, then mutates proposal sequences by sampling
     from these distributions.
 
     Attributes:
@@ -168,9 +168,9 @@ class MSAGenerator(Generator):
             raise ValueError("No mutable positions in MSA (all positions are gaps)")
 
     def sample(self) -> None:
-        """Sample mutations for candidate sequences using MSA distributions.
+        """Sample mutations for proposal sequences using MSA distributions.
 
-        For each candidate sequence in the pool, randomly selects positions from
+        For each proposal sequence in the pool, randomly selects positions from
         mutable columns and replaces characters according to the empirical
         probability distribution at each position. The number of mutations is
         capped at the number of available mutable positions.
@@ -179,7 +179,7 @@ class MSAGenerator(Generator):
             RuntimeError: If called before assign().
         """
         self._validate_generator()
-        for sequence in self._assigned_segment.candidate_sequences:
+        for sequence in self._assigned_segment.proposal_sequences:
             seq_list = list(sequence.sequence)
 
             # Cap mutations at available mutable positions

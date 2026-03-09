@@ -464,7 +464,7 @@ def mock_database():
     mock_run.updated_at = datetime.now(timezone.utc)
     mock_run.started_at = None
     mock_run.completed_at = None
-    mock_run.gpl_request = {}
+    mock_run.program_data = {}
     mock_run.task_id = None
     mock_run.stage_task_ids = []
     mock_run.num_steps = None

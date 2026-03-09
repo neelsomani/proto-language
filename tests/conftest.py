@@ -2,6 +2,7 @@
 Test configuration and fixtures for the proto-language test suite.
 """
 
+import json
 import logging
 import os
 import re
@@ -389,6 +390,14 @@ def temp_pdb_file():
         os.remove(temp_path)
 
 
+@pytest.fixture(scope="session")
+def toy_json():
+    with open(
+        os.path.join(os.path.dirname(__file__), "../examples/jsons/toy.json")
+    ) as f:
+        return json.load(f)
+
+
 @pytest.fixture(autouse=True)
 def mock_background_tasks():
     """Mock background task dispatch for all tests.
@@ -466,6 +475,8 @@ def mock_database():
     mock_run.result = None
     mock_run.error_message = None
     mock_run.stage_results = []
+    mock_run.webhook_url = None
+    mock_run.webhook_secret = None
 
     # Mock session dependency (generator function, not async)
     def mock_get_session():

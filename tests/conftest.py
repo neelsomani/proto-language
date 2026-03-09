@@ -476,7 +476,7 @@ def mock_database():
     mock_run.error_message = None
     mock_run.stage_results = []
     mock_run.webhook_url = None
-    mock_run.webhook_secret = None
+    mock_run.webhook_metadata = None
 
     # Mock session dependency (generator function, not async)
     def mock_get_session():

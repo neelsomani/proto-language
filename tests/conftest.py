@@ -280,10 +280,7 @@ def setup_test_logging(request):
     """Set up logging for the test session. Runs early to prevent timestamped log files."""
     # Use same log directory as application logs (logs/ in project root)
     project_root = Path(__file__).parent.parent
-    log_dir = os.environ.get(
-        "PROTO_LANGUAGE_LOG_DIR",
-        str(project_root / "logs")
-    )
+    log_dir = str(project_root / "logs")
 
     # Get options from command line
     no_log_console = request.config.getoption("--no-log-console")
@@ -511,7 +508,7 @@ def mock_database():
         patches.extend(
             [
                 patch("api.main.get_session", side_effect=mock_get_session),
-                patch("api.main.create_db_and_tables"),
+                patch("api.main._create_db_and_tables"),
             ]
         )
     except ImportError:

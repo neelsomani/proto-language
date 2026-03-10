@@ -68,13 +68,27 @@ pip install --no-cache-dir --force-reinstall numcodecs zarr
 pip install -e /home/{USERNAME}/proto-language
 ```
 
+## Environment Setup
+
+Local dev needs no env vars — sensible defaults are built in. Optionally copy the template to customize:
+
+```bash
+cp .env.example .env
+```
+
+a cache must be running (`brew services start cache` or `docker run -d -p 6379:6379 cache:alpine`). The API checks a cache on startup and warns if unavailable.
+
+See `.env.example` for all variables with descriptions, or `CLAUDE.md` for a categorized reference table.
+
 ## Running the API
 
 ### Local Development
 
 ```bash
-python api/start_dev.py
+python api/main.py
 ```
+
+Runs on [http://localhost:8000](http://localhost:8000) with local execution mode (no cloud), SQLite database, and a cache on localhost.
 
 ### Docker
 
@@ -82,7 +96,11 @@ python api/start_dev.py
 docker-compose up
 ```
 
-API will be available at [http://localhost:8000](http://localhost:8000)
+Starts a cache + API together. Available at [http://localhost:8000](http://localhost:8000).
+
+### Production
+
+Deployed via GitHub Actions (`release-to-prod.yml`). Requires `DATABASE_URL`, `REDIS_URL`, `LOCAL_EXECUTION=false`, cloud tokens, and `INTERNAL_API_SECRET` set in the deploy platform environment variables.
 
 ## Tests
 

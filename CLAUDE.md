@@ -8,7 +8,7 @@ proto-language: constraint-based optimization framework for designing biological
 2. **Tools** (`proto-tools/`) — 25+ bioinformatics tool wrappers.
    Git submodule tracking `evo-design/proto-tools` (branch: main).
    Has its own CLAUDE.md, notes/, tests, and CI.
-3. **API** (`api/`) — FastAPI + the task queue/a cache for async optimization jobs
+3. **API** (`api/`) — FastAPI + a cache for async optimization jobs
 4. **Agent** (`agent/`) — AI agent (OpenAI Agents SDK + LiteLLM)
 5. **Deployment** (`deployment/`) — cloud GPU cloud functions
 
@@ -25,7 +25,38 @@ def gc_content_constraint(input_sequences, config) -> List[float]: ...
 ## Environment
 
 - **Conda env**: `proto-language` (Python >=3.10). Assumed active — do NOT create/activate venvs.
-- `.env` contains API keys — never expose or commit.
+- **`.env.example`** (committed) — template with all variables, descriptions, and safe local dev defaults. Copy to `.env` and fill in real values.
+- **`.env`** (gitignored) — loaded by `python-dotenv` in `api/main.py`. Never commit.
+- Local dev needs no env vars — sensible defaults are built in. SSRF validation is automatically skipped when `LOCAL_EXECUTION=true` (the default).
+
+### Environment Variables
+
+**Local development (optional — sensible defaults in code):**
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `REDIS_URL` | a cache connection for SSE pub/sub and run state | `cache://localhost:6379/0` |
+| `LOCAL_EXECUTION` | Run optimizations locally (no cloud). Production must set to `false`. | `true` |
+| `DATABASE_URL` | PostgreSQL connection string. Local dev auto-uses SQLite file. | *(unset — `proto_language.db`)* |
+
+**Agent (optional — only for AI agent):**
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI models (gpt-5, etc.) |
+| `ANTHROPIC_API_KEY` | Anthropic models (Claude) |
+| `GEMINI_API_KEY` | Google Gemini models |
+
+**Production / cloud (not needed for local dev):**
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `CLOUD_APP_NAME` | cloud app name for GPU dispatch | `proto-language` |
+| `API_BASE_URL` | Public URL for cloud containers to report progress | `http://localhost:8000` |
+| `INTERNAL_API_SECRET` | Auth secret for cloud → API progress reports | `dev-secret` |
+| `CLOUD_TOKEN_ID` | cloud authentication | *(unset)* |
+| `CLOUD_TOKEN_SECRET` | cloud authentication | *(unset)* |
+| `HF_TOKEN` | HuggingFace gated models (ESM3, AlphaGenome) | *(unset)* |
 
 ## Commands
 
@@ -38,7 +69,7 @@ flake8 proto_language api agent deployment tests  # Lint (F401, F841 only)
 black proto_language api agent deployment tests   # Format
 isort proto_language api agent deployment tests   # Sort imports
 pre-commit run --all-files              # All checks
-python api/start_dev.py                 # API dev server
+python api/main.py                             # API dev server (port 8000)
 python deployment/deploy_cloud_functions.py  # Deploy cloud services
 ```
 
@@ -103,7 +134,7 @@ The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
 ## Test Conventions
 
 - Markers: `@pytest.mark.uses_gpu`, `@pytest.mark.slow`, `@pytest.mark.skip_ci`, `@pytest.mark.integration`
-- CPU tests need no marker (auto-applied). External deps (the task queue, a cache, DB) auto-mocked in `tests/conftest.py`.
+- CPU tests need no marker (auto-applied). External deps (a cache, DB) auto-mocked in `tests/conftest.py`.
 - Mock generators in conftest.py for testing optimizers/programs without real models.
 - Structure: `tests/language_tests/`, `tests/api_tests/`, `tests/agent_tests/`, `tests/tool_tests/`
 - **Before running GPU tests**, check if a GPU is available. If no GPU is detected, run CPU tests by default (`pytest --cpu`).

@@ -85,8 +85,7 @@ def setup_logging(
     Args:
         level: Default logging level for all handlers. Can be an int (e.g., logging.INFO)
             or a case-insensitive string (e.g., "INFO", "info", "Debug"). Default: INFO.
-        log_dir: Directory for log files. Defaults to logs/ in project root
-            or PROTO_LANGUAGE_LOG_DIR environment variable.
+        log_dir: Directory for log files. Defaults to logs/ in project root.
         log_filename: Custom filename for the log file. If None, uses timestamped filename
             like proto_language_YYYYMMDD_HHMMSS.log. If provided, uses this exact filename.
         log_to_file: Whether to enable file logging (default: True).
@@ -120,10 +119,7 @@ def setup_logging(
             if (parent / "pyproject.toml").exists():
                 project_root = parent
                 break
-        log_dir = os.environ.get(
-            "PROTO_LANGUAGE_LOG_DIR",
-            str(project_root / "logs")
-        )
+        log_dir = str(project_root / "logs")
     log_path = Path(log_dir)
 
     # Create log directory if needed

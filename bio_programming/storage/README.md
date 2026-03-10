@@ -153,12 +153,15 @@ Behavior depends on the backend:
 # api/main.py
 @app.get("/files/{file_id}")
 def get_file(file_id: str):
+    if not _FILE_ID_RE.match(file_id):
+        raise HTTPException(status_code=400, detail="Invalid file ID format")
+
     store = get_file_store()
     try:
         url = store.get_url(file_id)
         if store.serves_redirect:
             return RedirectResponse(url=url)
-        return FileResponse(url)
+        return FileResponse(url, media_type=store.get_content_type(file_id))
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
 ```
@@ -235,7 +238,7 @@ Cache location is controlled by `STORAGE_VOLUME_PATH` (default: `/data`). Files 
 ## Testing
 
 ```bash
-pytest tests/tests_cpu/test_storage/    # All storage tests
+pytest tests/tests_cpu/test_storage.py    # All storage tests
 ```
 
 `reset_file_store()` is available for clearing the singleton in test fixtures:

@@ -16,9 +16,6 @@ Patches `GeneratorRegistry.get_key()` and `.get()` to handle mock generators:
 - `SegmentAwareMockGenerator` -> category `"autoregressive"`
 - `AccumulativeTrackingGenerator` -> category `"autoregressive"`
 
-### `mock_celery` (autouse)
-Mocks the task queue app and tasks. No real the task queue/a cache needed for tests.
-
 ### `mock_redis` (autouse)
 Mocks both sync and async a cache clients. Patches `cache.a cache`, `cache.StrictRedis`, and `SSEManager` methods.
 

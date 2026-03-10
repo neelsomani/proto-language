@@ -11,7 +11,8 @@ flake8 proto_language api agent tests # Run by Lint Check CI to check code style
 pytest --cpu --skip-ci                 # Run by Unit Test CI to run CPU-only unit tests (mimics exact CI conditions)
 python tests/run_integration_tests.py  # Run by Integration Test CI to run integration tests
 
-python deployment/deploy_cloud_functions.py # Deploy all services to cloud and run simple execution tests (you should do this if you modify cloud service implementations)
+python deployment/deploy_cloud_functions.py        # Deploy all services to cloud
+python deployment/deploy_cloud_functions.py --test # Deploy and run smoke tests (you should do this if you modify cloud service implementations)
 
 python .github/scripts/validate_exports.py          # Validate export chain consistency across both repos
 python .github/scripts/validate_exports.py --verbose # Same, with detailed output

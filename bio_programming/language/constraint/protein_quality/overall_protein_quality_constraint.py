@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from typing import List, Optional, Tuple
 
 import numpy as np
-from proto_tools import (
-    ProdigalConfig,
-    ProdigalInput,
-    run_prodigal_prediction,
-)
+from proto_tools import ProdigalConfig, ProdigalInput, run_prodigal_prediction
 from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
@@ -35,6 +32,7 @@ from proto_language.language.constraint.sequence_composition.sequence_length_con
     sequence_length_constraint,
 )
 from proto_language.language.core import Sequence
+from proto_language.storage import FileType, store_file
 
 
 class ProteinQualitySubConfig(BaseConfig):
@@ -585,7 +583,10 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
             batch_result.predicted_orfs,
             batch_result.num_orfs_per_sequence
         ):
-            input_sequence._metadata["prodigal_proteins"] = [orf.model_dump() for orf in proteins_list]
+            orf_dicts = [orf.model_dump() for orf in proteins_list]
+            input_sequence._metadata["prodigal_proteins"] = store_file(
+                json.dumps(orf_dicts), FileType.JSON
+            ) if orf_dicts else None
             input_sequence._metadata["prodigal_protein_count"] = num_genes
 
             if len(proteins_list) == 0:

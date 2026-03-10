@@ -4,6 +4,7 @@ Protein domain constraint function.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,6 +20,7 @@ from proto_tools import (
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
+from proto_language.storage import FileType, store_file
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
 
 
@@ -273,12 +275,15 @@ def _process_dna_sequences(
     scores = []
     for input_sequence, proteins_list, gene_count in zip(input_sequences, all_proteins_per_seq, gene_counts):
         # Store Prodigal results in metadata
-        input_sequence._metadata["prodigal_proteins"] = [orf.model_dump() for orf in proteins_list]
+        orf_dicts = [orf.model_dump() for orf in proteins_list]
+        input_sequence._metadata["prodigal_proteins"] = store_file(
+            json.dumps(orf_dicts), FileType.JSON
+        ) if orf_dicts else None
         input_sequence._metadata["prodigal_protein_count"] = gene_count
 
         if len(proteins_list) == 0:
             # No proteins predicted
-            input_sequence._metadata["domain_search_results"] = []
+            input_sequence._metadata["domain_search_results"] = None
             input_sequence._metadata["domain_keywords_found"] = []
             input_sequence._metadata["domain_matching_proteins"] = []
             scores.append(MAX_ENERGY)
@@ -295,21 +300,30 @@ def _process_dna_sequences(
         )
 
         # Check each predicted protein
-        all_results = []
+        serializable_results = []
         matching_proteins = []
         all_keywords_found = set()
 
         for orf, result in zip(proteins_list, batch_results):
-            result["protein_id"] = orf.id
-            result["protein_description"] = orf.description if hasattr(orf, 'description') and orf.description else ""
-            all_results.append(result)
+            # Extract DataFrames before serializing the result dict
+            serializable_result = {
+                k: v for k, v in result.items()
+                if k not in ("matching_hits", "all_hits", "significant_hits")
+            }
+            serializable_result["protein_id"] = orf.id
+            serializable_result["protein_description"] = (
+                orf.description if hasattr(orf, 'description') and orf.description else ""
+            )
+            serializable_results.append(serializable_result)
 
             if result["keywords_found"]:
                 matching_proteins.append(orf.id)
                 all_keywords_found.update(result["keywords_found"])
 
-        # Store metadata
-        input_sequence._metadata["domain_search_results"] = all_results
+        # Store metadata — externalize large result lists
+        input_sequence._metadata["domain_search_results"] = store_file(
+            json.dumps(serializable_results), FileType.JSON
+        )
         input_sequence._metadata["domain_keywords_found"] = list(all_keywords_found)
         input_sequence._metadata["domain_matching_proteins"] = matching_proteins
 
@@ -362,11 +376,30 @@ def _process_protein_sequences(
     # Process results for each sequence
     scores = []
     for input_sequence, result in zip(input_sequences, batch_results):
-        # Store metadata
-        input_sequence._metadata["domain_search_results"] = [result]
+        # Store metadata — externalize large result data
+        # Convert DataFrames to serializable records before storing
+        matching_hits = result["matching_hits"]
+        all_hits = result["all_hits"]
+        serializable_result = {
+            k: v for k, v in result.items()
+            if k not in ("matching_hits", "all_hits", "significant_hits")
+        }
+        input_sequence._metadata["domain_search_results"] = store_file(
+            json.dumps([serializable_result]), FileType.JSON
+        )
         input_sequence._metadata["domain_keywords_found"] = result["keywords_found"]
-        input_sequence._metadata["domain_matching_hits"] = result["matching_hits"]
-        input_sequence._metadata["hmmscan_all_hits"] = result["all_hits"]
+        if matching_hits is not None and len(matching_hits) > 0:
+            input_sequence._metadata["domain_matching_hits"] = store_file(
+                matching_hits.to_json(orient="records"), FileType.JSON
+            )
+        else:
+            input_sequence._metadata["domain_matching_hits"] = None
+        if all_hits is not None and len(all_hits) > 0:
+            input_sequence._metadata["hmmscan_all_hits"] = store_file(
+                all_hits.to_json(orient="records"), FileType.JSON
+            )
+        else:
+            input_sequence._metadata["hmmscan_all_hits"] = None
 
         # Determine constraint score
         keywords_found = set(result["keywords_found"])

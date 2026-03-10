@@ -4,6 +4,7 @@ Protein symmetry ring constraint for symmetric multimeric structures.
 
 from __future__ import annotations
 
+import json
 from io import StringIO
 from typing import List, Optional, Tuple
 
@@ -285,8 +286,11 @@ def _evaluate_dna_symmetry(
         prodigal_result.predicted_orfs,
         prodigal_result.num_orfs_per_sequence
     ):
+        orf_dicts = [orf.model_dump() for orf in proteins_list]
         dna_seq._metadata.update({
-            "prodigal_proteins": [orf.model_dump() for orf in proteins_list],
+            "prodigal_proteins": store_file(
+                json.dumps(orf_dicts), FileType.JSON
+            ) if orf_dicts else None,
             "prodigal_protein_count": num_genes
         })
 

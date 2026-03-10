@@ -5,6 +5,7 @@ Supports DNA (with ORF prediction) and Protein sequences (direct search).
 
 from __future__ import annotations
 
+import json
 from typing import List, Literal, Tuple
 
 import numpy as np
@@ -24,7 +25,7 @@ from pydantic import model_validator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import DNA_NUCLEOTIDES, Sequence
-from proto_language.storage import resolve_paths
+from proto_language.storage import FileType, resolve_paths, store_file
 from proto_language.utils import (
     MAX_ENERGY,
     MIN_ENERGY,
@@ -279,7 +280,10 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
             result = run_prodigal_prediction(inputs=prodigal_input, config=prodigal_config)
 
             for seq_idx, orfs_list in enumerate(result.predicted_orfs):
-                sequences[seq_idx]._metadata["prodigal_orfs"] = [orf.model_dump() for orf in orfs_list]
+                orf_dicts = [orf.model_dump() for orf in orfs_list]
+                sequences[seq_idx]._metadata["prodigal_orfs"] = store_file(
+                    json.dumps(orf_dicts), FileType.JSON
+                ) if orf_dicts else None
                 for orf in orfs_list:
                     protein_data.append((seq_idx, orf.amino_acid_sequence))
 
@@ -289,7 +293,10 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
             result = run_orfipy_prediction(inputs=orfipy_input, config=orfipy_config)
 
             for seq_idx, orfs_list in enumerate(result.predicted_orfs):
-                sequences[seq_idx]._metadata["orfipy_orfs"] = [orf.model_dump() for orf in orfs_list]
+                orf_dicts = [orf.model_dump() for orf in orfs_list]
+                sequences[seq_idx]._metadata["orfipy_orfs"] = store_file(
+                    json.dumps(orf_dicts), FileType.JSON
+                ) if orf_dicts else None
                 for orf in orfs_list:
                     protein_data.append((seq_idx, orf.amino_acid_sequence))
 
@@ -306,7 +313,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
     if not protein_data:
         for seq in sequences:
             seq._metadata.update({
-                "mmseqs_results": [],
+                "mmseqs_results": None,
                 "unique_orfs_with_hits": 0,
                 "orfs_with_acceptable_similarity": 0,
                 "total_orfs_with_hits": 0,
@@ -333,7 +340,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
             seq._metadata.update({
                 "mmseqs_error": True,
                 "mmseqs_error_messages": mmseqs_result.errors,
-                "mmseqs_results": [],
+                "mmseqs_results": None,
                 "unique_orfs_with_hits": 0,
                 "orfs_with_acceptable_similarity": 0,
                 "total_orfs_with_hits": 0,
@@ -361,7 +368,9 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         num_hits = len(hits)
 
         seq._metadata.update({
-            "mmseqs_results": hits,
+            "mmseqs_results": store_file(
+                json.dumps(hits), FileType.JSON
+            ) if hits else None,
             "unique_orfs_with_hits": num_hits,
         })
 

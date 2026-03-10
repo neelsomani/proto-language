@@ -4,6 +4,7 @@ Comprehensive tests for mmseqs_similarity_constraint.
 Tests the MMseqs2 similarity constraint for protein sequences.
 """
 
+import json
 from unittest.mock import patch
 
 import pytest
@@ -22,6 +23,7 @@ from proto_language.language.constraint.sequence_annotation.mmseqs_similarity_co
     MMseqsSimilarityConfig,
 )
 from proto_language.language.core import Constraint, Segment
+from proto_language.storage import get_file_content
 
 
 class TestMMseqsSimilarityConstraint:
@@ -88,11 +90,12 @@ class TestMMseqsSimilarityConstraint:
             assert isinstance(scores[0], float)
             assert scores[0] >= 0.0
 
-            # Check metadata - verify results were stored
+            # Check metadata - verify results were stored (externalized via store_file)
             constraints = segment.proposal_sequences[0]._constraints_metadata
             assert "mmseqs_results" in constraints["mmseqs_similarity_constraint"]["data"]
-            # Should have 1 hit from our mock
-            results = constraints["mmseqs_similarity_constraint"]["data"]["mmseqs_results"]
+            # Results are externalized — deserialize via get_file_content
+            results_ref = constraints["mmseqs_similarity_constraint"]["data"]["mmseqs_results"]
+            results = json.loads(get_file_content(results_ref))
             assert len(results) == 1
             assert results[0]["pident"] == 90.0
             assert "unique_orfs_with_hits" in constraints["mmseqs_similarity_constraint"]["data"]

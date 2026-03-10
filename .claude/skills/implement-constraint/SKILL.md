@@ -186,6 +186,48 @@ segment.proposal_sequences[i]._constraints_metadata["my_constraint"]["data"]["my
 segment.proposal_sequences[i].metadata["constraints"]["my_constraint"]["data"]["my_metric"]
 ```
 
+### Externalizing Large Metadata
+
+When a constraint produces large metadata (structure files, search hit lists, ORF annotations,
+domain results — anything that could exceed ~1KB), externalize it to the content-addressed
+file store instead of storing it inline. This prevents bloating `seq._metadata` and database rows.
+
+```python
+import json
+from proto_language.storage import store_file, FileType
+
+# Large file content (PDB, CIF, etc.) — store directly:
+seq._metadata["pdb_output"] = store_file(structure.structure_pdb, FileType.PDB)
+
+# Large JSON data (hit lists, ORF annotations, etc.) — serialize then store:
+# Use None (not []) as the empty sentinel to avoid mixed types (dict vs list).
+seq._metadata["mmseqs_results"] = store_file(
+    json.dumps(hits), FileType.JSON
+) if hits else None
+
+# Small scalar values — keep inline (no store_file needed):
+seq._metadata["avg_plddt"] = 0.85
+seq._metadata["hit_count"] = len(hits)
+```
+
+**When to use `store_file()`:**
+- Structure files (PDB, CIF): always externalize
+- Tool output lists/dicts (MMseqs hits, ORF predictions, domain results): externalize
+- Scalar metrics, short strings, small dicts: keep inline
+
+**Available FileTypes:** `PDB`, `CIF`, `HMM`, `FASTA`, `CSV`, `JSON`, `BINARY`
+
+**Reading externalized data:** Use `get_file_content()` — it transparently handles both
+inline strings and file references:
+
+```python
+from proto_language.storage import get_file_content
+content = get_file_content(seq._metadata["pdb_output"])  # works with both formats
+```
+
+The export pipeline handles file references automatically — no special handling needed
+in export code.
+
 ## Tool Integration Pattern
 
 For constraints that call external bioinformatics tools:

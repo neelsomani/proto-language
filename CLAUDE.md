@@ -115,7 +115,8 @@ When a code change alters behavior documented in this file or any `SKILL.md`, up
 | `proto_language/language/core/` | `general-dev` SKILL.md (Data Model, Result Export) |
 | `proto_language/base_config.py` | `general-dev` SKILL.md (Config Pattern) |
 | `tests/conftest.py`, pytest markers | CLAUDE.md Test Conventions, `testing` SKILL.md |
-| `api/`, `agent/`, `deployment/` | CLAUDE.md Architecture |
+| `api/`, `agent/` | CLAUDE.md Architecture |
+| `deployment/` | CLAUDE.md Architecture, `implement-deployment` SKILL.md, `deployment/README.md` |
 | New skills or commands added | CLAUDE.md Skills & Commands section |
 
 The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
@@ -162,6 +163,7 @@ Skills (auto-loaded when relevant):
 - **implement-constraint** — full constraint implementation lifecycle with templates and examples
 - **implement-generator** — full generator implementation lifecycle (ABC contract, categories, templates)
 - **implement-optimizer** — full optimizer implementation lifecycle (dual-pool architecture, templates)
+- **implement-deployment** — cloud service creation: Dockerfile, service file, standalone_helpers, deploy.py registration, smoke test, tool_backend adapter
 - **testing** — comprehensive test patterns, fixtures, markers, templates for each component type
 
 Commands (invoked with `/command-name [args]`):

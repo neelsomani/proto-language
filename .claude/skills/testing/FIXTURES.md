@@ -31,6 +31,16 @@ Loads cloud credentials from `~/.cloud.toml` for tests that call deployed servic
 ### `gpu_available` (session-scoped, NOT autouse)
 Returns `True` if GPU is available. Use in tests: `@pytest.mark.skipif(not gpu_available, reason="No GPU")`.
 
+## E2E Fixtures (`tests/e2e_tests/conftest.py`)
+
+The e2e conftest overrides all four root autouse fixtures (mock_background_tasks, mock_redis, mock_database, mock_generator_registry) with no-op yields, so e2e tests hit real services.
+
+### `api_services` (session-scoped)
+Starts a cache + API server (on port 8099) for the e2e session. Yields the base URL string (`http://127.0.0.1:8099`). Tears down services on session end.
+
+### `api_client` (session-scoped)
+Returns an `httpx.Client(base_url=..., timeout=30)` pre-configured with the e2e base URL. Use in tests: `def test_health(api_client): resp = api_client.get("/health")`.
+
 ## Mock Scoring Functions (`tests/language_tests/constraint_tests/utils.py`)
 
 For testing the `Constraint` class without real constraint functions:

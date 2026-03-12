@@ -114,6 +114,18 @@ def pytest_addoption(parser):
         help="Skip tests marked with skip_ci (mimics CI environment behavior)",
     )
     parser.addoption(
+        "--integration",
+        action="store_true",
+        default=False,
+        help="Include integration tests (require external tools like MAFFT). Skipped by default.",
+    )
+    parser.addoption(
+        "--e2e",
+        action="store_true",
+        default=False,
+        help="Include end-to-end tests (start real a cache + API server). Skipped by default.",
+    )
+    parser.addoption(
         "--no-log-console",
         action="store_true",
         default=False,
@@ -273,6 +285,37 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "slow" in item.keywords:
                 item.add_marker(skip_slow)
+
+    # Skip integration tests unless --integration or --all
+    if not config.getoption("--integration") and not run_all:
+        skip_integration = pytest.mark.skip(
+            reason="integration test (use --integration or --all to run)"
+        )
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_integration)
+
+    # E2E filtering: --e2e is exclusive (runs ONLY e2e tests, deselects everything
+    # else so they appear as a single "N deselected" count instead of N SKIPPED lines)
+    run_e2e = config.getoption("--e2e")
+    if run_e2e:
+        selected = []
+        deselected = []
+        for item in items:
+            if "e2e" in item.keywords:
+                selected.append(item)
+            else:
+                deselected.append(item)
+        if deselected:
+            config.hook.pytest_deselected(items=deselected)
+            items[:] = selected
+    else:
+        skip_e2e = pytest.mark.skip(
+            reason="e2e test (use --e2e to run; requires a cache)"
+        )
+        for item in items:
+            if "e2e" in item.keywords:
+                item.add_marker(skip_e2e)
 
 
 @pytest.fixture(scope="session", autouse=True)

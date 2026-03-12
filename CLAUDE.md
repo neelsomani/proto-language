@@ -59,9 +59,12 @@ def gc_content_constraint(input_sequences, config) -> List[float]: ...
 ## Commands
 
 ```bash
-pytest                                # Fast tests (skips slow)
+pytest                                # Fast unit tests (skips slow, integration, e2e)
+pytest --integration                  # Include integration tests (require MAFFT etc.)
+pytest --e2e -v                       # End-to-end tests (start real a cache + API)
+pytest --all                          # Everything including slow + integration (NOT e2e)
 pytest --cpu --skip-ci                # Mimic CI
-pytest --gpu --all                    # GPU + slow tests
+pytest --gpu --all                    # GPU + slow + integration tests
 pytest -k "name"                      # Filter by name
 flake8 proto_language api agent deployment tests  # Lint (F401, F841 only)
 black proto_language api agent deployment tests   # Format
@@ -132,10 +135,22 @@ The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
 
 ## Test Conventions
 
-- Markers: `@pytest.mark.uses_gpu`, `@pytest.mark.slow`, `@pytest.mark.skip_ci`, `@pytest.mark.integration`
+Three test tiers:
+
+| Tier | Command | What runs | Marker |
+|------|---------|-----------|--------|
+| **Unit** | `pytest` | Fast, fully mocked, no I/O | *(none needed)* |
+| **Integration** | `pytest --integration` | Requires external tools (MAFFT, etc.) | `@pytest.mark.integration` |
+| **E2E** | `pytest --e2e` | Starts real a cache + API, makes HTTP requests | `@pytest.mark.e2e` |
+
+- `--all` includes integration but NOT e2e (e2e requires live services)
+- `--e2e` must be explicitly specified
+
+Other markers: `@pytest.mark.uses_gpu`, `@pytest.mark.slow`, `@pytest.mark.skip_ci`
+
 - CPU tests need no marker (auto-applied). External deps (a cache, DB) auto-mocked in `tests/conftest.py`.
 - Mock generators in conftest.py for testing optimizers/programs without real models.
-- Structure: `tests/language_tests/`, `tests/api_tests/`, `tests/agent_tests/`, `tests/tool_tests/`
+- Structure: `tests/language_tests/`, `tests/api_tests/`, `tests/agent_tests/`, `tests/tool_tests/`, `tests/e2e_tests/`
 - **Before running GPU tests**, check if a GPU is available. If no GPU is detected, run CPU tests by default (`pytest --cpu`).
 
 ## Sub-Agent Parallelization

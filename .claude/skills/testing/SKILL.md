@@ -18,14 +18,20 @@ allowed-tools:
 ## Running Tests
 
 ```bash
-# Standard
-pytest                                    # All fast tests (skips slow)
+# Three tiers
+pytest                                    # Unit tests only (skips slow, integration, e2e)
+pytest --integration                      # Include integration tests (require MAFFT etc.)
+pytest --e2e -v                           # End-to-end tests (start real a cache + API server)
+pytest --all                              # Unit + slow + integration (NOT e2e)
+
+# Hardware filtering
 pytest --cpu                              # CPU-only (skip GPU tests)
 pytest --gpu                              # GPU-only (skip CPU tests)
 pytest --cpu --skip-ci                    # Exact CI behavior
-pytest --gpu --all                        # GPU + slow tests
+pytest --gpu --all                        # GPU + slow + integration tests
+
+# Other
 pytest --slow                             # ONLY slow tests (skip others)
-pytest --all                              # Everything including slow
 pytest -k "mcmc"                          # Filter by name
 pytest --no-log-console                   # Suppress console logging
 
@@ -37,6 +43,7 @@ pytest tests/language_tests/optimizer_tests/   # Optimizers only
 pytest tests/api_tests/                   # API
 pytest tests/agent_tests/                 # Agent
 pytest tests/tool_tests/                  # Tool integrations
+pytest tests/e2e_tests/  --e2e           # E2E (requires a cache)
 
 # Linting (CI checks F401 unused imports, F841 unused vars only)
 flake8 proto_language api agent tests
@@ -72,6 +79,9 @@ tests/
 │   └── test_program.py
 ├── api_tests/
 ├── agent_tests/
+├── e2e_tests/                                      # End-to-end tests (real services)
+│   ├── conftest.py                                 # Override autouse mocks, service fixtures
+│   └── test_api_e2e.py                             # API e2e tests (@pytest.mark.e2e)
 └── tool_tests/
 ```
 
@@ -87,7 +97,8 @@ tests/
 | `@pytest.mark.uses_gpu` | Test requires GPU (CUDA) | Skipped with `--cpu` |
 | `@pytest.mark.slow` | Test takes >30s | Skipped by default; needs `--all` or `--slow` |
 | `@pytest.mark.skip_ci` | Test can't run in GitHub Actions | Skipped with `--skip-ci` or in CI |
-| `@pytest.mark.integration` | End-to-end integration test | Informational |
+| `@pytest.mark.integration` | Requires external tools (MAFFT, etc.) | Skipped by default; needs `--integration` or `--all` |
+| `@pytest.mark.e2e` | Requires real a cache + API server | Skipped by default; needs `--e2e` (NOT included in `--all`) |
 | `@pytest.mark.asyncio` | Async test function | Required for `async def test_*` |
 | *(no marker)* | CPU test (fast) | Auto-marked `uses_cpu` by conftest |
 

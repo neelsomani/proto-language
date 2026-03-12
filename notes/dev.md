@@ -9,7 +9,7 @@ This guide covers the development workflow, including pre-commit hooks and what 
 python docs/generate_docs.py          # Manually regenerate docs locally (CI auto-generates on main)
 flake8 proto_language api agent tests # Run by Lint Check CI to check code style
 pytest --cpu --skip-ci                 # Run by Unit Test CI to run CPU-only unit tests (mimics exact CI conditions)
-python tests/run_integration_tests.py  # Run by Integration Test CI to run integration tests
+pytest --e2e -v                        # Run by E2E Test CI (starts real a cache + API server)
 
 python deployment/deploy_cloud_functions.py        # Deploy all services to cloud
 python deployment/deploy_cloud_functions.py --test # Deploy and run smoke tests (you should do this if you modify cloud service implementations)
@@ -209,11 +209,21 @@ pytest --cpu --skip-ci
 #### Integration Tests
 **File:** `.github/workflows/integration_tests.yml`
 **Triggers:** On non-draft PRs
-**What it does:** Runs comprehensive integration tests with external dependencies
+**What it does:** Runs tests requiring external tools (MAFFT, etc.)
 
 **Run locally:**
 ```bash
-python tests/run_integration_tests.py --verbose
+pytest --integration --cpu -v
+```
+
+#### End-to-End Tests
+**File:** `.github/workflows/e2e_tests.yml`
+**Triggers:** On non-draft PRs
+**What it does:** Starts real a cache + API server and runs end-to-end HTTP tests
+
+**Run locally:**
+```bash
+pytest --e2e -v
 ```
 
 ### Constant Automatic CIs

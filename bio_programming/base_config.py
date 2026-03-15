@@ -3,11 +3,10 @@ Base configuration classes for all pydantic configs.
 """
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any, TypedDict, Union
 
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field as PydanticField
-from typing_extensions import Required, TypedDict
 
 
 class DependsOn(TypedDict, total=False):
@@ -20,7 +19,7 @@ class DependsOn(TypedDict, total=False):
       - Neither ``value`` nor ``not_null``: show when ``parent[field]`` is truthy
     """
 
-    field: Required[str]  # Sibling field key to watch
+    field: str  # Required: sibling field key to watch
     value: Union[str, int, float, bool, list]  # Optional: value(s) to match
     not_null: bool  # Optional: True means "show when not None"
 
@@ -65,10 +64,6 @@ def ConfigField(
         if "value" in depends_on and "not_null" in depends_on:
             raise ValueError(
                 "depends_on cannot specify both 'value' and 'not_null'"
-            )
-        if depends_on.get("not_null") is False:
-            raise ValueError(
-                "depends_on 'not_null' must be True if specified"
             )
         json_schema_extra["x-depends-on"] = depends_on
 

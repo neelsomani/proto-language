@@ -227,6 +227,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
         description="Configuration for protein-hunter pipeline. Only used when pipeline='protein-hunter'.",
         depends_on={"field": "pipeline", "value": "protein-hunter"},
     )
+
     @model_validator(mode="after")
     def validate_pipeline_config(self):
         """Validate that pipeline-specific config is provided when pipeline is set."""

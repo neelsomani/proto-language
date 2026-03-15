@@ -302,14 +302,19 @@ def test_depends_on_schema_output(field_name: str, expected):
         assert props["x-depends-on"] == expected
 
 
-def test_depends_on_missing_field_key_raises():
-    """depends_on without a 'field' key must raise ValueError."""
-    with pytest.raises(ValueError, match="must include a 'field' key"):
+@pytest.mark.parametrize("depends_on, match", [
+    ({"value": "bar"}, "must include a 'field' key"),
+    ({"field": "x", "value": "y", "not_null": True}, "cannot specify both"),
+    ({"field": "x", "not_null": False}, "must be True if specified"),
+])
+def test_depends_on_invalid_raises(depends_on, match):
+    """Invalid depends_on dicts raise ValueError at class definition."""
+    with pytest.raises(ValueError, match=match):
         class _Bad(LanguageBaseConfig):
             """Test model."""
             bad: str = ConfigField(
                 default="", title="Bad", description="Should fail.",
-                depends_on={"value": "bar"},
+                depends_on=depends_on,
             )
 
 

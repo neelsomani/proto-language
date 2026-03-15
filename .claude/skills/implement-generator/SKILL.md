@@ -70,7 +70,7 @@ For complete config class and generator class templates, use the `Read` tool to 
 - **Templates**: `.claude/skills/implement-generator/TEMPLATES.md`
 
 Summary of the workflow:
-1. **Config class** — inherit `BaseConfig`, use `ConfigField`, declare model params
+1. **Config class** — inherit `BaseConfig`, use `ConfigField` (supports `advanced`, `hidden`, and `depends_on` for conditional visibility), declare model params
 2. **Generator class** — `@generator` decorator, `@final`, implement `__init__`, `assign`, `sample`
 3. **Export chain** — add to `generator/__init__.py`
 4. **Tests** — init, assign, sample, batch, type validation, config validation
@@ -157,7 +157,7 @@ See the testing skill for complete test templates.
 
 Copy this and check off as you go:
 
-- [ ] Config class inherits `BaseConfig` with `ConfigField`
+- [ ] Config class inherits `BaseConfig` with `ConfigField` (use `depends_on` for conditionally visible fields)
 - [ ] `@generator` decorator with unique kebab-case key and correct category
 - [ ] `@final` decorator on class
 - [ ] `__init__` calls `super().__init__()`

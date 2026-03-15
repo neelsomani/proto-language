@@ -73,6 +73,21 @@ class MyConstraintConfig(BaseConfig):
         advanced=True,
     )
 
+    # Conditional field — only visible when a specific mode is selected
+    aggregation_mode: str = ConfigField(
+        default="mean",
+        title="Aggregation Mode",
+        description="How to aggregate per-residue scores",
+    )
+    percentile_value: float = ConfigField(
+        default=75.0,
+        title="Percentile Value",
+        description="Which percentile to use (only when mode is 'percentile')",
+        ge=0.0,
+        le=100.0,
+        depends_on={"field": "aggregation_mode", "value": "percentile"},
+    )
+
     # Field validator (single field, runs before model creation)
     @field_validator("target_value", mode="before")
     @classmethod
@@ -328,6 +343,7 @@ Copy this and check off as you go:
 - [ ] Metadata stored on `seq._metadata` for downstream visibility
 - [ ] Edge cases handled (empty sequences, boundary values)
 - [ ] Export chain updated at all 3 levels (category `__init__`, constraint `__init__`, `__all__`)
+- [ ] Use `depends_on` for fields that are only relevant when another field has a specific value
 - [ ] Tests cover: parametrized scoring, wrong type, invalid config, metadata, edge cases
 - [ ] Tests pass: `pytest tests/language_tests/constraint_tests/ --cpu -x`
 - [ ] Lint passes: `flake8 proto_language/language/constraint/`

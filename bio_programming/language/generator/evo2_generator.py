@@ -176,6 +176,7 @@ class Evo2GeneratorConfig(BaseConfig):
         title="Store KV Cache",
         description="Whether to store and reuse Key-Value cache",
         advanced=True,
+        depends_on={"field": "cached_generation"},
     )
     prepend_prompt: bool = ConfigField(
         default=False,

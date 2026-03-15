@@ -130,12 +130,14 @@ class MMseqsSimilarityConfig(BaseConfig):
         default_factory=OrfipyConfig,
         description="ORFipy configuration (DNA only, used if orf_predictor='orfipy').",
         advanced=True,
+        depends_on={"field": "orf_predictor", "value": "orfipy"},
     )
     prodigal_config: ProdigalConfig = ConfigField(
         title="Prodigal Configuration",
         default_factory=ProdigalConfig,
         description="Prodigal configuration (DNA only, used if orf_predictor='prodigal').",
         advanced=True,
+        depends_on={"field": "orf_predictor", "value": "prodigal"},
     )
 
     @model_validator(mode='after')

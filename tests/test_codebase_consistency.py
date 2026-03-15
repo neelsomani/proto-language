@@ -223,6 +223,43 @@ def test_tool_input_and_output_consistency(tool_input: type, tool_output: type):
     )
 
 
+@pytest.mark.parametrize("config_model", [
+    config_model for config_model in list_of_all_config_models()
+])
+def test_depends_on_references_valid_field(config_model: Type):
+    """
+    Every x-depends-on in a config schema must reference an existing,
+    non-hidden sibling property.
+    """
+    schema = config_model.model_json_schema()
+    properties = schema.get("properties", {})
+
+    for field_name, field_schema in properties.items():
+        x_dep = field_schema.get("x-depends-on")
+        if x_dep is None:
+            continue
+
+        ref_field = x_dep.get("field")
+        assert ref_field is not None, (
+            f"{config_model.__name__}.{field_name}: "
+            "x-depends-on is missing the 'field' key."
+        )
+
+        assert ref_field in properties, (
+            f"{config_model.__name__}.{field_name}: "
+            f"x-depends-on references '{ref_field}' which does not exist "
+            f"in the schema properties. "
+            f"Available: {sorted(properties.keys())}"
+        )
+
+        ref_hidden = properties[ref_field].get("hidden", False)
+        assert not ref_hidden, (
+            f"{config_model.__name__}.{field_name}: "
+            f"x-depends-on references '{ref_field}' which is hidden. "
+            "A dependency on a hidden field is not visible to the user."
+        )
+
+
 def _field_description_is_valid(description: str) -> str:
     """
     Check if the description is under MAX_FIELD_DESCRIPTION_LENGTH characters.

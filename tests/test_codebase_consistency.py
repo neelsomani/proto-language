@@ -5,13 +5,14 @@ consistency.
 from __future__ import annotations
 
 import inspect
-from typing import List, Tuple, Type, Union, get_args, get_origin
+from typing import List, Optional, Tuple, Type, Union, get_args, get_origin
 
 import pytest
 from proto_tools import BaseToolInput, BaseToolOutput, ToolRegistry
 from proto_tools.utils import BaseConfig as ToolsBaseConfig
 
 from proto_language.base_config import BaseConfig as LanguageBaseConfig
+from proto_language.base_config import ConfigField
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.generator import GeneratorRegistry
 from proto_language.language.optimizer import OptimizerRegistry
@@ -254,6 +255,62 @@ def test_depends_on_references_valid_field(config_model: Type):
             f"x-depends-on references '{ref_field}' which is hidden. "
             "A dependency on a hidden field is not visible to the user."
         )
+
+
+# ---------------------------------------------------------------------------
+# ConfigField depends_on serialization
+# ---------------------------------------------------------------------------
+
+class _DependsOnModel(LanguageBaseConfig):
+    """Shared test model for depends_on parametrized tests."""
+    mode: str = ConfigField(default="basic", title="Mode", description="Operating mode.")
+    target: Optional[str] = ConfigField(default=None, title="Target", description="Optional target.")
+    enabled: bool = ConfigField(default=False, title="Enabled", description="Toggle.")
+    with_value: str = ConfigField(
+        default="off", title="With Value", description="Single value.",
+        depends_on={"field": "mode", "value": "advanced"},
+    )
+    with_list: int = ConfigField(
+        default=1, title="With List", description="List value.",
+        depends_on={"field": "mode", "value": ["a", "b"]},
+    )
+    with_not_null: str = ConfigField(
+        default="x", title="With Not Null", description="Not null.",
+        depends_on={"field": "target", "not_null": True},
+    )
+    with_truthy: str = ConfigField(
+        default="", title="With Truthy", description="Truthy check.",
+        depends_on={"field": "enabled"},
+    )
+    plain: int = ConfigField(default=0, title="Plain", description="No depends_on.")
+
+
+@pytest.mark.parametrize("field_name, expected", [
+    ("with_value", {"field": "mode", "value": "advanced"}),
+    ("with_list", {"field": "mode", "value": ["a", "b"]}),
+    ("with_not_null", {"field": "target", "not_null": True}),
+    ("with_truthy", {"field": "enabled"}),
+    ("plain", None),
+])
+def test_depends_on_schema_output(field_name: str, expected):
+    """depends_on produces the correct x-depends-on in JSON schema."""
+    schema = _DependsOnModel.model_json_schema()
+    props = schema["properties"][field_name]
+    if expected is None:
+        assert "x-depends-on" not in props
+    else:
+        assert props["x-depends-on"] == expected
+
+
+def test_depends_on_missing_field_key_raises():
+    """depends_on without a 'field' key must raise ValueError."""
+    with pytest.raises(ValueError, match="must include a 'field' key"):
+        class _Bad(LanguageBaseConfig):
+            """Test model."""
+            bad: str = ConfigField(
+                default="", title="Bad", description="Should fail.",
+                depends_on={"value": "bar"},
+            )
 
 
 def _field_description_is_valid(description: str) -> str:

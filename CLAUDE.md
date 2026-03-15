@@ -10,7 +10,8 @@ proto-language: constraint-based optimization framework for designing biological
    Has its own CLAUDE.md, notes/, tests, and CI.
 3. **API** (`api/`) — FastAPI + a cache for async optimization jobs
 4. **Agent** (`agent/`) — AI agent (OpenAI Agents SDK + LiteLLM)
-5. **Deployment** (`deployment/`) — cloud GPU cloud functions
+5. **MCP** (`mcp/`) — MCP server exposing framework discovery, search, validation, and execution to Claude Code. Configured in `.mcp.json`.
+6. **Deployment** (`deployment/`) — cloud GPU cloud functions
 
 All three language components (constraints, generators, optimizers) use a registry pattern:
 ```python
@@ -46,6 +47,22 @@ def gc_content_constraint(input_sequences, config) -> List[float]: ...
 | `OPENAI_API_KEY` | OpenAI models (gpt-5, etc.) |
 | `ANTHROPIC_API_KEY` | Anthropic models (Claude) |
 | `GEMINI_API_KEY` | Google Gemini models |
+
+**MCP server (optional — only for `mcp/`):**
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `BIO_API_URL` | API base URL for MCP execution tools | `http://localhost:8000` |
+
+**Storage (production on the deploy platform):**
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `FILE_STORE_TYPE` | Storage backend: `local` or `gcs` | `local` |
+| `FILE_STORE_PATH` | Local file storage directory | `./file_store` |
+| `GCS_FILE_BUCKET` | GCS bucket name (required when `gcs`) | *(unset)* |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | GCS credentials as JSON string | *(unset)* |
+| `STORAGE_VOLUME_PATH` | Persistent cache mount for GCS databases | `/data` |
 
 **Production / cloud (not needed for local dev):**
 

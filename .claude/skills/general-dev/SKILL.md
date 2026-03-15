@@ -91,7 +91,31 @@ class MyConfig(BaseConfig):
         advanced=True,   # Shows in "Advanced" UI section
         hidden=False,    # True = completely hidden from UI
     )
+    conditional_param: float = ConfigField(
+        default=0.5,
+        title="Conditional Param",
+        description="Only shown when optional_param is 'value'",
+        depends_on={"field": "optional_param", "value": "value"},
+    )
 ```
+
+**`depends_on`** — conditionally show/hide a field based on another field's value:
+
+```python
+from typing import List, TypedDict, Union
+
+class DependsOn(TypedDict, total=False):
+    field: str                                     # Required: sibling field key to watch
+    value: Union[str, int, float, bool, List]      # Show when field == value (or field in value if list)
+    not_null: bool                                 # Show when field is not None
+```
+
+Evaluation rules (first matching rule wins):
+- `{"field": "mode", "value": "percentile"}` — show when `mode == "percentile"`
+- `{"field": "use_weights"}` — show when `use_weights` is truthy (omit `value` and `not_null`)
+- `{"field": "reference_seq", "not_null": True}` — show when `reference_seq` is not None
+
+Only one of `value` or `not_null` should be specified. Omitting both means "show when truthy."
 
 **BaseConfig behavior** (from `ConfigDict`):
 - `extra='ignore'` — unknown fields silently ignored

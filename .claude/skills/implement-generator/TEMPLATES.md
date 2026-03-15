@@ -72,6 +72,14 @@ class MyGeneratorConfig(BaseConfig):
         advanced=True,
     )
 
+    # Conditional field example — only visible when a specific model is selected:
+    # model_variant: str = ConfigField(
+    #     default="base",
+    #     title="Model Variant",
+    #     description="Variant of model_a to use",
+    #     depends_on={"field": "model_name", "value": "model_a"},
+    # )
+
     @field_validator("model_name", mode="before")
     @classmethod
     def validate_model(cls, v):

@@ -3,10 +3,25 @@ Base configuration classes for all pydantic configs.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict, Union
 
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field as PydanticField
+
+
+class DependsOn(TypedDict, total=False):
+    """Declares that a field's UI visibility depends on a sibling field's value.
+
+    Evaluation rules (for any consumer):
+      - ``value`` present (single): show when ``parent[field] == value``
+      - ``value`` present (list):   show when ``parent[field] in value``
+      - ``not_null`` is True:       show when ``parent[field]`` is not None
+      - Neither ``value`` nor ``not_null``: show when ``parent[field]`` is truthy
+    """
+
+    field: str  # Required: sibling field key to watch
+    value: Union[str, int, float, bool, list]  # Optional: value(s) to match
+    not_null: bool  # Optional: True means "show when not None"
 
 
 def ConfigField(
@@ -16,6 +31,7 @@ def ConfigField(
     description: str = None,
     advanced: bool = False,
     hidden: bool = False,
+    depends_on: DependsOn | None = None,
     **kwargs,
 ) -> Any:
     """
@@ -24,20 +40,33 @@ def ConfigField(
     Args:
         advanced: If True, field appears in "Advanced" section of UI
         hidden: If True, field is hidden from UI completely
+        depends_on: If set, field is only visible when the sibling field
+            identified by ``depends_on["field"]`` satisfies the condition.
+            See :class:`DependsOn` for evaluation rules.
 
         **kwargs: All other standard Pydantic Field arguments
 
     Usage:
-        param: int = Field(default=42, title="Param", description="...", advanced=True)
+        param: int = ConfigField(default=42, title="Param", advanced=True)
+        nested: Optional[Config] = ConfigField(
+            default=None,
+            depends_on={"field": "mode", "value": "advanced"},
+        )
     """
-    # Pull the existing json_schema_extra
     json_schema_extra = kwargs.get("json_schema_extra", {})
 
-    # Add the advanced and hidden flags to the json_schema_extra
     json_schema_extra["advanced"] = advanced
     json_schema_extra["hidden"] = hidden
 
-    # Update the kwargs with the new json_schema_extra
+    if depends_on is not None:
+        if "field" not in depends_on:
+            raise ValueError("depends_on must include a 'field' key")
+        if "value" in depends_on and "not_null" in depends_on:
+            raise ValueError(
+                "depends_on cannot specify both 'value' and 'not_null'"
+            )
+        json_schema_extra["x-depends-on"] = depends_on
+
     kwargs["json_schema_extra"] = json_schema_extra
 
     return PydanticField(default, title=title, description=description, **kwargs)

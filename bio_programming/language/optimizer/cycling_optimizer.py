@@ -216,18 +216,18 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
         title="Conditioning Param Name",
         description="Generator sample() parameter name to pass conditioning data into.",
     )
-    # TODO: @bviggiano we need to add the conditional client field for the config.
     pipeline: Optional[Literal["protein-hunter"]] = ConfigField(
         default=None,
         title="Pipeline",
         description="Predefined conditioning pipeline. 'protein-hunter' uses structure prediction -> inverse folding.",
     )
-    # TODO: generalize to other pipelines as well.
     protein_hunter: Optional[ProteinHunterPipelineConfig] = ConfigField(
         default=None,
         title="Protein Hunter Config",
         description="Configuration for protein-hunter pipeline. Only used when pipeline='protein-hunter'.",
+        depends_on={"field": "pipeline", "value": "protein-hunter"},
     )
+
     @model_validator(mode="after")
     def validate_pipeline_config(self):
         """Validate that pipeline-specific config is provided when pipeline is set."""

@@ -7,25 +7,25 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
-from typing import List, Literal, Optional, Dict, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 from pydantic import field_validator
 
-from proto_language.language.core import Sequence
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
+from proto_language.language.core import Sequence
 
 
 class SeqMotifConfig(BaseConfig):
     """Configuration for sequence motif constraint using MEME.
-    
+
     This class defines configuration parameters for evaluating DNA sequences against
     known transcription factor binding motifs using MEME Suite's Find Individual
     Motif Occurrences tool. The constraint searches for position weight matrix
     motifs in sequences and can either encourage specific motifs (wanted) or discourage
     them (not_wanted), enabling design of sequences with controlled sites.
-    
+
     Attributes:
         motifs_path (str): Path to MEME format motif file (.meme) containing position
             weight matrices. Must be a valid file path. MEME format files can
@@ -85,7 +85,7 @@ class SeqMotifConfig(BaseConfig):
             unwanted motif penalties are given higher weight, making it harder to
             pass the constraint if unwanted motifs are present. Useful when avoiding
             specific binding sites is critical. Default: False.
-    
+
     Note:
         Motif names must match exactly with the names in the MEME file (case-sensitive).
         Use the MOTIF lines in the .meme file to identify available motif names.
@@ -147,6 +147,7 @@ class SeqMotifConfig(BaseConfig):
         le=100.0,
         description="Which percentile to use when aggregation='percentile' (0-100)",
         advanced=True,
+        depends_on={"field": "aggregation", "value": "percentile"},
     )
     unwanted_focus: bool = ConfigField(
         title="Unwanted Focus",
@@ -168,12 +169,12 @@ class SeqMotifConfig(BaseConfig):
 )
 def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: SeqMotifConfig) -> List[float]:
     """Score DNA sequences against sequence motifs using MEME.
-    
+
     This constraint function uses MEME Suite's Find Individual Motif
     Occurrences tool to search for sequence  motifs represented as position weight matrices
     in DNA sequences. It evaluates whether sequences contain desired motifs (wanted)
     or unwanted motifs (not_wanted).
-    
+
     The scoring strategy penalizes sequences based on motif presence:
     - **Unwanted motifs**: Strong matches (low E-values) result in high penalties,
       encouraging sequences without these binding sites
@@ -201,11 +202,11 @@ def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Se
             - **Only wanted specified**: 0.0 if all wanted motifs found with strong
               E-values, 1.0 if wanted motifs missing
             - **Both specified**: Weighted combination based on aggregation method
-    
+
     Note:
         This function modifies the input sequences by adding metadata to each
         ``Sequence`` object's ``_metadata`` dictionary with the following keys:
-        
+
         - ``motif_constraint``: Dictionary containing:
           - ``penalty``: Float overall penalty score (0.0-1.0)
           - ``wanted``: Set of wanted motif names
@@ -221,10 +222,10 @@ def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Se
             - ``wanted_count``: Number of wanted motif evaluations
             - ``unwanted_matches``: Number of unwanted motifs found
             - ``wanted_matches``: Number of wanted motifs found
-    
+
     Examples:
         Requiring specific transcription factor binding sites:
-        
+
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> promoter_seq = Sequence("ATCGGCGGGATCGTAATATAGCATGC", "dna")
         >>> config = SeqMotifConfig(
@@ -249,7 +250,7 @@ def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Se
     # Normalize "all"/"none"
     wanted = config.wanted
     not_wanted = config.not_wanted
-    
+
     if (
         isinstance(wanted, list)
         and len(wanted) == 1

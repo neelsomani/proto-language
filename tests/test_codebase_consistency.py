@@ -5,13 +5,14 @@ consistency.
 from __future__ import annotations
 
 import inspect
-from typing import List, Tuple, Type, Union, get_args, get_origin
+from typing import List, Optional, Tuple, Type, Union, get_args, get_origin
 
 import pytest
 from proto_tools import BaseToolInput, BaseToolOutput, ToolRegistry
 from proto_tools.utils import BaseConfig as ToolsBaseConfig
 
 from proto_language.base_config import BaseConfig as LanguageBaseConfig
+from proto_language.base_config import ConfigField
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.generator import GeneratorRegistry
 from proto_language.language.optimizer import OptimizerRegistry
@@ -36,9 +37,7 @@ def list_of_all_config_models() -> List[Type]:
         ]
     ]
 
-@pytest.mark.parametrize("config_model", [
-    config_model for config_model in list_of_all_config_models()
-])
+@pytest.mark.parametrize("config_model", list_of_all_config_models())
 def test_config_consistency(config_model: Type):
     """
     Determines if config models are defined consistently throughout the codebase
@@ -149,7 +148,7 @@ def list_tool_inputs_and_outputs() -> List[Tuple[str, str]]:
 
 @pytest.mark.parametrize(
     "tool_input, tool_output",
-    [(tool_input, tool_output) for (tool_input, tool_output) in list_tool_inputs_and_outputs()],
+    list_tool_inputs_and_outputs(),
 )
 def test_tool_input_and_output_consistency(tool_input: type, tool_output: type):
     """
@@ -221,6 +220,101 @@ def test_tool_input_and_output_consistency(tool_input: type, tool_output: type):
         f"Missing implementations for abstract methods: "
         f"{sorted(tool_output.__abstractmethods__)}"
     )
+
+
+@pytest.mark.parametrize("config_model", list_of_all_config_models())
+def test_depends_on_references_valid_field(config_model: Type):
+    """
+    Every x-depends-on in a config schema must reference an existing,
+    non-hidden sibling property.
+    """
+    schema = config_model.model_json_schema()
+    properties = schema.get("properties", {})
+
+    for field_name, field_schema in properties.items():
+        x_dep = field_schema.get("x-depends-on")
+        if x_dep is None:
+            continue
+
+        ref_field = x_dep.get("field")
+        assert ref_field is not None, (
+            f"{config_model.__name__}.{field_name}: "
+            "x-depends-on is missing the 'field' key."
+        )
+
+        assert ref_field in properties, (
+            f"{config_model.__name__}.{field_name}: "
+            f"x-depends-on references '{ref_field}' which does not exist "
+            f"in the schema properties. "
+            f"Available: {sorted(properties.keys())}"
+        )
+
+        ref_hidden = properties[ref_field].get("hidden", False)
+        assert not ref_hidden, (
+            f"{config_model.__name__}.{field_name}: "
+            f"x-depends-on references '{ref_field}' which is hidden. "
+            "A dependency on a hidden field is not visible to the user."
+        )
+
+
+# ---------------------------------------------------------------------------
+# ConfigField depends_on serialization
+# ---------------------------------------------------------------------------
+
+class _DependsOnModel(LanguageBaseConfig):
+    """Shared test model for depends_on parametrized tests."""
+    mode: str = ConfigField(default="basic", title="Mode", description="Operating mode.")
+    target: Optional[str] = ConfigField(default=None, title="Target", description="Optional target.")
+    enabled: bool = ConfigField(default=False, title="Enabled", description="Toggle.")
+    with_value: str = ConfigField(
+        default="off", title="With Value", description="Single value.",
+        depends_on={"field": "mode", "value": "advanced"},
+    )
+    with_list: int = ConfigField(
+        default=1, title="With List", description="List value.",
+        depends_on={"field": "mode", "value": ["a", "b"]},
+    )
+    with_not_null: str = ConfigField(
+        default="x", title="With Not Null", description="Not null.",
+        depends_on={"field": "target", "not_null": True},
+    )
+    with_truthy: str = ConfigField(
+        default="", title="With Truthy", description="Truthy check.",
+        depends_on={"field": "enabled"},
+    )
+    plain: int = ConfigField(default=0, title="Plain", description="No depends_on.")
+
+
+@pytest.mark.parametrize("field_name, expected", [
+    ("with_value", {"field": "mode", "value": "advanced"}),
+    ("with_list", {"field": "mode", "value": ["a", "b"]}),
+    ("with_not_null", {"field": "target", "not_null": True}),
+    ("with_truthy", {"field": "enabled"}),
+    ("plain", None),
+])
+def test_depends_on_schema_output(field_name: str, expected):
+    """depends_on produces the correct x-depends-on in JSON schema."""
+    schema = _DependsOnModel.model_json_schema()
+    props = schema["properties"][field_name]
+    if expected is None:
+        assert "x-depends-on" not in props
+    else:
+        assert props["x-depends-on"] == expected
+
+
+@pytest.mark.parametrize("depends_on, match", [
+    ({"value": "bar"}, "must include a 'field' key"),
+    ({"field": "x", "value": "y", "not_null": True}, "cannot specify both"),
+])
+def test_depends_on_invalid_raises(depends_on, match):
+    """Invalid depends_on dicts raise ValueError at class definition."""
+    with pytest.raises(ValueError, match=match):
+        class _Bad(LanguageBaseConfig):
+            """Test model."""
+            bad: str = ConfigField(
+                default="", title="Bad", description="Should fail.",
+                depends_on=depends_on,
+            )
 
 
 def _field_description_is_valid(description: str) -> str:

@@ -129,7 +129,7 @@ The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
 - `from __future__ import annotations` at top of every file
 - `logging.getLogger(__name__)` — never `print()`
 - Black (line length 88), isort (black-compatible profile), flake8 (F401 + F841 only)
-- Pydantic v2 for all configs — inherit `BaseConfig`, use `ConfigField` (not `Field`)
+- Pydantic v2 for all configs — inherit `BaseConfig`, use `ConfigField` (not `Field`). Use `depends_on` for conditional field visibility (show/hide fields based on another field's value).
 - Registry keys: kebab-case. Config classes: `{Name}Config`. Files: `{name}_constraint.py` / `{name}_generator.py`
 - **When modifying existing code**: Thoroughly find and update ALL callsites, imports, docstrings, comments, tests, and documentation that reference the changed code. Use sub-agents to search the entire codebase in parallel. Leave no dangling references.
 

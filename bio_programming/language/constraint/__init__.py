@@ -38,9 +38,7 @@ from .rna_secondary_structure import (
 # RNA splicing constraints
 from .rna_splicing import (
     splice_transformer_intron_boundary,
-    splice_transformer_intron_boundary_three_part,
     splice_transformer_specificity,
-    splice_transformer_specificity_three_part,
 )
 
 # Sequence alignment constraints
@@ -106,7 +104,5 @@ __all__ = [
     "rna_basepair_similarity_constraint",
     # RNA splicing
     "splice_transformer_intron_boundary",
-    "splice_transformer_intron_boundary_three_part",
     "splice_transformer_specificity",
-    "splice_transformer_specificity_three_part",
 ]

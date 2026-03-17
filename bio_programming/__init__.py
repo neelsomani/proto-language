@@ -29,9 +29,7 @@ from .language.constraint import (  # Registry; Sequence composition; Protein st
     sequence_length_constraint,
     sigma70_promoter_constraint,
     splice_transformer_intron_boundary,
-    splice_transformer_intron_boundary_three_part,
     splice_transformer_specificity,
-    splice_transformer_specificity_three_part,
     structure_ensemble_rmsd_constraint,
     structure_iptm_constraint,
     structure_pae_constraint,
@@ -154,9 +152,7 @@ __all__ = [
     "rna_basepair_similarity_constraint",
     # RNA splicing constraints
     "splice_transformer_intron_boundary",
-    "splice_transformer_intron_boundary_three_part",
     "splice_transformer_specificity",
-    "splice_transformer_specificity_three_part",
     # Generator registry
     "GeneratorRegistry",
     "GeneratorSpec",

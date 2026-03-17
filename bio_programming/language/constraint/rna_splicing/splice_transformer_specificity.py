@@ -1,8 +1,13 @@
 """
 Evaluate tissue-specific splicing with SpliceTransformer.
+
+Accepts three segments (left_flank, intron_core, right_flank), concatenates
+them into a single 1-kb target sequence, and scores tissue-specific splice
+site usage. Metadata is propagated back to all three input segments.
 """
 from __future__ import annotations
 
+import logging
 from typing import List, Literal, Tuple
 
 from proto_tools import (
@@ -15,6 +20,8 @@ from pydantic import field_validator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
+
+logger = logging.getLogger(__name__)
 
 SpliceTransformerTissueName = Literal[
     "AVERAGE",
@@ -150,12 +157,16 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     key="splice-transformer-specificity",
     label="SpliceTransformer tissue specificity score",
     config=SpliceTransformerSpecificityConfig,
-    description="Evaluate tissue-specific splicing with SpliceTransformer",
+    description=(
+        "Evaluate tissue-specific splicing with SpliceTransformer. "
+        "Takes three segments (left_flank, intron_core, right_flank), "
+        "concatenates them into the 1-kb target, and scores tissue specificity."
+    ),
     uses_gpu=True,
     tools_called=["splice-transformer-prediction"],
     category="rna splicing",
     supported_sequence_types=["dna"],
-    num_input_sequences_per_tuple=1,
+    num_input_sequences_per_tuple=3,
 )
 def splice_transformer_specificity(
     input_sequences: List[Tuple[Sequence, ...]],
@@ -163,97 +174,84 @@ def splice_transformer_specificity(
 ) -> List[float]:
     """Evaluate tissue-specific splicing with SpliceTransformer.
 
-    This constraint function uses SpliceTransformer to predict tissue-specific
-    splice site usage at specified positions in DNA sequences. The model was
-    trained on GTEx (Genotype-Tissue Expression) RNA-seq data from multiple human
-    tissues and can predict how strongly a splice site will be used in different tissue
-    contexts.
+    Each input tuple contains three DNA sequences (left_flank, intron_core,
+    right_flank) which are concatenated into a single target sequence for
+    scoring. Metadata is propagated back to all three input segments.
 
-    The constraint enables design of sequences with controlled tissue-specific
-    alternative splicing, such as brain-specific exon inclusion or liver-specific
-    exon skipping. By setting the direction parameter, you can either maximize
-    splicing in a target tissue (for tissue-specific activation) or minimize it
-    (for tissue-specific repression).
+    The constraint can maximize or minimize splicing in a target tissue,
+    enabling design of sequences with controlled tissue-specific alternative
+    splicing.
 
-    The function requires precisely sized inputs: the target sequence must be
-    exactly 1000 bp, and both flanking contexts must be exactly 4000 bp each,
-    for a total analyzed region of 9000 bp.
+    The concatenated target sequence must be exactly 1000 bp, and both flanking
+    contexts must be exactly 4000 bp each, for a total analyzed region of
+    9000 bp.
 
     Args:
-        input_sequences (List[Tuple[Sequence, ...]]): List of sequence tuples to evaluate.
-            Each tuple contains one DNA sequence. Must be exactly 1000 bp in length.
-            This is the central region containing the positions to be evaluated for
-            tissue-specific splicing.
+        input_sequences: List of 3-tuples (left_flank, intron_core, right_flank).
+            The three sequences are concatenated into a single 1000 bp target.
 
-        config (SpliceTransformerSpecificityConfig): Configuration object containing
-            ``left_context`` (4000 bp), ``right_context`` (4000 bp), ``splice_pos``
-            (position(s) to evaluate), ``tissue`` (target tissue, default: "AVERAGE"),
-            ``direction`` (optimization direction, default: "max"), and optional
-            ``splice_transformer_config`` for advanced settings.
+        config: Configuration object containing ``left_context`` (4000 bp),
+            ``right_context`` (4000 bp), ``splice_pos`` (position(s) to
+            evaluate), ``tissue`` (target tissue), ``direction`` ("max" or
+            "min"), and optional ``splice_transformer_config``.
 
     Returns:
-        List[float]: Constraint scores ranging from 0.0 to 1.0 for each sequence.
-            The interpretation depends on the ``direction`` parameter:
+        List[float]: Constraint scores ranging from 0.0 to 1.0 for each
+            sequence. The interpretation depends on the ``direction`` parameter:
 
-            - **direction="max"** (maximize splicing): Score = 1.0 - tissue_probability.
-              Lower scores indicate stronger predicted splicing (0.0 = 100% probability,
-              1.0 = 0% probability). Use this to encourage tissue-specific splice
-              site usage.
-            - **direction="min"** (minimize splicing): Score = tissue_probability.
-              Lower scores indicate weaker predicted splicing (0.0 = 0% probability,
-              1.0 = 100% probability). Use this to discourage tissue-specific splice
-              site usage.
+            - **direction="max"** (maximize splicing): Score = 1.0 - tissue_prob.
+              Lower scores indicate stronger predicted splicing. Use this to
+              encourage tissue-specific splice site usage.
+            - **direction="min"** (minimize splicing): Score = tissue_prob.
+              Lower scores indicate weaker predicted splicing. Use this to
+              discourage tissue-specific splice site usage.
 
-            When multiple positions are specified, the score uses the mean probability
-            across all positions.
-
-    Raises:
-        AssertionError: If left_context and right_context lengths don't match, or
-            if the output shape doesn't match the input sequence length.
-        ValueError: If direction is not "max" or "min".
+            When multiple positions are specified, the score uses the mean
+            probability across all positions.
 
     Note:
-        This function modifies the input sequence by adding metadata to the
-        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
+        This function adds metadata to each input ``Sequence`` object's
+        ``_metadata`` dictionary with the following keys:
 
         - ``specificity_direction_{tissue}``: String indicating the optimization
           direction used ("max" or "min")
-        - ``specificity_score_{tissue}``: Float constraint score for the specified
-          tissue
+        - ``specificity_score_{tissue}``: Float constraint score for the
+          specified tissue
 
-        The metadata keys include the tissue name, so evaluating multiple tissues
-        on the same sequence will create separate metadata entries for each.
+        The metadata keys include the tissue name, so evaluating multiple
+        tissues on the same sequence will create separate metadata entries.
 
     Examples:
-        Maximizing brain-specific splicing at a splice site:
+        Maximizing brain-specific splicing:
 
-        >>> from proto_language.language.core import Sequence, SequenceType
-        >>> # 1000 bp target sequence
-        >>> target_seq = Sequence("ATCG" * 250, "dna")
-        >>> # 4000 bp flanking contexts
-        >>> left_ctx = "ATCG" * 1000
-        >>> right_ctx = "GCTA" * 1000
-        >>>
+        >>> left = Sequence("A" * 200, "dna")
+        >>> intron = Sequence("C" * 600, "dna")
+        >>> right = Sequence("G" * 200, "dna")
         >>> config = SpliceTransformerSpecificityConfig(
-        ...     left_context=left_ctx,
-        ...     right_context=right_ctx,
-        ...     splice_pos=500,  # Position to evaluate
+        ...     left_context="A" * 4000,
+        ...     right_context="A" * 4000,
+        ...     splice_pos=[199, 800],
         ...     tissue="BRAIN",
-        ...     direction="max"  # Maximize brain-specific splicing
+        ...     direction="max",
         ... )
-        >>> scores = splice_transformer_specificity([(target_seq,)], config)
+        >>> scores = splice_transformer_specificity(
+        ...     [(left, intron, right)], config
+        ... )
         >>> print(scores[0])  # e.g., 0.15 (85% brain-specific probability)
-        >>> print(target_seq._metadata["specificity_direction_BRAIN"])  # "max"
-        >>> print(target_seq._metadata["specificity_score_BRAIN"])  # 0.15
+        >>> print(left._metadata["specificity_score_BRAIN"])  # e.g., 0.15
     """
     assert len(config.left_context) == len(config.right_context)
     context_length = len(config.left_context)
     tissue_channel_index = SPLICE_TISSUE_CHANNEL_INDEX[config.tissue]
 
     scores = []
-    for (sequence,) in input_sequences:
+    for left_flank, intron_core, right_flank in input_sequences:
+        target_seq = (
+            left_flank.sequence + intron_core.sequence + right_flank.sequence
+        )
+
         splice_transformer_input = SpliceTransformerInput(
-            target_seqs=[sequence.sequence],
+            target_seqs=[target_seq],
             left_contexts=[config.left_context],
             right_contexts=[config.right_context],
         )
@@ -266,7 +264,7 @@ def splice_transformer_specificity(
             splice_transformer_config,
         ).prediction
 
-        assert output.shape[1] == len(sequence.sequence)
+        assert output.shape[1] == len(target_seq)
 
         if tissue_channel_index is None:
             score = float(output[:, config.splice_pos, 3:].mean())
@@ -283,10 +281,12 @@ def splice_transformer_specificity(
                 "must be either 'max' or 'min'."
             )
 
-        sequence._metadata.update({
+        metadata = {
             f"specificity_direction_{config.tissue}": config.direction,
             f"specificity_score_{config.tissue}": score,
-        })
+        }
+        for seq in (left_flank, intron_core, right_flank):
+            seq._metadata.update(metadata)
 
         scores.append(score)
 

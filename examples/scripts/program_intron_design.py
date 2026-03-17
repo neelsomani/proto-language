@@ -1,7 +1,7 @@
 import logging
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Dict, Tuple
 
 from tap import Tap
 
@@ -53,91 +53,7 @@ def _enable_mcmc_energy_logging() -> None:
     mcmc_logger.propagate = False
 
 
-def _join_three_part_target_sequence(sequence_tuple: Tuple[Sequence, ...]) -> Sequence:
-    """
-    Concatenate left flank + intron core + right flank into the 1-kb target sequence
-    required by SpliceTransformer constraints.
-    """
-    if len(sequence_tuple) != 3:
-        raise ValueError(
-            f"Expected 3 input sequences (left_flank, intron, right_flank), got {len(sequence_tuple)}."
-        )
-    left_flank, intron_core, right_flank = sequence_tuple
-    return Sequence(
-        sequence=left_flank.sequence + intron_core.sequence + right_flank.sequence,
-        sequence_type=left_flank.sequence_type,
-    )
-
-
-def splice_transformer_intron_boundary_three_part(
-    input_sequences: List[Tuple[Sequence, ...]],
-    config: Any,
-) -> List[float]:
-    """
-    Script-local compatibility wrapper.
-
-    The current base constraint expects one concatenated target sequence tuple.
-    This script historically passes three segments to keep the intron mutable while
-    keeping flanks fixed, so we concatenate per tuple before scoring and propagate
-    the resulting metadata back to each tuple member for optimizer logging.
-    """
-    concatenated_inputs = []
-    for sequence_tuple in input_sequences:
-        concatenated_target = _join_three_part_target_sequence(sequence_tuple)
-        concatenated_inputs.append((concatenated_target,))
-
-    scores = splice_transformer_intron_boundary(concatenated_inputs, config)
-
-    for original_tuple, (concatenated_target,) in zip(input_sequences, concatenated_inputs):
-        metadata_update = dict(concatenated_target._metadata)
-        for sequence in original_tuple:
-            sequence._metadata.update(metadata_update)
-
-    return scores
-
-
-def splice_transformer_specificity_three_part(
-    input_sequences: List[Tuple[Sequence, ...]],
-    config: Any,
-) -> List[float]:
-    """
-    Script-local compatibility wrapper for tissue-specific SpliceTransformer scoring
-    over three-part input tuples.
-    """
-    concatenated_inputs = []
-    for sequence_tuple in input_sequences:
-        concatenated_target = _join_three_part_target_sequence(sequence_tuple)
-        concatenated_inputs.append((concatenated_target,))
-
-    scores = splice_transformer_specificity(concatenated_inputs, config)
-
-    for original_tuple, (concatenated_target,) in zip(input_sequences, concatenated_inputs):
-        metadata_update = dict(concatenated_target._metadata)
-        for sequence in original_tuple:
-            sequence._metadata.update(metadata_update)
-
-    return scores
-
-
-# Keep config and type validation in Constraint while allowing three-part tuples.
-splice_transformer_intron_boundary_three_part._constraint_config_class = (
-    splice_transformer_intron_boundary._constraint_config_class
-)
-splice_transformer_intron_boundary_three_part._constraint_supported_sequence_types = (
-    splice_transformer_intron_boundary._constraint_supported_sequence_types
-)
-splice_transformer_intron_boundary_three_part._constraint_num_input_sequences_per_tuple = 3
-
-splice_transformer_specificity_three_part._constraint_config_class = (
-    splice_transformer_specificity._constraint_config_class
-)
-splice_transformer_specificity_three_part._constraint_supported_sequence_types = (
-    splice_transformer_specificity._constraint_supported_sequence_types
-)
-splice_transformer_specificity_three_part._constraint_num_input_sequences_per_tuple = 3
-
-
-def _get_constraints_metadata(sequence: Sequence) -> Dict[str, Any]:
+def _get_constraints_metadata(sequence: Sequence) -> Dict[str, any]:
     """
     Return constraint metadata from a Sequence across old/new metadata layouts.
     """
@@ -427,7 +343,7 @@ if __name__ == '__main__':
 
         intron_boundary = Constraint(
             inputs=[left_flank, intron, right_flank],
-            function=splice_transformer_intron_boundary_three_part,
+            function=splice_transformer_intron_boundary,
             function_config={
                 "left_context": left_context,
                 "right_context": right_context,
@@ -440,7 +356,7 @@ if __name__ == '__main__':
         if 'max_brain' in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity_three_part,
+                function=splice_transformer_specificity,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,
@@ -454,7 +370,7 @@ if __name__ == '__main__':
         if 'min_brain' in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity_three_part,
+                function=splice_transformer_specificity,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,
@@ -468,7 +384,7 @@ if __name__ == '__main__':
         if 'max_blood' in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity_three_part,
+                function=splice_transformer_specificity,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,
@@ -482,7 +398,7 @@ if __name__ == '__main__':
         if 'min_blood' in args.specificity_type:
             intron_blood_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
-                function=splice_transformer_specificity_three_part,
+                function=splice_transformer_specificity,
                 function_config={
                     "left_context": left_context,
                     "right_context": right_context,

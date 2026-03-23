@@ -6,8 +6,13 @@ right_flank) and concatenate them into a single target sequence for scoring.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import numpy as np
 import pytest
 from proto_tools import CONTEXT_LENGTH as SPLICE_TRANSFORMER_CONTEXT_LENGTH
+from proto_tools import TARGET_LENGTH as SPLICE_TRANSFORMER_TARGET_LENGTH
 from proto_tools import SpliceTransformerConfig
 
 from proto_language.language.constraint import ConstraintRegistry
@@ -224,3 +229,82 @@ def test_specificity_metadata_propagation():
     for seq in (left_flank, intron_core, right_flank):
         assert "specificity_direction_BRAIN" in seq._metadata
         assert "specificity_score_BRAIN" in seq._metadata
+
+
+# --- Batched inference ---
+
+
+def test_splice_transformer_specificity_batches():
+    left_a = Sequence("A" * 200, sequence_type="dna")
+    intron_a = Sequence("A" * 600, sequence_type="dna")
+    right_a = Sequence("A" * 200, sequence_type="dna")
+    left_b = Sequence("C" * 200, sequence_type="dna")
+    intron_b = Sequence("C" * 600, sequence_type="dna")
+    right_b = Sequence("C" * 200, sequence_type="dna")
+
+    predictions = np.zeros((2, SPLICE_TRANSFORMER_TARGET_LENGTH, 18), dtype=float)
+    brain_channel = 6  # SPLICE_TISSUE_CHANNEL_INDEX["BRAIN"]
+    predictions[0, 10, brain_channel] = 0.2
+    predictions[0, 20, brain_channel] = 0.4
+    predictions[1, 10, brain_channel] = 0.8
+    predictions[1, 20, brain_channel] = 0.6
+
+    specificity_config = SpliceTransformerSpecificityConfig(
+        left_context="A" * SPLICE_TRANSFORMER_CONTEXT_LENGTH,
+        right_context="A" * SPLICE_TRANSFORMER_CONTEXT_LENGTH,
+        splice_pos=[10, 20],
+        tissue="BRAIN",
+        direction="max",
+        splice_transformer_config=SpliceTransformerConfig(device="cpu"),
+    )
+
+    with patch(
+        "proto_language.language.constraint.rna_splicing.splice_transformer_specificity.run_splice_transformer",
+        return_value=SimpleNamespace(prediction=predictions),
+    ) as mock_run:
+        scores = splice_transformer_specificity(
+            [(left_a, intron_a, right_a), (left_b, intron_b, right_b)],
+            specificity_config,
+        )
+
+    assert scores == pytest.approx([0.7, 0.3], abs=1e-6)
+    mock_run.assert_called_once()
+    call_input = mock_run.call_args[0][0]
+    assert len(call_input.target_seqs) == 2
+
+
+def test_splice_transformer_intron_boundary_batches():
+    left_a = Sequence("A" * 200, sequence_type="dna")
+    intron_a = Sequence("A" * 600, sequence_type="dna")
+    right_a = Sequence("A" * 200, sequence_type="dna")
+    left_b = Sequence("C" * 200, sequence_type="dna")
+    intron_b = Sequence("C" * 600, sequence_type="dna")
+    right_b = Sequence("C" * 200, sequence_type="dna")
+
+    predictions = np.zeros((2, SPLICE_TRANSFORMER_TARGET_LENGTH, 18), dtype=float)
+    predictions[0, 50, 2] = 0.9  # donor
+    predictions[0, 60, 1] = 0.5  # acceptor
+    predictions[1, 50, 2] = 0.2
+    predictions[1, 60, 1] = 0.4
+
+    boundary_config = SpliceTransformerIntronBoundaryConfig(
+        left_context="A" * SPLICE_TRANSFORMER_CONTEXT_LENGTH,
+        right_context="A" * SPLICE_TRANSFORMER_CONTEXT_LENGTH,
+        donor_pos=[50],
+        acceptor_pos=[60],
+        splice_transformer_config=SpliceTransformerConfig(device="cpu"),
+    )
+
+    with patch(
+        "proto_language.language.constraint.rna_splicing.splice_transformer_intron_boundary.run_splice_transformer",
+        return_value=SimpleNamespace(prediction=predictions),
+    ) as mock_run:
+        scores = splice_transformer_intron_boundary(
+            [(left_a, intron_a, right_a), (left_b, intron_b, right_b)],
+            boundary_config,
+        )
+
+    assert scores == pytest.approx([0.3, 0.7], abs=1e-6)
+    mock_run.assert_called_once()
+    call_input = mock_run.call_args[0][0]
+    assert len(call_input.target_seqs) == 2

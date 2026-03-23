@@ -1,17 +1,18 @@
-import Bio
-from Bio import SeqIO
-from Bio.Seq import Seq
-from dataclasses import dataclass
-from glob import glob
-import numpy as np
 import os
-import pandas as pd
 import random
 import shutil
 import subprocess
 import tempfile
-from tqdm import tqdm
+from dataclasses import dataclass
+from glob import glob
 from typing import Any, Dict, List, Optional
+
+import Bio
+import numpy as np
+import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq
+from tqdm import tqdm
 
 
 def collect_uniprot_data(uniprot_id: str, cluster_name: str = 'UniRef50') -> Dict[str, Any]:
@@ -92,7 +93,9 @@ def sample_esm3(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[
     Mutate the existing wildtype sequence with ESM3.
     """
 
-    from proto_tools.tools.masked_models.esm3.standalone.inference import ESM3Model
+    from proto_tools.tools.masked_models.esm3.standalone.inference import (
+        ESM3Model,
+    )
 
     mutation_fractions = [ 0.25, 0.5, 0.75, 1.0 ]
     temperatures = [ 0.3, 0.7 ]
@@ -135,8 +138,8 @@ def human_codon_optimize(aa_seqs: List[str]) -> List[str]:
     """
     Use CodonTransformer to human-codon optimize proteins.
     """
-    from CodonTransformer.CodonPrediction import predict_dna_sequence
     import torch
+    from CodonTransformer.CodonPrediction import predict_dna_sequence
     from transformers import AutoTokenizer, BigBirdForMaskedLM
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -285,7 +288,9 @@ def cached_esmfold(seq: str) -> Dict[str, str]:
     global esmfold_model
 
     if esmfold_model is None:
-        from proto_tools.tools.structure_prediction.esmfold.inference import ESMFoldModel
+        from proto_tools.tools.structure_prediction.esmfold.inference import (
+            ESMFoldModel,
+        )
         esmfold_model = ESMFoldModel()
 
     if seq in structure_cache:

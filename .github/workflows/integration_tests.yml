@@ -32,6 +32,18 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y mafft
 
+    - name: Install micromamba
+      run: |
+        # Pre-install micromamba so ToolInstance doesn't download it at runtime.
+        # Uses conda-forge GitHub release instead of micro.mamba.pm (SSL issues).
+        # ToolInstance looks for .micromamba/bin/micromamba relative to the
+        # proto-tools project root.
+        MAMBA_DIR="${{ github.workspace }}/proto-tools/.micromamba"
+        mkdir -p "$MAMBA_DIR/bin"
+        curl -sSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -o "$MAMBA_DIR/bin/micromamba"
+        chmod 755 "$MAMBA_DIR/bin/micromamba"
+        "$MAMBA_DIR/bin/micromamba" --version
+
     - name: Cache pip packages
       uses: actions/cache@v4
       with:

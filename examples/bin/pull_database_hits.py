@@ -5,14 +5,14 @@ Save all of the near-length sequences in an input UniProt FASTA retrieved from a
 mmseqs database.
 """
 import argparse
-from Bio import SeqIO
 import os
-import pandas as pd
 import shutil
 import subprocess
 import tempfile
 from typing import List
 
+import pandas as pd
+from Bio import SeqIO
 
 DB_PATH = "/large_storage/hielab/brianhie/datasets/uniref50/mmseqs/uniref50_db"
 TMP_DIR = "./mmseqs_tmp"

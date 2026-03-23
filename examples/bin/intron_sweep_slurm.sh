@@ -23,7 +23,7 @@ do
 
     for i in $(seq 1 8 100); do
         log_value=$(awk -v i="$i" 'BEGIN { exponent = (1 - i) / 33; print 10 ^ exponent }')
-        
+
         echo "Running i=$i, temperature=$log_value..."
 
         python -m examples.scripts.program_intron_design \

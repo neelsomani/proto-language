@@ -50,6 +50,7 @@ class TestProteinDomainConstraint:
         with pytest.raises(Exception):  # Pydantic ValidationError
             ProteinDomainConfig(hmm_db="/path/to/db.hmm")
 
+    @pytest.mark.integration
     def test_scoring_algorithm_matching_domain(self):
         """Test protein sequence with matching domain and metadata."""
         segment = Segment(sequence=SAMPLE_SEQUENCE, sequence_type="protein"
@@ -77,6 +78,7 @@ class TestProteinDomainConstraint:
             in constraints["protein_domain_constraint"]["data"]["domain_keywords_found"]
         ), f"Keyword should be found in metadata, but got {constraints['protein_domain_constraint']['data']['domain_keywords_found']}"
 
+    @pytest.mark.integration
     def test_protein_sequence_without_matching_domain(self):
         """Test protein sequence without matching domain."""
         segment = Segment(sequence=SAMPLE_SEQUENCE, sequence_type="protein")
@@ -101,6 +103,7 @@ class TestProteinDomainConstraint:
         assert constraints["protein_domain_constraint"]["data"]["domain_keywords_found"] == []
         assert "domain_matching_hits" in constraints["protein_domain_constraint"]["data"]
 
+    @pytest.mark.integration
     def test_match_all_keywords(self):
         """Test match_all_keywords parameter (constraint-specific config behavior)."""
         segment = Segment(sequence=SAMPLE_SEQUENCE, sequence_type="protein")
@@ -143,6 +146,7 @@ class TestProteinDomainConstraint:
             with pytest.raises(ValueError, match="HMM database not found"):
                 constraint.evaluate()
 
+    @pytest.mark.integration
     def test_dna_sequence_with_proteins(self):
         """Test DNA sequence with no predicted proteins (constraint-specific edge case)."""
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")

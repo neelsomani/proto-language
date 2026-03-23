@@ -105,6 +105,9 @@ def get_initial_intron(args: ProgramIntronDesignArgs) -> str:
     elif args.initialization == 'hbb2':
         # HBB intron 2 wildtype:
         initial_intron = "GTGAGTCTATGGGACGCTTGATGTTTTCTTTCCCCTTCTTTTCTATGGTTAAGTTCATGTCATAGGAAGGGGATAAGTAACAGGGTACAGTTTAGAATGGGAAACAGACGAATGATTGCATCAGTGTGGAAGTCTCAGGATCGTTTTAGTTTCTTTTATTTGCTGTTCATAACAATTGTTTTCTTTTGTTTAATTCTTGCTTTCTTTTTTTTTCTTCTCCGCAATTTTTACTATTATACTTAATGCCTTAACATTGTGTATAACAAAAGGAAATATCTCTGAGATACATTAAGTAACTTAAAAAAAAACTTTACACAGTCTGCCTAGTACATTACTATTTGGAATATATGTGTGCTTATTTGCATATTCATAATCTCCCTACTTTATTTTCTTTTATTTTTAATTGATACATAATCATTATACATATTTATGGGTTAAAGTGTAATGTTTTAATATGTGTACACATATTGACCAAATCAGGGTAATTTTGCATTTGTAATTTTAAAAAATGCTTTCTTCTTTTAATATACTTTTTTGTTTATCTTATTTCTAATACTTTCCCTAATCTCTTTCTTTCAGGGCAATAATGATACAATGTATCATGCCTCTTTGCACCATTCTAAAGAATAACAGTGATAATTTCTGGGTTAAGGCAATAGCAATATCTCTGCATATAAATATTTCTGCATATAAATTGTAACTGATGTAAGAGGTTTCATATTGCTAATAGCAGCTACAATCCAGCTACCATTCTGCTTTTATTTTATGGTTGGGATAAGGCTGGATTATTCTGAGTCCAAGCTAGGCCCTTTTGCTAATCATGTTCATACCTCTTATCTTCCTCCCACAG"
+    elif args.initialization == 'config38':
+        # Current checkpoint seed from sweep_20260222_134501/config_38 (full intron, step 2366).
+        initial_intron = "GTAATTAGAGCGGCCCCTTTCAGTAAAGGGCCCTATATGGTGGAAGGGGCGTGGAGCCCCGTGCCGATACTTGATTCCTAACAGAGTAATGGATCGCGATTTATAATTAAGAATCTAATAGGGACGGGGAGGGAGGTGTGGGGGGAGGGCGAAACAACCTAGCCGAATCTCGAACCTCAGATCAGTGTTGTTCTACGATTCTCGGTTCAACAGGACGGTTAGTACCTAGAGGATGTAAATAGGTAGTTGGGAACCAGGGCTACCATTATTTCCTGCATGGTCAGGGGGGGGGGCGGGACGTATACTCAGCACACCGAGTCCCGGTGTGAATGGTTAGCCAGCACTCCACCTCTAATTGGTACATTCTCTTTTCTCGTAG"
     else:
         raise ValueError(f'Invalid initialization type: "{args.initialization}"')
 
@@ -415,9 +418,17 @@ if __name__ == '__main__':
     #############
 
     def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
-        left_flank_sequence: Sequence = outputs[0].result_sequences[0]._sequence
-        intron_sequence: Sequence = outputs[1].result_sequences[0]._sequence
-        right_flank_sequence: Sequence = outputs[2].result_sequences[0]._sequence
+        left_flank_sequence = str(outputs[0].result_sequences[0]._sequence)
+        intron_core_sequence = str(outputs[1].result_sequences[0]._sequence)
+        right_flank_sequence = str(outputs[2].result_sequences[0]._sequence)
+
+        if len(left_flank_sequence) >= 2 and len(right_flank_sequence) >= 2:
+            intron_sequence = (
+                left_flank_sequence[-2:] + intron_core_sequence + right_flank_sequence[:2]
+            )
+        else:
+            intron_sequence = intron_core_sequence
+
         print(
             f"\tsequence (left_flank): {left_flank_sequence}\n"
             f"\tsequence (intron): {intron_sequence}\n"

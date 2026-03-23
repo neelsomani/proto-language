@@ -37,6 +37,7 @@ from .rna_secondary_structure import (
 
 # RNA splicing constraints
 from .rna_splicing import (
+    alphagenome_splice_site_usage,
     splice_transformer_intron_boundary,
     splice_transformer_specificity,
 )
@@ -46,6 +47,7 @@ from .sequence_alignment import gap_gini_constraint
 
 # Sequence annotation constraints
 from .sequence_annotation import (
+    alphagenome_interval_track_constraint,
     mmseqs_similarity_constraint,
     promoter_strength_constraint,
     seq_motif_constraint,
@@ -97,12 +99,14 @@ __all__ = [
     "sigma70_promoter_constraint",
     "seq_motif_constraint",
     "promoter_strength_constraint",
+    "alphagenome_interval_track_constraint",
     # RNA secondary structure
     "rna_property_similarity_constraint",
     "rna_motif_similarity_constraint",
     "rna_feature_similarity_constraint",
     "rna_basepair_similarity_constraint",
     # RNA splicing
+    "alphagenome_splice_site_usage",
     "splice_transformer_intron_boundary",
     "splice_transformer_specificity",
 ]

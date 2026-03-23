@@ -40,8 +40,9 @@ def extract_pdb_id(filename: str) -> str:
 
 def load_ensemble_frames(topology_path: str, trajectory_path: str) -> list[str]:
     """Load trajectory and return list of PDB strings for each frame."""
-    import mdtraj as md
     import tempfile
+
+    import mdtraj as md
 
     traj = md.load(trajectory_path, top=topology_path)
     frames = []

@@ -1,19 +1,22 @@
 """
 Tests for RNA secondary structure similarity constraints.
+
+All tests call ViennaRNA via ToolInstance (requires micromamba).
 """
 
-from proto_language.language.core import Sequence
-from proto_language.language.constraint.rna_secondary_structure.structure_similarity_constraint import (
-    rna_property_similarity_constraint,
-    rna_motif_similarity_constraint,
-    rna_feature_similarity_constraint,
-    rna_basepair_similarity_constraint,
-    RNAPropertySimilarityConfig,
-    RNAMotifSimilarityConfig,
-    RNAFeatureSimilarityConfig,
-    RNABasePairSimilarityConfig,
-)
+import pytest
 
+from proto_language.language.constraint.rna_secondary_structure.structure_similarity_constraint import (
+    RNABasePairSimilarityConfig,
+    RNAFeatureSimilarityConfig,
+    RNAMotifSimilarityConfig,
+    RNAPropertySimilarityConfig,
+    rna_basepair_similarity_constraint,
+    rna_feature_similarity_constraint,
+    rna_motif_similarity_constraint,
+    rna_property_similarity_constraint,
+)
+from proto_language.language.core import Sequence
 
 # Test sequences
 HAIRPIN_SEQ = "GCGCUUUUGCGC"  # Forms a simple hairpin
@@ -24,6 +27,7 @@ LONG_HAIRPIN = "GGGGCCCCUUUUGGGGCCCC"  # Longer structured sequence
 EPSILON = 1e-10
 
 
+@pytest.mark.integration
 class TestRNAPropertySimilarityConstraint:
     """Tests for RNA structural property similarity constraint."""
 
@@ -55,6 +59,7 @@ class TestRNAPropertySimilarityConstraint:
         assert score < 0.5  # Should be fairly similar
 
 
+@pytest.mark.integration
 class TestRNAMotifSimilarityConstraint:
     """Tests for RNA structural motif similarity constraint."""
 
@@ -77,6 +82,7 @@ class TestRNAMotifSimilarityConstraint:
         assert score > 0.5
 
 
+@pytest.mark.integration
 class TestRNAFeatureSimilarityConstraint:
     """Tests for RNA feature vector similarity constraint."""
 
@@ -99,6 +105,7 @@ class TestRNAFeatureSimilarityConstraint:
         assert score > 0.0
 
 
+@pytest.mark.integration
 class TestRNABasePairSimilarityConstraint:
     """Tests for RNA base pair similarity constraint."""
 
@@ -134,6 +141,7 @@ class TestRNABasePairSimilarityConstraint:
         assert score == 1.0
 
 
+@pytest.mark.integration
 class TestBatchedConstraints:
     """Test that constraints handle batched inputs correctly."""
 

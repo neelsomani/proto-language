@@ -3,6 +3,8 @@ from __future__ import annotations
 from .language.constraint import (  # Registry; Sequence composition; Protein structure; Protein quality; Sequence annotation; RNA; Sequence alignment
     ConstraintRegistry,
     ConstraintSpec,
+    alphagenome_interval_track_constraint,
+    alphagenome_splice_site_usage,
     balanced_aa_constraint,
     boltz_binding_strength_constraint,
     constraint,
@@ -141,6 +143,7 @@ __all__ = [
     # Sequence alignment constraints
     "gap_gini_constraint",
     # Sequence annotation constraints
+    "alphagenome_interval_track_constraint",
     "mmseqs_similarity_constraint",
     "sigma70_promoter_constraint",
     "seq_motif_constraint",
@@ -151,6 +154,7 @@ __all__ = [
     "rna_feature_similarity_constraint",
     "rna_basepair_similarity_constraint",
     # RNA splicing constraints
+    "alphagenome_splice_site_usage",
     "splice_transformer_intron_boundary",
     "splice_transformer_specificity",
     # Generator registry

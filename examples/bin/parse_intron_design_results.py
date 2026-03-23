@@ -1,7 +1,8 @@
 from glob import glob
+from typing import Any, Dict, List
+
 import pandas as pd
 from tqdm import tqdm
-from typing import Any, Dict, List
 
 
 def parse_fname_evo2(fname: str) -> List[Dict[str, Any]]:

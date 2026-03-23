@@ -9,8 +9,9 @@ Usage:
 
 import argparse
 import glob
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 import pymol
 from pymol import cmd
 

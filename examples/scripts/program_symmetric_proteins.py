@@ -10,7 +10,7 @@ import argparse
 import os
 import sys
 from datetime import datetime
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 from proto_language.language.constraint import (
     protein_globularity_constraint,
@@ -94,6 +94,27 @@ class LogCapture:
 
     def close(self):
         self.log_file.close()
+
+
+def _get_constraints_metadata(sequence: Sequence) -> Dict[str, Any]:
+    """Return constraint metadata across old/new sequence metadata layouts."""
+    metadata_view = getattr(sequence, "metadata", None)
+    if isinstance(metadata_view, dict):
+        constraints = metadata_view.get("constraints")
+        if isinstance(constraints, dict):
+            return constraints
+
+    constraints_metadata = getattr(sequence, "_constraints_metadata", None)
+    if isinstance(constraints_metadata, dict):
+        return constraints_metadata
+
+    raw_metadata = getattr(sequence, "_metadata", None)
+    if isinstance(raw_metadata, dict):
+        constraints = raw_metadata.get("constraints")
+        if isinstance(constraints, dict):
+            return constraints
+
+    return {}
 
 
 def run_optimization(
@@ -189,16 +210,19 @@ def run_optimization(
 
         def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
             output_sequence: Sequence = outputs[0].result_sequences[0]
-            constraints = output_sequence._metadata["constraints"]
+            constraints = _get_constraints_metadata(output_sequence)
 
             # Get pLDDT from structure_plddt_constraint
-            plddt = constraints["structure_plddt_constraint"]["data"]["avg_plddt"]
+            plddt = constraints.get("structure_plddt_constraint", {}).get("data", {}).get("avg_plddt")
 
             # Get pTM from structure_ptm_constraint
-            ptm = constraints["structure_ptm_constraint"]["data"]["ptm"]
+            ptm = constraints.get("structure_ptm_constraint", {}).get("data", {}).get("ptm")
 
             # Get esmfolded_sequence from symmetry constraint
-            folded_sequence = constraints["protein_symmetry_ring_constraint"]["data"]["esmfolded_sequence"]
+            folded_sequence = constraints.get("protein_symmetry_ring_constraint", {}).get("data", {}).get(
+                "esmfolded_sequence",
+                "N/A",
+            )
 
             print(
                 f"Iteration {step} | \n"
@@ -244,10 +268,15 @@ def run_optimization(
 
         # Get sequence from the protomer segment (where constraint metadata is stored)
         protomer_sequence: Sequence = protomer.result_sequences[0]
-        constraints = protomer_sequence._metadata["constraints"]
+        constraints = _get_constraints_metadata(protomer_sequence)
+        if not constraints:
+            raise RuntimeError("No constraint metadata found on final protomer sequence.")
 
         # Save PDB (stored as file reference, need to retrieve content)
-        pdb_ref = constraints["protein_symmetry_ring_constraint"]["data"]["pdb_output"]
+        symmetry_data = constraints.get("protein_symmetry_ring_constraint", {}).get("data", {})
+        pdb_ref = symmetry_data.get("pdb_output")
+        if not pdb_ref:
+            raise RuntimeError("Missing PDB output reference in protein_symmetry_ring_constraint metadata.")
         pdb_content = get_file_content(pdb_ref)
         pdb_path = os.path.join(run_dir, "design.pdb")
         with open(pdb_path, "w") as f:
@@ -255,9 +284,9 @@ def run_optimization(
         print(f"Saved PDB to: {pdb_path}")
 
         # Extract final metrics
-        final_plddt = constraints["structure_plddt_constraint"]["data"]["avg_plddt"]
-        final_ptm = constraints["structure_ptm_constraint"]["data"]["ptm"]
-        folded_sequence = constraints["protein_symmetry_ring_constraint"]["data"]["esmfolded_sequence"]
+        final_plddt = constraints.get("structure_plddt_constraint", {}).get("data", {}).get("avg_plddt")
+        final_ptm = constraints.get("structure_ptm_constraint", {}).get("data", {}).get("ptm")
+        folded_sequence = symmetry_data.get("esmfolded_sequence")
 
         # Save final sequence and metrics
         seq_path = os.path.join(run_dir, "final_sequence.txt")

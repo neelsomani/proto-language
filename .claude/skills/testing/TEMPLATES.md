@@ -180,7 +180,7 @@ from pydantic import BaseModel
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
 from proto_language.language.core import Constraint, Construct, Segment
-from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
+from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig, MaskingStrategy
 from proto_language.language.optimizer import MyOptimizer, MyOptimizerConfig
 
 
@@ -192,7 +192,7 @@ def _setup_components(
 ):
     """Helper to create optimizer with standard test components."""
     segment = Segment(sequence="A" * seq_length, sequence_type="dna")
-    gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+    gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
     gen.assign(segment)
 
     construct = Construct([segment])
@@ -253,7 +253,7 @@ class TestMyOptimizer:
     def test_unassigned_generator_raises(self):
         """Unassigned generator should raise RuntimeError."""
         segment = Segment(sequence="A" * 10, sequence_type="dna")
-        gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         # NOT calling gen.assign(segment)
 
         def dummy(input_sequences, config=None):
@@ -275,7 +275,7 @@ class TestMyOptimizer:
     def test_filter_constraints(self):
         """Filter constraints (with threshold) reject bad proposals."""
         segment = Segment(sequence="A" * 20, sequence_type="dna")
-        gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen.assign(segment)
 
         # Filter: only accept sequences with GC in [40, 60]

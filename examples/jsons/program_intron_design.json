@@ -58,10 +58,10 @@
       },
       "generators": [
         {
-          "key": "uniform-mutation",
+          "key": "random-nucleotide",
           "target": "intron-core",
           "config": {
-            "num_mutations": 1
+            "masking_strategy": { "num_mutations": 1 }
           }
         }
       ],

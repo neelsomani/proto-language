@@ -16,7 +16,7 @@ The framework splits proposals into chunks of `batch_size` and processes each ch
 - **ESM2 / ESM3 / Evo2**: `batch_size` config field, default `1`. Set higher (e.g., 8-16) for throughput.
 - **ProteinMPNN / LigandMPNN**: `batch_size` config field, default `1`. Passed through to `InverseFoldingConfig.batch_size` (GPU chunking). The tool-level `num_sequences_per_structure` controls total sequences; `batch_size` controls GPU memory. In single-structure mode the generator sets `num_sequences_per_structure=num_proposals`; in multi-structure mode it uses defaults (1 sequence per structure).
 - **ProGen2**: `batch_size` config field, default `1`. Passed through to the ProGen2 tool for GPU batching.
-- **CPU generators** (UniformMutation, MSA): `batch_size = 1` (no batching needed).
+- **CPU generators** (RandomNucleotide, RandomProtein, MSA): `batch_size = 1` (no batching needed).
 
 ## Constraint Evaluation (No Framework-Level Batching)
 

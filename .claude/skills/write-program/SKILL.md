@@ -52,8 +52,9 @@ from proto_language.language.core import (
 )
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    MaskingStrategy,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
@@ -69,8 +70,8 @@ variable = Segment(length=100, sequence_type="dna")
 construct = Construct([variable])
 
 # === Step 3: Generators ===
-gen = UniformMutationGenerator(
-    UniformMutationGeneratorConfig(num_mutations=1)
+gen = RandomNucleotideGenerator(
+    RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
 )
 gen.assign(variable)  # MUST assign to target segment
 
@@ -160,7 +161,7 @@ Read the source file to see the config class and its `ConfigField` parameters:
 
 Constraints: `sequence_composition/` (GC content, homopolymers, k-mers, length), `protein_structure/` (pLDDT, pTM, RMSD, TM-score, symmetry, globularity, binding), `protein_quality/` (complexity, repetitiveness, diversity, balanced amino acids), `rna_secondary_structure/` (property/motif/feature/basepair similarity), `rna_splicing/` (intron boundary, tissue specificity), `sequence_annotation/` (sequence similarity, promoter strength, motifs), `sequence_alignment/` (sequence alignment similarity scoring)
 
-Generators: **mutation** (UniformMutation, ESM2, MSA), **autoregressive** (Evo2, ProGen2), **inverse_folding** (ProteinMPNN, LigandMPNN)
+Generators: **mutation** (RandomNucleotide, RandomProtein, ESM2, MSA), **autoregressive** (Evo2, ProGen2), **inverse_folding** (ProteinMPNN, LigandMPNN)
 
 ## Common Patterns
 

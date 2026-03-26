@@ -26,7 +26,7 @@ segment = Segment(length=50, sequence_type="dna")
 construct = Construct([segment])
 
 # Stage 1: Explore broadly
-gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=10))
+gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=10)))
 gen1.assign(segment)
 c1 = Constraint(inputs=[segment], function=gc_content_constraint,
                 function_config={"min_gc": 50, "max_gc": 100})
@@ -34,7 +34,7 @@ opt1 = TopKOptimizer(constructs=[construct], generators=[gen1], constraints=[c1]
                      config=TopKOptimizerConfig(num_samples=100, num_results=5))
 
 # Stage 2: Fine-tune
-gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
 gen2.assign(segment)
 c2 = Constraint(inputs=[segment], function=gc_content_constraint,
                 function_config={"min_gc": 70, "max_gc": 80})
@@ -67,7 +67,7 @@ variable = Segment(length=100, sequence_type="dna", label="intron")
 right = Segment(sequence="GCTAGCTA", sequence_type="dna", label="right_flank")
 construct = Construct([left, variable, right])
 
-gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
 gen.assign(variable)  # Only variable region gets a generator
 
 # Constraint can span multiple segments
@@ -82,7 +82,7 @@ See `examples/scripts/program_symmetric_proteins.py`.
 monomer = Segment(length=100, sequence_type="protein")
 construct = Construct([monomer])
 
-gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+gen = RandomProteinGenerator(RandomProteinGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
 gen.assign(monomer)
 
 plddt = Constraint(inputs=[monomer], function=structure_plddt_constraint,

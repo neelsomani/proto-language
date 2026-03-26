@@ -7,12 +7,13 @@ different optimizer combinations work as expected.
 """
 
 import pytest
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import Constraint, Construct, Program, Segment
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     MCMCOptimizer,
@@ -32,8 +33,8 @@ class TestMultipleOptimizers:
         construct = Construct([segment])
 
         # First optimizer: TopK
-        gen1_config = UniformMutationGeneratorConfig(num_mutations=10)
-        gen1 = UniformMutationGenerator(gen1_config)
+        gen1_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=10))
+        gen1 = RandomNucleotideGenerator(gen1_config)
         gen1.assign(segment)
 
         constraint1 = Constraint(
@@ -50,8 +51,8 @@ class TestMultipleOptimizers:
         )
 
         # Second optimizer: MCMC
-        gen2_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen2 = UniformMutationGenerator(gen2_config)
+        gen2_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(gen2_config)
         gen2.assign(segment)
 
         constraint2 = Constraint(
@@ -90,10 +91,10 @@ class TestMultipleOptimizers:
 
         optimizers = []
         for i in range(3):
-            gen_config = UniformMutationGeneratorConfig(
-                num_mutations=5
+            gen_config = RandomNucleotideGeneratorConfig(
+                masking_strategy=MaskingStrategy(num_mutations=5)
             )
-            gen = UniformMutationGenerator(gen_config)
+            gen = RandomNucleotideGenerator(gen_config)
             gen.assign(segment)
 
             constraint = Constraint(
@@ -127,10 +128,10 @@ class TestMultipleOptimizers:
         # Create two optimizers with different numbers of steps
         optimizers = []
         for i, num_steps in enumerate([3, 5]):
-            gen_config = UniformMutationGeneratorConfig(
-                num_mutations=1
+            gen_config = RandomNucleotideGeneratorConfig(
+                masking_strategy=MaskingStrategy(num_mutations=1)
             )
-            gen = UniformMutationGenerator(gen_config)
+            gen = RandomNucleotideGenerator(gen_config)
             gen.assign(segment)
 
             constraint = Constraint(
@@ -160,12 +161,12 @@ class TestMultipleOptimizers:
         segment = Segment(length=50, sequence_type="dna")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
 
-        gen1 = UniformMutationGenerator(gen_config)
+        gen1 = RandomNucleotideGenerator(gen_config)
         gen1.assign(segment)
 
-        gen2 = UniformMutationGenerator(gen_config)
+        gen2 = RandomNucleotideGenerator(gen_config)
         gen2.assign(segment)
 
         # Each optimizer must have its own constraint instance
@@ -206,12 +207,12 @@ class TestMultipleOptimizers:
         construct1 = Construct([segment1])
         construct2 = Construct([segment2])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
 
-        gen1 = UniformMutationGenerator(gen_config)
+        gen1 = RandomNucleotideGenerator(gen_config)
         gen1.assign(segment1)
 
-        gen2 = UniformMutationGenerator(gen_config)
+        gen2 = RandomNucleotideGenerator(gen_config)
         gen2.assign(segment2)
 
         constraint1 = Constraint(
@@ -250,12 +251,12 @@ class TestMultipleOptimizers:
         construct1 = Construct([segment])
         construct2 = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
 
-        gen1 = UniformMutationGenerator(gen_config)
+        gen1 = RandomNucleotideGenerator(gen_config)
         gen1.assign(segment)
 
-        gen2 = UniformMutationGenerator(gen_config)
+        gen2 = RandomNucleotideGenerator(gen_config)
         gen2.assign(segment)
 
         constraint = Constraint(
@@ -294,10 +295,10 @@ class TestMultipleOptimizers:
 
         optimizers = []
         for _ in range(2):
-            gen_config = UniformMutationGeneratorConfig(
-                num_mutations=1
+            gen_config = RandomNucleotideGeneratorConfig(
+                masking_strategy=MaskingStrategy(num_mutations=1)
             )
-            gen = UniformMutationGenerator(gen_config)
+            gen = RandomNucleotideGenerator(gen_config)
             gen.assign(segment)
 
             constraint = Constraint(
@@ -326,8 +327,8 @@ class TestMultipleOptimizers:
         construct = Construct([segment])
 
         # First optimizer
-        gen1_config = UniformMutationGeneratorConfig(num_mutations=5)
-        gen1 = UniformMutationGenerator(gen1_config)
+        gen1_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=5))
+        gen1 = RandomNucleotideGenerator(gen1_config)
         gen1.assign(segment)
 
         constraint1 = Constraint(
@@ -348,8 +349,8 @@ class TestMultipleOptimizers:
         _ = construct.joined_sequences[0]
 
         # Second optimizer should start from opt1's results
-        gen2_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen2 = UniformMutationGenerator(gen2_config)
+        gen2_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(gen2_config)
         gen2.assign(segment)
 
         constraint2 = Constraint(
@@ -376,8 +377,8 @@ class TestMultipleOptimizers:
         construct = Construct([segment])
 
         # MCMC first
-        gen1_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen1 = UniformMutationGenerator(gen1_config)
+        gen1_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(gen1_config)
         gen1.assign(segment)
 
         constraint1 = Constraint(
@@ -394,8 +395,8 @@ class TestMultipleOptimizers:
         )
 
         # TopK second
-        gen2_config = UniformMutationGeneratorConfig(num_mutations=5)
-        gen2 = UniformMutationGenerator(gen2_config)
+        gen2_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=5))
+        gen2 = RandomNucleotideGenerator(gen2_config)
         gen2.assign(segment)
 
         constraint2 = Constraint(
@@ -425,8 +426,8 @@ class TestMultipleOptimizers:
         construct = Construct([segment])
 
         # Create single generator instance
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        shared_gen = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        shared_gen = RandomNucleotideGenerator(gen_config)
         shared_gen.assign(segment)
 
         # Each optimizer needs its own constraint
@@ -464,12 +465,12 @@ class TestMultipleOptimizers:
         segment = Segment(length=50, sequence_type="dna")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
 
-        gen1 = UniformMutationGenerator(gen_config)
+        gen1 = RandomNucleotideGenerator(gen_config)
         gen1.assign(segment)
 
-        gen2 = UniformMutationGenerator(gen_config)
+        gen2 = RandomNucleotideGenerator(gen_config)
         gen2.assign(segment)
 
         # Create single constraint instance
@@ -501,8 +502,8 @@ class TestMultipleOptimizers:
         segment = Segment(length=50, sequence_type="dna")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen = RandomNucleotideGenerator(gen_config)
         gen.assign(segment)
 
         constraint = Constraint(
@@ -527,8 +528,8 @@ class TestMultipleOptimizers:
         segment = Segment(length=50, sequence_type="dna")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen = RandomNucleotideGenerator(gen_config)
         gen.assign(segment)
 
         constraint = Constraint(
@@ -551,8 +552,8 @@ class TestMultipleOptimizers:
         segment = Segment(length=50, sequence_type="dna")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen = RandomNucleotideGenerator(gen_config)
         gen.assign(segment)
 
         constraint = Constraint(

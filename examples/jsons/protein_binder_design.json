@@ -23,7 +23,7 @@
           "config": {
             "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 1.0,
-            "decoding_method": "random"
+            "masking_strategy": {}
           },
           "target": "binder_protein"
         }

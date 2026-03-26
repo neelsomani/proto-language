@@ -8,7 +8,7 @@ in a single program.
 import pytest
 
 from api.core.parser import ProtoParser
-from proto_language.language.generator import UniformMutationGenerator
+from proto_language.language.generator import RandomNucleotideGenerator
 from proto_language.language.optimizer import MCMCOptimizer, TopKOptimizer
 
 
@@ -34,10 +34,10 @@ def test_parse_single_optimizer():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 5
+                            "masking_strategy": {"num_mutations": 5}
                         }
                     }
                 ],
@@ -69,8 +69,8 @@ def test_parse_single_optimizer():
 
     # Verify generators
     assert len(optimizer.generators) == 1
-    assert isinstance(optimizer.generators[0], UniformMutationGenerator)
-    assert optimizer.generators[0].num_mutations == 5
+    assert isinstance(optimizer.generators[0], RandomNucleotideGenerator)
+    assert optimizer.generators[0].masking_strategy.num_mutations == 5
 
     # Verify constraints
     assert len(optimizer.constraints) == 1
@@ -102,10 +102,10 @@ def test_parse_multiple_optimizers():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 10
+                            "masking_strategy": {"num_mutations": 10}
                         }
                     }
                 ],
@@ -130,10 +130,10 @@ def test_parse_multiple_optimizers():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 1
+                            "masking_strategy": {"num_mutations": 1}
                         }
                     }
                 ],
@@ -164,7 +164,7 @@ def test_parse_multiple_optimizers():
     assert opt1.num_samples == 10
     assert opt1.num_results == 3
     assert len(opt1.generators) == 1
-    assert opt1.generators[0].num_mutations == 10
+    assert opt1.generators[0].masking_strategy.num_mutations == 10
     assert len(opt1.constraints) == 1
 
     # Verify second optimizer
@@ -172,7 +172,7 @@ def test_parse_multiple_optimizers():
     assert opt2.num_results == 1
     assert opt2.num_steps == 10
     assert len(opt2.generators) == 1
-    assert opt2.generators[0].num_mutations == 1
+    assert opt2.generators[0].masking_strategy.num_mutations == 1
     assert len(opt2.constraints) == 1
 
     # Verify all optimizers share the same constructs
@@ -383,9 +383,9 @@ def test_parse_duplicate_segment_ids_fails():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
-                        "config": {"num_mutations": 1},
+                        "config": {"masking_strategy": {"num_mutations": 1}},
                     }
                 ],
                 "constraints": [
@@ -430,17 +430,17 @@ def test_parse_generator_assignment_to_segments():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 5
+                            "masking_strategy": {"num_mutations": 5}
                         }
                     },
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg2",
                         "config": {
-                            "num_mutations": 3
+                            "masking_strategy": {"num_mutations": 3}
                         }
                     }
                 ],
@@ -467,12 +467,12 @@ def test_parse_generator_assignment_to_segments():
 
     # Verify first generator assigned to seg1
     gen1 = optimizer.generators[0]
-    assert gen1.num_mutations == 5
+    assert gen1.masking_strategy.num_mutations == 5
     assert gen1._assigned_segment.label == "segment1"
 
     # Verify second generator assigned to seg2
     gen2 = optimizer.generators[1]
-    assert gen2.num_mutations == 3
+    assert gen2.masking_strategy.num_mutations == 3
     assert gen2._assigned_segment.label == "segment2"
 
 
@@ -498,10 +498,10 @@ def test_parse_different_generators_per_stage():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 10
+                            "masking_strategy": {"num_mutations": 10}
                         }
                     }
                 ],
@@ -523,10 +523,10 @@ def test_parse_different_generators_per_stage():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 1
+                            "masking_strategy": {"num_mutations": 1}
                         }
                     }
                 ],
@@ -549,8 +549,8 @@ def test_parse_different_generators_per_stage():
     gen2 = program.optimizers[1].generators[0]
 
     assert gen1 is not gen2  # Different instances
-    assert gen1.num_mutations == 10
-    assert gen2.num_mutations == 1
+    assert gen1.masking_strategy.num_mutations == 10
+    assert gen2.masking_strategy.num_mutations == 1
 
 
 def test_parse_different_constraints_per_stage():
@@ -575,9 +575,9 @@ def test_parse_different_constraints_per_stage():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
-                        "config": {"num_mutations": 1}
+                        "config": {"masking_strategy": {"num_mutations": 1}}
                     }
                 ],
                 "constraints": [
@@ -601,9 +601,9 @@ def test_parse_different_constraints_per_stage():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
-                        "config": {"num_mutations": 1}
+                        "config": {"masking_strategy": {"num_mutations": 1}}
                     }
                 ],
                 "constraints": [
@@ -653,10 +653,10 @@ def test_parse_reusable_constraints():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 10
+                            "masking_strategy": {"num_mutations": 10}
                         }
                     }
                 ],
@@ -681,10 +681,10 @@ def test_parse_reusable_constraints():
                 },
                 "generators": [
                     {
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "seg1",
                         "config": {
-                            "num_mutations": 1
+                            "masking_strategy": {"num_mutations": 1}
                         }
                     }
                 ],

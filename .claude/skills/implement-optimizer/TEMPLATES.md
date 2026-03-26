@@ -298,7 +298,7 @@ Every optimizer test file should have a `_setup_components()` helper:
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
 from proto_language.language.core import Constraint, Construct, Segment
-from proto_language.language.generator import UniformMutationGenerator, UniformMutationGeneratorConfig
+from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig, MaskingStrategy
 
 def _setup_components(
     seq_length=10,
@@ -306,7 +306,7 @@ def _setup_components(
     num_steps=10,
 ):
     segment = Segment(sequence="A" * seq_length, sequence_type="dna")
-    gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+    gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
     gen.assign(segment)
     construct = Construct([segment])
     constraint = Constraint(

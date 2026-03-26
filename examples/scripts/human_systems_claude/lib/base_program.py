@@ -17,6 +17,7 @@ import pymol
 
 pymol.finish_launching(['pymol', '-qc'])
 from Bio import SeqIO
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 from pymol import cmd
 
 from proto_language.language.constraint import (
@@ -204,8 +205,7 @@ def gene_ids_to_program(
         esm3_config = ESM3GeneratorConfig(
             model_checkpoint='esm3_sm_open_v1',
             temperature=0.3,
-            decoding_method='entropy',
-            num_mutations=int(0.25 * len(seq)),
+            masking_strategy=MaskingStrategy(num_mutations=int(0.25 * len(seq))),
         )
         protein_generator = ESM3Generator(esm3_config)
         protein_generator.assign(protein_segment)

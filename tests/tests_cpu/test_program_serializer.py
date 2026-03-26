@@ -12,13 +12,15 @@ Tests cover:
 
 import json
 
+from proto_tools.tools.masked_models.masking import MaskingStrategy
+
 from api.core.parser import ProtoParser
 from api.core.serializer import serialize_program
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.core import Construct, Program, Segment
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     MCMCOptimizer,
@@ -37,8 +39,8 @@ class TestProgramSerializer:
         segment = Segment(length=20, sequence_type="dna", label="test_segment")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=5)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=5))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
 
         constraint = ConstraintRegistry.create(
@@ -88,9 +90,9 @@ class TestProgramSerializer:
         # Verify generator
         assert len(stage["generators"]) == 1
         gen = stage["generators"][0]
-        assert gen["key"] == "uniform-mutation"
+        assert gen["key"] == "random-nucleotide"
         assert gen["target"] == "construct0-segment0"
-        assert gen["config"]["num_mutations"] == 5
+        assert gen["config"]["masking_strategy"]["num_mutations"] == 5
 
         # Verify constraint
         assert len(stage["constraints"]) == 1
@@ -106,8 +108,8 @@ class TestProgramSerializer:
         construct = Construct([segment])
 
         # First optimizer: TopK
-        gen1_config = UniformMutationGeneratorConfig(num_mutations=10)
-        gen1 = UniformMutationGenerator(gen1_config)
+        gen1_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=10))
+        gen1 = RandomNucleotideGenerator(gen1_config)
         gen1.assign(segment)
 
         con1 = ConstraintRegistry.create(
@@ -125,8 +127,8 @@ class TestProgramSerializer:
         )
 
         # Second optimizer: MCMC
-        gen2_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen2 = UniformMutationGenerator(gen2_config)
+        gen2_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(gen2_config)
         gen2.assign(segment)
 
         con2 = ConstraintRegistry.create(
@@ -154,13 +156,13 @@ class TestProgramSerializer:
         # Verify first stage
         stage1 = result["optimization_stages"][0]
         assert stage1["optimizer"]["method"] == "topk"
-        assert stage1["generators"][0]["config"]["num_mutations"] == 10
+        assert stage1["generators"][0]["config"]["masking_strategy"]["num_mutations"] == 10
         assert stage1["constraints"][0]["config"]["min_gc"] == 50
 
         # Verify second stage
         stage2 = result["optimization_stages"][1]
         assert stage2["optimizer"]["method"] == "mcmc"
-        assert stage2["generators"][0]["config"]["num_mutations"] == 1
+        assert stage2["generators"][0]["config"]["masking_strategy"]["num_mutations"] == 1
         assert stage2["constraints"][0]["config"]["min_gc"] == 80
 
     def test_round_trip_serialization(self):
@@ -180,9 +182,9 @@ class TestProgramSerializer:
                     },
                     "generators": [
                         {
-                            "key": "uniform-mutation",
+                            "key": "random-nucleotide",
                             "target": "seg1",
-                            "config": {"num_mutations": 5},
+                            "config": {"masking_strategy": {"num_mutations": 5}},
                         }
                     ],
                     "constraints": [
@@ -227,7 +229,7 @@ class TestProgramSerializer:
         result_gen = result_json["optimization_stages"][0]["generators"][0]
         assert result_gen["key"] == orig_gen["key"]
         assert (
-            result_gen["config"]["num_mutations"] == orig_gen["config"]["num_mutations"]
+            result_gen["config"]["masking_strategy"]["num_mutations"] == orig_gen["config"]["masking_strategy"]["num_mutations"]
         )
 
         # Verify constraint config
@@ -247,16 +249,16 @@ class TestProgramSerializer:
         construct2 = Construct([seg3])
 
         # Generators for each segment that needs optimization
-        gen1_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen1 = UniformMutationGenerator(gen1_config)
+        gen1_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(gen1_config)
         gen1.assign(seg1)
 
-        gen2_config = UniformMutationGeneratorConfig(num_mutations=2)
-        gen2 = UniformMutationGenerator(gen2_config)
+        gen2_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
+        gen2 = RandomNucleotideGenerator(gen2_config)
         gen2.assign(seg2)
 
-        gen3_config = UniformMutationGeneratorConfig(num_mutations=3)
-        gen3 = UniformMutationGenerator(gen3_config)
+        gen3_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=3))
+        gen3 = RandomNucleotideGenerator(gen3_config)
         gen3.assign(seg3)
 
         constraint = ConstraintRegistry.create(
@@ -292,8 +294,8 @@ class TestProgramSerializer:
         )
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
 
         constraint = ConstraintRegistry.create(
@@ -324,8 +326,8 @@ class TestProgramSerializer:
         var_segment = Segment(length=20, sequence_type="dna", label="variable")
         construct = Construct([context_segment, var_segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(var_segment)  # Only assign to variable segment
 
         constraint = ConstraintRegistry.create(
@@ -357,12 +359,12 @@ class TestProgramSerializer:
         seg2 = Segment(length=20, sequence_type="dna", label="seg2")
         construct = Construct([seg1, seg2])
 
-        gen1_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen1 = UniformMutationGenerator(gen1_config)
+        gen1_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(gen1_config)
         gen1.assign(seg1)
 
-        gen2_config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen2 = UniformMutationGenerator(gen2_config)
+        gen2_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(gen2_config)
         gen2.assign(seg2)
 
         # Separate constraints for each segment (single-input constraints)
@@ -400,8 +402,8 @@ class TestProgramSerializer:
         segment = Segment(length=20, sequence_type="dna", label="test")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
 
         constraint = ConstraintRegistry.create(
@@ -430,8 +432,8 @@ class TestProgramSerializer:
         segment = Segment(length=20, sequence_type="dna", label="test")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
 
         filter_constraint = ConstraintRegistry.create(
@@ -464,8 +466,8 @@ class TestProgramSerializer:
         segment = Segment(length=20, sequence_type="dna", label="test")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
 
         constraint = ConstraintRegistry.create(
@@ -509,9 +511,9 @@ class TestProgramSerializer:
                     },
                     "generators": [
                         {
-                            "key": "uniform-mutation",
+                            "key": "random-nucleotide",
                             "target": "seg1",
-                            "config": {"num_mutations": 10},
+                            "config": {"masking_strategy": {"num_mutations": 10}},
                         }
                     ],
                     "constraints": [
@@ -532,9 +534,9 @@ class TestProgramSerializer:
                     },
                     "generators": [
                         {
-                            "key": "uniform-mutation",
+                            "key": "random-nucleotide",
                             "target": "seg1",
-                            "config": {"num_mutations": 1},
+                            "config": {"masking_strategy": {"num_mutations": 1}},
                         }
                     ],
                     "constraints": [
@@ -564,14 +566,14 @@ class TestProgramSerializer:
         stage1 = result_json["optimization_stages"][0]
         assert stage1["optimizer"]["method"] == "topk"
         assert stage1["optimizer"]["config"]["num_samples"] == 10
-        assert stage1["generators"][0]["config"]["num_mutations"] == 10
+        assert stage1["generators"][0]["config"]["masking_strategy"]["num_mutations"] == 10
         assert stage1["constraints"][0]["config"]["min_gc"] == 50
 
         # Verify second optimizer
         stage2 = result_json["optimization_stages"][1]
         assert stage2["optimizer"]["method"] == "mcmc"
         assert stage2["optimizer"]["config"]["num_results"] == 1
-        assert stage2["generators"][0]["config"]["num_mutations"] == 1
+        assert stage2["generators"][0]["config"]["masking_strategy"]["num_mutations"] == 1
         assert stage2["constraints"][0]["config"]["min_gc"] == 80
 
     def test_verbose_flag_preserved(self):
@@ -579,8 +581,8 @@ class TestProgramSerializer:
         segment = Segment(length=20, sequence_type="dna", label="test")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
 
         constraint = ConstraintRegistry.create(
@@ -606,8 +608,8 @@ class TestProgramSerializer:
         segment2 = Segment(length=20, sequence_type="dna", label="test2")
         construct2 = Construct([segment2])
 
-        gen_config2 = UniformMutationGeneratorConfig(num_mutations=1)
-        generator2 = UniformMutationGenerator(gen_config2)
+        gen_config2 = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator2 = RandomNucleotideGenerator(gen_config2)
         generator2.assign(segment2)
 
         constraint2 = ConstraintRegistry.create(
@@ -629,11 +631,16 @@ class TestProgramSerializer:
 
     def test_protein_sequence_type(self):
         """Test serialization with protein sequence type."""
+        from proto_language.language.generator import (
+            RandomProteinGenerator,
+            RandomProteinGeneratorConfig,
+        )
+
         segment = Segment(length=50, sequence_type="protein", label="protein_seq")
         construct = Construct([segment])
 
-        gen_config = UniformMutationGeneratorConfig(num_mutations=2)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomProteinGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
+        generator = RandomProteinGenerator(gen_config)
         generator.assign(segment)
 
         constraint = ConstraintRegistry.create(
@@ -778,9 +785,9 @@ class TestBeamSearchOptimizerSerialization:
         construct2 = Construct([seg2], label="insert")
         construct3 = Construct([Segment(sequence="TTAA" * 10, sequence_type="dna")])  # No label
 
-        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig())
+        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy()))
         gen1.assign(seg1)
-        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig())
+        gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy()))
         gen2.assign(seg2)
 
         constraint1 = ConstraintRegistry.create(

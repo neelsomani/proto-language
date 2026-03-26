@@ -111,13 +111,17 @@ class TestGeneratorBase:
 
     def test_mutation_generator_initializes_random_sequence_on_sample(self):
         """Tests that mutation generators initialize a random sequence on first sample() if none provided."""
+        from proto_tools.tools.masked_models.masking import MaskingStrategy
+
         from proto_language.language.generator import (
-            UniformMutationGenerator,
-            UniformMutationGeneratorConfig,
+            RandomNucleotideGenerator,
+            RandomNucleotideGeneratorConfig,
         )
 
-        config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(config)
+        config = RandomNucleotideGeneratorConfig(
+            masking_strategy=MaskingStrategy(num_mutations=1),
+        )
+        gen = RandomNucleotideGenerator(config)
         seq_len = 20
         segment = Segment(length=seq_len, sequence_type="dna")
 
@@ -144,13 +148,17 @@ class TestGeneratorBase:
 
     def test_mutation_generator_preserves_existing_sequence(self):
         """Tests that mutation generators preserve existing sequences."""
+        from proto_tools.tools.masked_models.masking import MaskingStrategy
+
         from proto_language.language.generator import (
-            UniformMutationGenerator,
-            UniformMutationGeneratorConfig,
+            RandomNucleotideGenerator,
+            RandomNucleotideGeneratorConfig,
         )
 
-        config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(config)
+        config = RandomNucleotideGeneratorConfig(
+            masking_strategy=MaskingStrategy(num_mutations=1),
+        )
+        gen = RandomNucleotideGenerator(config)
         predefined_seq = "ATCGATCG"
         segment = Segment(sequence=predefined_seq, sequence_type="dna")
 
@@ -166,16 +174,20 @@ class TestGeneratorBase:
         """Regression: each proposal must get a unique random sequence (Bug 4)."""
         import random
 
+        from proto_tools.tools.masked_models.masking import MaskingStrategy
+
         from proto_language.language.core import Sequence
         from proto_language.language.generator import (
-            UniformMutationGenerator,
-            UniformMutationGeneratorConfig,
+            RandomNucleotideGenerator,
+            RandomNucleotideGeneratorConfig,
         )
 
         random.seed(123)
         segment = Segment(length=50, sequence_type="dna")
-        config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(config)
+        config = RandomNucleotideGeneratorConfig(
+            masking_strategy=MaskingStrategy(num_mutations=1),
+        )
+        gen = RandomNucleotideGenerator(config)
         gen.assign(segment)
 
         # Set up multiple empty proposals
@@ -218,13 +230,17 @@ class TestGeneratorBase:
 
     def test_validate_generator_empty_proposal_pool_raises(self):
         """Tests that _validate_generator raises on empty proposal_sequences (I7)."""
+        from proto_tools.tools.masked_models.masking import MaskingStrategy
+
         from proto_language.language.generator import (
-            UniformMutationGenerator,
-            UniformMutationGeneratorConfig,
+            RandomNucleotideGenerator,
+            RandomNucleotideGeneratorConfig,
         )
 
-        config = UniformMutationGeneratorConfig(num_mutations=1)
-        gen = UniformMutationGenerator(config)
+        config = RandomNucleotideGeneratorConfig(
+            masking_strategy=MaskingStrategy(num_mutations=1),
+        )
+        gen = RandomNucleotideGenerator(config)
         segment = Segment(sequence="ATCG", sequence_type="dna")
 
         gen.assign(segment)

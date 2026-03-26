@@ -1,6 +1,7 @@
 import copy
 
 import pytest
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.language.core import Segment
 from proto_language.language.generator import ESM2Generator, ESM2GeneratorConfig
@@ -8,15 +9,12 @@ from proto_language.language.generator import ESM2Generator, ESM2GeneratorConfig
 
 @pytest.mark.uses_gpu
 class TestESM2Generator:
-    @pytest.mark.parametrize("decoding_method", ["entropy", "max_logit", "random"])
-    def test_esm2_decoding_methods(self, decoding_method):
-        """Test ESM2 generator with each decoding method."""
+    def test_esm2_default_masking(self):
+        """Test ESM2 generator with default masking strategy (random 30%)."""
         esm2_generator = ESM2Generator(
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
                 temperature=1.0,
-                decoding_method=decoding_method,
-                num_mutations=5,
             )
         )
 
@@ -31,6 +29,23 @@ class TestESM2Generator:
         assert len(segment.proposal_sequences[0].sequence) == 20
         assert segment.proposal_sequences[0].sequence_type == "protein"
 
+    def test_esm2_num_mutations_masking(self):
+        """Test ESM2 generator with explicit num_mutations masking."""
+        esm2_generator = ESM2Generator(
+            ESM2GeneratorConfig(
+                model_checkpoint="esm2_t33_650M_UR50D",
+                temperature=1.0,
+                masking_strategy=MaskingStrategy(num_mutations=5),
+            )
+        )
+
+        segment = Segment(length=20, sequence_type="protein")
+        esm2_generator.assign(segment)
+        esm2_generator.sample()
+
+        assert segment.proposal_sequences[0].sequence is not None
+        assert len(segment.proposal_sequences[0].sequence) == 20
+
     def test_esm2_batch_sampling(self):
         """Test ESM2 generator with batch processing."""
         num_proposals = 3
@@ -38,8 +53,7 @@ class TestESM2Generator:
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
                 temperature=1.0,
-                decoding_method="entropy",
-                num_mutations=5,
+                masking_strategy=MaskingStrategy(num_mutations=5),
             )
         )
 
@@ -63,8 +77,7 @@ class TestESM2Generator:
             ESM2GeneratorConfig(
                 model_checkpoint="esm2_t33_650M_UR50D",
                 temperature=1.0,
-                decoding_method="entropy",
-                num_mutations=5,
+                masking_strategy=MaskingStrategy(num_mutations=5),
                 batch_size=2,
             )
         )

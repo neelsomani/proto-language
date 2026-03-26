@@ -3,6 +3,7 @@ import random
 from pathlib import Path
 from typing import Dict, Tuple
 
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 from tap import Tap
 
 from proto_language.language.constraint import (
@@ -19,8 +20,8 @@ from proto_language.language.core import (
 from proto_language.language.generator import (
     Evo2Generator,
     Evo2GeneratorConfig,
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     MCMCOptimizer,
@@ -277,11 +278,10 @@ if __name__ == '__main__':
             )
 
             if args.intron_generator == "uniform":
-                intron_gen_config = UniformMutationGeneratorConfig(
-                    num_mutations=args.step_size,
-                    #mutation_window=(2, len(initial_intron) - 2),
+                intron_gen_config = RandomNucleotideGeneratorConfig(
+                    masking_strategy=MaskingStrategy(num_mutations=args.step_size),
                 )
-                intron_gen = UniformMutationGenerator(intron_gen_config)
+                intron_gen = RandomNucleotideGenerator(intron_gen_config)
                 intron_gen.assign(intron)
 
             elif args.intron_generator == "evo2":

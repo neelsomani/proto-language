@@ -18,8 +18,9 @@ from proto_language.language.core import Constraint, Construct, Program, Segment
 from proto_language.language.generator import (
     Evo2Generator,
     Evo2GeneratorConfig,
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    MaskingStrategy,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     MCMCOptimizer,
@@ -218,10 +219,10 @@ if __name__ == "__main__":
             )
 
             if args.intron_generator == "uniform":
-                intron_gen_config = UniformMutationGeneratorConfig(
-                    num_mutations=args.step_size,
+                intron_gen_config = RandomNucleotideGeneratorConfig(
+                    masking_strategy=MaskingStrategy(num_mutations=args.step_size),
                 )
-                intron_gen = UniformMutationGenerator(intron_gen_config)
+                intron_gen = RandomNucleotideGenerator(intron_gen_config)
                 intron_gen.assign(intron)
             elif args.intron_generator == "evo2":
                 from Bio import SeqIO

@@ -11,8 +11,8 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
@@ -23,8 +23,8 @@ seq1 = Segment(length=20, sequence_type="dna")
 construct = Construct([seq1])
 
 # Generator
-uniform_gen_config = UniformMutationGeneratorConfig()
-uniform_gen = UniformMutationGenerator(uniform_gen_config)
+uniform_gen_config = RandomNucleotideGeneratorConfig()
+uniform_gen = RandomNucleotideGenerator(uniform_gen_config)
 
 # Assign
 uniform_gen.assign(seq1)

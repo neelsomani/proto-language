@@ -19,10 +19,8 @@
     {
       "generators": [
         {
-          "key": "uniform-mutation",
-          "config": {
-            "debug_with_sleep_calls": true
-          },
+          "key": "random-nucleotide",
+          "config": {},
           "target": "segment1"
         }
       ],

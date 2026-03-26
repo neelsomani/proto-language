@@ -189,9 +189,9 @@ def _build_json() -> Dict[str, Any]:
                 "generators": [
                     {
                         "id": "intron_mutator",
-                        "key": "uniform-mutation",
+                        "key": "random-nucleotide",
                         "target": "intron",
-                        "config": {"num_mutations": 1},
+                        "config": {"masking_strategy": {"num_mutations": 1}},
                     }
                 ],
                 "constraints": constraints,

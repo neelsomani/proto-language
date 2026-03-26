@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from Bio import SeqIO
 from Bio.Seq import Seq
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 from tqdm import tqdm
 
 
@@ -118,8 +119,7 @@ def sample_esm3(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[
                 results = esm3_model.sample(
                     sequences=[ uniprot_data['wt_seq'] ],
                     temperature=temperature,
-                    decoding_method='entropy',
-                    num_mutations=num_mutations,
+                    masking_strategy=MaskingStrategy(num_mutations=num_mutations),
                     device='cuda',
                     verbose=False,
                 )

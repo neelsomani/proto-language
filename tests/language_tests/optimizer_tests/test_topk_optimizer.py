@@ -5,19 +5,54 @@ Minimal tests verifying core behavior of the TopKOptimizer.
 """
 
 import random
+from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.language.constraint import (
     gc_content_constraint,
     sequence_length_constraint,
 )
-from proto_language.language.core import Constraint, Construct, Segment, Sequence
+from proto_language.language.core import (
+    Constraint,
+    Construct,
+    Generator,
+    Segment,
+    Sequence,
+)
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
+)
+from proto_language.language.generator.generator_registry import (
+    GeneratorRegistry,
+    GeneratorSpec,
 )
 from proto_language.language.optimizer import TopKOptimizer, TopKOptimizerConfig
+
+
+class _NoOpGenerator(Generator):
+    """Generator that does not mutate sequences. Used for testing optimizer logic."""
+
+    def __init__(self):
+        super().__init__()
+
+    def sample(self) -> None:
+        self._validate_generator()
+
+
+def _make_noop_generator(segment):
+    """Create a no-op generator assigned to a segment, with registry mocking."""
+    gen = _NoOpGenerator()
+    mock_spec = MagicMock(spec=GeneratorSpec)
+    mock_spec.supported_sequence_types = []
+    mock_spec.category = "mutation"
+    with patch.object(GeneratorRegistry, "get", return_value=mock_spec):
+        with patch.object(GeneratorRegistry, "get_key", return_value="noop"):
+            gen.assign(segment)
+    return gen
 
 
 class TestTopKOptimizerStandardMode:
@@ -28,8 +63,8 @@ class TestTopKOptimizerStandardMode:
         segment = Segment(sequence="AAAA", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -63,8 +98,8 @@ class TestTopKOptimizerStandardMode:
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -101,8 +136,8 @@ class TestTopKOptimizerStandardMode:
         segment = Segment(sequence="AAAAAAAA", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=2)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
         )
         gen.assign(segment)
 
@@ -135,13 +170,13 @@ class TestTopKOptimizerStandardMode:
         segment = Segment(sequence="AAAA", sequence_type="dna")
         construct = Construct([segment])
 
-        gen1 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen1 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen1.assign(segment)
 
-        gen2 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen2 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen2.assign(segment)
 
@@ -175,8 +210,8 @@ class TestTopKOptimizerStandardMode:
 
         initial_seq = segment.result_sequences[0].sequence
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -203,15 +238,16 @@ class TestTopKOptimizerStandardMode:
         for i in range(5):
             seq = segment.result_sequences[i].sequence
             diff_count = sum(1 for a, b in zip(initial_seq, seq) if a != b)
-            assert diff_count == 1, f"Expected 1 mutation, got {diff_count} differences"
+            # At most 1 mutation per round (may be 0 if random char matches original)
+            assert diff_count <= 1, f"Expected <=1 mutation, got {diff_count} differences"
 
     def test_run_restarts_from_initial_state(self):
         """Test that calling run() twice restarts from initial state."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -272,8 +308,8 @@ class TestTopKOptimizerStandardMode:
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -313,8 +349,8 @@ class TestTopKOptimizerStandardMode:
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -358,8 +394,8 @@ class TestTopKOptimizerStandardMode:
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=3)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=3))
         )
         gen.assign(segment)
 
@@ -400,8 +436,8 @@ class TestTopKOptimizerThresholdMode:
         segment = Segment(sequence="AAAA", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -433,8 +469,8 @@ class TestTopKOptimizerThresholdMode:
         segment = Segment(sequence="AAAA", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -468,8 +504,8 @@ class TestTopKOptimizerThresholdMode:
         segment = Segment(sequence="AAAA", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -525,7 +561,7 @@ class TestTopKOptimizerInternals:
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=2))
+        gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2)))
         gen.assign(segment)
 
         constraint = Constraint(
@@ -554,7 +590,7 @@ class TestTopKOptimizerInternals:
         segment = Segment(sequence="ATCG", sequence_type="dna")
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen.assign(segment)
 
         constraint = Constraint(
@@ -592,8 +628,8 @@ class TestTopKOptimizerInternals:
         segment = Segment(sequence="AAAAAAAAAA", sequence_type="dna")  # 0% GC
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)  # Only 1 mutation, unlikely to reach 99% GC
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))  # Only 1 mutation, unlikely to reach 99% GC
         )
         gen.assign(segment)
 
@@ -634,8 +670,8 @@ class TestTopKOptimizerInternals:
         segment = Segment(sequence="ATCGATCGAT", sequence_type="dna")  # 40% GC
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=2)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
         )
         gen.assign(segment)
 
@@ -687,10 +723,7 @@ class TestTopKOptimizerTrajectoryPreservation:
             Sequence("GGGG", "dna"),
         ]
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=0)  # No mutations - keeps original
-        )
-        gen.assign(segment)
+        gen = _make_noop_generator(segment)
 
         constraint = Constraint(
             inputs=[segment],
@@ -717,7 +750,7 @@ class TestTopKOptimizerTrajectoryPreservation:
         optimizer._initialize_sequence_pools()
         optimizer._capture_initial_state()
 
-        # Run one sampling round (with 0 mutations, sequences should stay as their seeds)
+        # Run one sampling round (no-op generator keeps sequences as their seeds)
         optimizer._run_sampling_round(0)
 
         # Verify that proposals come from different seeds (cycled pattern)
@@ -758,15 +791,8 @@ class TestTopKOptimizerTrajectoryPreservation:
             Sequence("GGGG", "dna"),
         ]
 
-        gen1 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=0)
-        )
-        gen1.assign(segment1)
-
-        gen2 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=0)
-        )
-        gen2.assign(segment2)
+        gen1 = _make_noop_generator(segment1)
+        gen2 = _make_noop_generator(segment2)
 
         # Use separate constraints for each segment
         constraint1 = Constraint(
@@ -829,10 +855,11 @@ class TestTopKCustomLogging:
 
         def run_topk(custom_logging_fn=None):
             random.seed(seed)
+            np.random.seed(seed)
             segment = Segment(sequence="ATCGATCG", sequence_type="dna")
             construct = Construct([segment])
-            gen = UniformMutationGenerator(
-                UniformMutationGeneratorConfig(num_mutations=2)
+            gen = RandomNucleotideGenerator(
+                RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
             )
             gen.assign(segment)
             constraint = Constraint(
@@ -876,8 +903,8 @@ class TestTopKCustomLogging:
 
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
         constraint = Constraint(
@@ -910,8 +937,8 @@ class TestTopKLabelDeduplication:
         """Two constraints with the same label should be auto-renamed."""
         segment = Segment(sequence="AAAA", sequence_type="dna")
         construct = Construct([segment])
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -943,8 +970,8 @@ class TestTopKLabelDeduplication:
         """Calling _deduplicate_constraint_labels twice must not accumulate suffixes."""
         segment = Segment(sequence="AAAA", sequence_type="dna")
         construct = Construct([segment])
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 
@@ -985,8 +1012,8 @@ class TestTopKProposalTracking:
         """History has proposal_results with 'Not in top-k' for rejected proposals."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
         constraint = Constraint(
@@ -1029,8 +1056,8 @@ class TestTopKTrackingInterval:
         """tracking_interval=2 reduces history snapshots."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
         constraint = Constraint(
@@ -1060,8 +1087,8 @@ class TestTopKTrackingInterval:
         """Threshold early-exit forces a final snapshot even on non-interval rounds."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
         constraint = Constraint(
@@ -1105,8 +1132,8 @@ class TestTopKMetadata:
         segment = Segment(sequence="ATCGATCG", sequence_type="dna", metadata={"user_key": "user_value"})
         construct = Construct([segment])
 
-        gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         gen.assign(segment)
 

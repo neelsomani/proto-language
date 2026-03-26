@@ -2,11 +2,13 @@
 Simple example demonstrating the TopK Optimizer.
 """
 
+from proto_tools.tools.masked_models.masking import MaskingStrategy
+
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import Constraint, Construct, Segment
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import TopKOptimizer, TopKOptimizerConfig
 
@@ -17,10 +19,10 @@ dna_segment = Segment(length=100, sequence_type="dna")
 construct = Construct([dna_segment])
 
 # Configure generator
-mutation_config = UniformMutationGeneratorConfig(
-    num_mutations=100,
+mutation_config = RandomNucleotideGeneratorConfig(
+    masking_strategy=MaskingStrategy(num_mutations=100),
 )
-mutation_generator = UniformMutationGenerator(mutation_config)
+mutation_generator = RandomNucleotideGenerator(mutation_config)
 
 # Assign generator to segment
 mutation_generator.assign(dna_segment)

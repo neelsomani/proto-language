@@ -26,8 +26,8 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomProteinGenerator,
+    RandomProteinGeneratorConfig,
 )
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 from proto_language.storage import get_file_content
@@ -165,8 +165,8 @@ def run_optimization(
         ## Generators ##
         ################
 
-        uniform_gen_config = UniformMutationGeneratorConfig()
-        uniform_gen = UniformMutationGenerator(uniform_gen_config)
+        uniform_gen_config = RandomProteinGeneratorConfig()
+        uniform_gen = RandomProteinGenerator(uniform_gen_config)
         uniform_gen.assign(protomer)
 
         #################

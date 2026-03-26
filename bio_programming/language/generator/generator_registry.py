@@ -47,14 +47,14 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     Examples:
         Registration (in generator files):
         >>> @generator(
-        ...     key="uniform-mutation",
-        ...     config=UniformMutationConfig,
-        ...     description="Random point mutations",
+        ...     key="random-nucleotide",
+        ...     config=RandomNucleotideGeneratorConfig,
+        ...     description="Random nucleotide mutations",
         ...     category="mutation",
         ...     uses_gpu=False,
         ... )
-        ... class UniformMutationGenerator(Generator):
-        ...     def __init__(self, config: UniformMutationConfig):
+        ... class RandomNucleotideGenerator(Generator):
+        ...     def __init__(self, config: RandomNucleotideGeneratorConfig):
         ...         super().__init__(batch_size=config.batch_size)
         ...         # Implementation
 
@@ -63,17 +63,17 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         >>> generators = GeneratorRegistry.list_all()
         >>>
         >>> # Get form schema
-        >>> schema = GeneratorRegistry.get_schema("uniform-mutation")
+        >>> schema = GeneratorRegistry.get_schema("random-nucleotide")
         >>>
         >>> # Create from config dict
-        >>> config_dict = {"batch_size": 5, "num_mutations": 2}
-        >>> generator = GeneratorRegistry.create("uniform-mutation", config_dict)
+        >>> config_dict = {"masking_strategy": {"num_mutations": 2}}
+        >>> generator = GeneratorRegistry.create("random-nucleotide", config_dict)
 
         Direct Usage:
         >>> # Call generator class directly
-        >>> from proto_language.language.generator import UniformMutationGenerator, UniformMutationConfig
-        >>> config = UniformMutationConfig(batch_size=5, num_mutations=2)
-        >>> generator = UniformMutationGenerator(config)
+        >>> from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
+        >>> config = RandomNucleotideGeneratorConfig()
+        >>> generator = RandomNucleotideGenerator(config)
     """
 
     # Each registry subclass must have its own _registry dict
@@ -98,8 +98,8 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         method from BaseRegistry.
 
         Args:
-            key: Unique identifier (e.g., "uniform-mutation", "evo2")
-            label: Readable external name (e.g., "Uniform Mutation Generator", "EVO2 Generator")
+            key: Unique identifier (e.g., "random-nucleotide", "evo2")
+            label: Readable external name (e.g., "Random Nucleotide Generator", "EVO2 Generator")
             config: Pydantic model class for configuration validation
             description: Readable description
             category: "autoregressive" (left-to-right), "mutation" (bidirectional/masked),
@@ -114,16 +114,16 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
 
         Examples:
             >>> @generator(
-            ...     key="uniform-mutation",
-            ...     label="Uniform Mutation",
-            ...     config=UniformMutationConfig,
-            ...     description="Random point mutations",
+            ...     key="random-nucleotide",
+            ...     label="Random Nucleotide",
+            ...     config=RandomNucleotideGeneratorConfig,
+            ...     description="Random nucleotide mutations",
             ...     category="mutation",
             ...     uses_gpu=False,
-            ...     supported_sequence_types=[],
+            ...     supported_sequence_types=["dna", "rna"],
             ... )
-            ... class UniformMutationGenerator(Generator):
-            ...     def __init__(self, config: UniformMutationConfig):
+            ... class RandomNucleotideGenerator(Generator):
+            ...     def __init__(self, config: RandomNucleotideGeneratorConfig):
             ...         # Implementation
             ...         pass
         """
@@ -160,7 +160,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         3. Creates a Generator instance with validated config
 
         Args:
-            key: Registered generator identifier (e.g., "uniform-mutation")
+            key: Registered generator identifier (e.g., "random-nucleotide")
             config_dict: Configuration as plain dict (from JSON/client)
 
         Returns:
@@ -173,8 +173,8 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         Examples:
             >>> # From API endpoint receiving JSON
             >>> generator = GeneratorRegistry.create(
-            ...     key="uniform-mutation",
-            ...     config_dict={"batch_size": 5, "num_mutations": 2, "sequence_length": 100}
+            ...     key="random-nucleotide",
+            ...     config_dict={"masking_strategy": {"num_mutations": 2}}
             ... )
             >>> generator.assign(segment)
             >>> generator.sample()

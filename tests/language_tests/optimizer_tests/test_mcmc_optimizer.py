@@ -6,6 +6,7 @@ from typing import Tuple
 
 import numpy as np
 import pytest
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 from pydantic import BaseModel
 
 from proto_language.language.constraint import (
@@ -20,8 +21,8 @@ from proto_language.language.constraint.sequence_composition.sequence_length_con
 )
 from proto_language.language.core import Constraint, Construct, Segment
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
@@ -41,8 +42,8 @@ def _setup_mcmc_components(
     """Helper function to set up a basic MCMC Optimizer for testing."""
     # 1. Create the proposal generator and the segment it will modify
     segment = Segment(sequence="A" * seq_length, sequence_type="dna")
-    proposal_gen = UniformMutationGenerator(
-        UniformMutationGeneratorConfig(num_mutations=1)
+    proposal_gen = RandomNucleotideGenerator(
+        RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
     )
     proposal_gen.assign(segment)
 
@@ -88,8 +89,8 @@ class TestMCMCOptimizer:
 
         # Test validation errors - unassigned generator
         test_segment = Segment(sequence="A" * 10, sequence_type="dna")
-        unassigned_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        unassigned_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
 
         # Create a dummy scoring function with required attributes
@@ -230,8 +231,8 @@ class TestMCMCOptimizer:
     def test_multiple_constraints(self):
         """Tests the MCMC Optimizer with multiple constraints and weights."""
         seq_len = 30
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment = Segment(sequence="A" * seq_len, sequence_type="dna")
         proposal_gen.assign(segment)
@@ -271,14 +272,14 @@ class TestMCMCOptimizer:
     def test_with_multiple_generators(self):
         """Tests MCMC with more than one proposal generator."""
         seq_len = 50
-        mut_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        mut_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment1 = Segment(sequence="A" * seq_len, sequence_type="dna")
         mut_gen.assign(segment1)
 
-        inv_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=3)
+        inv_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=3))
         )
         segment2 = Segment(sequence="C" * seq_len, sequence_type="dna")
         inv_gen.assign(segment2)
@@ -331,8 +332,8 @@ class TestMCMCOptimizer:
         num_trajectories = 3
         num_proposals = 4
 
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment = Segment(sequence="ATCGATCGATCGATCGATCG", sequence_type="dna")
         proposal_gen.assign(segment)
@@ -497,8 +498,8 @@ class TestMCMCOptimizer:
         num_trajectories = 3
         seq_length = 15
 
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen.assign(segment)
@@ -555,8 +556,8 @@ class TestMCMCOptimizer:
         def custom_log(step, segments):
             log_calls.append({"step": step})
 
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen.assign(segment)
@@ -593,8 +594,8 @@ class TestMCMCOptimizer:
         seq_length = 15
 
         # Test num_trajectories=1 (should show "energy:")
-        proposal_gen1 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen1 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment1 = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen1.assign(segment1)
@@ -624,8 +625,8 @@ class TestMCMCOptimizer:
         caplog.clear()
 
         # Test num_trajectories>1 (should show "best:", "mean:", etc.)
-        proposal_gen2 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen2 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment2 = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen2.assign(segment2)
@@ -657,8 +658,8 @@ class TestMCMCOptimizer:
         num_trajectories = 2
         seq_length = 20
 
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen.assign(segment)
@@ -705,11 +706,11 @@ class TestMCMCOptimizer:
         num_trajectories = 5
         num_steps = 50
 
-        gen1 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        gen1 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
-        gen2 = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=3)
+        gen2 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=3))
         )
 
         segment1 = Segment(sequence="A" * seq_length, sequence_type="dna")
@@ -802,8 +803,8 @@ class TestMCMCOptimizer:
         proposals_per_result = 4
         seq_length = 10
 
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen.assign(segment)
@@ -909,8 +910,8 @@ class TestMCMCOptimizer:
         seq_length = 20
         num_steps = 10
 
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=2)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
         )
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen.assign(segment)
@@ -974,8 +975,8 @@ class TestMCMCOptimizer:
         proposals_per_result = 3
         seq_length = 10
 
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=1)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
         proposal_gen.assign(segment)
@@ -1075,8 +1076,8 @@ class TestMCMCOptimizer:
         """Tests that history has proposal_results with unified rejection reasons."""
         seq_length = 10
         segment = Segment(sequence="A" * seq_length, sequence_type="dna")
-        proposal_gen = UniformMutationGenerator(
-            UniformMutationGeneratorConfig(num_mutations=3)
+        proposal_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=3))
         )
         proposal_gen.assign(segment)
         construct = Construct([segment])

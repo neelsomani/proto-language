@@ -18,10 +18,10 @@
     {
       "generators": [
         {
-          "key": "uniform-mutation",
+          "key": "random-nucleotide",
           "target": "seq1",
           "config": {
-            "num_mutations": 10
+            "masking_strategy": { "num_mutations": 10 }
           }
         }
       ],
@@ -50,10 +50,10 @@
     {
       "generators": [
         {
-          "key": "uniform-mutation",
+          "key": "random-nucleotide",
           "target": "seq1",
           "config": {
-            "num_mutations": 1
+            "masking_strategy": { "num_mutations": 1 }
           }
         }
       ],

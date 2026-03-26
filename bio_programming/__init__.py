@@ -53,7 +53,7 @@ from .language.core import (
     Sequence,
     SequenceType,
 )
-from .language.generator import (  # Registry; Mutation generators; Language model generators
+from .language.generator import (  # Registry; Masking; Mutation generators; Language model generators
     ESM2Generator,
     ESM2GeneratorConfig,
     ESM3Generator,
@@ -66,14 +66,17 @@ from .language.generator import (  # Registry; Mutation generators; Language mod
     GeneratorSpec,
     LigandMPNNGenerator,
     LigandMPNNGeneratorConfig,
+    MaskingStrategy,
     MSAGenerator,
     MSAGeneratorConfig,
     ProGen2Generator,
     ProGen2GeneratorConfig,
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
+    RandomProteinGenerator,
+    RandomProteinGeneratorConfig,
     generator,
 )
 from .language.optimizer import (  # Registry; Optimizers
@@ -157,13 +160,17 @@ __all__ = [
     "alphagenome_splice_site_usage",
     "splice_transformer_intron_boundary",
     "splice_transformer_specificity",
+    # Masking strategies
+    "MaskingStrategy",
     # Generator registry
     "GeneratorRegistry",
     "GeneratorSpec",
     "generator",
     # Mutation generators
-    "UniformMutationGenerator",
-    "UniformMutationGeneratorConfig",
+    "RandomProteinGenerator",
+    "RandomProteinGeneratorConfig",
+    "RandomNucleotideGenerator",
+    "RandomNucleotideGeneratorConfig",
     "MSAGenerator",
     "MSAGeneratorConfig",
     # Language model generators

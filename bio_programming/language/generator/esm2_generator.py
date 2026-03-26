@@ -4,12 +4,13 @@ ESM2 Generator for protein sequence generation
 
 from __future__ import annotations
 
-from typing import Literal, final
+from typing import final
 
 from proto_tools import ESM2SampleConfig, ESM2SampleInput, run_esm2_sample
 from proto_tools.tools.masked_models.esm2.esm2_sample import (
     ESM2_MODEL_CHECKPOINTS,
 )
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
@@ -21,7 +22,7 @@ class ESM2GeneratorConfig(BaseConfig):
 
     This class defines configuration parameters for the ESM2 generator, which uses
     a protein language model to generate and refine protein sequences through
-    iterative mutation of high-uncertainty positions.
+    iterative mutation of masked positions.
 
     Attributes:
         model_checkpoint (str): ESM2 model checkpoint to use. Options:
@@ -44,18 +45,12 @@ class ESM2GeneratorConfig(BaseConfig):
 
             Must be greater than 0. Default: 1.0.
 
-        decoding_method (str): Strategy for selecting which positions to mutate:
-
-            - ``"entropy"``: Select positions with highest prediction uncertainty (default)
-            - ``"max_logit"``: Select positions with lowest confidence predictions
-            - ``"random"``: Randomly select positions to mutate
-
-            ``"entropy"`` typically produces the most natural-looking proteins.
-            Default: ``"entropy"``.
-
-        num_mutations (int): Number of positions to mutate per sampling iteration.
-            Higher values explore more of sequence space but may reduce biological
-            plausibility. Must be at least 1. Default: 1.
+        masking_strategy (MaskingStrategy): Controls which positions to mask and
+            how many. Supports exact count (``num_mutations``), fractional
+            (``mask_fraction``), or default random 30%. Model-based strategies
+            like ``MaskingStrategy(method="entropy")`` and
+            ``MaskingStrategy(method="max-logit")`` use model logits to select
+            high-uncertainty positions.
 
         batch_size (int): Number of sequences to process simultaneously on GPU.
             Larger batches improve throughput but use more GPU memory; reduce
@@ -68,25 +63,18 @@ class ESM2GeneratorConfig(BaseConfig):
         description="ESM2 model checkpoint to use",
     )
 
+    masking_strategy: MaskingStrategy = ConfigField(
+        title="Masking Strategy",
+        default_factory=MaskingStrategy,
+        description="Controls which positions to mask for sampling. Default: random 30%.",
+    )
+
     # Advanced parameters
     temperature: float = ConfigField(
         default=1.0,
         gt=0.0,
         title="Temperature",
         description="Scales the randomness of sampling by adjusting probability distribution sharpness.",
-        advanced=True,
-    )
-    decoding_method: Literal["entropy", "max_logit", "random"] = ConfigField(
-        default="entropy",
-        title="Decoding Method",
-        description="Position selection strategy for sampling: entropy, max_logit, or random",
-        advanced=True,
-    )
-    num_mutations: int = ConfigField(
-        default=1,
-        ge=1,
-        title="Num Mutations",
-        description="Number of positions to mutate per sampling iteration",
         advanced=True,
     )
     batch_size: int = ConfigField(
@@ -113,8 +101,8 @@ class ESM2Generator(Generator):
     """Protein sequence generator using ESM2 language model.
 
     This generator uses the ESM2 protein language model to generate and refine
-    protein sequences through iterative mutation. It identifies high-uncertainty
-    positions based on model confidence and samples biologically plausible amino
+    protein sequences through iterative mutation. It masks positions according
+    to the configured masking strategy and samples biologically plausible amino
     acids at those positions.
 
     The generator category is ``"mutation"``, indicating it refines sequences
@@ -123,8 +111,7 @@ class ESM2Generator(Generator):
     Attributes:
         model_checkpoint (str): ESM2 model checkpoint name.
         temperature (float): Sampling temperature for diversity control.
-        decoding_method (str): Position selection strategy (entropy/max_logit/random).
-        num_mutations (int): Number of positions to mutate per iteration.
+        masking_strategy (MaskingStrategy): Strategy for selecting positions to mutate.
         batch_size (int): Number of sequences to process simultaneously on GPU.
 
     Example:
@@ -132,13 +119,12 @@ class ESM2Generator(Generator):
         >>> from proto_language.language.core import Segment, SequenceType
         >>> config = ESM2GeneratorConfig(
         ...     temperature=1.0,
-        ...     decoding_method="entropy",
-        ...     num_mutations=5
+        ...     masking_strategy=MaskingStrategy(num_mutations=5),
         ... )
         >>> gen = ESM2Generator(config)
         >>> segment = Segment(length=100, sequence_type="protein")
         >>> gen.assign(segment)
-        >>> gen.sample()  # Refines 5 highest-entropy positions
+        >>> gen.sample()  # Refines 5 highest-uncertainty positions
     """
 
     def __init__(self, config: ESM2GeneratorConfig) -> None:
@@ -152,33 +138,27 @@ class ESM2Generator(Generator):
         self.config = config
         self.model_checkpoint = config.model_checkpoint
         self.temperature = config.temperature
-        self.decoding_method = config.decoding_method
-        self.num_mutations = config.num_mutations
+        self.masking_strategy = config.masking_strategy
         self.batch_size = config.batch_size
 
     def sample(self) -> None:
         """
-        Sample new amino acids at selected high-uncertainty positions for all sequences in the batch.
+        Sample new amino acids at masked positions for all sequences in the batch.
 
-        For each sequence in the batch, uses the current sequence to compute ESM-2 logits,
-        selects top-k positions based on the decoding method, and samples new amino acids
-        at those positions.
+        For each sequence in the batch, applies the masking strategy to select
+        positions, then uses ESM2 to sample new amino acids at those positions.
 
         Raises:
             RuntimeError: If called before assign().
         """
         self._validate_generator()
-        # Cap num_mutations to sequence length
-        actual_mutations = min(self.num_mutations, self._assigned_segment.sequence_length)
 
-        # Create input and config objects
         sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
         esm2_input = ESM2SampleInput(sequences=sequences)
         config = ESM2SampleConfig(
             model_checkpoint=self.model_checkpoint,
             temperature=self.temperature,
-            decoding_method=self.decoding_method,
-            num_mutations=actual_mutations,
+            masking_strategy=self.masking_strategy,
             batch_size=self.batch_size,
             verbose=False,
         )

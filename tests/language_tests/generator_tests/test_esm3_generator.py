@@ -1,6 +1,7 @@
 import copy
 
 import pytest
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.language.core import Segment
 from proto_language.language.generator import ESM3Generator, ESM3GeneratorConfig
@@ -8,14 +9,11 @@ from proto_language.language.generator import ESM3Generator, ESM3GeneratorConfig
 
 @pytest.mark.uses_gpu
 class TestESM3Generator:
-    @pytest.mark.parametrize("decoding_method", ["entropy", "max_logit", "random"])
-    def test_esm3_decoding_methods(self, decoding_method):
-        """Test ESM3 generator with each decoding method."""
+    def test_esm3_default_masking(self):
+        """Test ESM3 generator with default masking strategy (random 30%)."""
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
                 temperature=1.0,
-                decoding_method=decoding_method,
-                num_mutations=5,
             )
         )
 
@@ -30,14 +28,29 @@ class TestESM3Generator:
         assert len(segment.proposal_sequences[0].sequence) == 20
         assert segment.proposal_sequences[0].sequence_type == "protein"
 
+    def test_esm3_num_mutations_masking(self):
+        """Test ESM3 generator with explicit num_mutations masking."""
+        esm3_generator = ESM3Generator(
+            ESM3GeneratorConfig(
+                temperature=1.0,
+                masking_strategy=MaskingStrategy(num_mutations=5),
+            )
+        )
+
+        segment = Segment(length=20, sequence_type="protein")
+        esm3_generator.assign(segment)
+        esm3_generator.sample()
+
+        assert segment.proposal_sequences[0].sequence is not None
+        assert len(segment.proposal_sequences[0].sequence) == 20
+
     def test_esm3_batch_sampling(self):
         """Test ESM3 generator with batch processing."""
         num_proposals = 3
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
                 temperature=1.0,
-                decoding_method="entropy",
-                num_mutations=5,
+                masking_strategy=MaskingStrategy(num_mutations=5),
             )
         )
 
@@ -60,8 +73,7 @@ class TestESM3Generator:
         esm3_generator = ESM3Generator(
             ESM3GeneratorConfig(
                 temperature=1.0,
-                decoding_method="entropy",
-                num_mutations=5,
+                masking_strategy=MaskingStrategy(num_mutations=5),
                 batch_size=2,
             )
         )

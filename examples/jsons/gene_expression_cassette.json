@@ -29,23 +29,23 @@
     {
       "generators": [
         {
-          "key": "uniform-mutation",
+          "key": "random-nucleotide",
           "config": {
-            "num_mutations": 2
+            "masking_strategy": { "num_mutations": 2 }
           },
           "target": "promoter"
         },
         {
-          "key": "uniform-mutation",
+          "key": "random-nucleotide",
           "config": {
-            "num_mutations": 3
+            "masking_strategy": { "num_mutations": 3 }
           },
           "target": "gene"
         },
         {
-          "key": "uniform-mutation",
+          "key": "random-nucleotide",
           "config": {
-            "num_mutations": 2
+            "masking_strategy": { "num_mutations": 2 }
           },
           "target": "terminator"
         }

@@ -1,6 +1,6 @@
 {
-  "name": "uniform_mutation_single_construct_gc_constraint",
-  "description": "Generate a single DNA sequence with uniform mutation and GC content constraint",
+  "name": "random_nucleotide_single_construct_gc_constraint",
+  "description": "Generate a single DNA sequence with random nucleotide mutation and GC content constraint",
   "version": "1.0",
   "num_results": 1,
   "constructs": [
@@ -19,10 +19,10 @@
     {
       "generators": [
         {
-          "key": "uniform-mutation",
+          "key": "random-nucleotide",
           "target": "construct1-segment1",
           "config": {
-            "num_mutations": 1
+            "masking_strategy": { "num_mutations": 1 }
           }
         }
       ],

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Tuple
 
+from proto_tools.tools.masked_models.masking import MaskingStrategy
+
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
     Constraint,
@@ -11,8 +13,8 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     MCMCOptimizer,
@@ -31,10 +33,10 @@ construct = Construct([seq1])
 # OPTIMIZATION STAGE 1
 
 # Generator
-uniform_gen_config_1 = UniformMutationGeneratorConfig(
-    num_mutations=10
+uniform_gen_config_1 = RandomNucleotideGeneratorConfig(
+    masking_strategy=MaskingStrategy(num_mutations=10),
 )
-uniform_gen_1 = UniformMutationGenerator(uniform_gen_config_1)
+uniform_gen_1 = RandomNucleotideGenerator(uniform_gen_config_1)
 
 # Assign
 uniform_gen_1.assign(seq1)
@@ -74,10 +76,10 @@ optimizer_1 = TopKOptimizer(
 # OPTIMIZATION STAGE 2
 
 # Generator
-uniform_gen_config_2 = UniformMutationGeneratorConfig(
-    num_mutations=1
+uniform_gen_config_2 = RandomNucleotideGeneratorConfig(
+    masking_strategy=MaskingStrategy(num_mutations=1),
 )
-uniform_gen_2 = UniformMutationGenerator(uniform_gen_config_2)
+uniform_gen_2 = RandomNucleotideGenerator(uniform_gen_config_2)
 
 # Assign
 uniform_gen_2.assign(seq1)
@@ -153,7 +155,7 @@ seq1_incremental = Segment(length=20, sequence_type="dna")
 construct_incremental = Construct([seq1_incremental])
 
 # Stage 1: TopK
-uniform_gen_1_inc = UniformMutationGenerator(uniform_gen_config_1)
+uniform_gen_1_inc = RandomNucleotideGenerator(uniform_gen_config_1)
 uniform_gen_1_inc.assign(seq1_incremental)
 
 gc_constraint_1_inc = Constraint(
@@ -171,7 +173,7 @@ optimizer_1_inc = TopKOptimizer(
 )
 
 # Stage 2: MCMC
-uniform_gen_2_inc = UniformMutationGenerator(uniform_gen_config_2)
+uniform_gen_2_inc = RandomNucleotideGenerator(uniform_gen_config_2)
 uniform_gen_2_inc.assign(seq1_incremental)
 
 gc_constraint_2_inc = Constraint(

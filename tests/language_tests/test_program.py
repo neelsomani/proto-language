@@ -6,12 +6,13 @@ from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
 import pytest
+from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.core import Construct, Program, Segment
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import TopKOptimizer, TopKOptimizerConfig
 
@@ -38,8 +39,8 @@ def _create_simple_program(
 
     optimizers = []
     for i in range(num_stages):
-        gen_config = UniformMutationGeneratorConfig(num_mutations=1)
-        generator = UniformMutationGenerator(gen_config)
+        gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
 
         constraint = ConstraintRegistry.create(
@@ -182,7 +183,7 @@ class TestProgramRestart:
 
 def _make_topk(segment, construct, num_results=None):
     """Create a TopK optimizer with optional num_results."""
-    gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+    gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
     gen.assign(segment)
     constraint = ConstraintRegistry.create(
         key="gc-content", segments=[segment], config_dict={"min_gc": 0, "max_gc": 100},
@@ -361,7 +362,7 @@ class TestRunStageRestart:
         construct = Construct([segment])
 
         # Stage 1: uses gc-content constraint with label "gc_stage_1"
-        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen1.assign(segment)
         constraint1 = ConstraintRegistry.create(
             key="gc-content",
@@ -377,7 +378,7 @@ class TestRunStageRestart:
         )
 
         # Stage 2: uses gc-content constraint with label "gc_stage_2"
-        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen2.assign(segment)
         constraint2 = ConstraintRegistry.create(
             key="gc-content",
@@ -461,7 +462,7 @@ class TestProgramValidation:
         construct1 = Construct([segment1], label="c1")
         construct2 = Construct([segment2], label="c2")
 
-        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen1.assign(segment1)
         constraint1 = ConstraintRegistry.create(
             key="gc-content", segments=[segment1], config_dict={"min_gc": 0, "max_gc": 100}
@@ -473,7 +474,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen2.assign(segment1)
         constraint2 = ConstraintRegistry.create(
             key="gc-content", segments=[segment1], config_dict={"min_gc": 0, "max_gc": 100}
@@ -496,7 +497,7 @@ class TestProgramValidation:
         segment2 = Segment(sequence="ATGCATGCATGCATGCATGC", sequence_type="dna")
         construct2 = Construct([segment2])
 
-        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen1.assign(segment1)
         constraint1 = ConstraintRegistry.create(
             key="gc-content", segments=[segment1], config_dict={"min_gc": 0, "max_gc": 100}
@@ -508,7 +509,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen2.assign(segment2)
         constraint2 = ConstraintRegistry.create(
             key="gc-content", segments=[segment2], config_dict={"min_gc": 0, "max_gc": 100}
@@ -530,9 +531,9 @@ class TestProgramValidation:
         construct1 = Construct([segment1], label="same_label")
         construct2 = Construct([segment2], label="same_label")
 
-        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen1.assign(segment1)
-        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen2.assign(segment2)
         constraint1 = ConstraintRegistry.create(
             key="gc-content", segments=[segment1], config_dict={"min_gc": 0, "max_gc": 100}
@@ -556,7 +557,7 @@ class TestProgramValidation:
         construct1 = Construct([shared_segment], label="c1")
         construct2 = Construct([shared_segment], label="c2")  # Same segment instance!
 
-        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen1.assign(shared_segment)
         constraint = ConstraintRegistry.create(
             key="gc-content", segments=[shared_segment], config_dict={"min_gc": 0, "max_gc": 100}
@@ -577,7 +578,7 @@ class TestProgramValidation:
         segment2 = Segment(sequence_type="dna", length=20)  # No input sequence
         construct = Construct([segment1, segment2])
 
-        gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen.assign(segment1)  # Only segment1 has generator
         constraint = ConstraintRegistry.create(
             key="gc-content", segments=[segment1], config_dict={"min_gc": 0, "max_gc": 100}
@@ -597,7 +598,7 @@ class TestProgramValidation:
         segment = Segment(sequence="ATGCATGCATGCATGCATGC", sequence_type="dna")
         construct = Construct([segment])
 
-        shared_gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        shared_gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         shared_gen.assign(segment)
 
         constraint1 = ConstraintRegistry.create(
@@ -627,9 +628,9 @@ class TestProgramValidation:
         segment = Segment(sequence="ATGCATGCATGCATGCATGC", sequence_type="dna")
         construct = Construct([segment])
 
-        gen1 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen1.assign(segment)
-        gen2 = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=1))
+        gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
         gen2.assign(segment)
 
         shared_constraint = ConstraintRegistry.create(
@@ -888,11 +889,11 @@ class TestProgramCompute:
     @patch("proto_tools.utils.tool_pool._active_pool")
     def test_run_enters_compute_context(self, mock_active_pool):
         """ToolPool __enter__ and __exit__ called during run()."""
-        # First call returns None (run() enters), subsequent calls return
-        # the pool (run_stage() sees active and skips)
         mock_pool = MagicMock()
-        mock_active_pool.get.side_effect = [None, mock_pool]
+        mock_active_pool.get.return_value = None
         program = _create_simple_program(compute=mock_pool)
+        # Mock run_stage to avoid tool dispatch conflicts with mocked pool
+        program.run_stage = MagicMock()
         program.run()
         mock_pool.__enter__.assert_called_once()
         mock_pool.__exit__.assert_called_once()
@@ -910,11 +911,12 @@ class TestProgramCompute:
     @patch("proto_tools.utils.tool_pool._active_pool")
     def test_run_stage_skips_enter_when_active(self, mock_active_pool):
         """run_stage() called from run() does not double-enter compute."""
-        # First call returns None (run() enters), subsequent calls return mock
-        # (run_stage() sees active pool and skips)
         mock_pool = MagicMock()
-        mock_active_pool.get.side_effect = [None, mock_pool, mock_pool]
+        # First call returns None (run() enters), subsequent calls return mock
+        mock_active_pool.get.side_effect = [None] + [mock_pool] * 10
         program = _create_simple_program(compute=mock_pool)
+        # Mock run_stage to avoid tool dispatch conflicts with mocked pool
+        program.run_stage = MagicMock()
         program.run()
         # Only one __enter__ call (from run()), run_stage() should skip
         assert mock_pool.__enter__.call_count == 1
@@ -930,4 +932,3 @@ class TestProgramCompute:
         with pytest.raises(RuntimeError, match="boom"):
             program.run()
         mock_pool.__exit__.assert_called_once()
-

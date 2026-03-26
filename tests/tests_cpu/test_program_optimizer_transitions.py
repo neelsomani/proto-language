@@ -18,6 +18,8 @@ import random
 from typing import Dict, List, Optional
 from unittest.mock import Mock
 
+from proto_tools.tools.masked_models.masking import MaskingStrategy
+
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
     Constraint,
@@ -28,8 +30,8 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.generator import (
-    UniformMutationGenerator,
-    UniformMutationGeneratorConfig,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     BeamSearchOptimizer,
@@ -112,7 +114,7 @@ class MockCyclingGenerator(Generator):
 
 def create_topk_optimizer(construct, segment, num_samples=20, num_results=3, num_mutations=3):
     """Create a TopK optimizer."""
-    gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=num_mutations))
+    gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=num_mutations)))
     gen.assign(segment)
     constraint = Constraint(
         inputs=[segment],
@@ -129,7 +131,7 @@ def create_topk_optimizer(construct, segment, num_samples=20, num_results=3, num
 
 def create_mcmc_optimizer(construct, segment, num_results=3, num_steps=10, num_mutations=2):
     """Create an MCMC optimizer."""
-    gen = UniformMutationGenerator(UniformMutationGeneratorConfig(num_mutations=num_mutations))
+    gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=num_mutations)))
     gen.assign(segment)
     constraint = Constraint(
         inputs=[segment],

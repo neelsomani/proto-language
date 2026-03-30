@@ -124,18 +124,25 @@ class Program:
             from proto_tools.utils.device import number_of_available_gpus
             from proto_tools.utils.tool_pool import ToolPool
 
-            has_backend = ToolRegistry._execution_backend is not None
+            has_backend = getattr(ToolRegistry, '_dispatch_configured', False)
             has_gpus = number_of_available_gpus() > 0
 
-            if has_backend:
-                compute = ToolPool(remote=True)
+            if has_backend and has_gpus:
+                compute = ToolPool()
+            elif has_backend:
+                from contextlib import nullcontext
+                logger.debug(
+                    "No local GPUs; external dispatch configured — "
+                    "GPU tools will route via _try_dispatch."
+                )
+                compute = nullcontext()
             elif has_gpus:
                 compute = ToolPool()
             else:
                 from contextlib import nullcontext
 
                 logger.warning(
-                    "No GPUs detected and no cloud backend registered. "
+                    "No GPUs detected and no external dispatch configured. "
                     "Tools will execute inline without parallelism."
                 )
                 compute = nullcontext()

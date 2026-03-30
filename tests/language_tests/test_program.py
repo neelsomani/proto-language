@@ -862,28 +862,43 @@ class TestProgramExport:
 class TestProgramCompute:
     """Tests for Program.compute parameter and _enter_compute() context manager."""
 
-    @patch("proto_tools.utils.device.number_of_available_gpus", return_value=0)
-    @patch("proto_tools.tools.tool_registry.ToolRegistry._execution_backend", new="mock_backend")
+    @patch("proto_tools.utils.device.number_of_available_gpus", return_value=2)
     @patch("proto_tools.utils.tool_pool.ToolPool")
-    def test_compute_defaults_to_toolpool_remote_when_backend(self, mock_pool_cls, _mock_gpus):
-        """Default compute=None resolves to ToolPool(remote=True) when cloud backend is registered."""
-        program = _create_simple_program(compute=None)
-        mock_pool_cls.assert_called_once_with(remote=True)
-        assert program.compute is mock_pool_cls.return_value
+    def test_compute_defaults_to_toolpool_when_backend_and_gpus(self, mock_pool_cls, _mock_gpus):
+        """Default compute=None resolves to ToolPool() when dispatch configured and GPUs available."""
+        from proto_tools.tools.tool_registry import ToolRegistry
+        ToolRegistry._dispatch_configured = True
+        try:
+            program = _create_simple_program(compute=None)
+            mock_pool_cls.assert_called_once_with()
+            assert program.compute is mock_pool_cls.return_value
+        finally:
+            del ToolRegistry._dispatch_configured
+
+    @patch("proto_tools.utils.device.number_of_available_gpus", return_value=0)
+    def test_compute_defaults_to_nullcontext_when_backend_no_gpus(self, _mock_gpus):
+        """Default compute=None resolves to nullcontext() when dispatch configured but no GPUs."""
+        from contextlib import nullcontext
+
+        from proto_tools.tools.tool_registry import ToolRegistry
+        ToolRegistry._dispatch_configured = True
+        try:
+            program = _create_simple_program(compute=None)
+            assert isinstance(program.compute, nullcontext)
+        finally:
+            del ToolRegistry._dispatch_configured
 
     @patch("proto_tools.utils.device.number_of_available_gpus", return_value=2)
-    @patch("proto_tools.tools.tool_registry.ToolRegistry._execution_backend", new=None)
     @patch("proto_tools.utils.tool_pool.ToolPool")
     def test_compute_defaults_to_toolpool_local_when_gpus(self, mock_pool_cls, _mock_gpus):
-        """Default compute=None resolves to ToolPool() when GPUs available but no backend."""
+        """Default compute=None resolves to ToolPool() when GPUs available but no dispatch."""
         program = _create_simple_program(compute=None)
         mock_pool_cls.assert_called_once_with()
         assert program.compute is mock_pool_cls.return_value
 
     @patch("proto_tools.utils.device.number_of_available_gpus", return_value=0)
-    @patch("proto_tools.tools.tool_registry.ToolRegistry._execution_backend", new=None)
     def test_compute_defaults_to_nullcontext_when_nothing(self, _mock_gpus):
-        """Default compute=None resolves to nullcontext() when no backend and no GPUs."""
+        """Default compute=None resolves to nullcontext() when no dispatch and no GPUs."""
         from contextlib import nullcontext
         program = _create_simple_program(compute=None)
         assert isinstance(program.compute, nullcontext)

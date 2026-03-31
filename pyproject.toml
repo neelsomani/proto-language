@@ -85,7 +85,6 @@ markers = [
     "gpu: GPU-required tests",
     "slow: Slow tests that may take several minutes",
     "integration: Integration tests (require external tools like MAFFT). Skipped by default.",
-    "e2e: End-to-end tests. Skipped by default.",
     "skip_ci: Skip test in GitHub Actions CI",
     "only_chimera: Test only runs on Chimera cluster (arc-slurm)",
 ]

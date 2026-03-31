@@ -39,8 +39,6 @@ pytest tests/language_tests/              # Language core
 pytest tests/language_tests/constraint_tests/  # Constraints only
 pytest tests/language_tests/generator_tests/   # Generators only
 pytest tests/language_tests/optimizer_tests/   # Optimizers only
-pytest tests/tool_tests/                  # Tool integrations
-
 # Linting (CI checks F401 unused imports, F841 unused vars, import sorting)
 ruff check proto_language tests
 ```
@@ -71,7 +69,6 @@ tests/
 │   │   ├── test_mcmc_optimizer.py
 │   │   └── test_{name}_optimizer.py
 │   └── test_program.py
-└── tool_tests/
 ```
 
 **Naming rules**:

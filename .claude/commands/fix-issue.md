@@ -52,7 +52,7 @@ Parallelize exploration aggressively — launch multiple sub-agents to search di
 | Program | `proto_language/language/program/` | `tests/language_tests/test_program.py` |
 | Core (Segment, Construct, Sequence) | `proto_language/language/core/` | `tests/language_tests/` |
 | Config system | `proto_language/base_config.py` | `tests/language_tests/` |
-| Tool integrations | `proto_tools/` (submodule) | `tests/tool_tests/` |
+| Tool integrations | `proto-tools/` (submodule) | submodule's own `tests/` |
 
 ## Step 3: Present Findings — STOP and wait for user
 

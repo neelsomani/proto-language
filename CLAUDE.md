@@ -73,7 +73,7 @@ Claude's personal memory across sessions. Save to auto-memory when you discover 
 - Debugging that took multiple attempts → save root cause + fix
 - Undocumented tool/model behavior → save the quirk + workaround
 - Non-obvious architectural coupling → save the discovery
-- Platform-specific issues (cloud cold starts, GPU memory limits, etc.)
+- Platform-specific issues (GPU memory limits, cluster-specific quirks, etc.)
 
 Do NOT save to auto-memory: anything already in CLAUDE.md or notes/ (avoid duplication), temporary task context, or information other developers need (use notes/ instead).
 
@@ -143,7 +143,7 @@ Other markers: `@pytest.mark.uses_gpu`, `@pytest.mark.slow`, `@pytest.mark.skip_
 
 - CPU tests need no marker (auto-applied).
 - Mock generators in conftest.py for testing optimizers/programs without real models.
-- Structure: `tests/language_tests/`, `tests/tool_tests/`
+- Structure: `tests/language_tests/`
 - **Before running GPU tests**, check if a GPU is available. If no GPU is detected, run CPU tests by default (`pytest --cpu`).
 
 ## Sub-Agent Parallelization

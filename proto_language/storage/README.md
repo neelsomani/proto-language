@@ -139,35 +139,6 @@ url = store.get_url(file_id)              # Get accessible URL/path
 
 Content types are set on GCS uploads so browsers can handle files correctly.
 
-## File Serving API Endpoint
-
-`GET /files/{file_id}` serves stored files over HTTP.
-
-Behavior depends on the backend:
-
-- **GCS** (`serves_redirect = True`): Returns a `307 Redirect` to a time-limited signed URL (default 60-minute expiry).
-- **Local** (`serves_redirect = False`): Streams the file content directly via `FileResponse`.
-- Returns `404` if the file doesn't exist.
-
-```python
-# api/main.py
-@app.get("/files/{file_id}")
-def get_file(file_id: str):
-    if not _FILE_ID_RE.match(file_id):
-        raise HTTPException(status_code=400, detail="Invalid file ID format")
-
-    store = get_file_store()
-    try:
-        url = store.get_url(file_id)
-        if store.serves_redirect:
-            return RedirectResponse(url=url)
-        return FileResponse(url, media_type=store.get_content_type(file_id))
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
-```
-
-This endpoint is what the client uses to fetch PDB content for `StructureViewer`, download CSVs, etc.
-
 ## Export Integration
 
 The export system (`proto_language/utils/export.py`) handles file references in two modes:

@@ -124,7 +124,7 @@ def pytest_addoption(parser):
         "--e2e",
         action="store_true",
         default=False,
-        help="Include end-to-end tests (start real a cache + API server). Skipped by default.",
+        help="Include end-to-end tests. Skipped by default.",
     )
     parser.addoption(
         "--no-log-console",
@@ -312,7 +312,7 @@ def pytest_collection_modifyitems(config, items):
             items[:] = selected
     else:
         skip_e2e = pytest.mark.skip(
-            reason="e2e test (use --e2e to run; requires a cache)"
+            reason="e2e test (use --e2e to run)"
         )
         for item in items:
             if "e2e" in item.keywords:

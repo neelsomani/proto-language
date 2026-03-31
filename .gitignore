@@ -94,11 +94,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# a cache
-*.rdb
-*.aof
-*.pid
-
 # Type checkers
 .mypy_cache/
 .dmypy.json
@@ -114,6 +109,3 @@ cython_debug/
 
 # Worktrees
 .claude/worktrees/
-
-# Agent eval artifacts
-.agent_components/

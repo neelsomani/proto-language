@@ -13,18 +13,11 @@ jobs:
     if: github.event.pull_request.draft == false
     name: Check Submodule Up-to-Date
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Checkout submodules
-      env:
-        SUBMODULE_PAT: ${{ secrets.CI_SUBMODULE_ACCESS }}
-      run: |
-        git config --global url."https://x-access-token:${SUBMODULE_PAT}@github.com/".insteadOf "git@github.com:"
-        git submodule update --init --recursive
-
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.CI_SUBMODULE_ACCESS }}
+        submodules: recursive
     - name: Verify proto-tools points to latest main
       env:
         GH_TOKEN: ${{ secrets.CI_SUBMODULE_ACCESS }}

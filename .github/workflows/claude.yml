@@ -26,23 +26,15 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          # Claude Code needs write access (push commits) and full history.
-          # GITHUB_TOKEN has reduced permissions on issue_comment events in
-          # some org configurations, so we use the PAT here.
-          # NOTE: CI_SUBMODULE_ACCESS must have read/write access to
-          # evo-design/proto-language AND read access to evo-design/proto-tools.
           token: ${{ secrets.CI_SUBMODULE_ACCESS }}
           fetch-depth: 0
           submodules: recursive
-
-      - name: Run Claude Code
+      - uses: anthropics/claude-code-action@v1
         id: claude
-        uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |

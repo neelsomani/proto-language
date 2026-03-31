@@ -106,7 +106,7 @@ __all__ = [
 
 ## Tool Integration Pattern
 
-For generators that call external tools deployed on cloud:
+For generators that call external tools (via proto-tools):
 
 ```python
 from proto_tools import run_{tool}, {Tool}Input, {Tool}Config

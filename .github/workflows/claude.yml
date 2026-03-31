@@ -29,8 +29,13 @@ jobs:
       actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
+          # Claude Code needs write access (push commits) and full history.
+          # GITHUB_TOKEN has reduced permissions on issue_comment events in
+          # some org configurations, so we use the PAT here.
+          # NOTE: CI_SUBMODULE_ACCESS must have read/write access to
+          # evo-design/proto-language AND read access to evo-design/proto-tools.
           token: ${{ secrets.CI_SUBMODULE_ACCESS }}
           fetch-depth: 0
           submodules: recursive

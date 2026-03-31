@@ -25,7 +25,7 @@ jobs:
 
     - run: pip install ruff
 
-    - run: ruff check proto_language api agent deployment tests
+    - run: ruff check proto_language tests
 
   validate-exports:
     if: github.event.pull_request.draft == false
@@ -34,42 +34,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.CI_SUBMODULE_ACCESS }}
-        submodules: recursive
+
+    - name: Checkout submodules
+      env:
+        SUBMODULE_PAT: ${{ secrets.CI_SUBMODULE_ACCESS }}
+      run: |
+        git config --global url."https://x-access-token:${SUBMODULE_PAT}@github.com/".insteadOf "git@github.com:"
+        git submodule update --init --recursive
 
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
 
     - run: python .github/scripts/validate_exports.py --verbose
-
-  openapi-check:
-    if: github.event.pull_request.draft == false
-    name: Verify OpenAPI Spec
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.CI_SUBMODULE_ACCESS }}
-        submodules: recursive
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-
-    - uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip uv
-        uv pip install --system -e ".[api]"
-        uv pip install --system -e ./proto-tools
-
-    - run: python .github/scripts/generate_openapi.py --check

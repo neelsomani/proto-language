@@ -28,7 +28,7 @@ gh issue view $ARGUMENTS --comments
 Extract from the issue:
 - **What's broken or requested** — the core problem or feature
 - **Reproduction steps** — if it's a bug
-- **Affected components** — which part of the system (language core, API, agent, deployment)
+- **Affected components** — which part of the system (language core, tools)
 - **Labels/assignees** — for priority and area context
 
 ## Step 2: Explore the Codebase
@@ -51,10 +51,8 @@ Parallelize exploration aggressively — launch multiple sub-agents to search di
 | Optimizer | `proto_language/language/optimizer/` | `tests/language_tests/optimizer_tests/` |
 | Program | `proto_language/language/program/` | `tests/language_tests/test_program.py` |
 | Core (Segment, Construct, Sequence) | `proto_language/language/core/` | `tests/language_tests/` |
-| API | `api/` | `tests/api_tests/` |
-| Agent | `agent/` | `tests/agent_tests/` |
 | Config system | `proto_language/base_config.py` | `tests/language_tests/` |
-| Tool integrations | `proto_tools/` (submodule) | `tests/tool_tests/` |
+| Tool integrations | `proto-tools/` (submodule) | submodule's own `tests/` |
 
 ## Step 3: Present Findings — STOP and wait for user
 
@@ -76,7 +74,6 @@ Place the test in the correct location per test conventions:
 - `tests/language_tests/constraint_tests/test_{category}/test_{name}_constraint.py`
 - `tests/language_tests/generator_tests/test_{name}_generator.py`
 - `tests/language_tests/optimizer_tests/test_{name}_optimizer.py`
-- `tests/api_tests/test_{area}.py`
 
 ```bash
 # Verify the test fails as expected
@@ -111,7 +108,7 @@ pytest tests/language_tests/constraint_tests/ --cpu    # (or whichever area)
 pytest --cpu --skip-ci
 
 # 4. Lint
-ruff check proto_language api agent tests
+ruff check proto_language tests
 ```
 
 If any test fails, fix it before proceeding. Don't ask — just fix regressions.

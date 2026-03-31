@@ -37,56 +37,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# API + Agent server infrastructure
-api = [
-    # Environment
-    "python-dotenv",
-
-    # API server
-    "fastapi>=0.104.0",
-    "uvicorn[standard]",
-    "sse-starlette>=1.6.5",
-
-    # Database
-    "sqlmodel>=0.0.8",
-    "sqlalchemy>=2.0.0",
-    "greenlet",
-    "aiosqlite>=0.19.0",
-    "asyncpg>=0.29.0",
-    "psycopg2-binary>=2.9.0",
-
-    # a cache (SSE pub/sub, cancellation flags)
-    "cache>=5.0",
-
-    # Cloud storage
-    "google-cloud-storage",
-
-    # Remote GPU execution
-
-
-    # Used by deployment/
-    "requests",
-    "pyyaml",
-
-    # AI agent
-    "openai",
-    "openai-agents[litellm]",
-    "litellm",
-    "ddgs",
-    "rank-bm25",
-    "httpx",
-    "jsonpatch",
-    "jsonpointer",
-    "pick>=2.0",
-
-    # CLI display + input
-    "rich>=13.0",
-    "prompt-toolkit>=3.0.50",
-
-    # MCP server
-    "fastmcp>=3.0.0",
-]
-
 # Development and testing tools
 dev = [
     "pytest>=7.3.0",        # --strict-markers requires 7.3+
@@ -106,7 +56,7 @@ dev = [
 
 # Everything
 all = [
-    "proto-language[api,dev]",
+    "proto-language[dev]",
 ]
 
 [project.urls]
@@ -117,7 +67,7 @@ Documentation = "https://github.com/evo-design/proto-language#readme"
 
 
 [tool.setuptools.packages.find]
-include = ["proto_language*", "api*", "agent*", "mcp*"]
+include = ["proto_language*"]
 exclude = ["tests*", "examples*", "*.tests*", "*.tests", "proto-tools*"]
 
 [tool.pytest.ini_options]
@@ -135,7 +85,6 @@ markers = [
     "gpu: GPU-required tests",
     "slow: Slow tests that may take several minutes",
     "integration: Integration tests (require external tools like MAFFT). Skipped by default.",
-    "e2e: End-to-end tests (start real a cache + API server). Skipped by default.",
     "skip_ci: Skip test in GitHub Actions CI",
     "only_chimera: Test only runs on Chimera cluster (arc-slurm)",
 ]
@@ -172,4 +121,4 @@ exclude = [
 select = ["F401", "F841", "I"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["proto_language", "api", "agent", "mcp"]
+known-first-party = ["proto_language"]

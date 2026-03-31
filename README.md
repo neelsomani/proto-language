@@ -2,7 +2,6 @@
 
 [![Unit Tests](https://github.com/evo-design/proto-language/actions/workflows/run-unit-tests.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/run-unit-tests.yml)
 [![Integration Tests](https://github.com/evo-design/proto-language/actions/workflows/integration_tests.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/integration_tests.yml)
-[![E2E Tests](https://github.com/evo-design/proto-language/actions/workflows/e2e_tests.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/e2e_tests.yml)
 [![Lint Check](https://github.com/evo-design/proto-language/actions/workflows/checks.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/checks.yml)
 
 A framework for designing biological sequences (DNA, RNA, proteins) with constraint-based optimization.
@@ -46,8 +45,8 @@ pip install -e ./proto-tools
 ### Developers
 
 ```bash
-# 3. (Optional) Install full dev dependencies (API, agent, testing, linting)
-pip install -e ".[all]"
+# 3. (Optional) Install dev dependencies (testing, linting)
+pip install -e ".[dev]"
 pip install -e "./proto-tools[dev]"
 
 # 4. (Optional) Install pre-commit hooks
@@ -64,40 +63,6 @@ pip uninstall -y numcodecs zarr
 pip install --no-cache-dir --force-reinstall numcodecs zarr
 pip install -e /home/{USERNAME}/proto-language
 ```
-
-## Environment Setup
-
-Local dev needs no env vars — sensible defaults are built in. Optionally copy the template to customize:
-
-```bash
-cp .env.example .env
-```
-
-a cache must be running (`brew services start cache` or `docker run -d -p 6379:6379 cache:alpine`). The API checks a cache on startup and warns if unavailable.
-
-See `.env.example` for all variables with descriptions, or `CLAUDE.md` for a categorized reference table.
-
-## Running the API
-
-### Local Development
-
-```bash
-python api/main.py
-```
-
-Runs on [http://localhost:8000](http://localhost:8000) with local execution mode (no cloud), SQLite database, and a cache on localhost.
-
-### Docker
-
-```bash
-docker-compose up
-```
-
-Starts a cache + API together. Available at [http://localhost:8000](http://localhost:8000).
-
-### Production
-
-Deployed via GitHub Actions (`release-to-prod.yml`). Requires `DATABASE_URL`, `REDIS_URL`, `LOCAL_EXECUTION=false`, and cloud tokens set in the deploy platform environment variables. Set `CLOUD_ENVIRONMENT=staging` on the staging the deploy platform service.
 
 ## Tests
 
@@ -152,3 +117,6 @@ Commands (invoked with `/command-name`):
 - `**/fix-issue <number>`** — full GitHub issue fix lifecycle (read issue, explore, reproduce, fix, test, verify)
 
 The `proto-tools/` submodule has its own skills and commands — see its [README](./proto-tools/README.md#using-with-claude-code).
+
+> [!NOTE]
+

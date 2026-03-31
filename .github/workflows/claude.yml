@@ -31,14 +31,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Claude Code needs write access (push commits) and full history.
+          # GITHUB_TOKEN has reduced permissions on issue_comment events in
+          # some org configurations, so we use the PAT here.
+          # NOTE: CI_SUBMODULE_ACCESS must have read/write access to
+          # evo-design/proto-language AND read access to evo-design/proto-tools.
+          token: ${{ secrets.CI_SUBMODULE_ACCESS }}
           fetch-depth: 0
-
-      - name: Checkout submodules
-        env:
-          SUBMODULE_PAT: ${{ secrets.CI_SUBMODULE_ACCESS }}
-        run: |
-          git config --global url."https://x-access-token:${SUBMODULE_PAT}@github.com/".insteadOf "git@github.com:"
-          git submodule update --init --recursive
+          submodules: recursive
 
       - name: Run Claude Code
         id: claude

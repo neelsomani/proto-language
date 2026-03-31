@@ -6,17 +6,11 @@ This guide covers the development workflow, including pre-commit hooks and what 
 
 ```bash
 # Important commands to know
-ruff check proto_language api agent tests # Run by Checks CI to check code style
+ruff check proto_language tests        # Run by Checks CI to check code style
 pytest --cpu --skip-ci                 # Run by Unit Test CI to run CPU-only unit tests (mimics exact CI conditions)
-pytest --e2e -v                        # Run by E2E Test CI (starts real a cache + API server)
-
-python deployment/deploy_cloud_functions.py        # Deploy all services to cloud
-python deployment/deploy_cloud_functions.py --test # Deploy and run smoke tests (you should do this if you modify cloud service implementations)
 
 python .github/scripts/validate_exports.py          # Validate export chain consistency across both repos
 python .github/scripts/validate_exports.py --verbose # Same, with detailed output
-python .github/scripts/generate_openapi.py           # Regenerate openapi.json from FastAPI app
-python .github/scripts/generate_openapi.py --check   # Verify openapi.json is up to date (run by Checks CI)
 ```
 
 ## Table of Contents
@@ -217,32 +211,20 @@ pytest --cpu --skip-ci
 pytest --integration --cpu -v
 ```
 
-#### End-to-End Tests
-**File:** `.github/workflows/e2e_tests.yml`
-**Triggers:** On non-draft PRs
-**What it does:** Starts real a cache + API server and runs end-to-end HTTP tests
-
-**Run locally:**
-```bash
-pytest --e2e -v
-```
-
 ### Constant Automatic CIs
 This CI always runs automatically on pull requests regardless of state.
 
-#### Checks (Lint, Exports, OpenAPI)
+#### Checks (Lint, Exports)
 **File:** `.github/workflows/checks.yml`
 **Triggers:** On all PR pushes and main branch
-**What it does:** Three parallel jobs:
+**What it does:** Two parallel jobs:
 1. **Ruff Lint** — checks code style (F401 + F841 + import sorting)
 2. **Validate Export Chains** — verifies `__init__.py` exports are consistent
-3. **Verify OpenAPI Spec** — ensures `openapi.json` matches current Pydantic models
 
 **Run locally:**
 ```bash
-ruff check proto_language api agent tests
+ruff check proto_language tests
 python .github/scripts/validate_exports.py --verbose
-python .github/scripts/generate_openapi.py --check
 ```
 
 ### Manual CIs
@@ -270,16 +252,6 @@ The following CIs run manually when requested by the user:
 #### Documentation Generation
 
 Documentation reference pages are auto-generated from Python docstrings and field descriptions. The `docs_autogen.yml` workflow no longer exists in this repo; generation now happens externally from the source code in this repo.
-
-#### Deploy to Staging
-**File:** `.github/workflows/release-to-staging.yml`
-**Triggers:** Manual dispatch
-**What it does:** Deploys the application to the staging environment
-
-#### Release and Deploy to Production
-**File:** `.github/workflows/release-to-prod.yml`
-**Triggers:** Manual dispatch
-**What it does:** Creates a release and deploys the application to production
 
 ---
 

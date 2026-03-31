@@ -33,7 +33,7 @@ Never use `print()`. Always use `logger.info()` / `logger.debug()` / `logger.war
 1. `from __future__ import annotations`
 2. Standard library (`os`, `logging`, `typing`, etc.)
 3. Third-party (`pydantic`, `numpy`, etc.)
-4. Local (`proto_language.*`, `api.*`, `agent.*`)
+4. Local (`proto_language.*`)
 
 ## Data Model (`proto_language/language/core/`)
 
@@ -228,6 +228,6 @@ All tool keys follow **`{tool}-{action}`** in kebab-case:
 ## Linting & Formatting
 
 ```bash
-ruff check proto_language api agent tests    # Lint: F401 (unused imports) + F841 (unused vars) + import sorting
+ruff check proto_language tests               # Lint: F401 (unused imports) + F841 (unused vars) + import sorting
 pre-commit run --all-files                    # All checks
 ```

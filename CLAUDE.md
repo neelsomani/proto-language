@@ -8,10 +8,8 @@ proto-language: constraint-based optimization framework for designing biological
 2. **Tools** (`proto-tools/`) — 25+ bioinformatics tool wrappers.
    Git submodule tracking `evo-design/proto-tools` (branch: main).
    Has its own CLAUDE.md, notes/, tests, and CI.
-3. **API** (`api/`) — FastAPI + a cache for async optimization jobs
-4. **Agent** (`agent/`) — AI agent (OpenAI Agents SDK + LiteLLM)
-5. **MCP** (`mcp/`) — MCP server exposing framework discovery, search, validation, and execution to Claude Code. Configured in `.mcp.json`.
-6. **Deployment** (`deployment/`) — cloud GPU cloud functions
+
+
 
 All three language components (constraints, generators, optimizers) use a registry pattern:
 ```python
@@ -26,69 +24,25 @@ def gc_content_constraint(input_sequences, config) -> List[float]: ...
 ## Environment
 
 - **Conda env**: `proto-language` (Python >=3.10). Assumed active — do NOT create/activate venvs.
-- **`.env.example`** (committed) — template with all variables, descriptions, and safe local dev defaults. Copy to `.env` and fill in real values.
-- **`.env`** (gitignored) — loaded by `python-dotenv` in `api/main.py`. Never commit.
-- Local dev needs no env vars — sensible defaults are built in. SSRF validation is automatically skipped when `LOCAL_EXECUTION=true` (the default).
+- Local dev needs no env vars — sensible defaults are built in.
 
 ### Environment Variables
 
-**Local development (optional — sensible defaults in code):**
-
 | Variable | Purpose | Default |
 |---|---|---|
-| `REDIS_URL` | a cache connection for SSE pub/sub and run state | `cache://localhost:6379/0` |
-| `LOCAL_EXECUTION` | Run optimizations locally (no cloud). Production must set to `false`. | `true` |
-| `DATABASE_URL` | PostgreSQL connection string. Local dev auto-uses SQLite file. | *(unset — `proto_language.db`)* |
-
-**Agent (optional — only for AI agent):**
-
-| Variable | Purpose |
-|---|---|
-| `OPENAI_API_KEY` | OpenAI models (gpt-5, etc.) |
-| `ANTHROPIC_API_KEY` | Anthropic models (Claude) |
-| `GEMINI_API_KEY` | Google Gemini models |
-
-**MCP server (optional — only for `mcp/`):**
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `BIO_API_URL` | API base URL for MCP execution tools | `http://localhost:8000` |
-
-**Storage (production on the deploy platform):**
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `FILE_STORE_TYPE` | Storage backend: `local` or `gcs` | `local` |
-| `FILE_STORE_PATH` | Local file storage directory | `./file_store` |
-| `GCS_FILE_BUCKET` | GCS bucket name (required when `gcs`) | *(unset)* |
-| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | GCS credentials as JSON string | *(unset)* |
-| `STORAGE_VOLUME_PATH` | Persistent cache mount for GCS databases | `/data` |
-
-**Production / cloud (not needed for local dev):**
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `CLOUD_ENVIRONMENT` | cloud environment for staging/prod isolation | *(unset = main/production)* |
-| `CLOUD_TOKEN_ID` | cloud authentication | *(unset)* |
-| `CLOUD_TOKEN_SECRET` | cloud authentication | *(unset)* |
 | `HF_TOKEN` | HuggingFace gated models (ESM3, AlphaGenome) | *(unset)* |
 
 ## Commands
 
 ```bash
-pytest                                # Fast unit tests (skips slow, integration, e2e)
+pytest                                # Fast unit tests (skips slow, integration)
 pytest --integration                  # Include integration tests (require MAFFT etc.)
-pytest --e2e -v                       # End-to-end tests (start real a cache + API)
-pytest --all                          # Everything including slow + integration (NOT e2e)
+pytest --all                          # Everything including slow + integration
 pytest --cpu --skip-ci                # Mimic CI
 pytest --gpu --all                    # GPU + slow + integration tests
 pytest -k "name"                      # Filter by name
-ruff check proto_language api agent deployment tests  # Lint (F401, F841, import sorting)
-pre-commit run --all-files              # All checks
-python .github/scripts/generate_openapi.py          # Regenerate openapi.json from FastAPI app
-python .github/scripts/generate_openapi.py --check  # Verify openapi.json is up to date (CI)
-python api/main.py                             # API dev server (port 8000)
-python deployment/deploy_cloud_functions.py  # Deploy cloud services
+ruff check proto_language tests       # Lint (F401, F841, import sorting)
+pre-commit run --all-files            # All checks
 ```
 
 ## Knowledge Management
@@ -135,8 +89,6 @@ When a code change alters behavior documented in this file or any `SKILL.md`, up
 | `proto_language/language/core/` | `general-dev` SKILL.md (Data Model, Result Export) |
 | `proto_language/base_config.py` | `general-dev` SKILL.md (Config Pattern) |
 | `tests/conftest.py`, pytest markers | CLAUDE.md Test Conventions, `testing` SKILL.md |
-| `api/`, `agent/` | CLAUDE.md Architecture, regenerate `openapi.json` |
-| `deployment/` | CLAUDE.md Architecture, `implement-deployment` SKILL.md, `deployment/README.md` |
 | New skills or commands added | CLAUDE.md Skills & Commands section |
 | Docstring conventions | CLAUDE.md (Docstring Conventions), `tests/test_docstring_consistency.py` |
 
@@ -187,16 +139,11 @@ Three test tiers:
 |------|---------|-----------|--------|
 | **Unit** | `pytest` | Fast, fully mocked, no I/O | *(none needed)* |
 | **Integration** | `pytest --integration` | Requires external tools (MAFFT, etc.) | `@pytest.mark.integration` |
-| **E2E** | `pytest --e2e` | Starts real a cache + API, makes HTTP requests | `@pytest.mark.e2e` |
-
-- `--all` includes integration but NOT e2e (e2e requires live services)
-- `--e2e` must be explicitly specified
-
 Other markers: `@pytest.mark.uses_gpu`, `@pytest.mark.slow`, `@pytest.mark.skip_ci`
 
-- CPU tests need no marker (auto-applied). External deps (a cache, DB) auto-mocked in `tests/conftest.py`.
+- CPU tests need no marker (auto-applied).
 - Mock generators in conftest.py for testing optimizers/programs without real models.
-- Structure: `tests/language_tests/`, `tests/api_tests/`, `tests/agent_tests/`, `tests/tool_tests/`, `tests/e2e_tests/`
+- Structure: `tests/language_tests/`, `tests/tool_tests/`
 - **Before running GPU tests**, check if a GPU is available. If no GPU is detected, run CPU tests by default (`pytest --cpu`).
 
 ## Sub-Agent Parallelization
@@ -224,7 +171,6 @@ Skills (auto-loaded when relevant):
 - **implement-constraint** — full constraint implementation lifecycle with templates and examples
 - **implement-generator** — full generator implementation lifecycle (ABC contract, categories, templates)
 - **implement-optimizer** — full optimizer implementation lifecycle (dual-pool architecture, templates)
-- **implement-deployment** — cloud service creation: Dockerfile, service file, standalone_helpers, deploy.py registration, smoke test, tool_backend adapter
 - **testing** — comprehensive test patterns, fixtures, markers, templates for each component type
 
 Commands (invoked with `/command-name [args]`):

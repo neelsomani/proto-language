@@ -117,4 +117,3 @@ cython_debug/
 
 # Agent eval artifacts
 .agent_components/
-agent/eval/results/.judge_cache/

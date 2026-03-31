@@ -21,8 +21,7 @@ allowed-tools:
 # Three tiers
 pytest                                    # Unit tests only (skips slow, integration, e2e)
 pytest --integration                      # Include integration tests (require MAFFT etc.)
-pytest --e2e -v                           # End-to-end tests (start real a cache + API server)
-pytest --all                              # Unit + slow + integration (NOT e2e)
+pytest --all                              # Unit + slow + integration
 
 # Hardware filtering
 pytest --cpu                              # CPU-only (skip GPU tests)
@@ -40,13 +39,10 @@ pytest tests/language_tests/              # Language core
 pytest tests/language_tests/constraint_tests/  # Constraints only
 pytest tests/language_tests/generator_tests/   # Generators only
 pytest tests/language_tests/optimizer_tests/   # Optimizers only
-pytest tests/api_tests/                   # API
-pytest tests/agent_tests/                 # Agent
 pytest tests/tool_tests/                  # Tool integrations
-pytest tests/e2e_tests/  --e2e           # E2E (requires a cache)
 
 # Linting (CI checks F401 unused imports, F841 unused vars, import sorting)
-ruff check proto_language api agent tests
+ruff check proto_language tests
 ```
 
 ## Test File Placement
@@ -75,11 +71,6 @@ tests/
 │   │   ├── test_mcmc_optimizer.py
 │   │   └── test_{name}_optimizer.py
 │   └── test_program.py
-├── api_tests/
-├── agent_tests/
-├── e2e_tests/                                      # End-to-end tests (real services)
-│   ├── conftest.py                                 # Override autouse mocks, service fixtures
-│   └── test_api_e2e.py                             # API e2e tests (@pytest.mark.e2e)
 └── tool_tests/
 ```
 
@@ -96,7 +87,6 @@ tests/
 | `@pytest.mark.slow` | Test takes >30s | Skipped by default; needs `--all` or `--slow` |
 | `@pytest.mark.skip_ci` | Test can't run in GitHub Actions | Skipped with `--skip-ci` or in CI |
 | `@pytest.mark.integration` | Requires external tools (MAFFT, etc.) | Skipped by default; needs `--integration` or `--all` |
-| `@pytest.mark.e2e` | Requires real a cache + API server | Skipped by default; needs `--e2e` (NOT included in `--all`) |
 | `@pytest.mark.asyncio` | Async test function | Required for `async def test_*` |
 | *(no marker)* | CPU test (fast) | Auto-marked `uses_cpu` by conftest |
 

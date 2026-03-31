@@ -15,8 +15,8 @@ from docstring_parser import parse as parse_docstring
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
-_ALL_DIRS = ["proto_language", "api", "agent", "mcp", "deployment", "tests"]
-_SOURCE_DIRS = ["proto_language", "api", "agent", "mcp", "deployment"]
+_ALL_DIRS = ["proto_language", "tests"]
+_SOURCE_DIRS = ["proto_language"]
 
 _EXCLUDE_PATTERNS = [
     # Git submodule — has its own tests

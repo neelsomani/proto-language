@@ -19,7 +19,7 @@ allowed-tools:
 
 ```bash
 # Three tiers
-pytest                                    # Unit tests only (skips slow, integration, e2e)
+pytest                                    # Unit tests only (skips slow, integration)
 pytest --integration                      # Include integration tests (require MAFFT etc.)
 pytest --all                              # Unit + slow + integration
 

@@ -291,7 +291,6 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_integration)
 
 
-
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_logging(request):
     """Set up logging for the test session. Runs early to prevent timestamped log files."""

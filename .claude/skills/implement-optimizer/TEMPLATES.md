@@ -111,7 +111,7 @@ def __init__(
 ) -> None:
 ```
 
-This enables the `target_segment` field in the API parser and client UI for single-segment selection.
+This enables the `target_segment` field for single-segment selection.
 
 ## Config Class Template
 

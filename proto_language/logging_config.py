@@ -19,8 +19,7 @@ class ProtoLanguageOnlyFilter(logging.Filter):
 
     def filter(self, record):
         """Return True if the log record belongs to an allowed project package."""
-        # Include logs from all project packages: proto_language, api, agent, deployment, tests
-        allowed_prefixes = ("proto_language", "api", "agent", "deployment", "tests")
+        allowed_prefixes = ("proto_language", "tests")
         return record.name.startswith(allowed_prefixes)
 
 

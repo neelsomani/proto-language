@@ -51,7 +51,6 @@ dev = [
     "mypy",
     "google-auth",              # mypy needs this installed to type-check storage/store.py
     "google-cloud-storage",     # mypy needs this installed to type-check storage/resolver.py
-    "pre-commit",
     "jupyter",
     "ipykernel",
     "ipywidgets",

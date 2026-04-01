@@ -41,7 +41,6 @@ pytest --gpu --all                    # GPU + slow + integration tests
 pytest -k "name"                      # Filter by name
 ruff check proto_language tests       # Lint
 mypy proto_language/                  # Type check (strict)
-pre-commit run --all-files            # All checks
 ```
 
 ## Knowledge Management
@@ -58,7 +57,7 @@ Three layers for persistent knowledge. Put information in the right one:
 
 Team-shared development docs. Read at the start of relevant tasks.
 
-- `dev.md`: Setup, submodule sync, pre-commit hooks, CI checks, docs generation
+- `dev.md`: Setup, submodule sync, CI checks, docs generation
 - `batching.md`: Batching architecture across generator → tool → GPU boundary
 
 Update notes/ when you discover something **every developer needs to know** (CI changes, new setup steps, architecture decisions).

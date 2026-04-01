@@ -230,5 +230,4 @@ All tool keys follow **`{tool}-{action}`** in kebab-case:
 ```bash
 ruff check proto_language tests               # Lint (22 rule groups, Google-convention pydocstyle)
 mypy proto_language/                          # Type check (strict mode with Pydantic plugin)
-pre-commit run --all-files                    # All checks
 ```

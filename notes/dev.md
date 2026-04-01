@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide covers the development workflow, including pre-commit hooks and what is tested by CI checks.
+This guide covers the development workflow and what is tested by CI checks.
 
 ## Quick Reference
 
@@ -17,7 +17,6 @@ python .github/scripts/validate_exports.py --verbose # Same, with detailed outpu
 - [Initial Setup](#initial-setup)
 - [Keeping the Submodule in Sync](#keeping-the-submodule-in-sync)
 - [Git Worktrees](#git-worktrees)
-- [Pre-commit Hooks](#pre-commit-hooks)
 - [Export Chain Validator](#export-chain-validator)
 - [Continuous Integration (CI) Checks](#continuous-integration-ci-checks)
 
@@ -107,47 +106,6 @@ git worktree add -b my-new-feature ../proto-tools-my-feature
 
 ---
 
-## Pre-commit Hooks
-
-Pre-commit hooks run automatically before every commit to ensure code quality.
-
-### Manual Installation
-
-If you need to set up pre-commit hooks manually:
-```bash
-uv pip install pre-commit
-pre-commit install
-```
-
-### What the Hooks Do
-
-1. **Linting + import sorting** - Runs `ruff` to lint and sort imports
-2. **Basic checks** - Removes trailing whitespace, fixes end-of-file issues, validates YAML, checks for large files
-3. **Export chain validation** - Validates `__init__.py` export chains when any `__init__.py` is staged (see [Export Chain Validator](#export-chain-validator))
-
-### Running Hooks Manually
-
-```bash
-# Run on all files
-pre-commit run --all-files
-
-# Run on specific files
-pre-commit run --files path/to/file.py
-
-# Run a specific hook
-pre-commit run ruff --all-files
-```
-
-### Bypassing Hooks (Not Recommended)
-
-```bash
-git commit --no-verify
-```
-
-**Note:** CI will still catch issues if you bypass hooks.
-
----
-
 ## Export Chain Validator
 
 AST-based tool that validates `__init__.py` export chains across both `proto-language` and `proto-tools`. Catches the #1 silent failure mode: adding a new tool/constraint/generator but missing an `__init__.py` export level, causing `ImportError` at runtime.
@@ -174,7 +132,7 @@ Known intentional omissions (internal base configs, private subpackages, etc.) a
 
 ### CI Integration
 
-Runs automatically as a pre-commit hook when any `__init__.py` is staged. See [Pre-commit Hooks](#pre-commit-hooks).
+Runs automatically in CI via checks.yml.
 
 ---
 

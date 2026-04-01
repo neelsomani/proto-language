@@ -50,8 +50,6 @@ pip install -e ./proto-tools
 pip install -e ".[dev]"
 pip install -e "./proto-tools[dev]"
 
-# 4. (Optional) Install pre-commit hooks
-pre-commit install
 ```
 
 > [!NOTE]
@@ -112,9 +110,5 @@ Skills (auto-loaded when relevant):
 - **implement-generator**: full generator implementation lifecycle (ABC contract, categories, templates)
 - **implement-optimizer**: full optimizer implementation lifecycle (dual-pool architecture, templates)
 - **testing**: comprehensive test patterns, fixtures, markers, templates for each component type
-
-Commands (invoked with `/command-name`):
-
-- **`/fix-issue <number>`**: full GitHub issue fix lifecycle (read issue, explore, reproduce, fix, test, verify)
 
 The `proto-tools/` submodule has its own skills and commands; see its [README](./proto-tools/README.md#using-with-claude-code).

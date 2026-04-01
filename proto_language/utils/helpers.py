@@ -48,13 +48,15 @@ def validate_range(value: float, min_val: float, max_val: float, name: str) -> N
         raise ValueError(f"{name} must be between {min_val} and {max_val}, got {value}")
 
 
-def calculate_range_deviation(actual: float, min_val: float, max_val: float) -> float:
+def calculate_range_deviation(actual: float, min_val: float, max_val: float, epsilon: float = 1) -> float:
     """Calculate deviation from acceptable range for general constraints.
 
     Args:
         actual (float): The actual measured value.
         min_val (float): Minimum acceptable value.
         max_val (float): Maximum acceptable value.
+        epsilon (float): Floor for the denominator to avoid division by zero.
+            Use 1 (default) for integer-scale values, 1e-9 for fractional values.
 
     Returns:
         float: Range deviation score where 0.0 indicates the value is within range
@@ -63,8 +65,8 @@ def calculate_range_deviation(actual: float, min_val: float, max_val: float) -> 
     if min_val <= actual <= max_val:
         return MIN_ENERGY
     if actual < min_val:
-        return min(MAX_ENERGY, (min_val - actual) / max(min_val, 1))
-    return min(MAX_ENERGY, (actual - max_val) / max(max_val, 1))
+        return min(MAX_ENERGY, (min_val - actual) / max(min_val, epsilon))
+    return min(MAX_ENERGY, (actual - max_val) / max(max_val, epsilon))
 
 
 def calculate_percentage_range_deviation(

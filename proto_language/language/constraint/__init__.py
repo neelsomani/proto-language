@@ -61,6 +61,7 @@ from proto_language.language.constraint.sequence_composition import (
     kmer_frequency_constraint,
     max_homopolymer_constraint,
     sequence_length_constraint,
+    specific_kmer_constraint,
 )
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     "gc_content_constraint",
     "max_homopolymer_constraint",
     "kmer_frequency_constraint",
+    "specific_kmer_constraint",
     # Protein structure
     "gyration_radius_constraint",
     "structure_rmsd_constraint",

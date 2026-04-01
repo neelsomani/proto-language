@@ -31,7 +31,6 @@ class Generator(ABC):
     @abstractmethod
     def __init__(self) -> None:
         """Initialize the generator with configuration parameters."""
-        # TODO: add logic to handle multiple assigned segments (if necessary)
         self._assigned_segment: Segment | None = None
         self.__spec: GeneratorSpec | None = None  # Lazy-loaded via property
 

@@ -1,6 +1,6 @@
-"""Tests the generalized k-mer frequency constraint that replaced.
+"""Tests the generalized k-mer frequency constraint that evaluates all k-mers of a given length.
 
-dinucleotide_frequency and tetranucleotide_usage constraints.
+For specific single-kmer tests, see test_specific_kmer_constraint.py.
 """
 
 import pytest
@@ -46,16 +46,15 @@ class TestKmerFrequencyConstraint:
         assert "AT" in freqs
         assert "CG" in freqs
 
-    def test_tetranucleotide_usage_deviation_mode(self):
-        """Test tetranucleotide usage deviation evaluation."""
-        seq = Segment(sequence="AGCT" * 10 + "GATC" + "AGCT" * 10, sequence_type="dna")
+    def test_trinucleotide_usage_deviation_mode(self):
+        """Test trinucleotide usage deviation evaluation across all k-mers."""
+        seq = Segment(sequence="ATCGATCGATCGATCG" * 5, sequence_type="dna")
 
         config = KmerFrequencyConfig(
-            k=4,
+            k=3,
             scoring_mode="usage_deviation",
-            specific_kmer="GATC",
-            min_value=0.8,
-            max_value=1.2
+            min_value=0.5,
+            max_value=2.0,
         )
 
         constraint = Constraint(
@@ -67,10 +66,10 @@ class TestKmerFrequencyConstraint:
         score = constraint.evaluate()[0]
         assert score >= 0.0
 
-        # Check metadata
         constraints = seq.proposal_sequences[0]._constraints_metadata
-        assert "GATC_usage_deviation" in constraints["kmer_frequency_constraint"]["data"]
-        assert "GATC_count" in constraints["kmer_frequency_constraint"]["data"]
+        assert "3mer_usage_deviations" in constraints["kmer_frequency_constraint"]["data"]
+        deviations = constraints["kmer_frequency_constraint"]["data"]["3mer_usage_deviations"]
+        assert len(deviations) == 64  # 4^3 trinucleotides
 
     def test_protein_kmer_frequency(self):
         """Test k-mer frequency on protein sequences."""
@@ -131,16 +130,6 @@ class TestKmerFrequencyConstraint:
                 scoring_mode="frequency",
                 min_value=0.8,
                 max_value=0.2
-            )
-
-        # specific_kmer length mismatch should fail
-        with pytest.raises(ValidationError):
-            KmerFrequencyConfig(
-                k=2,
-                scoring_mode="frequency",
-                specific_kmer="ATCG",  # Length 4, but k=2
-                min_value=0.0,
-                max_value=0.5
             )
 
     def test_registry_integration(self):

@@ -31,6 +31,7 @@ from proto_language.language.constraint import (
     seq_motif_constraint,
     sequence_length_constraint,
     sigma70_promoter_constraint,
+    specific_kmer_constraint,
     splice_transformer_intron_boundary,
     splice_transformer_specificity,
     structure_ensemble_rmsd_constraint,
@@ -124,6 +125,7 @@ __all__ = [
     "gc_content_constraint",
     "max_homopolymer_constraint",
     "kmer_frequency_constraint",
+    "specific_kmer_constraint",
     # Protein structure constraints
     "structure_plddt_constraint",
     "structure_ptm_constraint",

@@ -1,12 +1,6 @@
-"""
-proto_language/language/constraint/sequence_composition/gc_content_constraint.py
-
-GC content constraint for evaluating sequence GC content properties.
-"""
+"""GC content constraint for evaluating sequence GC content properties."""
 
 from __future__ import annotations
-
-from typing import List, Tuple
 
 from pydantic import model_validator
 
@@ -74,7 +68,7 @@ class GCContentConfig(BaseConfig):
     supported_sequence_types=["dna", "rna"],
     num_input_sequences_per_tuple=1,
 )
-def gc_content_constraint(input_sequences: List[Tuple[Sequence, ...]], config: GCContentConfig) -> List[float]:
+def gc_content_constraint(input_sequences: list[tuple[Sequence, ...]], config: GCContentConfig) -> list[float]:
     """Enforce GC content within specified range.
 
     This constraint function calculates the percentage of guanine (G) and cytosine

@@ -39,7 +39,7 @@ pytest --all                          # Everything including slow + integration
 pytest --cpu --skip-ci                # Mimic CI
 pytest --gpu --all                    # GPU + slow + integration tests
 pytest -k "name"                      # Filter by name
-ruff check proto_language tests       # Lint (F401, F841, import sorting)
+ruff check proto_language tests       # Lint
 pre-commit run --all-files            # All checks
 ```
 
@@ -94,9 +94,9 @@ The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
 
 ## Coding Conventions
 
-- `from __future__ import annotations` at top of every file
+- `from __future__ import annotations` only where needed (files using 3.10+ annotation syntax in runtime positions)
 - `logging.getLogger(__name__)`, never `print()`
-- Ruff (line length 88, checks F401 + F841 + import sorting)
+- Ruff (line length 120, 22 rule groups with Google-convention pydocstyle — see `pyproject.toml [tool.ruff.lint]` for full config)
 - Pydantic v2 for all configs: inherit `BaseConfig`, use `ConfigField` (not `Field`). Use `depends_on` for conditional field visibility (show/hide fields based on another field's value).
 - Registry keys: kebab-case. Config classes: `{Name}Config`. Files: `{name}_constraint.py` / `{name}_generator.py`
 - **When modifying existing code**: Thoroughly find and update ALL callsites, imports, docstrings, comments, tests, and documentation that reference the changed code. Use sub-agents to search the entire codebase in parallel. Leave no dangling references.
@@ -105,13 +105,9 @@ The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
 
 Google style everywhere. Enforced by `tests/test_docstring_consistency.py`.
 
-- **Module docstrings**: First line is the relative path from repo root. Blank line, then short description. More content after that is optional. `__init__.py` files are exempt.
+- **Module docstrings**: A one-line Google-style summary ending with a period, or a summary line + blank line + details for longer descriptions. `__init__.py` files are exempt (D104 ignored). No path-header prefix.
   ```python
-  """
-  proto_language/language/core/constraint.py
-
-  Constraint evaluation and metadata propagation for sequences.
-  """
+  """Constraint evaluation and metadata propagation for sequences."""
   ```
 - **One-liners**: Acceptable for simple functions. No structured sections needed.
 - **Multi-line docstrings** (anything with a blank line): Google style. Summary line, blank line, then sections as needed: `Args:`, `Returns:`, `Raises:`, `Attributes:`, `Example:`, `Note:`.
@@ -170,10 +166,6 @@ Skills (auto-loaded when relevant):
 - **implement-generator**: full generator implementation lifecycle (ABC contract, categories, templates)
 - **implement-optimizer**: full optimizer implementation lifecycle (dual-pool architecture, templates)
 - **testing**: comprehensive test patterns, fixtures, markers, templates for each component type
-
-Commands (invoked with `/command-name [args]`):
-
-- **`/fix-issue <number>`**: full GitHub issue fix lifecycle (read issue, explore, reproduce, fix, test, verify)
 
 ### In `proto-tools/` submodule
 

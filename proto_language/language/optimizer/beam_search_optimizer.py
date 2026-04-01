@@ -1,7 +1,5 @@
-"""
-proto_language/language/optimizer/beam_search_optimizer.py
+"""This optimizer splits a single long segment into beams of `beam_length` tokens and.
 
-This optimizer splits a single long segment into beams of `beam_length` tokens and
 performs beam search, accumulating KV cache state across beams.
 """
 
@@ -9,13 +7,12 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Literal, Optional
+from typing import Literal
 
 import numpy as np
 from pydantic import model_validator
-
-logger = logging.getLogger(__name__)
 
 from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
@@ -29,6 +26,8 @@ from proto_language.language.core import (
 from proto_language.language.generator.generator_registry import GeneratorRegistry
 from proto_language.language.optimizer.optimizer_registry import optimizer
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class BeamState:
@@ -41,8 +40,8 @@ class BeamState:
     """
 
     running_sequence: str
-    kv_cache: Optional[Dict] = None
-    beam_scores: List[float] = field(default_factory=list)
+    kv_cache: dict | None = None
+    beam_scores: list[float] = field(default_factory=list)
 
 
 class BeamSearchOptimizerConfig(BaseOptimizerConfig):
@@ -105,7 +104,7 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
         title="Prompt",
         description="The prompt to start the beam search (e.g. ATCG)"
     )
-    num_results: Optional[int] = ConfigField(
+    num_results: int | None = ConfigField(
         default=None,
         ge=1,
         title="Design Candidates",
@@ -213,15 +212,14 @@ class BeamSearchOptimizer(Optimizer):
     def __init__(
         self,
         target_segment: Segment,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         config: BeamSearchOptimizerConfig,
-        custom_logging: Optional[Callable] = None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
+        custom_logging: Callable | None = None,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
     ) -> None:
-        """
-        Initialize the Beam Search Optimizer.
+        """Initialize the Beam Search Optimizer.
 
         Args:
             target_segment (Segment): The specific Segment to optimize with beam search. Must belong to one of the constructs.
@@ -269,9 +267,9 @@ class BeamSearchOptimizer(Optimizer):
         self.batch_size: int = self.generator.batch_size
 
         if self.num_results is not None:
-            self.beams: List[BeamState] = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]
+            self.beams: list[BeamState] = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]
         else:
-            self.beams: List[BeamState] = []
+            self.beams: list[BeamState] = []
 
         # Calculate number of beams based on target segment
         self.num_beams = math.ceil(self.target_segment.sequence_length / self.beam_length)
@@ -337,8 +335,7 @@ class BeamSearchOptimizer(Optimizer):
         self.beams = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]
 
     def run(self) -> None:
-        """
-        Run beam search within a single segment.
+        """Run beam search within a single segment.
 
         For each beam:
         1. Use K accumulated prompts from previous beams
@@ -399,10 +396,9 @@ class BeamSearchOptimizer(Optimizer):
         self,
         beam_idx: int,
         prepend_prompt: bool = False,
-        num_tokens: Optional[int] = None,
-    ) -> List[BeamState]:
-        """
-        Generate proposal BeamStates for a single beam.
+        num_tokens: int | None = None,
+    ) -> list[BeamState]:
+        """Generate proposal BeamStates for a single beam.
 
         Generates proposals in batches (sized by generator batch_size) to manage GPU memory.
 
@@ -463,9 +459,8 @@ class BeamSearchOptimizer(Optimizer):
 
         return proposals
 
-    def _generate_and_score_with_resampling(self, prepend_prompt: bool = False, num_tokens: Optional[int] = None) -> List[BeamState]:
-        """
-        Generate and score proposals, resampling beams until each has valid proposals.
+    def _generate_and_score_with_resampling(self, prepend_prompt: bool = False, num_tokens: int | None = None) -> list[BeamState]:
+        """Generate and score proposals, resampling beams until each has valid proposals.
 
         Args:
             prepend_prompt (bool): Whether to prepend prompt to generated sequences
@@ -478,7 +473,7 @@ class BeamSearchOptimizer(Optimizer):
             RuntimeError: If unable to get enough valid proposals after max attempts
         """
         # Track valid proposals per beam
-        beam_proposals: Dict[int, List[BeamState]] = {b: [] for b in range(self.num_results)}
+        beam_proposals: dict[int, list[BeamState]] = {b: [] for b in range(self.num_results)}
 
         # Initial generation: Generate proposals for all beams
         all_proposals = []
@@ -495,7 +490,7 @@ class BeamSearchOptimizer(Optimizer):
         self.score_energy()
 
         # Collect valid proposals (those that passed filter constraints)
-        for i, (proposal, score) in enumerate(zip(all_proposals, self.energy_scores)):
+        for i, (proposal, score) in enumerate(zip(all_proposals, self.energy_scores, strict=False)):
             if self._proposal_outcomes[i] == "accepted":
                 beam_idx = i // self._proposals_per_result
                 proposal.beam_scores.append(score)
@@ -524,7 +519,7 @@ class BeamSearchOptimizer(Optimizer):
                 self._sync_proposal_pools(self.target_segment)
                 self.score_energy()
 
-                for j, (proposal, score) in enumerate(zip(proposals, self.energy_scores)):
+                for j, (proposal, score) in enumerate(zip(proposals, self.energy_scores, strict=False)):
                     if self._proposal_outcomes[j] == "accepted":
                         proposal.beam_scores.append(score)
                         beam_proposals[beam_idx].append(proposal)
@@ -550,7 +545,7 @@ class BeamSearchOptimizer(Optimizer):
 
         return all_valid_proposals
 
-    def _select_topk_beams(self, proposal_beams: List[BeamState]) -> None:
+    def _select_topk_beams(self, proposal_beams: list[BeamState]) -> None:
         """Select top num_results proposals and update state for the next beam step.
 
         1. Score each proposal beam (mean or last score, per ``score_by``).
@@ -635,7 +630,7 @@ class BeamSearchOptimizer(Optimizer):
         logger.debug(f"  Prompt length: {len(beam.running_sequence)}")
         logger.debug(f"  Batch size: {self.batch_size}")
 
-    def _log_cache_state(self, kv_cache: Optional[Dict]) -> None:
+    def _log_cache_state(self, kv_cache: dict | None) -> None:
         """Log KV cache state for debugging."""
         if kv_cache:
             kv = next(iter(kv_cache['mha'].key_value_memory_dict.values()))

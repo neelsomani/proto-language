@@ -1,10 +1,4 @@
-"""
-tests/language_tests/generator_tests/test_random_protein_generator.py
-
-Tests for the RandomProteinGenerator.
-"""
-
-from __future__ import annotations
+"""Tests for the RandomProteinGenerator."""
 
 import copy
 
@@ -53,7 +47,7 @@ class TestRandomProteinGenerator:
 
         assert len(mutated_sequence) == seq_len
         diff_count = sum(
-            1 for a, b in zip(initial_sequence, mutated_sequence) if a != b
+            1 for a, b in zip(initial_sequence, mutated_sequence, strict=False) if a != b
         )
         assert diff_count == 1
 

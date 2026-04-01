@@ -1,8 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_protein_structure/test_boltz_binding_strength_constraint.py
-
-Tests for Boltz Binding Strength constraint.
-"""
+"""Tests for Boltz Binding Strength constraint."""
 
 from unittest.mock import patch
 
@@ -105,13 +101,14 @@ mock_monomer_output = StructurePredictionOutput(
 
 
 class TestBoltzBindingStrengthConstraint:
-    """tests/language_tests/constraint_tests/test_protein_structure/test_boltz_binding_strength_constraint.py
+    """tests/language_tests/constraint_tests/test_protein_structure/test_boltz_binding_strength_constraint.py.
 
-Tests for Boltz Binding Strength constraint."""
+    Tests for Boltz Binding Strength constraint.
+    """
 
     def test_config_merge_overrides(self):
-        """
-        Test config merge overrides default values for dicts and ensures
+        """Test config merge overrides default values for dicts and ensures.
+
         nested configs are set correctly.
         """
         from proto_tools import Boltz2Config

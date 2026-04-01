@@ -1,8 +1,4 @@
-"""tests/language_tests/constraint_tests/test_rna_splicing/test_alphagenome_splice_site_usage_indexing.py
-
-GPU integration checks for AlphaGenome SSU splice-site indexing."""
-
-from __future__ import annotations
+"""GPU integration checks for AlphaGenome SSU splice-site indexing."""
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,7 +25,7 @@ _intron_design = None
 
 
 def _get_intron_design():
-    global _intron_design
+    global _intron_design  # noqa: PLW0603
     if _intron_design is None:
         from examples.scripts import program_intron_design
         _intron_design = program_intron_design

@@ -1,10 +1,9 @@
-"""tests/test_docstring_consistency.py
+"""Docstring consistency tests for type accuracy and formatting conventions."""
 
-Tests that docstrings across the proto-language codebase follow the agreed style.
-"""
 from __future__ import annotations
 
 import ast
+import contextlib
 import re
 from fnmatch import fnmatch
 from pathlib import Path
@@ -15,7 +14,6 @@ from docstring_parser import parse as parse_docstring
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
-_ALL_DIRS = ["proto_language", "tests"]
 _SOURCE_DIRS = ["proto_language"]
 
 _EXCLUDE_PATTERNS = [
@@ -288,25 +286,6 @@ def _matches_exclude(path: str) -> bool:
     return any(fnmatch(path, pat) for pat in _EXCLUDE_PATTERNS)
 
 
-def _collect_py_files(directories: list[str]) -> list[tuple[Path, str]]:
-    """Collect all .py files (excluding __init__.py) from the given directories."""
-    results: list[tuple[Path, str]] = []
-    for directory in directories:
-        dir_path = _REPO_ROOT / directory
-        if not dir_path.is_dir():
-            continue
-        for py_file in sorted(dir_path.rglob("*.py")):
-            if py_file.name == "__init__.py":
-                continue
-            if _SKIP_DIRS & set(py_file.parts):
-                continue
-            rel_path = str(py_file.relative_to(_REPO_ROOT))
-            if _matches_exclude(rel_path):
-                continue
-            results.append((py_file, rel_path))
-    return sorted(results, key=lambda x: x[1])
-
-
 def _extract_function_annotations(node) -> dict[str, str]:
     annotations = {}
     all_args = node.args.args + node.args.posonlyargs + node.args.kwonlyargs
@@ -314,20 +293,14 @@ def _extract_function_annotations(node) -> dict[str, str]:
         if arg.arg in ("self", "cls"):
             continue
         if arg.annotation is not None:
-            try:
+            with contextlib.suppress(Exception):
                 annotations[arg.arg] = ast.unparse(arg.annotation)
-            except Exception:
-                pass
     if node.args.vararg and node.args.vararg.annotation:
-        try:
+        with contextlib.suppress(Exception):
             annotations[f"*{node.args.vararg.arg}"] = ast.unparse(node.args.vararg.annotation)
-        except Exception:
-            pass
     if node.args.kwarg and node.args.kwarg.annotation:
-        try:
+        with contextlib.suppress(Exception):
             annotations[f"**{node.args.kwarg.arg}"] = ast.unparse(node.args.kwarg.annotation)
-        except Exception:
-            pass
     return annotations
 
 
@@ -404,10 +377,8 @@ def _collect_docstrings_with_annotations(
                 annotations = _extract_function_annotations(node)
                 return_type = None
                 if node.returns is not None:
-                    try:
+                    with contextlib.suppress(Exception):
                         return_type = ast.unparse(node.returns)
-                    except Exception:
-                        pass
                 results.append((rel_path, qualified_name, docstring, annotations, return_type, "function", annotations))
 
     return sorted(results, key=lambda x: (x[0], x[1]))
@@ -426,81 +397,7 @@ def _get_qualified_name(node: ast.AST, tree: ast.Module) -> str:
 
 # ── Parametrize data ────────────────────────────────────────────────────────
 
-_PY_FILES = _collect_py_files(_ALL_DIRS)
 _DOCSTRINGS_WITH_ANNOTATIONS = _collect_docstrings_with_annotations(_SOURCE_DIRS)
-
-
-# ── Module docstring tests ──────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize(
-    "py_file, rel_path",
-    _PY_FILES,
-    ids=[rel for _, rel in _PY_FILES],
-)
-def test_module_docstring_exists(py_file: Path, rel_path: str):
-    """Every .py file must have a module-level docstring."""
-    source = py_file.read_text(encoding="utf-8")
-    try:
-        tree = ast.parse(source, filename=str(py_file))
-    except SyntaxError:
-        pytest.skip(f"Could not parse {rel_path}")
-
-    docstring = ast.get_docstring(tree)
-    assert docstring is not None and docstring.strip(), (
-        f"{rel_path} is missing a module-level docstring."
-    )
-
-
-@pytest.mark.parametrize(
-    "py_file, rel_path",
-    _PY_FILES,
-    ids=[rel for _, rel in _PY_FILES],
-)
-def test_module_docstring_path_header(py_file: Path, rel_path: str):
-    """The first line of the module docstring must be the relative path from repo root."""
-    source = py_file.read_text(encoding="utf-8")
-    try:
-        tree = ast.parse(source, filename=str(py_file))
-    except SyntaxError:
-        pytest.skip(f"Could not parse {rel_path}")
-
-    docstring = ast.get_docstring(tree)
-    if not docstring:
-        pytest.skip(f"{rel_path} has no docstring (caught by test_module_docstring_exists)")
-
-    first_line = docstring.strip().split("\n")[0].strip()
-    assert first_line == rel_path, (
-        f"{rel_path}: module docstring first line should be '{rel_path}', "
-        f"got '{first_line}'"
-    )
-
-
-@pytest.mark.parametrize(
-    "py_file, rel_path",
-    _PY_FILES,
-    ids=[rel for _, rel in _PY_FILES],
-)
-def test_module_docstring_format(py_file: Path, rel_path: str):
-    """If the module docstring is multi-line, the second line must be blank."""
-    source = py_file.read_text(encoding="utf-8")
-    try:
-        tree = ast.parse(source, filename=str(py_file))
-    except SyntaxError:
-        pytest.skip(f"Could not parse {rel_path}")
-
-    docstring = ast.get_docstring(tree)
-    if not docstring:
-        pytest.skip(f"{rel_path} has no docstring")
-
-    lines = docstring.split("\n")
-    if len(lines) <= 1:
-        return
-
-    assert lines[1].strip() == "", (
-        f"{rel_path}: multi-line module docstring must have a blank line after "
-        f"the path header. Got: '{lines[1].strip()}'"
-    )
 
 
 # ── Docstring type matching tests ──────────────────────────────────────────
@@ -558,42 +455,6 @@ def test_docstring_types_match_signatures(
     assert not violations, (
         f"{file_path}::{name} has docstring param type mismatches:\n"
         + "\n".join(violations)
-    )
-
-
-@pytest.mark.parametrize(
-    "file_path, name, docstring, annotations, return_type, node_kind, own_annotations",
-    _DOCSTRINGS_WITH_ANNOTATIONS,
-    ids=[f"{fp}::{n}" for fp, n, *_ in _DOCSTRINGS_WITH_ANNOTATIONS],
-)
-def test_docstring_documents_all_params(
-    file_path: str,
-    name: str,
-    docstring: str,
-    annotations: dict[str, str],
-    return_type: str | None,
-    node_kind: str,
-    own_annotations: dict[str, str],
-):
-    """Every own (non-inherited) annotated parameter must be documented."""
-    try:
-        parsed = parse_docstring(docstring, style=DocstringStyle.GOOGLE)
-    except Exception:
-        pytest.skip(f"Could not parse docstring for {file_path}::{name}")
-        return
-
-    documented = {p.arg_name for p in parsed.params}
-
-    missing = []
-    for param_name in own_annotations:
-        if param_name.startswith("*"):
-            continue
-        if param_name not in documented:
-            missing.append(param_name)
-
-    assert not missing, (
-        f"{file_path}::{name} is missing documentation for annotated "
-        f"params: {missing}"
     )
 
 

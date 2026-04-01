@@ -1,6 +1,7 @@
+"""Shared utilities for constraint scoring, validation, and export."""
 # Helper utilities (constraint scoring, and tools)
 # Export utilities
-from .export import (
+from proto_language.utils.export import (
     build_results,
     flatten_constraints,
     flatten_constructs,
@@ -13,7 +14,7 @@ from .export import (
     to_xlsx_workbook,
     write_export,
 )
-from .helpers import (  # Constraint scoring; Tool utilities
+from proto_language.utils.helpers import (
     LOG_BASE,
     MAX_ENERGY,
     MAX_GC_CONTENT,

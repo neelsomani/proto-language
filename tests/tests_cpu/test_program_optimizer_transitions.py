@@ -1,7 +1,4 @@
-"""
-tests/tests_cpu/test_program_optimizer_transitions.py
-
-Tests for all 16 optimizer transition permutations.
+"""Tests for all 16 optimizer transition permutations.
 
 Transition Matrix:
     From / To        | TopK | MCMC | BeamSearch | CyclingOptimizer
@@ -14,8 +11,9 @@ Transition Matrix:
 Note: BeamSearch ignores previous state by design (always starts from prompt).
 """
 
+from __future__ import annotations
+
 import random
-from typing import Dict, List, Optional
 from unittest.mock import Mock
 
 from proto_tools.tools.masked_models.masking import MaskingStrategy
@@ -54,17 +52,17 @@ class MockAutoregressiveGenerator(Generator):
     def __init__(self, use_kv_caching: bool = True):
         super().__init__()
         self.use_kv_caching = use_kv_caching
-        self.kv_caches: List[Dict] = []
+        self.kv_caches: list[dict] = []
 
     def assign(self, assigned_segment: Segment) -> None:
         self._assigned_segment = assigned_segment
 
     def sample(
         self,
-        prompts: Optional[List[str]] = None,
-        prepend_prompt: Optional[bool] = None,
-        num_tokens: Optional[int] = None,
-        old_kv_cache: Optional[Dict] = None,
+        prompts: list[str] | None = None,
+        prepend_prompt: bool | None = None,
+        num_tokens: int | None = None,
+        old_kv_cache: dict | None = None,
     ) -> None:
         if num_tokens is None:
             num_tokens = 20
@@ -72,7 +70,7 @@ class MockAutoregressiveGenerator(Generator):
             prompts = [""]
         sequences = []
         for prompt in prompts:
-            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
+            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
         self._assigned_segment.proposal_sequences = [
             Sequence(sequence=seq, sequence_type="dna") for seq in sequences
@@ -85,7 +83,7 @@ class MockAutoregressiveGenerator(Generator):
         else:
             self.kv_caches = []
 
-    def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
+    def replicate_cache(self, cache: dict, n_replicates: int) -> dict:
         return cache
 
 
@@ -103,8 +101,8 @@ class MockCyclingGenerator(Generator):
         for seq in self._assigned_segment.proposal_sequences:
             chars = list(seq.sequence)
             if chars:
-                idx = random.randint(0, len(chars) - 1)
-                chars[idx] = random.choice("ACGT")
+                idx = random.randint(0, len(chars) - 1)  # noqa: S311 -- non-cryptographic, test mock
+                chars[idx] = random.choice("ACGT")  # noqa: S311 -- non-cryptographic, test mock
                 seq.sequence = "".join(chars)
 
 

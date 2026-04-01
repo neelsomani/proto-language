@@ -1,7 +1,5 @@
-"""
-tests/language_tests/constraint_tests/utils.py
+"""This module provides helper functions, mock scoring functions, and fixtures.
 
-This module provides helper functions, mock scoring functions, and fixtures
 used across multiple constraint test files. It does NOT contain actual unit tests.
 """
 from __future__ import annotations
@@ -9,7 +7,6 @@ from __future__ import annotations
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Tuple
 
 import pytest
 
@@ -22,11 +19,10 @@ from proto_language.language.core import (
 # =============================================================================
 
 def mock_single_input_scoring_function(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config=None
-) -> List[float]:
-    """
-    Mock scoring function for testing single-input constraints.
+) -> list[float]:
+    """Mock scoring function for testing single-input constraints.
 
     Returns scores based on the fraction of 'T' characters in each sequence.
     Also adds metadata to each sequence to demonstrate metadata propagation.
@@ -54,11 +50,10 @@ mock_single_input_scoring_function._constraint_supported_sequence_types = ["dna"
 
 
 def mock_multi_input_scoring_function(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config=None
-) -> List[float]:
-    """
-    Mock scoring function for testing single-input batched constraints.
+) -> list[float]:
+    """Mock scoring function for testing single-input batched constraints.
 
     Returns scores based on the fraction of 'T' characters in each sequence.
     Also adds metadata to each sequence to demonstrate metadata propagation.
@@ -86,11 +81,10 @@ mock_multi_input_scoring_function._constraint_supported_sequence_types = ["dna",
 
 
 def mock_multi_input_scoring_function_disjoint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config=None
-) -> List[float]:
-    """
-    Mock scoring function for testing multi-input disjoint constraints.
+) -> list[float]:
+    """Mock scoring function for testing multi-input disjoint constraints.
 
     Expects a list of tuples of two sequences each and returns scores based on:
     - Fraction of 'T' in the first sequence of each tuple
@@ -122,11 +116,11 @@ mock_multi_input_scoring_function_disjoint._constraint_supported_sequence_types 
 
 
 def mock_dna_only_scoring_function(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config=None
-) -> List[float]:
-    """
-    Mock scoring function for testing type-restricted constraints.
+) -> list[float]:
+    """Mock scoring function for testing type-restricted constraints.
+
     Only supports DNA sequences.
     """
     return [0.5 for _ in input_sequences]
@@ -137,11 +131,11 @@ mock_dna_only_scoring_function._constraint_supported_sequence_types = ["dna"]  #
 
 
 def mock_protein_only_scoring_function(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config=None
-) -> List[float]:
-    """
-    Mock scoring function for testing type-restricted constraints.
+) -> list[float]:
+    """Mock scoring function for testing type-restricted constraints.
+
     Only supports protein sequences.
     """
     return [0.5 for _ in input_sequences]
@@ -161,8 +155,8 @@ PROTEIN_DB_PATH = TEST_DATA_DIR / "test_proteins_database.faa"
 
 @pytest.fixture(scope="module")
 def dummy_db_path():
-    """
-    Fixture providing path to dummy protein database for testing.
+    """Fixture providing path to dummy protein database for testing.
+
     Module-scoped to avoid recreating for each test.
     """
     return str(PROTEIN_DB_PATH)
@@ -170,8 +164,8 @@ def dummy_db_path():
 
 @pytest.fixture
 def temp_dir():
-    """
-    Fixture providing a temporary directory for test files.
+    """Fixture providing a temporary directory for test files.
+
     Automatically cleaned up after test completion.
 
     Yields:

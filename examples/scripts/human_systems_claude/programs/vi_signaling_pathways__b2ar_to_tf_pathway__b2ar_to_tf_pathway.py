@@ -18,7 +18,6 @@ import gc
 import os
 import sys
 from datetime import datetime
-from typing import Dict, List
 
 import torch
 from Bio.Seq import Seq
@@ -43,8 +42,8 @@ from proto_language.utils import inverse_sigmoid_score
 # =============================================================================
 
 def add_custom_constraints(
-    gene_id_to_segment: Dict[str, Segment],
-) -> List[Constraint]:
+    gene_id_to_segment: dict[str, Segment],
+) -> list[Constraint]:
     """
     Add custom constraints for this specific system.
 

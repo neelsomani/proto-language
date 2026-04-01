@@ -19,7 +19,6 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import requests
 from proto_tools.tools.sequence_alignment.colabfold_search.colabfold_search import (
@@ -58,7 +57,7 @@ def dna_to_rna(seq: str) -> str:
 def construct_sgrna(
     crispr_repeat: str,
     tracr_rna_sequence: str,
-    max_tracr_length: Optional[int] = DEFAULT_MAX_TRACR_LENGTH,
+    max_tracr_length: int | None = DEFAULT_MAX_TRACR_LENGTH,
 ) -> str:
     """Construct chimeric sgRNA from crRNA repeat and tracrRNA.
 
@@ -113,7 +112,7 @@ def run_usalign(
     proposal_pdb: Path,
     reference_pdb: Path,
     output_prefix: Path,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Run USalign on proposal vs reference and return alignment metrics.
 
     Returns dict with keys: tm_score_1, tm_score_2, rmsd.
@@ -193,10 +192,10 @@ def cofold_proposal(
     protein_sequence: str,
     sgrna_sequence: str,
     output_dir: Path,
-    seeds: List[int],
+    seeds: list[int],
     use_msa: bool,
     verbose: bool,
-) -> Optional[Dict]:
+) -> dict | None:
     """Run AF3 cofolding for a single Cas9-sgRNA proposal.
 
     Returns dict with AF3 metrics and output paths, or None on failure.
@@ -246,7 +245,7 @@ def cofold_proposal(
     }
 
 
-def main(args: Optional[List[str]] = None) -> List[Dict]:
+def main(args: list[str] | None = None) -> list[dict]:
     parser = argparse.ArgumentParser(
         description="Cofold Cas9 proteins with sgRNAs using AF3 and align to 4OO8.",
     )

@@ -3,7 +3,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -16,7 +16,7 @@ _NA_MAP = {
     "A": "A", "U": "U", "G": "G", "C": "C", "I": "I"
 }
 
-def scan_pdb_for_nucleic_acids(pdb_path: Path) -> Dict[str, Any]:
+def scan_pdb_for_nucleic_acids(pdb_path: Path) -> dict[str, Any]:
     """
     Scans a PDB file for DNA/RNA residues and extracts their sequences.
     Robustness features:
@@ -73,7 +73,7 @@ def scan_pdb_for_nucleic_acids(pdb_path: Path) -> Dict[str, Any]:
         'rna_seqs': {k: "".join(v) for k, v in rna_seqs.items()}
     }
 
-def find_pdb_file(pdb_dir: Path, pdb_id: str) -> Optional[Path]:
+def find_pdb_file(pdb_dir: Path, pdb_id: str) -> Path | None:
     """Tries to find the PDB file using common naming conventions."""
     if not pdb_id:
         return None
@@ -96,7 +96,7 @@ def load_concatenated_json(file_path: str):
         print(f"Error: File {file_path} not found.")
         return []
 
-    with open(file_path, 'r') as f:
+    with open(file_path) as f:
         content = f.read()
 
     decoder = json.JSONDecoder()
@@ -114,7 +114,7 @@ def load_concatenated_json(file_path: str):
             pos += 1
     return data
 
-def parse_error_for_oom(error_list: List[str]) -> bool:
+def parse_error_for_oom(error_list: list[str]) -> bool:
     """Checks for OOM/Resource Exhausted errors."""
     if not error_list:
         return False
@@ -122,7 +122,7 @@ def parse_error_for_oom(error_list: List[str]) -> bool:
     keywords = ["RESOURCE_EXHAUSTED", "OOM", "Out of memory", "Failed to allocate request", "xla_extension.XlaRuntimeError"]
     return any(k in combined for k in keywords)
 
-def parse_error_for_chain_limit(error_list: List[str]) -> bool:
+def parse_error_for_chain_limit(error_list: list[str]) -> bool:
     """Checks for the >26 chains ValueError."""
     if not error_list:
         return False
@@ -147,7 +147,7 @@ def load_metadata(file_path):
         print(f"Warning: Failed to load metadata: {e}")
         return None
 
-def extract_complex_data(json_objects, pdb_metadata=None, pdb_dir: Optional[Path] = None):
+def extract_complex_data(json_objects, pdb_metadata=None, pdb_dir: Path | None = None):
     rows = []
     pdb_scan_cache = {}
 
@@ -267,7 +267,7 @@ def analyze_and_report(df, used_pdb_dir=False):
 
     # 1. OOM Analysis
     oom_runs = df[df['failure_reason'] == 'OOM']
-    print(f"\n1. OOM ANALYSIS")
+    print("\n1. OOM ANALYSIS")
     print(f"Total Runs: {len(df)}")
     print(f"OOM Failures: {len(oom_runs)} ({len(oom_runs)/len(df) if len(df) > 0 else 0:.1%})")
 
@@ -283,7 +283,7 @@ def analyze_and_report(df, used_pdb_dir=False):
 
     # 2. Chain Limit Analysis
     chain_limit_runs = df[df['failure_reason'] == 'ChainLimit']
-    print(f"\n2. CHAIN LIMIT ANALYSIS (>26 Chains)")
+    print("\n2. CHAIN LIMIT ANALYSIS (>26 Chains)")
     print(f"Failures: {len(chain_limit_runs)} ({len(chain_limit_runs)/len(df) if len(df) > 0 else 0:.1%})")
 
     if not chain_limit_runs.empty:
@@ -298,8 +298,8 @@ def analyze_and_report(df, used_pdb_dir=False):
         'tm_score', ascending=True,
     )
 
-    print(f"\n" + "="*80)
-    print(f"3. STRUCTURAL ACCURACY (TM < 0.5)")
+    print("\n" + "="*80)
+    print("3. STRUCTURAL ACCURACY (TM < 0.5)")
     print(f"Count: {len(low_tm)}")
     if not low_tm.empty:
         print(low_tm[[
@@ -307,8 +307,8 @@ def analyze_and_report(df, used_pdb_dir=False):
         ]].to_string(index=False))
 
     # 4. Nucleic Acid Analysis
-    print(f"\n" + "="*80)
-    print(f"4. MISSING NUCLEIC ACIDS ANALYSIS")
+    print("\n" + "="*80)
+    print("4. MISSING NUCLEIC ACIDS ANALYSIS")
 
     confirmed_ids = set()
 

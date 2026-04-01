@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import logging
 import random
 from pathlib import Path
-from typing import Dict, Tuple
 
 from proto_tools.tools.masked_models.masking import MaskingStrategy
 from tap import Tap
@@ -54,7 +55,7 @@ def _enable_mcmc_energy_logging() -> None:
     mcmc_logger.propagate = False
 
 
-def _get_constraints_metadata(sequence: Sequence) -> Dict[str, any]:
+def _get_constraints_metadata(sequence: Sequence) -> dict[str, any]:
     """
     Return constraint metadata from a Sequence across old/new metadata layouts.
     """
@@ -118,7 +119,7 @@ def get_initial_intron(args: ProgramIntronDesignArgs) -> str:
 def process_splice_transformer_input(
     initial_intron: str,
     args: ProgramIntronDesignArgs,
-) -> Tuple[str, str, str, str, str, str, str]:
+) -> tuple[str, str, str, str, str, str, str]:
     """
     Process the input to SpliceTransformer.
 
@@ -417,7 +418,7 @@ if __name__ == '__main__':
     ## Program ##
     #############
 
-    def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
+    def custom_logging(step: int, outputs: tuple[Segment]) -> None:
         left_flank_sequence = str(outputs[0].result_sequences[0]._sequence)
         intron_core_sequence = str(outputs[1].result_sequences[0]._sequence)
         right_flank_sequence = str(outputs[2].result_sequences[0]._sequence)

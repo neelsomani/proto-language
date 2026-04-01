@@ -1,7 +1,5 @@
-"""
-tests/language_tests/constraint_tests/test_protein_structure/test_structure_constraints_e2e.py
+"""Tests all structure confidence and similarity constraints with protein-ligand.
 
-Tests all structure confidence and similarity constraints with protein-ligand
 complexes using the Boltz structure predictor without MSAs.
 
 Tests cover:
@@ -10,7 +8,7 @@ Tests cover:
 3. structure_iptm_constraint
 4. structure_pae_constraint
 5. structure_rmsd_constraint
-6. structure_tmscore_constraint
+6. structure_tmscore_constraint.
 """
 
 import pytest

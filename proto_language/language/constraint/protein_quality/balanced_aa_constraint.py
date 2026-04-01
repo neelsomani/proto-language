@@ -1,13 +1,8 @@
-"""
-proto_language/language/constraint/protein_quality/balanced_aa_constraint.py
-
-Balanced amino acid constraint function.
-"""
+"""Balanced amino acid constraint function."""
 
 from __future__ import annotations
 
 from collections import Counter
-from typing import List, Tuple
 
 import numpy as np
 
@@ -71,7 +66,7 @@ class BalancedAaConfig(BaseConfig):
     supported_sequence_types=["protein"],
     num_input_sequences_per_tuple=1,
 )
-def balanced_aa_constraint(input_sequences: List[Tuple[Sequence, ...]], config: BalancedAaConfig) -> List[float]:
+def balanced_aa_constraint(input_sequences: list[tuple[Sequence, ...]], config: BalancedAaConfig) -> list[float]:
     """Evaluate the presence of underrepresented amino acids in protein sequences.
 
     This constraint function assesses whether protein sequences have balanced
@@ -208,8 +203,8 @@ def balanced_aa_constraint(input_sequences: List[Tuple[Sequence, ...]], config: 
 
         # Store metadata
         input_sequence._metadata["underrepresented_aa_score"] = float(underrepresented_scores[seq_idx])
-        input_sequence._metadata["amino_acid_counts"] = aa_counts if aa_counts else {}
-        input_sequence._metadata["underrepresented_amino_acids"] = underrepresented_aas if underrepresented_aas else []
+        input_sequence._metadata["amino_acid_counts"] = aa_counts or {}
+        input_sequence._metadata["underrepresented_amino_acids"] = underrepresented_aas or []
         input_sequence._metadata["underrepresented_aa_count"] = int(underrepresented_counts[seq_idx])
         input_sequence._metadata["min_aa_frequency_threshold"] = config.min_aa_frequency
 

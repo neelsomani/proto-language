@@ -1,8 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_protein_structure/test_gyration_radius_constraint.py
-
-Tests for Gyration Radius constraint.
-"""
+"""Tests for Gyration Radius constraint."""
 
 from unittest.mock import patch
 
@@ -16,7 +12,7 @@ from proto_language.language.core import Sequence
 from proto_language.utils import MAX_ENERGY
 
 
-def _make_sequence(sequence="MKTAYIAK", pdb_path="/tmp/test.pdb"):
+def _make_sequence(sequence="MKTAYIAK", pdb_path="/tmp/test.pdb"):  # noqa: S108 -- test fixture with deterministic path
     """Helper to create a Sequence with pdb_path metadata."""
     return Sequence(
         sequence=sequence,
@@ -33,7 +29,7 @@ def _mock_metrics_output(gyration_radius, longest_alpha_helix=5):
         success=True,
         metrics=[
             StructureMetrics(
-                pdb_path="/tmp/test.pdb",
+                pdb_path="/tmp/test.pdb",  # noqa: S108 -- test fixture with deterministic path
                 gyration_radius=gyration_radius,
                 longest_alpha_helix=longest_alpha_helix,
             )
@@ -50,9 +46,10 @@ PATCH_TARGET = (
 
 
 class TestGyrationRadiusConstraint:
-    """tests/language_tests/constraint_tests/test_protein_structure/test_gyration_radius_constraint.py
+    """tests/language_tests/constraint_tests/test_protein_structure/test_gyration_radius_constraint.py.
 
-Tests for Gyration Radius constraint."""
+    Tests for Gyration Radius constraint.
+    """
 
     def test_within_threshold_scores_zero(self):
         """Structures within the max gyration radius score 0.0."""
@@ -107,7 +104,7 @@ Tests for Gyration Radius constraint."""
         seq = _make_sequence(pdb_path=None)
         config = GyrationRadiusConfig(
             max_gyration_radius=50.0,
-            pdb_paths=["/tmp/explicit.pdb"],
+            pdb_paths=["/tmp/explicit.pdb"],  # noqa: S108 -- test fixture with deterministic path
         )
 
         with patch(PATCH_TARGET) as mock_run:
@@ -118,7 +115,7 @@ Tests for Gyration Radius constraint."""
         assert scores[0] == 0.0
         # Verify the explicit path was used
         call_input = mock_run.call_args[0][0]
-        assert call_input.pdb_paths == ["/tmp/explicit.pdb"]
+        assert call_input.pdb_paths == ["/tmp/explicit.pdb"]  # noqa: S108 -- test fixture with deterministic path
 
     def test_stores_metadata(self):
         """Constraint stores gyration_radius and longest_alpha_helix in metadata."""
@@ -136,8 +133,8 @@ Tests for Gyration Radius constraint."""
 
     def test_multiple_sequences(self):
         """Constraint handles multiple sequences correctly."""
-        seq1 = _make_sequence(pdb_path="/tmp/a.pdb")
-        seq2 = _make_sequence(pdb_path="/tmp/b.pdb")
+        seq1 = _make_sequence(pdb_path="/tmp/a.pdb")  # noqa: S108 -- test fixture with deterministic path
+        seq2 = _make_sequence(pdb_path="/tmp/b.pdb")  # noqa: S108 -- test fixture with deterministic path
         config = GyrationRadiusConfig(max_gyration_radius=40.0)
 
         with patch(PATCH_TARGET) as mock_run:
@@ -147,12 +144,12 @@ Tests for Gyration Radius constraint."""
                 success=True,
                 metrics=[
                     StructureMetrics(
-                        pdb_path="/tmp/a.pdb",
+                        pdb_path="/tmp/a.pdb",  # noqa: S108 -- test fixture with deterministic path
                         gyration_radius=30.0,
                         longest_alpha_helix=5,
                     ),
                     StructureMetrics(
-                        pdb_path="/tmp/b.pdb",
+                        pdb_path="/tmp/b.pdb",  # noqa: S108 -- test fixture with deterministic path
                         gyration_radius=50.0,
                         longest_alpha_helix=8,
                     ),

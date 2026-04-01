@@ -1,7 +1,4 @@
-"""
-proto_language/language/constraint/protein_structure/structure_constraint_config.py
-
-Base configuration classes for structure-based constraints.
+"""Base configuration classes for structure-based constraints.
 
 This module provides standardized configuration classes for constraints that
 use structure prediction tools (ESMFold, AlphaFold3, Boltz2, Chai1).
@@ -9,7 +6,7 @@ use structure prediction tools (ESMFold, AlphaFold3, Boltz2, Chai1).
 
 from __future__ import annotations
 
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Literal
 
 from proto_tools import (
     AlphaFold3Config,
@@ -70,13 +67,7 @@ class StructureBasedConstraintConfig(BaseConfig):
         description="Tool to use for structure prediction.",
     )
 
-    tool_config: Optional[Union[
-        Dict[str, Any],
-        ESMFoldConfig,
-        AlphaFold3Config,
-        Boltz2Config,
-        Chai1Config,
-    ]] = ConfigField(
+    tool_config: dict[str, Any] | ESMFoldConfig | AlphaFold3Config | Boltz2Config | Chai1Config | None = ConfigField(
         title="Tool Configuration",
         default=None,
         description="Tool-specific configuration parameters. Can be a typed config, dict, or None (uses defaults).",
@@ -85,7 +76,7 @@ class StructureBasedConstraintConfig(BaseConfig):
 
     @model_validator(mode="before")
     @classmethod
-    def convert_and_validate_tool_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_and_validate_tool_config(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Converts dict/None to tool-specific config and validates type consistency.
 
         Handles all possible input formats:

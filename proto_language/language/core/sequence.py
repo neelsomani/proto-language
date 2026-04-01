@@ -1,7 +1,4 @@
-"""
-proto_language/language/core/sequence.py
-
-Sequence class for the proto-language.
+"""Sequence class for the proto-language.
 
 Represents a single DNA, RNA, protein, or ligand sequence with validation and metadata.
 """
@@ -9,7 +6,8 @@ from __future__ import annotations
 
 import copy
 import warnings
-from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Set
+from collections.abc import Iterable
+from typing import Any, Literal
 
 # Valid characters for different sequence types
 DNA_NUCLEOTIDES = "ACGT"
@@ -17,22 +15,21 @@ RNA_NUCLEOTIDES = "ACGU"
 PROTEIN_AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 
 # MEMORY OPTIMIZATION FOR DEEPCOPYING: shared default character sets (frozenset for immutability)
-_DEFAULT_DNA_CHARS: FrozenSet[str] = frozenset(DNA_NUCLEOTIDES)
-_DEFAULT_RNA_CHARS: FrozenSet[str] = frozenset(RNA_NUCLEOTIDES)
-_DEFAULT_PROTEIN_CHARS: FrozenSet[str] = frozenset(PROTEIN_AMINO_ACIDS)
+_DEFAULT_DNA_CHARS: frozenset[str] = frozenset(DNA_NUCLEOTIDES)
+_DEFAULT_RNA_CHARS: frozenset[str] = frozenset(RNA_NUCLEOTIDES)
+_DEFAULT_PROTEIN_CHARS: frozenset[str] = frozenset(PROTEIN_AMINO_ACIDS)
 
 
 # Type alias for supported biological sequence types
 SequenceType = Literal["dna", "rna", "protein", "ligand"]
 
-# Reserved keys in the computed .metadata property. User-provided metadata
+# Reserved keys in the computed .metadata property — user-provided metadata
 # should not use these keys as they will be overwritten by identity fields.
 _RESERVED_METADATA_KEYS = frozenset({"sequence", "sequence_length", "constraints"})
 
 
 class Sequence:
-    """
-    Internal data structure for the basic unit of the programming language.
+    """Internal data structure for the basic unit of the programming language.
 
     Represents a single DNA, RNA, protein, or ligand sequence. The class enforces
     sequence type constraints and maintains metadata that gets updated when the
@@ -50,11 +47,10 @@ class Sequence:
         self,
         sequence: str = "",
         sequence_type: SequenceType = "dna",
-        valid_chars: Optional[Set[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        valid_chars: set[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Initialize a Sequence with sequence data and metadata.
+        """Initialize a Sequence with sequence data and metadata.
 
         Args:
             sequence (str): The biological sequence string. Defaults to empty string.
@@ -67,7 +63,7 @@ class Sequence:
         # Set up character validation based on sequence type or custom valid_chars
         # Default chars use shared module-level frozensets to avoid allocation
         if valid_chars:
-            self._valid_chars: Optional[Set[str] | FrozenSet[str]] = valid_chars
+            self._valid_chars: set[str] | frozenset[str] | None = valid_chars
         elif self._sequence_type == "dna":
             self._valid_chars = _DEFAULT_DNA_CHARS
         elif self._sequence_type == "rna":
@@ -81,8 +77,8 @@ class Sequence:
 
         self._validate_sequence(sequence)
         self._sequence: str = sequence
-        self._metadata: Dict[str, Any] = dict(metadata) if metadata else {}
-        self._constraints_metadata: Dict[str, Any] = {}
+        self._metadata: dict[str, Any] = dict(metadata) if metadata else {}
+        self._constraints_metadata: dict[str, Any] = {}
 
         # Warn about reserved key collisions in user-provided metadata
         if self._metadata:
@@ -90,12 +86,12 @@ class Sequence:
             if collisions:
                 warnings.warn(
                     f"Metadata contains reserved keys {collisions} that will be "
-                    f"overwritten by identity fields in the .metadata property."
+                    f"overwritten by identity fields in the .metadata property.", stacklevel=2
                 )
 
     def _validate_sequence(self, sequence: str) -> None:
-        """
-        Validate that genetic sequences contain only allowed characters for their types
+        """Validate that genetic sequences contain only allowed characters for their types.
+
         or that ligand sequences follow the RDKit SMILES syntax.
 
         Args:
@@ -112,7 +108,7 @@ class Sequence:
         if invalid_chars:
             warnings.warn(
                 f"Invalid characters found: {', '.join(invalid_chars)}. "
-                f"Valid characters are: {', '.join(sorted(self._valid_chars))}"
+                f"Valid characters are: {', '.join(sorted(self._valid_chars))}", stacklevel=2
             )
 
     @property
@@ -121,14 +117,13 @@ class Sequence:
         return self._sequence_type
 
     @property
-    def valid_chars(self) -> Optional[Set[str] | FrozenSet[str]]:
+    def valid_chars(self) -> set[str] | frozenset[str] | None:
         """Valid characters for this sequence (read-only after construction)."""
         return self._valid_chars
 
     @property
-    def metadata(self) -> Dict[str, Any]:
-        """
-        Computed read-only view combining identity, user/generator metadata, and constraints.
+    def metadata(self) -> dict[str, Any]:
+        """Computed read-only view combining identity, user/generator metadata, and constraints.
 
         Identity fields (sequence, sequence_length, constraints) always take
         precedence over user-provided metadata with the same keys.
@@ -141,8 +136,7 @@ class Sequence:
 
     @property
     def sequence(self) -> str:
-        """
-        Get the current sequence string.
+        """Get the current sequence string.
 
         Returns:
             str: The sequence string.
@@ -151,8 +145,7 @@ class Sequence:
 
     @sequence.setter
     def sequence(self, new_sequence: str) -> None:
-        """
-        Set a new sequence string with validation.
+        """Set a new sequence string with validation.
 
         Args:
             new_sequence (str): The new sequence string to set.
@@ -164,8 +157,7 @@ class Sequence:
         self._sequence = new_sequence
 
     def __len__(self) -> int:
-        """
-        Get the length of the sequence.
+        """Get the length of the sequence.
 
         Returns:
             int: Number of characters in the sequence.
@@ -173,8 +165,7 @@ class Sequence:
         return len(self._sequence)
 
     def __str__(self) -> str:
-        """
-        Get the sequence as a string.
+        """Get the sequence as a string.
 
         Returns:
             str: The sequence string.
@@ -182,8 +173,7 @@ class Sequence:
         return self._sequence
 
     def __getitem__(self, key):
-        """
-        Support subscripting and slicing of the sequence.
+        """Support subscripting and slicing of the sequence.
 
         Args:
             key: Index or slice object.
@@ -194,8 +184,7 @@ class Sequence:
         return self._sequence[key]
 
     def __deepcopy__(self, memo):
-        """
-        Optimized deepcopy: share stable data, only copy mutable dicts.
+        """Optimized deepcopy: share stable data, only copy mutable dicts.
 
         - _valid_chars, _sequence_type, _sequence: Immutable, share reference
         - _metadata, _constraints: Mutable, must deep copy
@@ -209,8 +198,8 @@ class Sequence:
         memo[id(self)] = new_seq
         return new_seq
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize Sequence to a dictionary."""
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize Sequence to dictionary for cloud/API communication."""
         return {
             "sequence": self._sequence,
             "sequence_type": self.sequence_type,
@@ -220,7 +209,7 @@ class Sequence:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Sequence:
+    def from_dict(cls, data: dict[str, Any]) -> Sequence:
         """Deserialize Sequence from dictionary."""
         if data.get("valid_chars"):
             chars = frozenset(data["valid_chars"])
@@ -243,9 +232,8 @@ class Sequence:
         seq._constraints_metadata = data.get("constraints", {})
         return seq
 
-def create_concatenated_sequence(subsequences: Iterable[Sequence], segment_labels: Optional[List[str]] = None) -> Sequence:
-    """
-    Concatenate subsequences into a single Sequence object.
+def create_concatenated_sequence(subsequences: Iterable[Sequence], segment_labels: list[str] | None = None) -> Sequence:
+    """Concatenate subsequences into a single Sequence object.
 
     Args:
         subsequences (Iterable[Sequence]): Iterable of Sequence objects to concatenate
@@ -268,13 +256,14 @@ def create_concatenated_sequence(subsequences: Iterable[Sequence], segment_label
 
     # Merge segment metadata if labels provided
     if segment_labels:
-        assert len(segment_labels) == len(seq_list), f"Length mismatch: {len(segment_labels)} labels provided but {len(seq_list)} sequences to concatenate"
+        if len(segment_labels) != len(seq_list):
+            raise ValueError(f"Length mismatch: {len(segment_labels)} labels provided but {len(seq_list)} sequences to concatenate")
         segments_metadata = {
             label: {
                 **copy.deepcopy(seq._metadata),
                 "constraints": copy.deepcopy(seq._constraints_metadata),
             }
-            for label, seq in zip(segment_labels, seq_list)
+            for label, seq in zip(segment_labels, seq_list, strict=False)
         }
         joined_seq._metadata["segments"] = segments_metadata
     return joined_seq
@@ -282,9 +271,8 @@ def create_concatenated_sequence(subsequences: Iterable[Sequence], segment_label
 # =============================================================================
 # Sequence Validation Helpers
 # =============================================================================
-def _return_invalid_chars(sequence: str, valid_chars: Set[str]) -> Set[str]:
-    """
-    Return the invalid characters in a sequence given a set of valid characters.
+def _return_invalid_chars(sequence: str, valid_chars: set[str]) -> set[str]:
+    """Return the invalid characters in a sequence given a set of valid characters.
 
     Args:
         sequence (str): The sequence string to validate.
@@ -293,16 +281,14 @@ def _return_invalid_chars(sequence: str, valid_chars: Set[str]) -> Set[str]:
     Returns:
         set[str]: The set of invalid characters.
     """
-    invalid_chars = set(sequence) - valid_chars
-    return invalid_chars
+    return set(sequence) - valid_chars
 
 
 def return_invalid_dna_chars(
     sequence: str,
-    additional_valid_chars: Optional[str] = None,
-) -> Set[str]:
-    """
-    Helper function that returns the invalid characters in a DNA sequence.
+    additional_valid_chars: str | None = None,
+) -> set[str]:
+    """Helper function that returns the invalid characters in a DNA sequence.
 
     Args:
         sequence (str): The sequence string to validate.
@@ -321,10 +307,9 @@ def return_invalid_dna_chars(
 
 def return_invalid_rna_chars(
     sequence: str,
-    additional_valid_chars: Optional[str] = None,
-) -> Set[str]:
-    """
-    Helper function that returns the invalid characters in a RNA sequence.
+    additional_valid_chars: str | None = None,
+) -> set[str]:
+    """Helper function that returns the invalid characters in a RNA sequence.
 
     Args:
         sequence (str): The sequence string to validate.
@@ -342,10 +327,9 @@ def return_invalid_rna_chars(
 
 def return_invalid_nucleotide_chars(
     sequence: str,
-    additional_valid_chars: Optional[str] = None,
-) -> Set[str]:
-    """
-    Helper function that returns the invalid characters in a nucleotide sequence.
+    additional_valid_chars: str | None = None,
+) -> set[str]:
+    """Helper function that returns the invalid characters in a nucleotide sequence.
 
     Args:
         sequence (str): The sequence string to validate.
@@ -363,10 +347,9 @@ def return_invalid_nucleotide_chars(
 
 def return_invalid_protein_chars(
     sequence: str,
-    additional_valid_chars: Optional[str] = None,
-) -> Set[str]:
-    """
-    Return the invalid characters in a protein sequence.
+    additional_valid_chars: str | None = None,
+) -> set[str]:
+    """Return the invalid characters in a protein sequence.
 
     Args:
         sequence (str): The sequence string to validate.
@@ -383,8 +366,7 @@ def return_invalid_protein_chars(
 
 
 def validate_smiles(smiles: str, verbose: bool = True) -> bool:
-    """
-    Validate SMILES string using RDKit if available.
+    """Validate SMILES string using RDKit if available.
 
     Args:
         smiles (str): The SMILES string to validate.
@@ -399,15 +381,15 @@ def validate_smiles(smiles: str, verbose: bool = True) -> bool:
         if verbose:
             warnings.warn(
                 f"RDKit could not parse SMILES: '{smiles}'. "
-                "This may not be a valid molecule."
+                "This may not be a valid molecule.", stacklevel=2
             )
         return False
     return True
 
 
 def detect_sequence_type(sequence: str) -> str:
-    """
-    Attempts to determine the type of a sequence based on the characters it contains.
+    """Attempts to determine the type of a sequence based on the characters it contains.
+
     Starts with more specific sequence types (less characters allowed) and works
     its way down to the least specific. Returns "unknown" if the sequence type
     cannot be determined.
@@ -421,7 +403,6 @@ def detect_sequence_type(sequence: str) -> str:
     Returns:
        str: The type of the sequence ("dna", "rna", "protein", "ligand", or "unknown").
     """
-
     # DNA ================================================================
     invalid_chars = return_invalid_dna_chars(sequence, additional_valid_chars="N")
     if not invalid_chars:

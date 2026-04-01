@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import random
 import shutil
@@ -5,7 +7,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from glob import glob
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import Bio
 import numpy as np
@@ -16,7 +18,7 @@ from proto_tools.tools.masked_models.masking import MaskingStrategy
 from tqdm import tqdm
 
 
-def collect_uniprot_data(uniprot_id: str, cluster_name: str = 'UniRef50') -> Dict[str, Any]:
+def collect_uniprot_data(uniprot_id: str, cluster_name: str = 'UniRef50') -> dict[str, Any]:
     """
     For a given UniProt ID, get the wildtype sequence and all sequences from
     its UniRef cluster.
@@ -41,7 +43,7 @@ def collect_uniprot_data(uniprot_id: str, cluster_name: str = 'UniRef50') -> Dic
     }
 
 
-def sample_progen2(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[str, Any]]:
+def sample_progen2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[str, Any]]:
     """
     Run and store the outputs of a basic sweep over ProGen2 configurations.
     """
@@ -52,7 +54,7 @@ def sample_progen2(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Di
 
     print('Benchmarking ProGen2...')
 
-    data: List[Dict[str, Any]] = []  # Metadata for sampled sequences.
+    data: list[dict[str, Any]] = []  # Metadata for sampled sequences.
 
     for model_checkpoint in model_checkpoints:
         print(f'\tTesting ProGen2 checkpoint {model_checkpoint}...')
@@ -89,7 +91,7 @@ def sample_progen2(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Di
     return data
 
 
-def sample_esm3(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[str, Any]]:
+def sample_esm3(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[str, Any]]:
     """
     Mutate the existing wildtype sequence with ESM3.
     """
@@ -106,7 +108,7 @@ def sample_esm3(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[
     model_checkpoint = 'esm3_sm_open_v1'
     esm3_model = ESM3Model(model_checkpoint=model_checkpoint)
 
-    data: List[Dict[str, Any]] = []  # Metadata for sampled sequences.
+    data: list[dict[str, Any]] = []  # Metadata for sampled sequences.
 
     for mutation_fraction in mutation_fractions:
         for temperature in temperatures:
@@ -134,7 +136,7 @@ def sample_esm3(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[
     return data
 
 
-def human_codon_optimize(aa_seqs: List[str]) -> List[str]:
+def human_codon_optimize(aa_seqs: list[str]) -> list[str]:
     """
     Use CodonTransformer to human-codon optimize proteins.
     """
@@ -162,7 +164,7 @@ def human_codon_optimize(aa_seqs: List[str]) -> List[str]:
     return nt_seqs
 
 
-def sample_diverse_subset(sequences: List[str], k: int, kmer_size: int = 3, random_seed: int = 1337) -> List[str]:
+def sample_diverse_subset(sequences: list[str], k: int, kmer_size: int = 3, random_seed: int = 1337) -> list[str]:
     """
     Selects k maximally diverse sequences using Farthest Point Sampling (FPS)
     on k-mer counts.
@@ -210,7 +212,7 @@ def sample_diverse_subset(sequences: List[str], k: int, kmer_size: int = 3, rand
     return [ sequences[i] for i in selected_indices ]
 
 
-def sample_evo2(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[str, Any]]:
+def sample_evo2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[str, Any]]:
     """
     Sample variation with in-context Evo 2 diversification.
     """
@@ -232,7 +234,7 @@ def sample_evo2(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[
         if (0.9 * wt_seq_len) < len(seq) < (1.1 * wt_seq_len)
     ])
 
-    data: List[Dict[str, Any]] = []  # Metadata for sampled sequences.
+    data: list[dict[str, Any]] = []  # Metadata for sampled sequences.
 
     for n_prompt_example in n_prompt_examples:
         print(f'\tTesting Evo 2 with {n_prompt_example} in-context examples...')
@@ -280,9 +282,9 @@ def sample_evo2(uniprot_data: Dict[str, Any], n_samples: int = 10) -> List[Dict[
     return data
 
 
-structure_cache: Dict[str, str] = {}
+structure_cache: dict[str, str] = {}
 esmfold_model = None
-def cached_esmfold(seq: str) -> Dict[str, str]:
+def cached_esmfold(seq: str) -> dict[str, str]:
     """Basic caching and lazy loading mechanism for ESMFold."""
     global structure_cache
     global esmfold_model
@@ -313,7 +315,7 @@ def cached_esmfold(seq: str) -> Dict[str, str]:
     return results
 
 
-def compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> Dict[str, Any]:
+def compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> dict[str, Any]:
     """
     Compute CE-aligned RMSD using PyMOL's cealign.
     """
@@ -347,7 +349,7 @@ def compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> Dict[str, Any]:
         cmd.delete("all")
 
 
-def score_esmfold(seq: str, wt_seq: str, plddt_threshold: float = 0.6) -> Dict[str, float]:
+def score_esmfold(seq: str, wt_seq: str, plddt_threshold: float = 0.6) -> dict[str, float]:
     """ESMFold a sequence and optionally compare it to the wildtype structure."""
     if not isinstance(seq, str):
         return {
@@ -388,7 +390,7 @@ class SequenceMatch:
     query_id: str
     query_seq: str
     target_id: str
-    target_seq: Optional[str]
+    target_seq: str | None
     evalue: float
     pident: float  # percent identity (0-100)
     qcov: float    # query coverage (0-100)
@@ -396,7 +398,7 @@ class SequenceMatch:
     alignment_length: int
 
 
-def _run_mmseqs(mmseqs_path: str, args: List[str]) -> subprocess.CompletedProcess:
+def _run_mmseqs(mmseqs_path: str, args: list[str]) -> subprocess.CompletedProcess:
     """Run an MMseqs2 command."""
     cmd = [mmseqs_path] + args
     result = subprocess.run(
@@ -410,8 +412,8 @@ def _run_mmseqs(mmseqs_path: str, args: List[str]) -> subprocess.CompletedProces
 
 
 def find_nearest_sequences(
-    query_sequences: List[str],
-    fasta_files: List[str],
+    query_sequences: list[str],
+    fasta_files: list[str],
     evalue_threshold: float = 1e-3,
     min_qcov: float = 0.0,
     min_pident: float = 0.0,
@@ -419,7 +421,7 @@ def find_nearest_sequences(
     sensitivity: float = 7.5,
     mmseqs_path: str = "mmseqs",
     keep_tmp: bool = False,
-) -> Dict[int, Optional[SequenceMatch]]:
+) -> dict[int, SequenceMatch | None]:
     """
     Find the nearest sequence in FASTA files for each query sequence.
 
@@ -446,13 +448,12 @@ def find_nearest_sequences(
         os.makedirs(tmp_folder, exist_ok=True)
 
         with open(query_fasta, 'w') as f:
-            for i, seq in enumerate(query_sequences):
-                f.write(f">query_{i}\n{seq}\n")
+            f.writelines(f">query_{i}\n{seq}\n" for i, seq in enumerate(query_sequences))
 
         # Concatenate target FASTA files.
         with open(target_fasta, 'w') as outf:
             for fasta_path in fasta_files:
-                with open(fasta_path, 'r') as inf:
+                with open(fasta_path) as inf:
                     content = inf.read()
                     outf.write(content)
                     if not content.endswith('\n'):
@@ -485,10 +486,10 @@ def find_nearest_sequences(
             "--format-output", "query,target,pident,alnlen,qstart,qend,qlen,tstart,tend,tlen,evalue,bits,qcov,tcov",
         ])
 
-        results: Dict[int, Optional[SequenceMatch]] = {i: None for i in range(len(query_sequences))}
-        best_scores: Dict[int, float] = {}
+        results: dict[int, SequenceMatch | None] = dict.fromkeys(range(len(query_sequences)))
+        best_scores: dict[int, float] = {}
 
-        with open(result_tsv, 'r') as f:
+        with open(result_tsv) as f:
             for line in f:
                 parts = line.strip().split('\t')
                 if len(parts) < 14:
@@ -533,7 +534,7 @@ def find_nearest_sequences(
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def sample_sequences(uniprot_ids: List[str], output_fname: str, n_samples_per_condition: int = 10) -> None:
+def sample_sequences(uniprot_ids: list[str], output_fname: str, n_samples_per_condition: int = 10) -> None:
     """
     Conduct all of the sequence sampling.
     """
@@ -559,7 +560,7 @@ def score_sequences(
     Score sequences with ESMFold (structure) and mmseqs (sequence novelty).
     """
     designed_seqs = list(df['sample_seq'])
-    seq_to_scores: Dict[str, Dict[str, float]] = { seq: {} for seq in designed_seqs }
+    seq_to_scores: dict[str, dict[str, float]] = { seq: {} for seq in designed_seqs }
 
     # Get all of the wildtype sequences.
     uniprot_id_to_seq = {}
@@ -568,7 +569,7 @@ def score_sequences(
         uniprot_id_to_seq[uniprot_id] = str(record.seq)
 
     if run_esmfold_scoring:
-        print(f'Scoring sequences with ESMFold...')
+        print('Scoring sequences with ESMFold...')
 
         for _, row in tqdm(df.iterrows(), total=len(df)):
             wt_seq = uniprot_id_to_seq[row['uniprot_id']]
@@ -586,7 +587,7 @@ def score_sequences(
             ]
 
     if run_mmseqs_scoring:
-        print(f'Scoring sequences with mmseqs...')
+        print('Scoring sequences with mmseqs...')
 
         uniref_fastas = glob('examples/data/human_gene_uniref50/fasta/UniRef50_*.fasta')
 

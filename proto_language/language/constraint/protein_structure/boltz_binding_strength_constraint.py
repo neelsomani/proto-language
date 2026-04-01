@@ -1,12 +1,8 @@
-"""
-proto_language/language/constraint/protein_structure/boltz_binding_strength_constraint.py
-
-Boltz binding strength constraint for protein-protein and protein-ligand interactions.
-"""
+"""Boltz binding strength constraint for protein-protein and protein-ligand interactions."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 from numpy import clip
 from proto_tools import (
@@ -143,27 +139,27 @@ class BoltzBindingStrengthConfig(BaseConfig):
           more accurate structure. Values <3 Å indicate high accuracy.
         - **confidence_score**: Boltz's aggregate confidence combining multiple factors.
     """
-    desired_higher: Dict[str, float] = ConfigField(
+    desired_higher: dict[str, float] = ConfigField(
         default=DEFAULT_DESIRED_HIGHER,
         title="Desired Higher Bound Metrics",
         description="Target values for 'higher is better' metrics.",  #  Provide partial dict to override specific metrics while keeping defaults for others.
     )
-    desired_lower: Dict[str, float] = ConfigField(
+    desired_lower: dict[str, float] = ConfigField(
         default=DEFAULT_DESIRED_LOWER,
         title="Desired Lower Bound Metrics",
         description="Target values for 'lower is better' metrics.",  # Provide partial dict to override specific metrics.
     )
-    tol_higher: Dict[str, float] = ConfigField(
+    tol_higher: dict[str, float] = ConfigField(
         default=DEFAULT_TOL_HIGHER,
         title="Tolerances Higher Bound Metrics",
         description="Tolerances for 'higher is better' metrics (distance below target = penalty 1.0).",  # Provide partial dict to override.
     )
-    tol_lower: Dict[str, float] = ConfigField(
+    tol_lower: dict[str, float] = ConfigField(
         default=DEFAULT_TOL_LOWER,
         title="Tolerances Lower Bound Metrics",
         description="Tolerances for 'lower is better' metrics (distance above target = penalty 1.0, in Angstroms).",  #  Provide partial dict to override.
     )
-    weights: Optional[Dict[str, float]] = ConfigField(
+    weights: dict[str, float] | None = ConfigField(
         default=None,
         title="Penalty Weights",
         description="Weights for combining penalties",
@@ -204,8 +200,8 @@ class BoltzBindingStrengthConfig(BaseConfig):
     )
 
     def model_post_init(self, __context: Any) -> None:
-        """
-        Merges user overrides with defaults after validation. If no user overrides
+        """Merges user overrides with defaults after validation. If no user overrides.
+
         are provided, uses defaults.
         """
         super().model_post_init(__context)
@@ -227,8 +223,8 @@ class BoltzBindingStrengthConfig(BaseConfig):
     num_input_sequences_per_tuple=None,
 )
 def boltz_binding_strength_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: BoltzBindingStrengthConfig
-) -> float | List[float]:
+    input_sequences: list[tuple[Sequence, ...]], config: BoltzBindingStrengthConfig
+) -> float | list[float]:
     """Evaluate binding strength and quality using Boltz structure prediction.
 
     This constraint function uses Boltz to predict complex structures and evaluate
@@ -296,17 +292,15 @@ def boltz_binding_strength_constraint(
         >>> print(f"iptm: {metadata['metrics']['iptm']:.3f}")
         >>> print(f"complex_iplddt: {metadata['metrics']['complex_iplddt']:.3f}")
     """
-    boltz_complexes = []
-    for sequence_tuple in input_sequences:
-        # Build chains with explicit entity types from input sequences
-        boltz_complexes.append(
-            StructurePredictionComplex(
-                chains=[
-                    {"sequence": s.sequence, "entity_type": s.sequence_type}
-                    for s in sequence_tuple
-                ]
-            )
+    boltz_complexes = [
+        StructurePredictionComplex(
+            chains=[
+                {"sequence": s.sequence, "entity_type": s.sequence_type}
+                for s in sequence_tuple
+            ]
         )
+        for sequence_tuple in input_sequences
+    ]
 
     # Prepare inputs for Boltz2
     inputs = Boltz2Input(
@@ -318,7 +312,7 @@ def boltz_binding_strength_constraint(
 
     # Scoring each complex
     penalties = []
-    for seq_obj_tuple, comp, structure in zip(input_sequences, inputs.complexes, outputs.structures):
+    for seq_obj_tuple, comp, structure in zip(input_sequences, inputs.complexes, outputs.structures, strict=False):
 
         # Determine complex type
         n_chains = comp.num_chains()
@@ -479,8 +473,8 @@ def boltz_binding_strength_constraint(
 def get_penalty_for_metric(
     metric_name: str, metric_value: float, config: BoltzBindingStrengthConfig
 ) -> float:
-    """
-    Retrieves the penalty for the given metric's value based on the default target
+    """Retrieves the penalty for the given metric's value based on the default target.
+
     and tolerance values.
 
     Args:
@@ -491,7 +485,6 @@ def get_penalty_for_metric(
     Returns:
         float: The penalty for the given metric's value.
     """
-
     higher_is_better = None
     target = None
     tolerance = None
@@ -499,7 +492,7 @@ def get_penalty_for_metric(
         raise ValueError(
             f"Metric {metric_name} has both desired_higher and tol_higher values. Please provide only one."
         )
-    elif metric_name in config.desired_higher:
+    if metric_name in config.desired_higher:
         higher_is_better = True
         target = config.desired_higher[metric_name]
         tolerance = config.tol_higher[metric_name]

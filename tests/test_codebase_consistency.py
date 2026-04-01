@@ -1,12 +1,9 @@
-"""
-tests/test_codebase_consistency.py
-
-consistency.
-"""
+"""consistency."""
 from __future__ import annotations
 
 import inspect
-from typing import List, Optional, Tuple, Type, Union, get_args, get_origin
+import types
+from typing import Union, get_args, get_origin
 
 import pytest
 from proto_tools import BaseToolInput, BaseToolOutput, ToolRegistry
@@ -24,10 +21,8 @@ MAX_FIELD_TITLE_LENGTH = 31
 # Defines the maximum length of a field description in characters
 MAX_FIELD_DESCRIPTION_LENGTH = 100
 
-def list_of_all_config_models() -> List[Type]:
-    """
-    List of all config models of registered components.
-    """
+def list_of_all_config_models() -> list[type]:
+    """List of all config models of registered components."""
     return [
         spec.config_model
         for spec in [
@@ -39,9 +34,9 @@ def list_of_all_config_models() -> List[Type]:
     ]
 
 @pytest.mark.parametrize("config_model", list_of_all_config_models())
-def test_config_consistency(config_model: Type):
-    """
-    Determines if config models are defined consistently throughout the codebase
+def test_config_consistency(config_model: type):
+    """Determines if config models are defined consistently throughout the codebase.
+
     for consistency of the API and client.
     """
     # Check if config_model is subclass of BaseConfig (language or tools)
@@ -82,8 +77,10 @@ def test_config_consistency(config_model: Type):
             origin = get_origin(annotation)
             ann_args = get_args(annotation)
 
-            # Optional[...] is Union[..., None]
-            is_optional = origin is Union and type(None) in ann_args
+            # Optional[...] is Union[..., None]; X | None is types.UnionType
+            is_optional = (
+                origin in (Union, types.UnionType) and type(None) in ann_args
+            )
 
             if not is_optional:
                 raise TypeError(
@@ -137,14 +134,9 @@ def test_config_consistency(config_model: Type):
     )
 
 
-def list_tool_inputs_and_outputs() -> List[Tuple[str, str]]:
-    """
-    List of all tool inputs and outputs.
-    """
-    full_list = []
-    for tool in ToolRegistry.list_all():
-        full_list.append((tool.input_model, tool.output_model))
-    return full_list
+def list_tool_inputs_and_outputs() -> list[tuple[str, str]]:
+    """List of all tool inputs and outputs."""
+    return [(tool.input_model, tool.output_model) for tool in ToolRegistry.list_all()]
 
 
 @pytest.mark.parametrize(
@@ -152,11 +144,10 @@ def list_tool_inputs_and_outputs() -> List[Tuple[str, str]]:
     list_tool_inputs_and_outputs(),
 )
 def test_tool_input_and_output_consistency(tool_input: type, tool_output: type):
-    """
-    Test if tool inputs and outputs are defined consistently throughout the codebase
+    """Test if tool inputs and outputs are defined consistently throughout the codebase.
+
     for consistency of the API and client.
     """
-
     # Ensure tool input inherits from BaseToolInput
     assert issubclass(
         tool_input, BaseToolInput
@@ -224,10 +215,11 @@ def test_tool_input_and_output_consistency(tool_input: type, tool_output: type):
 
 
 @pytest.mark.parametrize("config_model", list_of_all_config_models())
-def test_depends_on_references_valid_field(config_model: Type):
-    """
-    Every x-depends-on in a config schema must reference an existing,
-    non-hidden sibling property.
+def test_depends_on_references_valid_field(config_model: type):
+    """Every x-depends-on in a config schema must reference an existing sibling.
+
+    Validates that all x-depends-on references point to existing, non-hidden
+    sibling properties in the schema.
     """
     schema = config_model.model_json_schema()
     properties = schema.get("properties", {})
@@ -265,7 +257,7 @@ def test_depends_on_references_valid_field(config_model: Type):
 class _DependsOnModel(LanguageBaseConfig):
     """Shared test model for depends_on parametrized tests."""
     mode: str = ConfigField(default="basic", title="Mode", description="Operating mode.")
-    target: Optional[str] = ConfigField(default=None, title="Target", description="Optional target.")
+    target: str | None = ConfigField(default=None, title="Target", description="Optional target.")
     enabled: bool = ConfigField(default=False, title="Enabled", description="Toggle.")
     with_value: str = ConfigField(
         default="off", title="With Value", description="Single value.",
@@ -319,9 +311,7 @@ def test_depends_on_invalid_raises(depends_on, match):
 
 
 def _field_description_is_valid(description: str) -> str:
-    """
-    Check if the description is under MAX_FIELD_DESCRIPTION_LENGTH characters.
-    """
+    """Check if the description is under MAX_FIELD_DESCRIPTION_LENGTH characters."""
     if description is None:
         return "is None"
     if len(description) > MAX_FIELD_DESCRIPTION_LENGTH:
@@ -332,12 +322,6 @@ def _field_description_is_valid(description: str) -> str:
         return "description contains newline characters. Please use single line descriptions."
     return ""
 
-def _find_missing_fields_in_docstring(docstring: str, field_names: List[str]) -> List[str]:
-    """
-    Find missing fields in the docstring.
-    """
-    missing_fields = []
-    for field_name in field_names:
-        if field_name not in docstring:
-            missing_fields.append(field_name)
-    return missing_fields
+def _find_missing_fields_in_docstring(docstring: str, field_names: list[str]) -> list[str]:
+    """Find missing fields in the docstring."""
+    return [field_name for field_name in field_names if field_name not in docstring]

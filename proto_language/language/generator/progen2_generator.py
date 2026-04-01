@@ -1,12 +1,8 @@
-"""
-proto_language/language/generator/progen2_generator.py
-
-ProGen2 Generator for protein sequence generation.
-"""
+"""ProGen2 Generator for protein sequence generation."""
 
 from __future__ import annotations
 
-from typing import List, Optional, final
+from typing import final
 
 from proto_tools import (
     ProGen2SampleConfig,
@@ -93,6 +89,7 @@ class ProGen2GeneratorConfig(BaseConfig):
 
         verbose (bool): Whether to print detailed generation progress and timing.
             Default: ``False``.
+
     Note:
         For detailed information on ProGen2, see:
         - HuggingFace: https://huggingface.co/hugohrban/
@@ -102,7 +99,7 @@ class ProGen2GeneratorConfig(BaseConfig):
     """
 
     # Required parameters.
-    prompts: List[str] = ConfigField(
+    prompts: list[str] = ConfigField(
         title="Prompts",
         description="Prompt sequences for protein sequence generation",
     )
@@ -113,7 +110,7 @@ class ProGen2GeneratorConfig(BaseConfig):
     )
 
     # Advanced parameters
-    local_path: Optional[str] = ConfigField(
+    local_path: str | None = ConfigField(
         default=None,
         title="Local Model Path",
         description="Path to local model weights",
@@ -182,7 +179,7 @@ class ProGen2GeneratorConfig(BaseConfig):
     @model_validator(mode="after")
     def validate_prompts_length(self):
         """Validate that all prompts have the same length."""
-        if len(set(len(seq) for seq in self.prompts)) != 1:
+        if len({len(seq) for seq in self.prompts}) != 1:
             raise ValueError(f"All prompts must have same length, got: {[len(seq) for seq in self.prompts]}")
         return self
 
@@ -202,6 +199,7 @@ class ProGen2Generator(Generator):
     """Protein sequence generator using ProGen2 autoregressive language model."""
 
     def __init__(self, config: ProGen2GeneratorConfig) -> None:
+        """Initialize ProGen2 generator from config."""
         super().__init__()
         self.config = config
         self.prompts = config.prompts
@@ -218,8 +216,8 @@ class ProGen2Generator(Generator):
 
     def sample(
         self,
-        prompts: Optional[List[str]] = None,
-        prepend_prompt: Optional[bool] = None,
+        prompts: list[str] | None = None,
+        prepend_prompt: bool | None = None,
     ) -> None:
         """Generate protein sequences using ProGen2 tool.
 
@@ -256,7 +254,7 @@ class ProGen2Generator(Generator):
         ):
             proposal.sequence = sequence
 
-    def _replicate_prompts(self, prompts: List[str]) -> List[str]:
+    def _replicate_prompts(self, prompts: list[str]) -> list[str]:
         """Match prompt count to proposal count, replicating single prompts."""
         num_proposals = len(self._assigned_segment.proposal_sequences)
         if len(prompts) == num_proposals:

@@ -1,14 +1,9 @@
-"""
-proto_language/language/constraint/protein_structure/protein_symmetry_ring_constraint.py
-
-Protein symmetry ring constraint for symmetric multimeric structures.
-"""
+"""Protein symmetry ring constraint for symmetric multimeric structures."""
 
 from __future__ import annotations
 
 import json
 from io import StringIO
-from typing import List, Optional, Tuple
 
 import numpy as np
 from biotite.structure import get_chains
@@ -118,7 +113,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def protein_symmetry_ring_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinSymmetryRingConfig) -> List[float]:
+def protein_symmetry_ring_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinSymmetryRingConfig) -> list[float]:
     """Constrain proteins to form symmetric ring-like multimeric structures using ESMFold.
 
     This constraint function uses ESMFold to predict multimeric protein
@@ -215,11 +210,10 @@ def protein_symmetry_ring_constraint(input_sequences: List[Tuple[Sequence, ...]]
     return scores
 
 def _evaluate_protein_symmetry(
-    protein_sequences: List[Sequence],
+    protein_sequences: list[Sequence],
     config: ProteinSymmetryRingConfig
-) -> List[float]:
+) -> list[float]:
     """Evaluate protein ring symmetry directly."""
-
     # Create complexes with n_replications of each protein sequence
     complexes = [
         StructurePredictionComplex(
@@ -240,7 +234,7 @@ def _evaluate_protein_symmetry(
 
     # Update sequence metadata with ESMFold output and calculate scores for each sequence
     scores = []
-    for seq, structure in zip(protein_sequences, output.structures):
+    for seq, structure in zip(protein_sequences, output.structures, strict=False):
         seq._metadata.update(
             {
                 "avg_plddt": structure.avg_plddt,
@@ -258,7 +252,8 @@ def _evaluate_protein_symmetry(
             chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord
             centroids.append(get_centroid(chain_backbone))
 
-        assert len(centroids) == config.n_replications
+        if len(centroids) != config.n_replications:
+            raise ValueError(f"Expected {config.n_replications} centroids, got {len(centroids)}")
         centroids = np.vstack(centroids)
 
         symmetry_std = float(np.std(distance_func(centroids)))
@@ -271,9 +266,9 @@ def _evaluate_protein_symmetry(
     return scores
 
 def _evaluate_dna_symmetry(
-    dna_sequences: List[Sequence],
+    dna_sequences: list[Sequence],
     config: ProteinSymmetryRingConfig
-) -> List[float]:
+) -> list[float]:
     """Evaluate DNA sequences via Prodigal then symmetry."""
     prodigal_result = run_prodigal_prediction(
         ProdigalInput(input_sequences=[seq.sequence for seq in dna_sequences]),
@@ -286,7 +281,7 @@ def _evaluate_dna_symmetry(
     for dna_seq, proteins_list, num_genes in zip(
         dna_sequences,
         prodigal_result.predicted_orfs,
-        prodigal_result.num_orfs_per_sequence
+        prodigal_result.num_orfs_per_sequence, strict=False
     ):
         orf_dicts = [orf.model_dump() for orf in proteins_list]
         dna_seq._metadata.update({
@@ -339,10 +334,10 @@ def _evaluate_dna_symmetry(
 
 
 def _map_scores_to_original(
-    all_sequences: List[Sequence],
-    subset_sequences: List[Sequence],
-    subset_scores: List[float],
-    scores: List[Optional[float]]
+    all_sequences: list[Sequence],
+    subset_sequences: list[Sequence],
+    subset_scores: list[float],
+    scores: list[float | None]
 ) -> None:
     """Map subset scores back to original sequence order."""
     subset_idx = 0

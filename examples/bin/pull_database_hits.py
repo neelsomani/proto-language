@@ -4,11 +4,12 @@ Usage: pull_database_hits.py input_fasta output_dir --database-path mmseqs_db
 Save all of the near-length sequences in an input UniProt FASTA retrieved from an
 mmseqs database.
 """
+from __future__ import annotations
+
 import argparse
 import os
 import shutil
 import subprocess
-from typing import List
 
 from Bio import SeqIO
 
@@ -16,7 +17,7 @@ DB_PATH = "/large_storage/hielab/brianhie/datasets/uniref50/mmseqs/uniref50_db"
 TMP_DIR = "./mmseqs_tmp"
 
 
-def run_pipeline(sequences: List[str], uniprot_ids: List[str], output_dir: str) -> None:
+def run_pipeline(sequences: list[str], uniprot_ids: list[str], output_dir: str) -> None:
     """
     Iterates over a list of sequences, queries UniRef50 locally,
     filters by length (10%), and saves individual FASTA files.
@@ -72,7 +73,7 @@ def run_pipeline(sequences: List[str], uniprot_ids: List[str], output_dir: str) 
         hits_found = 0
         final_fasta_path = os.path.join(output_dir, f"{query_id}_hits.fasta")
 
-        with open(mmseqs_out, "r") as fin, open(final_fasta_path, "w") as fout:
+        with open(mmseqs_out) as fin, open(final_fasta_path, "w") as fout:
             # Write the original query first.
             fout.write(f">{query_id}_original\n{seq}\n")
 

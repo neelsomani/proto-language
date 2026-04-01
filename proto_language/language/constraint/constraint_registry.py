@@ -1,12 +1,11 @@
-"""
-proto_language/language/constraint/constraint_registry.py
+"""Provides a decorator-based API for registering constraint functions and.
 
-Provides a decorator-based API for registering constraint functions and
 a factory method for creating Constraint instances.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Type
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
@@ -18,18 +17,17 @@ from proto_language.language.core import Constraint, Segment
 class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
 
-    tools_called: List[str] = Field(description="List of tool keys this constraint calls (e.g., ['esmfold-prediction', 'prodigal-prediction']). Helps agent find relevant tool documentation.")
-    category: Optional[str] = Field(default=None, description="Optional category for organization (e.g., 'protein_structure', 'sequence_composition'). Not required for custom constraints.")
-    supported_sequence_types: List[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Must be non-empty.")
-    num_input_sequences_per_tuple: Optional[int] = Field(default=None, description="Number of Sequence objects required in each tuple of input_sequences. If None, any number is allowed.")
+    tools_called: list[str] = Field(description="List of tool keys this constraint calls (e.g., ['esmfold-prediction', 'prodigal-prediction']). Helps agent find relevant tool documentation.")
+    category: str | None = Field(default=None, description="Optional category for organization (e.g., 'protein_structure', 'sequence_composition'). Not required for custom constraints.")
+    supported_sequence_types: list[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Must be non-empty.")
+    num_input_sequences_per_tuple: int | None = Field(default=None, description="Number of Sequence objects required in each tuple of input_sequences. If None, any number is allowed.")
 
     # Private field - excluded from serialization
     function: SkipJsonSchema[Callable] = Field(exclude=True)
 
 
 class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
-    """
-    Registry for constraint discovery and API/client integration.
+    """Registry for constraint discovery and API/client integration.
 
     All constraint functions use a standardized signature:
         (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
@@ -81,23 +79,22 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     """
 
     # Each registry subclass must have its own _registry dict
-    _registry: Dict[str, ConstraintSpec] = {}
+    _registry: ClassVar[dict[str, ConstraintSpec]] = {}
 
     @classmethod
     def register(
         cls,
         key: str,
         label: str,
-        config: Type[BaseModel],
+        config: type[BaseModel],
         description: str,
         uses_gpu: bool = False,
-        tools_called: List[str] = [],
-        category: Optional[str] = None,
-        supported_sequence_types: List[str] = [],
-        num_input_sequences_per_tuple: Optional[int] = None,
+        tools_called: list[str] | None = None,
+        category: str | None = None,
+        supported_sequence_types: list[str] | None = None,
+        num_input_sequences_per_tuple: int | None = None,
     ):
-        """
-        Decorator to register a constraint function.
+        """Decorator to register a constraint function.
 
         All constraint functions must use the standardized signature:
             (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
@@ -108,9 +105,9 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             config (type[BaseModel]): Pydantic model class for configuration validation
             description (str): Readable description
             uses_gpu (bool): If True, constraint requires GPU for computation (e.g., ESMFold, Boltz).
-            tools_called (list[str]): List of tool keys this constraint calls (helps agent find relevant documentation).
+            tools_called (list[str] | None): List of tool keys this constraint calls (helps agent find relevant documentation).
             category (str | None): Optional category for organization (e.g., 'protein_structure', 'sequence_composition').
-            supported_sequence_types (list[str]): List of supported sequence types (e.g., ["dna", "protein"]).
+            supported_sequence_types (list[str] | None): List of supported sequence types (e.g., ["dna", "protein"]).
             num_input_sequences_per_tuple (int | None): Number of Sequence objects required in each tuple of input_sequences. If None, any number is allowed.
 
         Returns:
@@ -131,6 +128,10 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             ... ) -> List[float]:
             ...     return [calculate_penalty(seq_tuple[0], config) for seq_tuple in input_sequences]
         """
+        if supported_sequence_types is None:
+            supported_sequence_types = []
+        if tools_called is None:
+            tools_called = []
         def decorator(func: Callable):
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, func.__name__)
@@ -163,14 +164,13 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     def create(
         cls,
         key: str,
-        segments: List[Segment],
-        config_dict: Dict[str, Any],
-        label: Optional[str] = None,
-        threshold: Optional[float] = None,
-        weight: Optional[float] = None,
+        segments: list[Segment],
+        config_dict: dict[str, Any],
+        label: str | None = None,
+        threshold: float | None = None,
+        weight: float | None = None,
     ) -> Constraint:
-        """
-        Factory method to create Constraint instance from JSON-compatible config.
+        """Factory method to create Constraint instance from JSON-compatible config.
 
         This is the primary integration point with API/client layers. It:
         1. Retrieves the registered constraint specification
@@ -239,7 +239,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         raise ValueError(f"Constraint '{constraint.function.__name__}' is not registered")
 
     @classmethod
-    def list_all(cls) -> List[ConstraintSpec]:
+    def list_all(cls) -> list[ConstraintSpec]:
         """List all registered constraints as Pydantic models."""
         return list(cls._registry.values())
 

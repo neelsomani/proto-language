@@ -1,8 +1,4 @@
-"""tests/language_tests/constraint_tests/test_sequence_alignment/test_gap_gini_constraint.py
-
-Tests for the gap Gini constraint (internal functions and full constraint)."""
-
-from __future__ import annotations
+"""Tests for the gap Gini constraint (internal functions and full constraint)."""
 
 import pytest
 
@@ -88,7 +84,7 @@ class TestTrimAlignment:
     def test_basic_trim(self):
         al1 = "A" * 100
         al2 = "A" * 100
-        t1, t2 = _trim_alignment(al1, al2)
+        t1, _t2 = _trim_alignment(al1, al2)
         assert t1 is not None
         assert len(t1) < 100  # Should be trimmed
 
@@ -103,7 +99,7 @@ class TestTrimAlignment:
         al1 = "AC"
         al2 = "AC"
         # Very short alignment after cropping
-        t1, t2 = _trim_alignment(al1, al2)
+        t1, _t2 = _trim_alignment(al1, al2)
         # May be None if too short after trim
         if t1 is not None:
             assert len(t1) <= 2

@@ -1,12 +1,8 @@
-"""
-proto_language/language/constraint/sequence_annotation/promoter_strength_constraint.py
-
-Promoter strength constraint using Salis Lab Promoter Calculator.
-"""
+"""Promoter strength constraint using Salis Lab Promoter Calculator."""
 
 from __future__ import annotations
 
-from typing import List, Literal, Tuple
+from typing import Literal
 
 from promoter_calculator.wrapper import promoter_calculator
 
@@ -120,7 +116,7 @@ class PromoterStrengthConfig(BaseConfig):
     supported_sequence_types=["dna"],
     num_input_sequences_per_tuple=1,
 )
-def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], config: PromoterStrengthConfig) -> List[float]:
+def promoter_strength_constraint(input_sequences: list[tuple[Sequence, ...]], config: PromoterStrengthConfig) -> list[float]:
     """Evaluate bacterial promoter strength using Salis Lab Promoter Calculator.
 
     This constraint function uses the Salis Lab Promoter Calculator to predict
@@ -194,7 +190,6 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         >>> print(scores[0])  # e.g., 0.15 (strong promoter, dG ≈ -4.5)
         >>> print(promoter_seq._metadata["promoter_strength"]["dG_rate"])  # e.g., -4.5
     """
-
     # Extract and clean sequences from tuples
     processed_sequences = []
     for (seq_obj,) in input_sequences:
@@ -203,7 +198,7 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
             s = ("A" * config.context_length) + s + ("A" * config.context_length)
         processed_sequences.append(s)
 
-    penalties: List[float] = []
+    penalties: list[float] = []
 
     all_results = []
     for seq in processed_sequences:
@@ -219,9 +214,9 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
         all_results.append(res)
 
     # Process results for each sequence
-    for (seq_obj,), res in zip(input_sequences, all_results):
+    for (seq_obj,), raw_res in zip(input_sequences, all_results, strict=False):
         # Keep only + strand
-        res = [r for r in res if getattr(r, "strand", "+") == "+"]
+        res = [r for r in raw_res if getattr(r, "strand", "+") == "+"]
 
         if not res:
             penalty = 1.0
@@ -255,9 +250,7 @@ def promoter_strength_constraint(input_sequences: List[Tuple[Sequence, ...]], co
             penalties.append(penalty)
         else:
             dG = min(float(r.dG_total) for r in res if hasattr(r, "dG_total"))
-            if dG >= 0:
-                penalty = 1.0
-            elif dG > -1.5:
+            if dG >= 0 or dG > -1.5:
                 penalty = 1.0
             elif dG >= -3.0:
                 penalty = 1.0 - 0.5 * ((dG + 1.5) / -1.5)

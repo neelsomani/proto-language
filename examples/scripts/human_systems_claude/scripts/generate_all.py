@@ -16,7 +16,7 @@ import json
 import os
 import re
 import sys
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -52,7 +52,7 @@ def script_has_custom_modifications(script_path: str) -> bool:
     if not os.path.exists(script_path):
         return False
 
-    with open(script_path, 'r') as f:
+    with open(script_path) as f:
         content = f.read()
 
     # Check if the default constraint body is still present
@@ -72,7 +72,7 @@ def sanitize_filename(s: str) -> str:
     return s
 
 
-def parse_complex_string(complex_str: str) -> List[Dict[str, Any]]:
+def parse_complex_string(complex_str: str) -> list[dict[str, Any]]:
     """
     Parse a complex definition string into structured data.
 
@@ -122,7 +122,7 @@ def parse_complex_string(complex_str: str) -> List[Dict[str, Any]]:
     return complexes
 
 
-def parse_pdb_string(pdb_str: str) -> List[str]:
+def parse_pdb_string(pdb_str: str) -> list[str]:
     """
     Parse PDB ID string into a list of IDs.
 
@@ -155,7 +155,7 @@ def parse_pdb_string(pdb_str: str) -> List[str]:
     return pdb_ids
 
 
-def build_pdb_mapping(df_pdb: pd.DataFrame) -> Dict[str, List[str]]:
+def build_pdb_mapping(df_pdb: pd.DataFrame) -> dict[str, list[str]]:
     """
     Build a mapping from complex_id to list of PDB IDs.
     """
@@ -186,8 +186,8 @@ def build_pdb_mapping(df_pdb: pd.DataFrame) -> Dict[str, List[str]]:
 def generate_row_config(
     row_idx: int,
     row: pd.Series,
-    pdb_mapping: Dict[str, List[str]],
-) -> Tuple[str, Dict[str, Any]]:
+    pdb_mapping: dict[str, list[str]],
+) -> tuple[str, dict[str, Any]]:
     """
     Generate configuration for a single row.
 
@@ -256,7 +256,7 @@ def generate_row_config(
     return filename_base, config
 
 
-def generate_program_script(config: Dict[str, Any]) -> str:
+def generate_program_script(config: dict[str, Any]) -> str:
     """
     Generate Python script content for a row configuration.
     """
@@ -486,7 +486,7 @@ def main():
         print(f"  Program: {program_path}")
 
         if has_modifications and not args.force:
-            print(f"  ⚠️  SKIPPING: Program has custom modifications (use --force to overwrite)")
+            print("  ⚠️  SKIPPING: Program has custom modifications (use --force to overwrite)")
             skipped_modified.append(filename_base)
             # Still add to generated list for manifest, but mark as skipped
             generated.append({
@@ -537,7 +537,7 @@ def main():
             }, f, indent=2)
 
     print(f"\n{'='*60}")
-    print(f"SUMMARY")
+    print("SUMMARY")
     print('='*60)
     print(f"Total programs: {len(generated)}")
     print(f"  - Regenerated: {sum(1 for g in generated if g.get('script_regenerated', True))}")
@@ -546,10 +546,10 @@ def main():
     print(f"Total complexes across all programs: {sum(g['n_complexes'] for g in generated)}")
 
     if skipped_modified:
-        print(f"\nPrograms with custom modifications (not overwritten):")
+        print("\nPrograms with custom modifications (not overwritten):")
         for name in skipped_modified:
             print(f"  - {name}")
-        print(f"\nUse --force to overwrite these files.")
+        print("\nUse --force to overwrite these files.")
 
     if not args.dry_run:
         print(f"\nManifest written to: {manifest_path}")

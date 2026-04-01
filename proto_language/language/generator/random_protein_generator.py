@@ -1,12 +1,8 @@
-"""
-proto_language/language/generator/random_protein_generator.py
-
-RandomProteinGenerator for CPU-based random protein mutagenesis.
-"""
+"""RandomProteinGenerator for CPU-based random protein mutagenesis."""
 
 from __future__ import annotations
 
-from typing import Optional, final
+from typing import final
 
 from proto_tools import (
     RandomProteinSampleConfig,
@@ -72,7 +68,7 @@ class RandomProteinGeneratorConfig(BaseConfig):
         description="Codon scheme for amino acid sampling probabilities.",
         advanced=True,
     )
-    seed: Optional[int] = ConfigField(
+    seed: int | None = ConfigField(
         default=None,
         title="Random Seed",
         description="Random seed for reproducible sampling.",
@@ -120,8 +116,7 @@ class RandomProteinGenerator(Generator):
     """
 
     def __init__(self, config: RandomProteinGeneratorConfig) -> None:
-        """
-        Initialize the random protein generator.
+        """Initialize the random protein generator.
 
         Args:
             config (RandomProteinGeneratorConfig): Configuration object
@@ -134,8 +129,7 @@ class RandomProteinGenerator(Generator):
         self.seed = config.seed
 
     def sample(self) -> None:
-        """
-        Introduce random amino acid mutations at masked positions.
+        """Introduce random amino acid mutations at masked positions.
 
         Applies the masking strategy to select positions, then samples random
         amino acids from the configured codon scheme at those positions.

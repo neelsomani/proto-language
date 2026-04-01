@@ -1,8 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_protein_structure/test_structure_similarity_constraint.py
-
-Tests for structure prediction similarity constraints.
-"""
+"""Tests for structure prediction similarity constraints."""
 
 from typing import NamedTuple
 from unittest.mock import patch
@@ -39,8 +35,8 @@ def _match(
     proposal_seq: str,
     target_seq: str,
 ) -> float:
-    """
-    Compute similarity between the proposal and target sequences using the
+    """Compute similarity between the proposal and target sequences using the.
+
     specified constraint and structure prediction tool.
     """
     if constraint == "rmsd":
@@ -95,8 +91,8 @@ class TestESMFoldRMSDConstraint:
         assert _unconfident_match("rmsd", "esmfold") == 1.
 
     def test_pdb_file_target(self):
-        """
-        Test loading from PDB file. Underlying implementation logic is same
+        """Test loading from PDB file. Underlying implementation logic is same.
+
         so only need to test once.
         """
         config = StructureRMSDConfig(
@@ -110,11 +106,11 @@ class TestESMFoldRMSDConstraint:
         assert rmsd < EPSILON
 
     def test_pdb_content_target(self):
-        """
-        Test comparison with PDB file content. Underlying implementation logic
+        """Test comparison with PDB file content. Underlying implementation logic.
+
         is same so only need to test once.
         """
-        with open("tests/dummy_data/test_structure_similarity.pdb", "r") as f:
+        with open("tests/dummy_data/test_structure_similarity.pdb") as f:
             pdb_content = f.read().rstrip()
 
         config = StructureRMSDConfig(
@@ -185,9 +181,7 @@ class TestESMFoldTMscoreConstraint:
 
     @pytest.mark.uses_gpu
     def test_plddt_threshold_filtering(self):
-        """
-        Test that setting a pLDDT threshold affects the TM-score calculation.
-        """
+        """Test that setting a pLDDT threshold affects the TM-score calculation."""
         # Test standard calculation (no threshold).
         config_raw = StructureTMScoreConfig(
             target_chains=[CRO_SEQ],
@@ -218,9 +212,7 @@ class TestESMFoldTMscoreConstraint:
 
     @pytest.mark.uses_gpu
     def test_multimer_perfect_match(self):
-        """
-        Test we can compare a multimer to a multimer.
-        """
+        """Test we can compare a multimer to a multimer."""
         config = StructureTMScoreConfig(
             target_chains=(ROP_SEQ, ROP_SEQ),
             structure_tool="esmfold",
@@ -238,8 +230,8 @@ class TestESMFoldTMscoreConstraint:
 
     @pytest.mark.uses_gpu
     def test_monomer_to_multimer_subunit_match(self):
-        """
-        Test we can compare a monomer to a multimer.
+        """Test we can compare a monomer to a multimer.
+
         The TM-score is normalized by the Target (Dimer) length.
         Since the monomer covers exactly 50% of the homodimer, the max TM-score
         is approximately 0.5.
@@ -263,9 +255,7 @@ class TestESMFoldTMscoreConstraint:
         mock_target_prep,
         mock_tmalign,
     ):
-        """
-        Verify the math for structure1 vs structure2 vs mean/max/min.
-        """
+        """Verify the math for structure1 vs structure2 vs mean/max/min."""
         # Setup the mock to return distinct scores
         # Structure 1 (Proposal) Norm = 0.8  (Good match)
         # Structure 2 (Target) Norm    = 0.4  (Bad match, maybe target is huge)

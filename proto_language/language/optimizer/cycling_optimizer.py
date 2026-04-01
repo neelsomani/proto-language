@@ -1,7 +1,5 @@
-"""
-proto_language/language/optimizer/cycling_optimizer.py
+"""A generalized optimizer that iteratively runs a user-defined conditioning function.
 
-A generalized optimizer that iteratively runs a user-defined conditioning function
 and passes its output to a generator. Supports optional constraint filtering with
 accept pattern for passing proposals.
 """
@@ -12,11 +10,10 @@ import copy
 import inspect
 import logging
 import math
-from typing import Any, Callable, Dict, List, Literal, Optional, final
+from collections.abc import Callable
+from typing import Any, Literal, final
 
 from pydantic import model_validator
-
-logger = logging.getLogger(__name__)
 
 from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
@@ -28,6 +25,8 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Predefined Pipelines
@@ -49,8 +48,7 @@ class ProteinHunterPipelineConfig(BaseConfig):
     )
 
 def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Callable:
-    """
-    Create protein hunter conditioning function (structure prediction -> inverse folding).
+    """Create protein hunter conditioning function (structure prediction -> inverse folding).
 
     The Protein Hunter algorithm predicts 3D structures from current sequences,
     then uses those structures to condition inverse folding for the next iteration.
@@ -62,7 +60,7 @@ def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Ca
 
     structure_tool = config.protein_hunter.structure_tool if config.protein_hunter else "boltz2"
 
-    def conditioning_fn(sequences: List[Sequence]) -> List:
+    def conditioning_fn(sequences: list[Sequence]) -> list:
         complexes = [
             StructurePredictionComplex(chains=[seq.sequence])
             for seq in sequences
@@ -73,7 +71,7 @@ def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Ca
 
 
 # Registry mapping pipeline names to factory functions and required generator categories
-CYCLING_PIPELINES: Dict[str, Dict[str, Any]] = {
+CYCLING_PIPELINES: dict[str, dict[str, Any]] = {
     "protein-hunter": {
         "factory": _create_protein_hunter_conditioning_fn,
         "required_generator_category": "inverse_folding",
@@ -88,10 +86,9 @@ CYCLING_PIPELINES: Dict[str, Dict[str, Any]] = {
 def _resolve_conditioning_fn(
     config: CyclingOptimizerConfig,
     generator: Generator,
-    conditioning_fn: Optional[Callable] = None,
+    conditioning_fn: Callable | None = None,
 ) -> Callable:
-    """
-    Resolve the conditioning function from either direct parameter or pipeline config.
+    """Resolve the conditioning function from either direct parameter or pipeline config.
 
     Args:
         config (CyclingOptimizerConfig): Optimizer config containing optional pipeline specification
@@ -210,7 +207,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
         title="Number of Steps",
         description="Number of conditioning -> generation cycles to run.",
     )
-    num_results: Optional[int] = ConfigField(
+    num_results: int | None = ConfigField(
         default=None,
         ge=1,
         title="Design Candidates",
@@ -221,12 +218,12 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
         title="Conditioning Param Name",
         description="Generator sample() parameter name to pass conditioning data into.",
     )
-    pipeline: Optional[Literal["protein-hunter"]] = ConfigField(
+    pipeline: Literal["protein-hunter"] | None = ConfigField(
         default=None,
         title="Pipeline",
         description="Predefined conditioning pipeline. 'protein-hunter' uses structure prediction -> inverse folding.",
     )
-    protein_hunter: Optional[ProteinHunterPipelineConfig] = ConfigField(
+    protein_hunter: ProteinHunterPipelineConfig | None = ConfigField(
         default=None,
         title="Protein Hunter Config",
         description="Configuration for protein-hunter pipeline. Only used when pipeline='protein-hunter'.",
@@ -302,13 +299,13 @@ class CyclingOptimizer(Optimizer):
     def __init__(
         self,
         target_segment: Segment,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         config: CyclingOptimizerConfig,
-        conditioning_fn: Optional[Callable[[List[Sequence]], List[Any]]] = None,
-        custom_logging: Optional[Callable[[int, tuple], None]] = None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
+        conditioning_fn: Callable[[list[Sequence]], list[Any]] | None = None,
+        custom_logging: Callable[[int, tuple], None] | None = None,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
     ) -> None:
         """Initialize the Cycling Optimizer.
 
@@ -351,8 +348,8 @@ class CyclingOptimizer(Optimizer):
         self.generator: Generator = generator
         self.conditioning_fn = conditioning_fn
         self.conditioning_param_name: str = config.conditioning_param_name
-        self.pipeline: Optional[str] = config.pipeline
-        self.protein_hunter: Optional[ProteinHunterPipelineConfig] = config.protein_hunter
+        self.pipeline: str | None = config.pipeline
+        self.protein_hunter: ProteinHunterPipelineConfig | None = config.protein_hunter
 
         super().__init__(
             constructs=constructs,

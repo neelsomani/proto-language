@@ -1,8 +1,8 @@
 """
 Define a program for diversification of the U5 snRNA.
 """
+from collections.abc import Callable
 from itertools import islice
-from typing import Callable, List
 
 from Bio import Align, SeqIO
 
@@ -88,9 +88,9 @@ class Evo2RNAConstraintConfig(BaseConfig):
     category="rna_secondary_structure",
 )
 def _evo2_rna_constraint_wrapper(
-    sequences: List[Sequence],
+    sequences: list[Sequence],
     config: Evo2RNAConstraintConfig,
-) -> List[float]:
+) -> list[float]:
     """
     Wrap the RNA secondary structure constraints to ensure that the outputs of
     Evo 2 are compatible. For example, remove the ICL sep tokens and turn the DNA
@@ -139,9 +139,9 @@ class RNAPairwiseSimilarityConfig(BaseConfig):
     category="sequence_composition",
 )
 def rna_pairwise_similarity_constraint(
-    sequences: List[Sequence],
+    sequences: list[Sequence],
     config: RNAPairwiseSimilarityConfig,
-) -> List[float]:
+) -> list[float]:
     """
     Compute similarity of proposal RNA sequences to a reference.
 

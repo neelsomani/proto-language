@@ -1,14 +1,10 @@
-"""
-proto_language/language/constraint/protein_quality/protein_domain_constraint.py
-
-Protein domain constraint function.
-"""
+"""Protein domain constraint function."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from proto_tools import (
     ProdigalConfig,
@@ -79,7 +75,7 @@ class ProteinDomainConfig(BaseConfig):
         title="HMM Database",
         description="Path to HMM database file for hmmscan (e.g., Pfam-A.hmm). Must be pressed with hmmpress.",
     )
-    keywords: List[str] = ConfigField(
+    keywords: list[str] = ConfigField(
         title="Keywords to Search",
         description="Keywords to search for in domain descriptions (case-insensitive).",
     )
@@ -92,7 +88,7 @@ class ProteinDomainConfig(BaseConfig):
         advanced=True,
         examples=[0.0001, 0.01],
     )
-    query_coverage: Optional[float] = ConfigField(
+    query_coverage: float | None = ConfigField(
         title="Min Query Coverage",
         default=None,
         description="Min query coverage percentage for significant hits (0-100).",
@@ -122,7 +118,7 @@ class ProteinDomainConfig(BaseConfig):
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinDomainConfig) -> List[float]:
+def protein_domain_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinDomainConfig) -> list[float]:
     """Evaluate whether sequences contain protein domains matching specified keywords.
 
     This constraint function searches for functional protein domains using HMMER's
@@ -232,20 +228,20 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
 
     # Handle DNA vs protein sequences
     if dna_sequences:
-        dna_indices, dna_seqs = zip(*dna_sequences)
+        dna_indices, dna_seqs = zip(*dna_sequences, strict=False)
         dna_results = _process_dna_sequences(
             list(dna_seqs), hmm_db, keywords_lower, config
         )
-        dna_scores = dict(zip(dna_indices, dna_results))
+        dna_scores = dict(zip(dna_indices, dna_results, strict=False))
     if protein_sequences:
-        protein_indices, protein_seqs = zip(*protein_sequences)
+        protein_indices, protein_seqs = zip(*protein_sequences, strict=False)
         protein_results = _process_protein_sequences(
             list(protein_seqs), hmm_db, keywords_lower, config
         )
-        protein_scores = dict(zip(protein_indices, protein_results))
+        protein_scores = dict(zip(protein_indices, protein_results, strict=False))
 
     scores = []
-    for idx, (seq_type, type_idx) in enumerate(sequence_type_map):
+    for idx, (seq_type, _type_idx) in enumerate(sequence_type_map):
         if seq_type == 'dna':
             scores.append(dna_scores[idx])
         else:
@@ -254,14 +250,12 @@ def protein_domain_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
     return scores
 
 def _process_dna_sequences(
-    input_sequences: List[Sequence],
+    input_sequences: list[Sequence],
     hmm_db: Path,
-    keywords_lower: List[str],
+    keywords_lower: list[str],
     config: ProteinDomainConfig
-) -> List[float]:
-    """
-    Process DNA sequences: Run Prodigal in batch, then check domains. Returns list of constraint scores
-    """
+) -> list[float]:
+    """Process DNA sequences: Run Prodigal in batch, then check domains. Returns list of constraint scores."""
     # Run Prodigal to get predicted proteins
     try:
         dna_sequences = [seq.sequence for seq in input_sequences]
@@ -272,10 +266,10 @@ def _process_dna_sequences(
         gene_counts = result.num_orfs_per_sequence
 
     except Exception as e:
-        raise RuntimeError(f"Prodigal execution failed: {e}")
+        raise RuntimeError(f"Prodigal execution failed: {e}") from e
 
     scores = []
-    for input_sequence, proteins_list, gene_count in zip(input_sequences, all_proteins_per_seq, gene_counts):
+    for input_sequence, proteins_list, gene_count in zip(input_sequences, all_proteins_per_seq, gene_counts, strict=False):
         # Store Prodigal results in metadata
         orf_dicts = [orf.model_dump() for orf in proteins_list]
         input_sequence._metadata["prodigal_proteins"] = store_file(
@@ -306,7 +300,7 @@ def _process_dna_sequences(
         matching_proteins = []
         all_keywords_found = set()
 
-        for orf, result in zip(proteins_list, batch_results):
+        for orf, result in zip(proteins_list, batch_results, strict=False):
             # Extract DataFrames before serializing the result dict
             serializable_result = {
                 k: v for k, v in result.items()
@@ -322,7 +316,7 @@ def _process_dna_sequences(
                 matching_proteins.append(orf.id)
                 all_keywords_found.update(result["keywords_found"])
 
-        # Store metadata (externalize large result lists)
+        # Store metadata — externalize large result lists
         input_sequence._metadata["domain_search_results"] = store_file(
             json.dumps(serializable_results), FileType.JSON
         )
@@ -342,13 +336,12 @@ def _process_dna_sequences(
     return scores
 
 def _process_protein_sequences(
-    input_sequences: List[Sequence],
+    input_sequences: list[Sequence],
     hmm_db: Path,
-    keywords_lower: List[str],
+    keywords_lower: list[str],
     config: ProteinDomainConfig
-) -> List[float]:
-    """
-    Process protein sequences: Check domains in batch.
+) -> list[float]:
+    """Process protein sequences: Check domains in batch.
 
     Args:
         input_sequences (list[Sequence]): List of protein sequences
@@ -373,12 +366,12 @@ def _process_protein_sequences(
             config.query_coverage,
         )
     except Exception as e:
-        raise RuntimeError(f"HMMER execution failed: {e}")
+        raise RuntimeError(f"HMMER execution failed: {e}") from e
 
     # Process results for each sequence
     scores = []
-    for input_sequence, result in zip(input_sequences, batch_results):
-        # Store metadata (externalize large result data)
+    for input_sequence, result in zip(input_sequences, batch_results, strict=False):
+        # Store metadata — externalize large result data
         # Convert DataFrames to serializable records before storing
         matching_hits = result["matching_hits"]
         all_hits = result["all_hits"]
@@ -415,28 +408,26 @@ def _process_protein_sequences(
     return scores
 
 def _check_protein_domains_batch(
-    protein_sequences: List[Sequence],
+    protein_sequences: list[Sequence],
     hmm_db: str,
-    keywords_lower: List[str],
+    keywords_lower: list[str],
     evalue_threshold: float,
     hmmscan_config: PyHmmerConfig,
-    query_coverage: float = None,
-) -> List[Dict[str, Any]]:
-    """
-    Helper function to check a batch of protein sequences for domain matches.
+    query_coverage: float | None = None,
+) -> list[dict[str, Any]]:
+    """Helper function to check a batch of protein sequences for domain matches.
 
     Args:
         protein_sequences (list[Sequence]): Protein sequence to analyze.
         hmm_db (str): Path to HMM database.
         keywords_lower (list[str]): Lowercase keywords to search for.
         evalue_threshold (float): E-value threshold for significance.
-        query_coverage (float): Minimum query coverage (optional).
+        query_coverage (float | None): Minimum query coverage (optional).
         hmmscan_config (PyHmmerConfig): Configuration for PyHMMER hmmscan.
 
     Returns:
         list[dict[str, Any]]: List of dictionaries with analysis results including hits and keywords found.
     """
-
     # Create PyHMMER config with direct sequence input (no temporary files needed)
     # Create input and config for PyHMMER hmmscan
     hmmscan_input = PyHmmscanInput(

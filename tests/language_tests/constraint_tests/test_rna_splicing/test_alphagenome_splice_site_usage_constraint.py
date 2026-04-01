@@ -1,8 +1,9 @@
-"""tests/language_tests/constraint_tests/test_rna_splicing/test_alphagenome_splice_site_usage_constraint.py
+"""Tests for AlphaGenome splice-site usage constraint.
 
 The constraint accepts three-part input tuples (left_flank, intron_core,
 right_flank), integrates them into a genomic context via cassette insertion,
-and scores splice-site usage with AlphaGenome."""
+and scores splice-site usage with AlphaGenome.
+"""
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -56,15 +57,15 @@ GENOMIC_CONTEXT_LEN = 16_384  # Smallest supported AlphaGenome context length
 
 def _make_config(**overrides) -> AlphaGenomeSpliceSiteUsageConfig:
     """Create a test config with all required fields populated."""
-    defaults = dict(
-        genomic_context="A" * GENOMIC_CONTEXT_LEN,
-        cassette_left_context="C" * CASSETTE_LEFT_LEN,
-        cassette_right_context="G" * CASSETTE_RIGHT_LEN,
-        ontology_terms=["EFO:0002067"],
-        splice_pos=[100, 200],
-        direction="max",
-        strand="positive",
-    )
+    defaults = {
+        "genomic_context": "A" * GENOMIC_CONTEXT_LEN,
+        "cassette_left_context": "C" * CASSETTE_LEFT_LEN,
+        "cassette_right_context": "G" * CASSETTE_RIGHT_LEN,
+        "ontology_terms": ["EFO:0002067"],
+        "splice_pos": [100, 200],
+        "direction": "max",
+        "strand": "positive",
+    }
     defaults.update(overrides)
     return AlphaGenomeSpliceSiteUsageConfig(**defaults)
 

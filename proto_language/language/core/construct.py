@@ -1,22 +1,18 @@
-"""
-proto_language/language/core/construct.py
-
-Represents a full biological construct composed of multiple segments.
-"""
+"""Represents a full biological construct composed of multiple segments."""
 from __future__ import annotations
 
 import logging
-from typing import Iterable, List, Optional
+from collections.abc import Iterable
 
-from . import Segment, Sequence
+from proto_language.language.core import Segment, Sequence
+from proto_language.language.core.sequence import create_concatenated_sequence
 
 logger = logging.getLogger(__name__)
-from .sequence import create_concatenated_sequence
 
 
 class Construct:
-    """
-    External class that represents a full biological construct.
+    """External class that represents a full biological construct.
+
     Consists of multiple Segment objects that are concatenated together.
 
     Examples:
@@ -27,9 +23,8 @@ class Construct:
         >>> gene.joined_sequences  # [Sequence("TATAATGCCC", "dna")]
     """
 
-    def __init__(self, segments: Iterable[Segment], label: Optional[str] = None) -> None:
-        """
-        Initialize a Construct with Segment objects.
+    def __init__(self, segments: Iterable[Segment], label: str | None = None) -> None:
+        """Initialize a Construct with Segment objects.
 
         Args:
             segments (Iterable[Segment]): An iterable of Segment objects in order.
@@ -58,9 +53,9 @@ class Construct:
         return self.segments[0].valid_chars
 
     @property
-    def joined_sequences(self) -> List[Sequence]:
-        """
-        Get the joined Sequence objects from result pools (user-facing results).
+    def joined_sequences(self) -> list[Sequence]:
+        """Get the joined Sequence objects from result pools (user-facing results).
+
         Joins corresponding sequences from each segment's result_sequences.
         Includes segment metadata nested under _metadata["segments"][segment_label].
 
@@ -76,18 +71,17 @@ class Construct:
         if len(set(pool_sizes)) > 1:
             raise RuntimeError(
                 f"Cannot join sequences: segments have mismatched result_sequences lengths: "
-                f"{dict(zip(segment_labels, pool_sizes))}"
+                f"{dict(zip(segment_labels, pool_sizes, strict=False))}"
             )
 
-        for sequences_to_combine in zip(*[segment.result_sequences for segment in self.segments]):
+        for sequences_to_combine in zip(*[segment.result_sequences for segment in self.segments], strict=True):
             joined_seq = create_concatenated_sequence(sequences_to_combine, segment_labels)
             joined_sequences.append(joined_seq)
 
         return joined_sequences
 
     def _validate_construct(self) -> None:
-        """
-        Validate construct configuration.
+        """Validate construct configuration.
 
         Checks:
             1. Non-empty: Construct must contain at least one segment.
@@ -114,7 +108,7 @@ class Construct:
         # Validate segment labels are unique within this construct
         segment_labels = [s.label for s in self.segments]
         if len(segment_labels) != len(set(segment_labels)):
-            duplicates = [l for l in segment_labels if segment_labels.count(l) > 1]
+            duplicates = [label for label in segment_labels if segment_labels.count(label) > 1]
             raise ValueError(f"Segment labels must be unique within a construct. Duplicates: {set(duplicates)}")
 
     def to_dict(self) -> dict:

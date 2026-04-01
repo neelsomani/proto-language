@@ -15,7 +15,6 @@ To customize:
 """
 import os
 import sys
-from typing import Dict, List
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,8 +32,8 @@ from proto_language.language.core import Constraint, Construct, Segment
 # =============================================================================
 
 def add_custom_constraints(
-    gene_id_to_segment: Dict[str, Segment],
-) -> List[Constraint]:
+    gene_id_to_segment: dict[str, Segment],
+) -> list[Constraint]:
     """
     Add custom constraints for this specific system.
 

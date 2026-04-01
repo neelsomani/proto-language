@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
     Constraint,
@@ -74,7 +72,7 @@ program.run()
 
 # Outputs
 last_construct: Construct = program.constructs[0]
-last_sequence_batch: Tuple[Sequence, ...] = last_construct.joined_sequences
+last_sequence_batch: tuple[Sequence, ...] = last_construct.joined_sequences
 last_sequence: Sequence = last_sequence_batch[0]
 print("---------FINAL SEQUENCE------------")
 print(last_sequence)

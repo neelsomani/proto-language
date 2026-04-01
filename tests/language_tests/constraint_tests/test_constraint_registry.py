@@ -1,14 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_constraint_registry.py
-
-Tests cover:
-1. Registration mechanism (decorator-based)
-2. Discovery and listing methods
-3. Schema generation for client
-4. Factory method (create)
-5. Validation and error handling
-6. Import-time registration verification
-"""
+"""Tests for constraint registry registration, discovery, schema generation, and factory methods."""
 import copy
 
 import pytest
@@ -183,7 +173,7 @@ class TestDiscovery:
         """Test that error message includes available constraints."""
         try:
             ConstraintRegistry.get("bad-key")
-            assert False, "Should have raised ValueError"
+            raise AssertionError("Should have raised ValueError")
         except ValueError as e:
             error_msg = str(e)
             assert "Available constraints:" in error_msg
@@ -211,7 +201,7 @@ class TestSchemaGeneration:
         assert "max_gc" in properties
 
         # Check property structure
-        for prop_name, prop_info in properties.items():
+        for prop_info in properties.values():
             assert "type" in prop_info or "anyOf" in prop_info
             assert "description" in prop_info
 
@@ -385,8 +375,8 @@ class TestIntegration:
                 # Note: We can't create all constraints without proper config values
                 # This test just verifies the registry methods work for all
 
-            except Exception as e:
-                errors.append(f"{spec.key}: {str(e)}")
+            except Exception as e:  # noqa: PERF203
+                errors.append(f"{spec.key}: {e!s}")
 
         assert len(errors) == 0, f"Errors accessing constraints: {errors}"
 
@@ -394,7 +384,7 @@ class TestIntegration:
         """Test that different registry methods return consistent data."""
         # Get constraint keys from different methods
         keys_from_list_all = {spec.key for spec in ConstraintRegistry.list_all()}
-        keys_from_list_keys = set(sorted(ConstraintRegistry._registry.keys()))
+        keys_from_list_keys = set(ConstraintRegistry._registry.keys())
         count = ConstraintRegistry.count()
 
         # All should be consistent
@@ -498,7 +488,7 @@ class TestBuiltinConstraints:
         # Check GPU constraints
         for key in gpu_constraints:
             assert key in constraints_dict, f"GPU constraint {key} not registered"
-            assert constraints_dict[key].uses_gpu == True, \
+            assert constraints_dict[key].uses_gpu, \
                 f"Constraint {key} should be marked as uses_gpu=True"
 
         # Check CPU constraints
@@ -591,8 +581,8 @@ class TestBuiltinConstraints:
             f"boltz2-binding-strength should support {expected_types}, got {spec.supported_sequence_types}"
 
     def test_config_validation_patterns(self):
-        """
-        Test that Pydantic config validation works through registry.
+        """Test that Pydantic config validation works through registry.
+
         This tests the pattern once rather than per-constraint.
         """
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
@@ -658,7 +648,7 @@ class TestBuiltinConstraints:
 
         # This should fail if there's a validator for min < max
         # (if not, it's just documenting current behavior)
-        try:
+        try:  # noqa: SIM105
             ConstraintRegistry.create(
                 key="gc-content",
                 segments=[segment],

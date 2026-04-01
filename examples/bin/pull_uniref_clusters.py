@@ -7,6 +7,8 @@ Usage: python pull_uniref_clusters.py input_ids.txt --cluster-type UniRef50 --do
 Input file should have one UniProt ID per line.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import time
@@ -343,8 +345,7 @@ def main():
     if unmapped_ids:
         unmapped_file = args.output_dir / "unmapped_ids.txt"
         with open(unmapped_file, "w") as f:
-            for uid in sorted(unmapped_ids):
-                f.write(uid + "\n")
+            f.writelines(uid + "\n" for uid in sorted(unmapped_ids))
         print(f"  Warning: {len(unmapped_ids)} IDs could not be mapped (saved to {unmapped_file})")
 
     # Get unique clusters

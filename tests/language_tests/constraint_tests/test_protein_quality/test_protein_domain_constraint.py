@@ -1,15 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_protein_quality/test_protein_domain_constraint.py
-
-Tests cover:
-1. Configuration validation
-2. Protein sequence handling
-3. DNA sequence handling (with Prodigal)
-4. Keyword matching logic (any vs all)
-5. Registry integration
-6. Metadata propagation
-7. Error handling
-"""
+"""Tests for protein domain constraint covering config validation, sequence handling, and keyword matching."""
 
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -33,9 +22,9 @@ TEST_FASTA_PATH = (
     / "dummy_data"
     / "test_sequences_for_pyhmmer.fasta"
 )
-with open(TEST_FASTA_PATH, "r") as fasta_file:
+with open(TEST_FASTA_PATH) as fasta_file:
     sequence_iterator = SeqIO.parse(fasta_file, "fasta")
-    SAMPLE_SEQUENCE = [str(seq.seq) for seq in sequence_iterator][0]
+    SAMPLE_SEQUENCE = next(str(seq.seq) for seq in sequence_iterator)
 
 class TestProteinDomainConstraint:
     """Tests for Protein Domain constraint."""

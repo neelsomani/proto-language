@@ -136,7 +136,7 @@ def run_beam_search(
 
     except Exception as e:
         print("\nERROR during beam search optimization:")
-        print(f"  {type(e).__name__}: {str(e)}")
+        print(f"  {type(e).__name__}: {e!s}")
         print("\nThis may be due to:")
         print("  - GPU memory issues (try reducing TOTAL_TOKEN_COUNT or BEAM_LENGTH)")
         print("  - CUDA errors (check GPU status with 'nvidia-smi')")

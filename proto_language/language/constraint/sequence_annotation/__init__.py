@@ -1,10 +1,17 @@
-from .alphagenome_interval_track_constraint import alphagenome_interval_track_constraint
-from .mmseqs_similarity_constraint import (
+"""Sequence annotation constraints (motifs, promoters, MMseqs similarity)."""
+from proto_language.language.constraint.sequence_annotation.alphagenome_interval_track_constraint import (
+    alphagenome_interval_track_constraint,
+)
+from proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint import (
     mmseqs_similarity_constraint,
 )
-from .promoter_strength_constraint import promoter_strength_constraint
-from .seq_motif_constraint import seq_motif_constraint
-from .sigma70_promoter_constraint import sigma70_promoter_constraint
+from proto_language.language.constraint.sequence_annotation.promoter_strength_constraint import (
+    promoter_strength_constraint,
+)
+from proto_language.language.constraint.sequence_annotation.seq_motif_constraint import seq_motif_constraint
+from proto_language.language.constraint.sequence_annotation.sigma70_promoter_constraint import (
+    sigma70_promoter_constraint,
+)
 
 __all__ = [
     "mmseqs_similarity_constraint",

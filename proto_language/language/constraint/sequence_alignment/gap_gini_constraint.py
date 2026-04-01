@@ -1,7 +1,5 @@
-"""
-proto_language/language/constraint/sequence_alignment/gap_gini_constraint.py
+"""Computes a Gini coefficient on the gap run-length distribution of pairwise.
 
-Computes a Gini coefficient on the gap run-length distribution of pairwise
 alignments to detect truncation artifacts where gaps are concentrated in one
 region rather than distributed evenly.
 
@@ -19,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Tuple
 
 import numpy as np
 
@@ -46,7 +43,7 @@ def _gini(x: np.ndarray) -> float:
     return float(diffsum / (len(x) ** 2 * np.mean(x)))
 
 
-def _gap_runs(seq: str) -> List[int]:
+def _gap_runs(seq: str) -> list[int]:
     """Compute run lengths of consecutive gap characters in a sequence."""
     if not seq:
         return []
@@ -94,7 +91,7 @@ def _gap_gini_single(al1: str, al2: str) -> float:
     return max(gini1, gini2)
 
 
-def _trim_alignment(al1: str, al2: str) -> Tuple[str | None, str | None]:
+def _trim_alignment(al1: str, al2: str) -> tuple[str | None, str | None]:
     """Center-crop to 80% and strip end gaps (matches evocas9 pipeline).
 
     Returns (trimmed_al1, trimmed_al2) or (None, None) if no overlap remains.
@@ -107,7 +104,7 @@ def _trim_alignment(al1: str, al2: str) -> Tuple[str | None, str | None]:
     start, end = int(0.1 * align_len), int(0.9 * align_len)
     al1, al2 = al1[start:end], al2[start:end]
 
-    def _end_gaps(seq: str) -> Tuple[int | None, int | None]:
+    def _end_gaps(seq: str) -> tuple[int | None, int | None]:
         first = next((i for i, c in enumerate(seq) if c != "-"), None)
         last = next((i for i, c in enumerate(reversed(seq)) if c != "-"), None)
         return first, last
@@ -203,9 +200,9 @@ class GapGiniConfig(BaseConfig):
     num_input_sequences_per_tuple=2,
 )
 def gap_gini_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: GapGiniConfig,
-) -> List[float]:
+) -> list[float]:
     """Score pairwise protein alignments by gap-distribution Gini coefficient.
 
     For each (query, reference) pair the function:
@@ -230,7 +227,7 @@ def gap_gini_constraint(
         run_mafft_align,
     )
 
-    scores: List[float] = []
+    scores: list[float] = []
 
     for query_seq, ref_seq in input_sequences:
         query_str = query_seq.sequence

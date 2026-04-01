@@ -1,13 +1,8 @@
-"""
-proto_language/language/constraint/sequence_composition/max_homopolymer_constraint.py
-
-Maximum homopolymer constraint for evaluating sequence homopolymer properties.
-"""
+"""Maximum homopolymer constraint for evaluating sequence homopolymer properties."""
 
 from __future__ import annotations
 
 import itertools
-from typing import List, Tuple
 
 import numpy as np
 
@@ -58,8 +53,8 @@ class MaxHomopolymerConfig(BaseConfig):
     supported_sequence_types=["dna", "rna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def max_homopolymer_constraint(input_sequences: List[Tuple[Sequence, ...]], config: MaxHomopolymerConfig) -> List[float]:
-    """Penalize sequences containing homopolymers longer than specified maximum
+def max_homopolymer_constraint(input_sequences: list[tuple[Sequence, ...]], config: MaxHomopolymerConfig) -> list[float]:
+    """Penalize sequences containing homopolymers longer than specified maximum.
 
     This constraint function identifies the longest homopolymer (consecutive run
     of identical nucleotides or amino acids) in each sequence and penalizes

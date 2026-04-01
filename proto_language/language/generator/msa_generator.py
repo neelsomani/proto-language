@@ -1,13 +1,9 @@
-"""
-proto_language/language/generator/msa_generator.py
-
-MSAGenerator for sampling mutations from multiple sequence alignment distributions.
-"""
+"""MSAGenerator for sampling mutations from multiple sequence alignment distributions."""
 
 from __future__ import annotations
 
 import random
-from typing import Dict, List, Optional, final
+from typing import final
 
 from proto_tools import MSA
 from pydantic import ConfigDict, field_validator
@@ -130,8 +126,8 @@ class MSAGenerator(Generator):
         self.include_gaps = config.include_gaps
 
         # Compute position-specific probability distributions
-        self.position_probs: List[Optional[Dict[str, float]]] = []
-        self.mutable_positions: List[int] = []
+        self.position_probs: list[dict[str, float] | None] = []
+        self.mutable_positions: list[int] = []
         self._compute_position_probabilities()
 
     def _compute_position_probabilities(self) -> None:
@@ -194,6 +190,6 @@ class MSAGenerator(Generator):
                 probs = self.position_probs[pos]
                 chars = list(probs.keys())
                 weights = list(probs.values())
-                seq_list[pos] = random.choices(chars, weights=weights, k=1)[0]
+                seq_list[pos] = random.choices(chars, weights=weights, k=1)[0]  # noqa: S311 -- non-cryptographic, used for weighted residue sampling
 
             sequence.sequence = "".join(seq_list)

@@ -1,5 +1,6 @@
-from .constraint import ConstraintRegistry, ConstraintSpec, constraint
-from .core import (
+"""Language layer re-exports for constraints, generators, optimizers, and core types."""
+from proto_language.language.constraint import ConstraintRegistry, ConstraintSpec, constraint
+from proto_language.language.core import (
     Constraint,
     Construct,
     Generator,
@@ -9,7 +10,7 @@ from .core import (
     Sequence,
     SequenceType,
 )
-from .generator import (
+from proto_language.language.generator import (
     ESM2Generator,
     ESM2GeneratorConfig,
     ESM3Generator,
@@ -35,7 +36,7 @@ from .generator import (
     RandomProteinGeneratorConfig,
     generator,
 )
-from .optimizer import (
+from proto_language.language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,

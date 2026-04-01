@@ -1,8 +1,9 @@
+"""Constraint registry and all registered constraint functions."""
 # Base infrastructure
-from .constraint_registry import ConstraintRegistry, ConstraintSpec, constraint
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry, ConstraintSpec, constraint
 
 # Protein quality constraints
-from .protein_quality import (
+from proto_language.language.constraint.protein_quality import (
     balanced_aa_constraint,
     overall_protein_quality_constraint,
     protein_complexity_constraint,
@@ -13,7 +14,7 @@ from .protein_quality import (
 )
 
 # Protein structure constraints
-from .protein_structure import (
+from proto_language.language.constraint.protein_structure import (
     boltz_binding_strength_constraint,
     gyration_radius_constraint,
     protein_globularity_constraint,
@@ -28,7 +29,7 @@ from .protein_structure import (
 )
 
 # RNA secondary structure constraints
-from .rna_secondary_structure import (
+from proto_language.language.constraint.rna_secondary_structure import (
     rna_basepair_similarity_constraint,
     rna_feature_similarity_constraint,
     rna_motif_similarity_constraint,
@@ -36,17 +37,17 @@ from .rna_secondary_structure import (
 )
 
 # RNA splicing constraints
-from .rna_splicing import (
+from proto_language.language.constraint.rna_splicing import (
     alphagenome_splice_site_usage,
     splice_transformer_intron_boundary,
     splice_transformer_specificity,
 )
 
 # Sequence alignment constraints
-from .sequence_alignment import gap_gini_constraint
+from proto_language.language.constraint.sequence_alignment import gap_gini_constraint
 
 # Sequence annotation constraints
-from .sequence_annotation import (
+from proto_language.language.constraint.sequence_annotation import (
     alphagenome_interval_track_constraint,
     mmseqs_similarity_constraint,
     promoter_strength_constraint,
@@ -55,7 +56,7 @@ from .sequence_annotation import (
 )
 
 # Sequence composition constraints
-from .sequence_composition import (
+from proto_language.language.constraint.sequence_composition import (
     gc_content_constraint,
     kmer_frequency_constraint,
     max_homopolymer_constraint,

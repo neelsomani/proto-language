@@ -1,13 +1,8 @@
-"""
-proto_language/language/constraint/protein_quality/protein_repetitiveness_constraint.py
-
-Protein repetitiveness constraint function.
-"""
+"""Protein repetitiveness constraint function."""
 
 from __future__ import annotations
 
 from collections import Counter
-from typing import List, Tuple
 
 import numpy as np
 
@@ -72,7 +67,7 @@ class ProteinRepetitivenessConfig(BaseConfig):
     supported_sequence_types=["protein"],
     num_input_sequences_per_tuple=1,
 )
-def protein_repetitiveness_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinRepetitivenessConfig) -> List[float]:
+def protein_repetitiveness_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinRepetitivenessConfig) -> list[float]:
     """Evaluate protein sequence repetitiveness based on k-mer frequency analysis.
 
     This constraint function analyzes protein sequences for repetitive content by
@@ -146,8 +141,7 @@ def protein_repetitiveness_constraint(input_sequences: List[Tuple[Sequence, ...]
 
 
 def _calculate_repetitiveness_score(seq: str, min_repeat_length: int = 3) -> float:
-    """
-    Calculate repetitiveness score based on k-mer frequency analysis
+    """Calculate repetitiveness score based on k-mer frequency analysis.
 
     Args:
         seq (str): Protein sequence to analyze

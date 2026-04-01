@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
     Constraint,
@@ -36,7 +34,7 @@ gc_constraint = Constraint(
     function_config={"min_gc": 80, "max_gc": 90},
 )
 
-def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
+def custom_logging(step: int, outputs: tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].proposal_sequences[0]
     gc_content = output_sequence._metadata["constraints"]["gc_content_constraint"]["data"].get("gc_content", "N/A")
     print(
@@ -72,7 +70,7 @@ program.run()
 
 # Outputs
 last_construct: Construct = program.constructs[0]
-last_sequence_batch: Tuple[Sequence, ...] = last_construct.joined_sequences
+last_sequence_batch: tuple[Sequence, ...] = last_construct.joined_sequences
 last_sequence: Sequence = last_sequence_batch[0]
 print("---------FINAL SEQUENCE------------")
 print(last_sequence)

@@ -10,7 +10,6 @@ Defaults to HG38 reference genome and peaks corresponding to the Borzoi entry
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import pandas as pd
 from pyfaidx import Fasta
@@ -133,7 +132,7 @@ def extract_flanking_sequences(
 def main(
     creb_peak_file: str = DEFAULT_CREB_PEAK_FILE,
     hg38_ref_file: str = HG38_REF_FILE,
-    output_dir: Optional[str] = None
+    output_dir: str | None = None
 ) -> dict[str, dict | str]:
     """
     Main function to extract flanking sequences around max activity peak.
@@ -201,16 +200,14 @@ def main(
         with open(left_file, 'w') as f:
             f.write(f">{max_peak['chr']}:{max_peak['start']}-{max_peak['end']}_left_{FLANK_LENGTH}bp_strand{max_peak['strand']}\n")
             # Write in 80-character lines
-            for i in range(0, len(left_seq), 80):
-                f.write(left_seq[i:i+80] + '\n')
+            f.writelines(left_seq[i:i+80] + '\n' for i in range(0, len(left_seq), 80))
         print(f"\nLeft sequence saved to: {left_file}")
 
         # Save right sequence
         right_file = os.path.join(output_dir, f"max_peak_right_{FLANK_LENGTH}bp_{strand_label}.fa")
         with open(right_file, 'w') as f:
             f.write(f">{max_peak['chr']}:{max_peak['start']}-{max_peak['end']}_right_{FLANK_LENGTH}bp_strand{max_peak['strand']}\n")
-            for i in range(0, len(right_seq), 80):
-                f.write(right_seq[i:i+80] + '\n')
+            f.writelines(right_seq[i:i+80] + '\n' for i in range(0, len(right_seq), 80))
         print(f"Right sequence saved to: {right_file}")
 
     return {

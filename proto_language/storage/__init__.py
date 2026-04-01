@@ -1,5 +1,4 @@
-"""
-Storage module for large file content and GCS utilities.
+"""Storage module for large file content and GCS utilities.
 
 Provides:
 - File storage backends (local and GCS) for externalizing large file content

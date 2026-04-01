@@ -1,23 +1,20 @@
-"""
-proto_language/language/core/segment.py
-
-Represents building blocks for biological constructs.
-"""
+"""Represents building blocks for biological constructs."""
 
 from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, Dict, Iterator, List, Optional, Set
+from collections.abc import Iterator
+from typing import Any
 
-from .sequence import Sequence, SequenceType
+from proto_language.language.core.sequence import Sequence, SequenceType
 
 logger = logging.getLogger(__name__)
 
 
 class Segment:
-    """
-    Building block for biological constructs with two sequence pools: proposal (work space) and result (results space):
+    """Building block for biological constructs with two sequence pools: proposal (work space) and result (results space):.
+
     - proposal_sequences: Working space for optimizer proposals (mutations, offspring, rollouts)
     - result_sequences: Results space containing current best sequences (user-facing)
 
@@ -36,15 +33,14 @@ class Segment:
 
     def __init__(
         self,
-        sequence: Optional[str] = None,
-        length: Optional[int] = None,
+        sequence: str | None = None,
+        length: int | None = None,
         sequence_type: SequenceType = "dna",
-        valid_chars: Optional[Set[str]] = None,
-        label: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        valid_chars: set[str] | None = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Initialize a Segment with dual sequence pools.
+        """Initialize a Segment with dual sequence pools.
 
         Args:
             sequence (str | None): Optional biological sequence string. If provided, length is inferred.
@@ -61,7 +57,7 @@ class Segment:
         # Exactly one of sequence or length must be provided
         if sequence is None and length is None:
             raise ValueError("Must provide either 'sequence' or 'length'")
-        elif sequence is not None and length is not None:
+        if sequence is not None and length is not None:
             raise ValueError("Cannot provide both 'sequence' and 'length' - choose one")
 
         # Ligand segments must be initialized with a sequence (SMILES string), not just a length
@@ -73,7 +69,7 @@ class Segment:
             raise ValueError(f"Segment length must be positive, got {length}")
 
         # If sequence is provided - set sequence_length and initial_sequence
-        elif sequence is not None:
+        if sequence is not None:
             initial_sequence = sequence
             self.sequence_length = len(sequence)
 
@@ -91,11 +87,11 @@ class Segment:
         )
         # Dual pools: proposals (work space) and result (results space)
         # These are deep copies so modifications don't affect original_sequence
-        self.proposal_sequences: List[Sequence] = [copy.deepcopy(self._original_sequence)]
-        self.result_sequences: List[Sequence] = [copy.deepcopy(self._original_sequence)]
+        self.proposal_sequences: list[Sequence] = [copy.deepcopy(self._original_sequence)]
+        self.result_sequences: list[Sequence] = [copy.deepcopy(self._original_sequence)]
 
-        self.label: Optional[str] = label
-        self.construct_label: Optional[str] = None  # Set by Program for metadata tracking
+        self.label: str | None = label
+        self.construct_label: str | None = None  # Set by Program for metadata tracking
         logger.debug(f"Created Segment: label={label}, type={sequence_type}, length={self.sequence_length}")
 
     @property
@@ -104,7 +100,7 @@ class Segment:
         return self._original_sequence.sequence_type
 
     @property
-    def valid_chars(self) -> Optional[Set[str]]:
+    def valid_chars(self) -> set[str] | None:
         """Valid characters derived from original sequence (read-only)."""
         return self._original_sequence.valid_chars
 
@@ -130,8 +126,8 @@ class Segment:
 
     @property
     def populated_sequences(self) -> bool:
-        """
-        Whether segment has sequences from original input or previous optimization.
+        """Whether segment has sequences from original input or previous optimization.
+
         Only checks original sequence (original user input) and result sequences (previous optimization results).
         Proposal sequences are not considered because they the staging area for optimizations.
         """
@@ -158,8 +154,8 @@ class Segment:
         """Index into result sequences (user-facing results)."""
         return self.result_sequences[index]
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize Segment to a dictionary."""
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize Segment to dictionary for cloud/API communication."""
         return {
             "original_sequence": self.original_sequence.to_dict(),
             "sequence_length": self.sequence_length,
@@ -171,14 +167,14 @@ class Segment:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Segment:
+    def from_dict(cls, data: dict[str, Any]) -> Segment:
         """Deserialize Segment from dictionary."""
         # Reconstruct original sequence
         original_seq = Sequence.from_dict(data["original_sequence"])
 
         # Use input sequence if available, otherwise use length
         segment = cls(
-            sequence=original_seq.sequence if original_seq.sequence else None,
+            sequence=original_seq.sequence or None,
             length=data["sequence_length"] if not original_seq.sequence else None,
             sequence_type=data["sequence_type"],
             valid_chars=set(data["valid_chars"]) if data.get("valid_chars") else None,

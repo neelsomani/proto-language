@@ -1,12 +1,8 @@
-"""
-proto_language/language/generator/proteinmpnn_generator.py
-
-ProteinMPNN Generator for structure-conditioned protein sequence design.
-"""
+"""ProteinMPNN Generator for structure-conditioned protein sequence design."""
 
 from __future__ import annotations
 
-from typing import List, Optional, final
+from typing import final
 
 from proto_tools import (
     InverseFoldingConfig,
@@ -135,7 +131,7 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
     """
 
     # Structure parameters - bundles structure, chain_ids, and fixed_positions per structure.
-    structure_inputs: Optional[List[InverseFoldingStructureInput]] = ConfigField(
+    structure_inputs: list[InverseFoldingStructureInput] | None = ConfigField(
         default=None,
         title="Structure Inputs",
         description="Structure(s) with optional chain_ids and fixed_positions constraints.",
@@ -150,7 +146,7 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
         description="Controls randomness in sampling. Lower values produce more deterministic sequences.",
         advanced=True,
     )
-    excluded_amino_acids: Optional[List[str]] = ConfigField(
+    excluded_amino_acids: list[str] | None = ConfigField(
         default=None,
         title="Unallowed Amino Acids",
         description="List of amino acids (single-letter codes) to exclude from designed sequences.",
@@ -269,7 +265,7 @@ class ProteinMPNNGenerator(Generator):
         self.verbose = config.verbose
 
     def sample(
-        self, structure_inputs: Optional[List[InverseFoldingStructureInput]] = None
+        self, structure_inputs: list[InverseFoldingStructureInput] | None = None
     ) -> None:
         """Generate protein sequences using ProteinMPNN and update proposal sequences.
 

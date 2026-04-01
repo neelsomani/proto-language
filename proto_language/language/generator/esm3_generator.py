@@ -1,10 +1,4 @@
-"""
-proto_language/language/generator/esm3_generator.py
-
-ESM3 Generator for protein sequence generation
-"""
-
-from __future__ import annotations
+"""ESM3 Generator for protein sequence generation."""
 
 from typing import final
 
@@ -129,8 +123,7 @@ class ESM3Generator(Generator):
     """
 
     def __init__(self, config: ESM3GeneratorConfig) -> None:
-        """
-        Initialize the ESM3 generator with model and sampling configuration.
+        """Initialize the ESM3 generator with model and sampling configuration.
 
         Args:
             config (ESM3GeneratorConfig): Configuration object containing all generator parameters.
@@ -143,8 +136,7 @@ class ESM3Generator(Generator):
         self.batch_size = config.batch_size
 
     def sample(self) -> None:
-        """
-        Sample new amino acids at masked positions for all sequences in the batch.
+        """Sample new amino acids at masked positions for all sequences in the batch.
 
         For each sequence in the batch, applies the masking strategy to select
         positions, then uses ESM3 to sample new amino acids at those positions.

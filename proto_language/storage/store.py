@@ -1,8 +1,4 @@
-"""
-proto_language/storage/store.py
-
-File storage backends for large file content.
-"""
+"""File storage backends for large file content."""
 
 from __future__ import annotations
 
@@ -12,7 +8,6 @@ import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from pathlib import Path
-from typing import Optional, Union
 
 from proto_language.storage.models import FileReference, FileType
 
@@ -23,7 +18,7 @@ class FileStore(ABC):
     """Abstract base class for file storage backends."""
 
     @abstractmethod
-    def put(self, content: Union[str, bytes], file_type: FileType) -> FileReference:
+    def put(self, content: str | bytes, file_type: FileType) -> FileReference:
         """Store content and return a reference.
 
         Args:
@@ -33,7 +28,6 @@ class FileStore(ABC):
         Returns:
             FileReference: FileReference to the stored content.
         """
-        pass
 
     @abstractmethod
     def get(self, file_id: str) -> bytes:
@@ -48,7 +42,6 @@ class FileStore(ABC):
         Raises:
             FileNotFoundError: If file does not exist.
         """
-        pass
 
     @abstractmethod
     def exists(self, file_id: str) -> bool:
@@ -60,7 +53,6 @@ class FileStore(ABC):
         Returns:
             bool: True if file exists.
         """
-        pass
 
     # Whether get_url() returns a redirect URL (True) or a local path (False).
     # Used by the file-serving endpoint to decide between redirect and stream.
@@ -79,9 +71,8 @@ class FileStore(ABC):
         Raises:
             FileNotFoundError: If file does not exist.
         """
-        pass
 
-    def get_content_type(self, file_id: str) -> str:
+    def get_content_type(self, file_id: str) -> str:  # noqa: ARG002 — subclasses use file_id
         """Get the MIME content type for a stored file.
 
         Args:
@@ -93,7 +84,7 @@ class FileStore(ABC):
         return "application/octet-stream"
 
     @staticmethod
-    def compute_hash(content: Union[str, bytes]) -> str:
+    def compute_hash(content: str | bytes) -> str:
         """Compute SHA-256 hash of content.
 
         Args:
@@ -158,7 +149,7 @@ class LocalFileStore(FileStore):
         serves_redirect (bool): Whether this store serves redirect URLs instead of direct content.
     """
 
-    def __init__(self, base_path: Union[str, Path]):
+    def __init__(self, base_path: str | Path):
         """Initialize local file store.
 
         Args:
@@ -172,12 +163,9 @@ class LocalFileStore(FileStore):
         """Get the full file path for a given ID."""
         return self.base_path / self._get_sharded_path(file_id)
 
-    def put(self, content: Union[str, bytes], file_type: FileType) -> FileReference:
+    def put(self, content: str | bytes, file_type: FileType) -> FileReference:
         """Store content to local filesystem."""
-        if isinstance(content, str):
-            content_bytes = content.encode("utf-8")
-        else:
-            content_bytes = content
+        content_bytes = content.encode("utf-8") if isinstance(content, str) else content
 
         file_id = self.compute_hash(content_bytes)
         file_path = self._get_file_path(file_id)
@@ -299,12 +287,9 @@ class GCSFileStore(FileStore):
         """Get the blob path for a given file ID."""
         return f"files/{self._get_sharded_path(file_id)}"
 
-    def put(self, content: Union[str, bytes], file_type: FileType) -> FileReference:
+    def put(self, content: str | bytes, file_type: FileType) -> FileReference:
         """Store content to GCS."""
-        if isinstance(content, str):
-            content_bytes = content.encode("utf-8")
-        else:
-            content_bytes = content
+        content_bytes = content.encode("utf-8") if isinstance(content, str) else content
 
         file_id = self.compute_hash(content_bytes)
         blob_path = self._get_blob_path(file_id)
@@ -361,7 +346,7 @@ class GCSFileStore(FileStore):
 
 
 # Module-level singleton for the configured file store
-_file_store: Optional[FileStore] = None
+_file_store: FileStore | None = None
 
 
 def get_file_store() -> FileStore:
@@ -378,7 +363,7 @@ def get_file_store() -> FileStore:
     Raises:
         ValueError: If GCS is configured but GCS_FILE_BUCKET is not set.
     """
-    global _file_store
+    global _file_store  # noqa: PLW0603
 
     if _file_store is None:
         store_type = os.environ.get("FILE_STORE_TYPE", "local").lower()
@@ -401,5 +386,5 @@ def get_file_store() -> FileStore:
 
 def reset_file_store() -> None:
     """Reset the file store singleton (useful for testing)."""
-    global _file_store
+    global _file_store  # noqa: PLW0603
     _file_store = None

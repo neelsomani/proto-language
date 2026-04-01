@@ -1,12 +1,9 @@
-"""tests/language_tests/optimizer_tests/test_beam_search_optimizer.py
-
-Tests for BeamSearchOptimizer - single-segment iterative beam search."""
+"""Tests for BeamSearchOptimizer - single-segment iterative beam search."""
 
 from __future__ import annotations
 
 import copy
 import random
-from typing import Dict, List, Optional
 from unittest.mock import Mock
 
 import pytest
@@ -29,17 +26,17 @@ class MockAutoregressiveGenerator(Generator):
     def __init__(self, use_kv_caching: bool = True):
         super().__init__()
         self.use_kv_caching = use_kv_caching
-        self.kv_caches: List[Dict] = []
+        self.kv_caches: list[dict] = []
 
     def assign(self, assigned_segment: Segment) -> None:
         self._assigned_segment = assigned_segment
 
     def sample(
         self,
-        prompts: Optional[List[str]] = None,
-        prepend_prompt: Optional[bool] = None,
-        num_tokens: Optional[int] = None,
-        old_kv_cache: Optional[Dict] = None,
+        prompts: list[str] | None = None,
+        prepend_prompt: bool | None = None,
+        num_tokens: int | None = None,
+        old_kv_cache: dict | None = None,
     ) -> None:
         if num_tokens is None:
             num_tokens = 100
@@ -47,7 +44,7 @@ class MockAutoregressiveGenerator(Generator):
             prompts = [""]
         sequences = []
         for prompt in prompts:
-            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
+            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
         for proposal, sequence in zip(
             self._assigned_segment.proposal_sequences, sequences, strict=True
@@ -63,7 +60,7 @@ class MockAutoregressiveGenerator(Generator):
         else:
             self.kv_caches = []
 
-    def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
+    def replicate_cache(self, cache: dict, n_replicates: int) -> dict:
         return cache
 
 
@@ -72,7 +69,7 @@ class MockMutationGenerator(Generator):
 
     def __init__(self):
         super().__init__()
-        self.kv_caches: List[Dict] = []
+        self.kv_caches: list[dict] = []
 
     def assign(self, assigned_segment: Segment) -> None:
         self._assigned_segment = assigned_segment
@@ -80,7 +77,7 @@ class MockMutationGenerator(Generator):
     def sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None) -> None:
         pass
 
-    def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
+    def replicate_cache(self, cache: dict, n_replicates: int) -> dict:
         return cache
 
 
@@ -96,10 +93,10 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
 
     def sample(
         self,
-        prompts: Optional[List[str]] = None,
-        prepend_prompt: Optional[bool] = None,
-        num_tokens: Optional[int] = None,
-        old_kv_cache: Optional[Dict] = None,
+        prompts: list[str] | None = None,
+        prepend_prompt: bool | None = None,
+        num_tokens: int | None = None,
+        old_kv_cache: dict | None = None,
     ) -> None:
         if num_tokens is None:
             num_tokens = 100
@@ -107,7 +104,7 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
             prompts = [""]
         sequences = []
         for prompt in prompts:
-            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))
+            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
         for proposal, sequence in zip(
             self._assigned_segment.proposal_sequences, sequences, strict=True
@@ -201,7 +198,7 @@ class TestBeamSearchOptimizer:
 
     # --- Initialization ---
     def test_initialization(self):
-        optimizer, generator, constraint, segment = _setup_beam_search()
+        optimizer, generator, _constraint, segment = _setup_beam_search()
         assert optimizer.target_segment == segment
         assert optimizer.generator == generator
         assert optimizer.num_results == 3
@@ -432,7 +429,7 @@ class TestBeamSearchOptimizer:
         )
         with pytest.raises(
             ValueError,
-            match="beam_length.*cannot be greater than target_segment length",
+            match=r"beam_length.*cannot be greater than target_segment length",
         ):
             BeamSearchOptimizer(
                 constructs=[construct],
@@ -594,7 +591,7 @@ class TestBeamSearchOptimizer:
             config=config,
             target_segment=segment,
         )
-        with pytest.raises(RuntimeError, match="could not produce.*valid proposals"):
+        with pytest.raises(RuntimeError, match=r"could not produce.*valid proposals"):
             optimizer.run()
 
     # --- Edge Cases ---
@@ -729,10 +726,6 @@ class TestBeamSearchOptimizerGPU:
         time_cached = run_optimizer(use_kv_caching=True)
         speedup = time_uncached / time_cached
 
-        print(f"\nKV Caching Benchmark:")
-        print(f"  Without caching: {time_uncached:.2f}s")
-        print(f"  With caching: {time_cached:.2f}s")
-        print(f"  Speedup: {speedup:.2f}x")
 
         # KV caching should be faster
         assert (
@@ -862,7 +855,7 @@ class TestBeamSearchOptimizerRestart:
     def test_run_restarts_from_initial_state(self):
         """Test that calling run() twice restarts from initial state."""
         prompt = "ATCG"
-        optimizer, generator, constraint, segment = _setup_beam_search(
+        optimizer, _generator, _constraint, segment = _setup_beam_search(
             prompt=prompt,
             num_results=2,
             proposals_per_result=2,
@@ -886,7 +879,7 @@ class TestBeamSearchOptimizerRestart:
 
         # Verify captured sequences match originals
         assert len(captured_result) == len(original_result)
-        for orig, captured in zip(original_result, captured_result):
+        for orig, captured in zip(original_result, captured_result, strict=False):
             assert orig.sequence == captured['sequence']
 
         # Manually modify sequences to invalid values to verify restore
@@ -944,7 +937,7 @@ class TestBeamSearchOptimizerRestart:
         # Sequences should be restored to original state
         restored_sequences = [s.sequence for s in segment.result_sequences]
         assert len(restored_sequences) == len(original_result)
-        for orig, restored in zip(original_result, restored_sequences):
+        for orig, restored in zip(original_result, restored_sequences, strict=False):
             assert orig == restored
 
 

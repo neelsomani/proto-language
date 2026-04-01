@@ -1,8 +1,4 @@
-"""
-proto_language/language/constraint/protein_structure/structure_confidence_constraint.py
-
-Generic structure prediction confidence constraints supporting multiple tools:
-ESMFold, AlphaFold3, Boltz2, and Chai1.
+"""Generic structure prediction confidence constraints for ESMFold, AlphaFold3, Boltz2, and Chai1.
 
 Normalizes confidence metrics to be between 0 and 1, inclusive, where lower is
 better (more confident).
@@ -11,13 +7,12 @@ Constraints:
 - structure-plddt: Average predicted LDDT score
 - structure-ptm: Predicted TM-score
 - structure-iptm: Interface predicted TM-score (multimer)
-- structure-pae: Average predicted aligned error
+- structure-pae: Average predicted aligned error.
 """
 
 from __future__ import annotations
 
 from logging import getLogger
-from typing import Dict, List, Tuple
 
 from proto_tools import StructurePredictionComplex, predict_structures
 
@@ -35,7 +30,7 @@ logger = getLogger(__name__)
 # Constants
 # ============================================================================
 
-TOOL_AVAILABLE_METRICS: Dict[str, set] = {
+TOOL_AVAILABLE_METRICS: dict[str, set] = {
     "esmfold": {"avg_plddt", "ptm", "avg_pae"},
     "alphafold3": {"avg_plddt", "ptm", "iptm", "avg_pae"},
     "boltz2": {"avg_plddt", "ptm", "iptm", "avg_pae"},
@@ -50,12 +45,11 @@ PAE_MAXIMUM: float = 31.75 # Angstroms.
 
 
 def _structure_confidence(
-    proposals: List[Tuple[Sequence, ...]],
+    proposals: list[tuple[Sequence, ...]],
     config: StructureBasedConstraintConfig,
     target_metric: str,
-) -> List[float]:
-    """
-    Core helper for structure confidence constraints.
+) -> list[float]:
+    """Core helper for structure confidence constraints.
 
     Args:
         proposals (list[tuple[Sequence, ...]]): List of sequence tuples, where each tuple represents a
@@ -91,7 +85,7 @@ def _structure_confidence(
 
     # Extract and return raw requested metric.
     raw_metrics = []
-    for structure, proposal_tuple in zip(output.structures, proposals):
+    for structure, proposal_tuple in zip(output.structures, proposals, strict=False):
         metric_value = structure.metrics.get(target_metric)
 
         if metric_value is None:
@@ -127,8 +121,8 @@ def _structure_confidence(
     num_input_sequences_per_tuple=None,
 )
 def structure_plddt_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> List[float]:
+    input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
+) -> list[float]:
     """Evaluate structure quality using predicted LDDT (pLDDT) score.
 
     pLDDT (predicted Local Distance Difference Test) measures per-residue
@@ -166,9 +160,8 @@ def structure_plddt_constraint(
             scores.append(1.)
             continue
         # Each structure predictor returns differently normalized pLDDTs.
-        if config.structure_tool == "alphafold3":
-            metric /= 100.
-        scores.append(1. - metric)
+        normalized = metric / 100. if config.structure_tool == "alphafold3" else metric
+        scores.append(1. - normalized)
     return scores
 
 
@@ -184,8 +177,8 @@ def structure_plddt_constraint(
     num_input_sequences_per_tuple=None,
 )
 def structure_ptm_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> List[float]:
+    input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
+) -> list[float]:
     """Evaluate structure quality using predicted TM-score (pTM).
 
     pTM (predicted Template Modeling score) measures overall structural
@@ -229,8 +222,8 @@ def structure_ptm_constraint(
     num_input_sequences_per_tuple=None,
 )
 def structure_iptm_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> List[float]:
+    input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
+) -> list[float]:
     """Evaluate interface quality using predicted interface TM-score (ipTM).
 
     ipTM (interface predicted TM-score) specifically measures the quality
@@ -293,8 +286,8 @@ def structure_iptm_constraint(
     num_input_sequences_per_tuple=None,
 )
 def structure_pae_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> List[float]:
+    input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
+) -> list[float]:
     """Evaluate structure quality using predicted aligned error (pAE).
 
     pAE (predicted Aligned Error) measures the expected positional error
@@ -330,8 +323,7 @@ def structure_pae_constraint(
         ... )
     """
     raw_metrics =  _structure_confidence(input_sequences, config, "avg_pae")
-    scores = [
+    return [
         min(metric / PAE_MAXIMUM, 1.) if metric is not None else 1.
         for metric in raw_metrics
     ]
-    return scores

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from examples.scripts.program_intron_design import (
     get_initial_intron,
@@ -43,7 +43,7 @@ def _read_sequence(path: str) -> str:
     return Path(path).read_text().strip().upper()
 
 
-def _build_json() -> Dict[str, Any]:
+def _build_json() -> dict[str, Any]:
     """Build the complete JSON program specification."""
     from types import SimpleNamespace
 
@@ -89,7 +89,7 @@ def _build_json() -> Dict[str, Any]:
     ]
 
     # Build constraints across all plasmid x genomic context combinations.
-    constraints: List[Dict[str, Any]] = []
+    constraints: list[dict[str, Any]] = []
 
     for context_idx, plasmid_path in enumerate(PLASMID_CONTEXT_PATHS):
         plasmid_label = Path(plasmid_path).stem

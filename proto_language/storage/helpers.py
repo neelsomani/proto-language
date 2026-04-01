@@ -1,21 +1,17 @@
-"""
-proto_language/storage/helpers.py
-
-Convenience functions for storing and retrieving file content.
-"""
+"""Convenience functions for storing and retrieving file content."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, Union
+from typing import Any
 
 from proto_language.storage.models import FileReference, FileType
 from proto_language.storage.store import get_file_store
 
 
 def store_file(
-    content: Union[str, bytes],
+    content: str | bytes,
     file_type: FileType,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Store content to file store and return a reference dictionary.
 
     This is the primary function for constraints to use when storing
@@ -42,7 +38,7 @@ def store_file(
     return ref.to_dict()
 
 
-def get_file_content(ref_or_content: Union[Dict[str, Any], str]) -> str:
+def get_file_content(ref_or_content: dict[str, Any] | str) -> str:
     """Get content from a file reference or return as-is if already content.
 
     This function handles both inline strings and file references transparently,
@@ -77,7 +73,7 @@ def get_file_content(ref_or_content: Union[Dict[str, Any], str]) -> str:
     )
 
 
-def get_file_content_bytes(ref_or_content: Union[Dict[str, Any], bytes]) -> bytes:
+def get_file_content_bytes(ref_or_content: dict[str, Any] | bytes) -> bytes:
     """Get content as bytes from a file reference or return as-is if already bytes.
 
     Similar to get_file_content but for binary content.

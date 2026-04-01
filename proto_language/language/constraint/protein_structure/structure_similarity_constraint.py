@@ -1,7 +1,5 @@
-"""
-proto_language/language/constraint/protein_structure/structure_similarity_constraint.py
+"""Contains implementation of generic structure similarity constraints (RMSD, TM-score).
 
-Contains implementation of generic structure similarity constraints (RMSD, TM-score)
 supporting multiple structure prediction tools (ESMFold, AlphaFold3, Boltz, Chai1).
 """
 
@@ -10,7 +8,7 @@ from __future__ import annotations
 import os
 import tempfile
 from logging import getLogger
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 from proto_tools import (
     Structure,
@@ -41,9 +39,9 @@ logger = getLogger(__name__)
 # Metrics and scoring utils
 # ============================================================================
 
-def _compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> Dict[str, Any]:
-    """
-    Compute CE-aligned RMSD using PyMOL's cealign.
+def _compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> dict[str, Any]:
+    """Compute CE-aligned RMSD using PyMOL's cealign.
+
     Text strings are the full PDB file contents.
     """
     try:
@@ -95,16 +93,14 @@ def _compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> Dict[str, Any]:
 
 
 def _filter_pdb_by_plddt(pdb_text: str, threshold: float) -> str:
-    """
-    Filters PDB text, keeping only residues with B-factor (pLDDT) >= threshold.
-    """
+    """Filters PDB text, keeping only residues with B-factor (pLDDT) >= threshold."""
     if threshold is None or threshold <= 0:
         return pdb_text
 
     filtered_lines = []
     for line in pdb_text.splitlines():
         # PDB ATOM records: B-factor is columns 61-66 (index 60:66)
-        if line.startswith("ATOM") or line.startswith("HETATM"):
+        if line.startswith(("ATOM", "HETATM")):
             try:
                 b_factor = float(line[60:66])
                 if b_factor >= threshold:
@@ -155,7 +151,6 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
             structure_tool. Defaults to an empty dictionary.
 
     Attributes:
-
         target_chains (tuple[str, ...] | StructurePredictionComplex | None):
             The sequences of the target chains. Accepts either a tuple of sequence
             strings (entity types are auto-detected) or a StructurePredictionComplex.
@@ -179,12 +174,12 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     """
 
     # Target specification (mutually exclusive):
-    target_chains: Optional[Tuple[str, ...] | StructurePredictionComplex] = ConfigField(
+    target_chains: tuple[str, ...] | StructurePredictionComplex | None = ConfigField(
         title="Target Chains",
         default=None,
         description="Target chains: a tuple of sequence strings (entity types auto-detected).",
     )
-    target_structure: Optional[Structure | str] = ConfigField(
+    target_structure: Structure | str | None = ConfigField(
         title="Target Structure",
         default=None,
         description="Target structure: a Structure object, file path (.pdb/.cif), or raw PDB/CIF content string.",
@@ -208,8 +203,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
 
 
 class StructureRMSDConfig(StructureSimilarityConfig):
-    """
-    Configuration for RMSD-based structure similarity.
+    """Configuration for RMSD-based structure similarity.
 
     This configuration extends `StructureSimilarityConfig` with specific parameters
     for calculating the Root Mean Square Deviation (RMSD) between the target and
@@ -276,8 +270,7 @@ class StructureRMSDConfig(StructureSimilarityConfig):
 
 
 class StructureTMScoreConfig(StructureSimilarityConfig):
-    """
-    Configuration for TM-score based structure similarity.
+    """Configuration for TM-score based structure similarity.
 
     This configuration extends `StructureSimilarityConfig` for calculating the
     Template Modeling score (TM-score) between the target and proposal structures.
@@ -337,7 +330,7 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
             structure has a confidence below this threshold, the constraint may return
             a default/penalty score or log a warning. Default is 0.6.
     """
-    plddt_threshold: Optional[float] = ConfigField(
+    plddt_threshold: float | None = ConfigField(
         title="pLDDT Threshold",
         default=None,
         description="Ignore residues in the proposal with pLDDT < threshold (e.g. 70).",
@@ -368,9 +361,9 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
 # Constraints
 # ============================================================================
 
-def _prepare_target_structure(config: StructureSimilarityConfig) -> Optional[str]:
-    """
-    Resolve the target structure to a PDB string.
+def _prepare_target_structure(config: StructureSimilarityConfig) -> str | None:
+    """Resolve the target structure to a PDB string.
+
     If target is a sequence, it folds it.
     """
     if config.target_structure is not None:
@@ -416,13 +409,12 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> Optional[str
     num_input_sequences_per_tuple=None,
 )
 def structure_rmsd_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureRMSDConfig
-) -> List[float]:
-    """
-    Predicts structure of input proposals and compares RMSD against a target.
+    input_sequences: list[tuple[Sequence, ...]], config: StructureRMSDConfig
+) -> list[float]:
+    """Predicts structure of input proposals and compares RMSD against a target.
+
     Returns a score 0-1 (0 is perfect match).
     """
-
     # Prepare target.
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
@@ -448,7 +440,7 @@ def structure_rmsd_constraint(
 
     # Compute RMSD scores.
     scores = []
-    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences):
+    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences, strict=False):
         rmsd_data = _compute_ce_aligned_rmsd(target_pdb, proposal_structure.structure_pdb)
         rmsd_val = rmsd_data['rmsd']
 
@@ -470,15 +462,12 @@ def structure_rmsd_constraint(
 
 
 def _count_pdb_chains(pdb_text: str) -> int:
-    """
-    Counts unique chain identifiers in PDB text to determine oligomer state.
-    """
+    """Counts unique chain identifiers in PDB text to determine oligomer state."""
     chains = set()
     for line in pdb_text.splitlines():
-        if line.startswith("ATOM") or line.startswith("HETATM"):
-            # Chain ID is in column 22 (index 21)
-            if len(line) > 21:
-                chains.add(line[21])
+        # Chain ID is in column 22 (index 21)
+        if line.startswith(("ATOM", "HETATM")) and len(line) > 21:
+            chains.add(line[21])
     return len(chains) if chains else 1
 
 
@@ -494,10 +483,9 @@ def _count_pdb_chains(pdb_text: str) -> int:
     num_input_sequences_per_tuple=None,
 )
 def structure_tmscore_constraint(
-    input_sequences: List[Tuple[Sequence, ...]], config: StructureTMScoreConfig
-) -> List[float]:
-    """
-    Predicts structure and compares TM-score. Returns (1.0 - TMscore).
+    input_sequences: list[tuple[Sequence, ...]], config: StructureTMScoreConfig
+) -> list[float]:
+    """Predicts structure and compares TM-score. Returns (1.0 - TMscore).
 
     This constraint automatically selects the appropriate alignment tool based on
     the oligomer state of the inputs:
@@ -513,7 +501,6 @@ def structure_tmscore_constraint(
     All TM-scores are normalized by the length of the **target** structure. This
     can help ensure consistent scoring magnitude across evaluations.
     """
-
     # Prepare target.
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
@@ -540,7 +527,7 @@ def structure_tmscore_constraint(
 
     # Compute TMscores.
     scores = []
-    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences):
+    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences, strict=False):
         n_cand_chains = len(proposal_tuple)
 
         # Apply pLDDT filtering at the constraint level before alignment.

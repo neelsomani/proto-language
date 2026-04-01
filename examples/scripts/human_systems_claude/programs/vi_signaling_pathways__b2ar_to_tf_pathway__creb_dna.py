@@ -1,5 +1,4 @@
 import math
-from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -94,7 +93,7 @@ class BorzoiDNADesignConfig(BaseConfig):
         default_factory=BorzoiConfig,
     )
 
-    output_mask: List[bool] = ConfigField(
+    output_mask: list[bool] = ConfigField(
         title="Output Mask",
         description="Which region of the Borzoi output to compute activity on.",
         default=np.ones(BORZOI_OUTPUT).astype(bool),
@@ -124,9 +123,9 @@ class BorzoiDNADesignConfig(BaseConfig):
     category="epigenomic_sequence_scoring",
 )
 def _borzoi_creb_dna_design(
-    complexes: List[Tuple[Sequence]],
+    complexes: list[tuple[Sequence]],
     config: BorzoiDNADesignConfig,
-) -> List[float]:
+) -> list[float]:
     """
     Returns Borzoi-predicted activity of DNA sequence.
     """

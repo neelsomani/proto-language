@@ -1,12 +1,8 @@
-"""
-proto_language/base_registry.py
-
-Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry.
-"""
+"""Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, List, Type, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -14,8 +10,7 @@ SpecType = TypeVar('SpecType', bound='BaseSpec')
 
 
 class BaseSpec(BaseModel):
-    """
-    Base specification for registered components.
+    """Base specification for registered components.
 
     Subclasses extend this to add component-specific metadata.
 
@@ -34,7 +29,7 @@ class BaseSpec(BaseModel):
     uses_gpu: bool = Field(default=False, description="Whether this component requires GPU")
 
     # Configuration model
-    config_model: Type[BaseModel] = Field(
+    config_model: type[BaseModel] = Field(
         description="Pydantic model for configuration validation and schema generation"
     )
 
@@ -44,9 +39,8 @@ class BaseSpec(BaseModel):
     }
 
     @field_serializer('config_model')
-    def serialize_config_model(self, config_model: Type[BaseModel]) -> Dict[str, Any]:
-        """
-        Serialize config_model as standard JSON Schema.
+    def serialize_config_model(self, config_model: type[BaseModel]) -> dict[str, Any]:
+        """Serialize config_model as standard JSON Schema.
 
         Returns the full Pydantic JSON Schema including properties, required fields,
         and metadata. This provides a standard format for client form generation
@@ -71,8 +65,7 @@ class BaseSpec(BaseModel):
 
 
 class BaseRegistry(ABC, Generic[SpecType]):
-    """
-    Base registry for decorator-based component registration.
+    """Base registry for decorator-based component registration.
 
     Provides discovery, schema generation, and factory methods for constraints,
     generators, and tools. Registration happens at import time via decorators.
@@ -88,7 +81,7 @@ class BaseRegistry(ABC, Generic[SpecType]):
     """
 
     # Subclasses must define their own _registry class variable
-    _registry: Dict[str, SpecType] = {}
+    _registry: ClassVar[dict[str, SpecType]] = {}  # type: ignore[misc]
 
     @classmethod
     @abstractmethod
@@ -98,14 +91,13 @@ class BaseRegistry(ABC, Generic[SpecType]):
 
     @classmethod
     @abstractmethod
-    def list_all(cls) -> List[SpecType]:
+    def list_all(cls) -> list[SpecType]:
         """List all components as Pydantic models. Implemented by subclasses."""
         raise NotImplementedError(f"{cls.__name__}.list_all() must be implemented by subclass")
 
     @classmethod
     def get(cls, key: str) -> SpecType:
-        """
-        Get component spec by key.
+        """Get component spec by key.
 
         Args:
             key (str): Component identifier
@@ -123,9 +115,8 @@ class BaseRegistry(ABC, Generic[SpecType]):
         return cls._registry[key]
 
     @classmethod
-    def get_schema(cls, key: str) -> Dict[str, Any]:
-        """
-        Get the JSON schema for a specific component's configuration.
+    def get_schema(cls, key: str) -> dict[str, Any]:
+        """Get the JSON schema for a specific component's configuration.
 
         The schema includes parameter names, types, defaults, validation rules,
         and descriptions - everything needed to generate a client form.
@@ -162,8 +153,7 @@ class BaseRegistry(ABC, Generic[SpecType]):
 
     @classmethod
     def count(cls) -> int:
-        """
-        Get count of registered components.
+        """Get count of registered components.
 
         Returns:
             int: Number of registered components
@@ -171,13 +161,12 @@ class BaseRegistry(ABC, Generic[SpecType]):
         return len(cls._registry)
 
     @classmethod
-    def _check_duplicate(cls, key: str, attempted_component_name: str = None) -> None:
-        """
-        Check for duplicate registration.
+    def _check_duplicate(cls, key: str, attempted_component_name: str | None = None) -> None:
+        """Check for duplicate registration.
 
         Args:
             key (str): Component identifier to check
-            attempted_component_name (str): Name of component attempting registration (optional)
+            attempted_component_name (str | None): Name of component attempting registration (optional)
 
         Raises:
             ValueError: If key already exists in registry
@@ -203,8 +192,7 @@ class BaseRegistry(ABC, Generic[SpecType]):
 
     @classmethod
     def _component_type(cls) -> str:
-        """
-        Get component type derived from registry class name.
+        """Get component type derived from registry class name.
 
         Returns:
             str: Component type string (e.g., 'constraint', 'generator', 'tool')

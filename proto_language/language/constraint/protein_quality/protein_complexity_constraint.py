@@ -1,12 +1,6 @@
-"""
-proto_language/language/constraint/protein_quality/protein_complexity_constraint.py
-
-Protein complexity constraint function.
-"""
+"""Protein complexity constraint function."""
 
 from __future__ import annotations
-
-from typing import List, Tuple
 
 from proto_tools import (
     SegmaskerConfig,
@@ -75,7 +69,7 @@ class ProteinComplexityConfig(BaseConfig):
     supported_sequence_types=["protein"],
     num_input_sequences_per_tuple=1,
 )
-def protein_complexity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinComplexityConfig) -> List[float]:
+def protein_complexity_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinComplexityConfig) -> list[float]:
     """Evaluate protein sequence complexity using segmasker to detect low-complexity regions.
 
     This constraint function uses NCBI's segmasker tool to identify low-complexity
@@ -153,7 +147,7 @@ def protein_complexity_constraint(input_sequences: List[Tuple[Sequence, ...]], c
         raise ValueError(f"Segmasker analysis failed: {error_msg}")
 
     scores = []
-    for (seq,), low_complexity_fraction in zip(input_sequences, result.low_complexity_fractions):
+    for (seq,), low_complexity_fraction in zip(input_sequences, result.low_complexity_fractions, strict=False):
         seq._metadata["low_complexity_fraction"] = low_complexity_fraction
         seq._metadata["segmasker_lowercase_count"] = int(
             low_complexity_fraction * len(seq)

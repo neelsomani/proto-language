@@ -86,7 +86,7 @@ def run_mmseqs_search(
     query_db = str(tmp_path / "queryDB")
     result_db = str(tmp_path / "resultDB")
 
-    print(f"Creating query database...")
+    print("Creating query database...")
     subprocess.run([
         "mmseqs", "createdb", input_fasta, query_db
     ], check=True, capture_output=True)

@@ -1,15 +1,12 @@
-"""
-proto_language/language/optimizer/topk_optimizer.py
-
-TopK Optimizer that runs multiple independent sampling rounds and returns the top-k best constructs.
-"""
+"""TopK Optimizer that runs multiple independent sampling rounds and returns the top-k best constructs."""
 from __future__ import annotations
 
 import bisect
 import copy
 import logging
 import math
-from typing import Callable, List, Optional, final
+from collections.abc import Callable
+from typing import final
 
 from pydantic import model_validator
 
@@ -65,7 +62,7 @@ class TopKOptimizerConfig(BaseOptimizerConfig):
     )
 
     # Advanced parameters
-    num_results: Optional[int] = ConfigField(
+    num_results: int | None = ConfigField(
         default=None,
         ge=1,
         title="Design Candidates",
@@ -79,7 +76,7 @@ class TopKOptimizerConfig(BaseOptimizerConfig):
         description="Number of proposal sequences to generate and evaluate per sampling round.",
         advanced=True,
     )
-    energy_threshold: Optional[float] = ConfigField(
+    energy_threshold: float | None = ConfigField(
         default=None,
         ge=0.0,
         title="Energy Threshold",
@@ -155,15 +152,14 @@ class TopKOptimizer(Optimizer):
 
     def __init__(
         self,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         config: TopKOptimizerConfig,
-        custom_logging: Optional[Callable] = None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
+        custom_logging: Callable | None = None,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
     ) -> None:
-        """
-        Initialize the TopK Optimizer.
+        """Initialize the TopK Optimizer.
 
         Args:
             constructs (list[Construct]): List of Construct objects to optimize.
@@ -193,7 +189,7 @@ class TopKOptimizer(Optimizer):
             track_proposals=config.track_proposals,
         )
         self.samples_per_round: int = config.samples_per_round
-        self.energy_threshold: Optional[float] = config.energy_threshold
+        self.energy_threshold: float | None = config.energy_threshold
 
         self.num_samples: int = config.num_samples
         if self.num_samples % self.samples_per_round != 0:
@@ -287,8 +283,7 @@ class TopKOptimizer(Optimizer):
             segment.result_sequences = []
 
     def run(self) -> None:
-        """
-        Execute TopK optimization through multiple sampling rounds.
+        """Execute TopK optimization through multiple sampling rounds.
 
         The mode is determined by whether ``energy_threshold`` is set:
         - **Standard mode** (no threshold): Generate ``num_samples`` proposals.
@@ -323,8 +318,7 @@ class TopKOptimizer(Optimizer):
             proposals_generated += self.samples_per_round
 
             # Threshold mode: stop early when all top-k are below threshold
-            if threshold_mode and len(self._result_energies) == self.num_results:
-                if self._result_energies[-1] < self.energy_threshold:
+            if threshold_mode and len(self._result_energies) == self.num_results and self._result_energies[-1] < self.energy_threshold:
                     threshold_met = True
                     if self.verbose:
                         logger.info(f"Threshold met! Worst in top-{self.num_results}: {self._result_energies[-1]:.6f} < {self.energy_threshold:.6f}")
@@ -381,7 +375,7 @@ class TopKOptimizer(Optimizer):
         logger.debug(f"  Top-k kept: {self.num_results}")
 
         if threshold_mode:
-            logger.debug(f"Threshold mode:")
+            logger.debug("Threshold mode:")
             logger.debug(f"  Target threshold: {self.energy_threshold:.6f}")
             logger.debug(f"  Num samples (max): {self.num_samples}")
             if threshold_met:

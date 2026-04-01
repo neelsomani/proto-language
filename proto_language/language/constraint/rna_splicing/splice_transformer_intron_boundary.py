@@ -1,7 +1,4 @@
-"""
-proto_language/language/constraint/rna_splicing/splice_transformer_intron_boundary.py
-
-Evaluate intron boundary prediction with SpliceTransformer.
+"""Evaluate intron boundary prediction with SpliceTransformer.
 
 Accepts three segments (left_flank, intron_core, right_flank), concatenates
 them into a single 1-kb target sequence, and scores donor/acceptor splice
@@ -10,7 +7,6 @@ sites. Metadata is propagated back to all three input segments.
 from __future__ import annotations
 
 import logging
-from typing import List, Tuple
 
 from proto_tools import CONTEXT_LENGTH as SPLICE_TRANSFORMER_CONTEXT_LENGTH
 from proto_tools import (
@@ -87,11 +83,11 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
         title="Right Context",
         description="Sequence of the right context for SpliceTransformer",
     )
-    donor_pos: List[int] = ConfigField(
+    donor_pos: list[int] = ConfigField(
         title="Donor Position(s)",
         description="0-indexed position(s) into input_sequence of expected donor",
     )
-    acceptor_pos: List[int] = ConfigField(
+    acceptor_pos: list[int] = ConfigField(
         title="Acceptor Position(s)",
         description="0-indexed position(s) into input_sequence of expected acceptor",
     )
@@ -129,9 +125,9 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     num_input_sequences_per_tuple=3,
 )
 def splice_transformer_intron_boundary(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: SpliceTransformerIntronBoundaryConfig,
-) -> List[float]:
+) -> list[float]:
     """Score donor/acceptor splice sites for three-segment intron boundaries.
 
     Accepts three segments (left_flank, intron_core, right_flank), concatenates
@@ -147,8 +143,8 @@ def splice_transformer_intron_boundary(
     if not input_sequences:
         return []
 
-    assert len(config.left_context) == len(config.right_context) == SPLICE_TRANSFORMER_CONTEXT_LENGTH, \
-        f"Context lengths must be {SPLICE_TRANSFORMER_CONTEXT_LENGTH}"
+    if not (len(config.left_context) == len(config.right_context) == SPLICE_TRANSFORMER_CONTEXT_LENGTH):
+        raise ValueError(f"Context lengths must be {SPLICE_TRANSFORMER_CONTEXT_LENGTH}")
     context_length = len(config.left_context)
 
     # Concatenate 3-part tuples into target sequences for batched inference.

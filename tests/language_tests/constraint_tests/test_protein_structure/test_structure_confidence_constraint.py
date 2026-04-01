@@ -1,15 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_protein_structure/test_structure_confidence_constraint.py
-
-Tests cover:
-1. Score calculation for all metrics (pLDDT, pTM, ipTM, pAE)
-2. Tool dispatching (ESMFold, AlphaFold3, Boltz, Chai1)
-3. Metric availability validation per tool
-4. Multimer support (monomers, homodimers, heteromultimers)
-5. Tool configuration passthrough
-6. Metadata storage
-7. Error handling
-"""
+"""Tests for structure confidence constraints across all metrics and prediction tools."""
 
 from unittest.mock import MagicMock, patch
 

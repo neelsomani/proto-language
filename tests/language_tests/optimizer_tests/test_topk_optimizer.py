@@ -1,8 +1,4 @@
-"""
-tests/language_tests/optimizer_tests/test_topk_optimizer.py
-
-Minimal tests verifying core behavior of the TopKOptimizer.
-"""
+"""Minimal tests verifying core behavior of the TopKOptimizer."""
 
 import random
 from unittest.mock import MagicMock, patch
@@ -237,7 +233,7 @@ class TestTopKOptimizerStandardMode:
 
         for i in range(5):
             seq = segment.result_sequences[i].sequence
-            diff_count = sum(1 for a, b in zip(initial_seq, seq) if a != b)
+            diff_count = sum(1 for a, b in zip(initial_seq, seq, strict=False) if a != b)
             # At most 1 mutation per round (may be 0 if random char matches original)
             assert diff_count <= 1, f"Expected <=1 mutation, got {diff_count} differences"
 

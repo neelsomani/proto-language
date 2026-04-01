@@ -1,11 +1,8 @@
-"""
-tests/helpers/mock_structure.py
+"""mock_structure.py."""
 
-mock_structure.py
-"""
+from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional
 
 from proto_tools import BFactorType, Structure, load_structure_file
 
@@ -18,14 +15,14 @@ class MockStructure(Structure):
 
     def __init__(
         self,
-        structure_content: Optional[str] = None,
+        structure_content: str | None = None,
         structure_format: str = "pdb",
         b_factor_type: BFactorType = BFactorType.UNSPECIFIED,
-        metrics: Optional[Dict[str, float]] = None,
+        metrics: dict[str, float] | None = None,
         source: str = "mock",
     ) -> None:
-        """
-        Mocked Structure class for testing. Bypasses __init__ validation
+        """Mocked Structure class for testing. Bypasses __init__ validation.
+
         and detection of structure format.
         """
         # Save the structure content and format directly

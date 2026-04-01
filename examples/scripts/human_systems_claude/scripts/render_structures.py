@@ -17,7 +17,7 @@ import random
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import pandas as pd
 import pymol
@@ -83,7 +83,7 @@ def delete_low_plddt(
     selection: str = 'all',
     cutoff: float = 50.,
     min_fragment_size: int = 10,
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     """
     Delete residues with pLDDT (B-factor) below cutoff, then remove small fragments.
 
@@ -157,7 +157,7 @@ def delete_low_plddt(
     return n_atoms_before, n_atoms_after
 
 
-def color_chains_flat(selection: str = 'all') -> Dict[str, str]:
+def color_chains_flat(selection: str = 'all') -> dict[str, str]:
     """Color each chain with a unique flat pastel color (randomized)."""
     chains = cmd.get_chains(selection)
     palette_keys = list(FLAT_PALETTE.keys())
@@ -182,7 +182,7 @@ def render_structure(
     width: float = 3200,
     height: float = 3200,
     dpi: int = 300,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Render a single PDB structure as matte surface visualization.
     """
@@ -318,7 +318,7 @@ def main():
             writer.writerows(all_metadata)
 
         print(f"\n{'='*60}")
-        print(f"Rendering complete!")
+        print("Rendering complete!")
         print(f"  Images: {len(all_metadata)} PNGs in {output_dir}/")
         print(f"  Metadata: {tsv_path}")
     else:

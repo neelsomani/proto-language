@@ -1,12 +1,8 @@
-"""
-proto_language/language/generator/random_nucleotide_generator.py
-
-RandomNucleotideGenerator for CPU-based random nucleotide mutagenesis.
-"""
+"""RandomNucleotideGenerator for CPU-based random nucleotide mutagenesis."""
 
 from __future__ import annotations
 
-from typing import Optional, final
+from typing import final
 
 from proto_tools import (
     RandomNucleotideSampleConfig,
@@ -66,7 +62,7 @@ class RandomNucleotideGeneratorConfig(BaseConfig):
         description="IUPAC code defining the nucleotide substitution pool.",
         advanced=True,
     )
-    seed: Optional[int] = ConfigField(
+    seed: int | None = ConfigField(
         default=None,
         title="Random Seed",
         description="Random seed for reproducible sampling.",
@@ -114,8 +110,7 @@ class RandomNucleotideGenerator(Generator):
     """
 
     def __init__(self, config: RandomNucleotideGeneratorConfig) -> None:
-        """
-        Initialize the random nucleotide generator.
+        """Initialize the random nucleotide generator.
 
         Args:
             config (RandomNucleotideGeneratorConfig): Configuration object
@@ -128,8 +123,7 @@ class RandomNucleotideGenerator(Generator):
         self.seed = config.seed
 
     def sample(self) -> None:
-        """
-        Introduce random nucleotide mutations at masked positions.
+        """Introduce random nucleotide mutations at masked positions.
 
         Applies the masking strategy to select positions, then samples random
         nucleotides from the configured IUPAC substitution scheme at those positions.

@@ -1,8 +1,7 @@
-"""tests/language_tests/optimizer_tests/test_mcmc_optimizer.py"""
+"""tests/language_tests/optimizer_tests/test_mcmc_optimizer.py."""
 from __future__ import annotations
 
 import copy
-from typing import Tuple
 
 import pytest
 from proto_tools.tools.masked_models.masking import MaskingStrategy
@@ -34,8 +33,8 @@ class EmptyConfig(BaseModel):
 def _setup_mcmc_components(
     seq_length: int = 10,
     num_results: int = 1,
-    proposals_per_result: int = None,
-    gc_target_range: Tuple[float, float] = (40.0, 60.0),
+    proposals_per_result: int | None = None,
+    gc_target_range: tuple[float, float] = (40.0, 60.0),
     num_mcmc_steps: int = 10,
 ):
     """Helper function to set up a basic MCMC Optimizer for testing."""
@@ -79,7 +78,7 @@ def _setup_mcmc_components(
 class TestMCMCOptimizer:
     def test_initialization_and_validation(self):
         """Tests successful initialization and validation of MCMCOptimizer."""
-        optimizer, proposal_gen, constraint, segment = _setup_mcmc_components()
+        optimizer, proposal_gen, constraint, _segment = _setup_mcmc_components()
 
         assert optimizer.generators == [proposal_gen]
         assert optimizer.constraints == [constraint]
@@ -1151,13 +1150,13 @@ class TestMCMCOptimizer:
             assert "proposal_results" not in entry
 
     def test_mcmc_alpha_inf_inf_returns_zero(self):
-        """inf vs inf should return 0.0 (reject, no improvement) instead of NaN."""
+        """Inf vs inf should return 0.0 (reject, no improvement) instead of NaN."""
         optimizer, _, _, _ = _setup_mcmc_components()
         alpha = optimizer._compute_mcmc_alpha(float('inf'), float('inf'), 1)
         assert alpha == 0.0
 
     def test_mcmc_alpha_inf_current_accepts_finite(self):
-        """inf current with finite proposed should return 1.0 (always accept)."""
+        """Inf current with finite proposed should return 1.0 (always accept)."""
         optimizer, _, _, _ = _setup_mcmc_components()
         alpha = optimizer._compute_mcmc_alpha(float('inf'), 0.5, 1)
         assert alpha == 1.0

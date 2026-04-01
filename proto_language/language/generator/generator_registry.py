@@ -1,12 +1,10 @@
-"""
-proto_language/language/generator/generator_registry.py
+"""Provides a decorator-based API for registering generator classes with metadata and.
 
-Provides a decorator-based API for registering generator classes with metadata and
 automatic schema generation for API/client integration.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Type
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,8 +13,7 @@ from proto_language.language.core import Generator
 
 
 class GeneratorSpec(BaseSpec):
-    """
-    Specification for a registered generator.
+    """Specification for a registered generator.
 
     Extends BaseSpec with generator-specific metadata for discovery and schema generation.
 
@@ -33,16 +30,15 @@ class GeneratorSpec(BaseSpec):
     """
 
     category: Literal["autoregressive", "mutation", "inverse_folding"] = Field(description="Generator category: 'autoregressive' (left-to-right, e.g. Evo2), 'mutation' (bidirectional/masked, e.g. ESM2), or 'inverse_folding' (structure-conditioned, e.g. ProteinMPNN)")
-    tools_called: List[str] = Field(description="List of tool keys this generator calls (e.g., ['esm3-sample', 'evo2-sample']). Helps agent find relevant tool documentation.")
-    supported_sequence_types: List[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Empty list means supports all types.")
+    tools_called: list[str] = Field(description="List of tool keys this generator calls (e.g., ['esm3-sample', 'evo2-sample']). Helps agent find relevant tool documentation.")
+    supported_sequence_types: list[str] = Field(description="List of supported sequence types (e.g., ['dna', 'protein']). Empty list means supports all types.")
 
     # Private field - excluded from serialization
-    generator_class: Type[Generator] = Field(exclude=True)
+    generator_class: type[Generator] = Field(exclude=True)
 
 
 class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
-    """
-    Registry for generator discovery and schema generation.
+    """Registry for generator discovery and schema generation.
 
     Inherits common registry functionality from BaseRegistry and adds
     generator-specific metadata (category, uses_gpu).
@@ -88,22 +84,21 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     """
 
     # Each registry subclass must have its own _registry dict
-    _registry: Dict[str, GeneratorSpec] = {}
+    _registry: ClassVar[dict[str, GeneratorSpec]] = {}
 
     @classmethod
     def register(
         cls,
         key: str,
         label: str,
-        config: Type[BaseModel],
+        config: type[BaseModel],
         description: str,
         category: Literal["autoregressive", "mutation", "inverse_folding"],
         uses_gpu: bool = False,
-        tools_called: List[str] = [],
-        supported_sequence_types: List[str] = [],
+        tools_called: list[str] | None = None,
+        supported_sequence_types: list[str] | None = None,
     ):
-        """
-        Decorator to register a generator class.
+        """Decorator to register a generator class.
 
         This is the generator-specific implementation of the abstract register()
         method from BaseRegistry.
@@ -116,8 +111,8 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             category (Literal['autoregressive', 'mutation', 'inverse_folding']): "autoregressive" (left-to-right), "mutation" (bidirectional/masked),
                 or "inverse_folding" (structure-conditioned)
             uses_gpu (bool): If True, generator requires GPU for computation
-            tools_called (list[str]): List of tool keys this generator calls
-            supported_sequence_types (list[str]): List of supported sequence types (e.g., ["dna", "protein"]).
+            tools_called (list[str] | None): List of tool keys this generator calls
+            supported_sequence_types (list[str] | None): List of supported sequence types (e.g., ["dna", "protein"]).
                 Empty list means supports all types.
 
         Returns:
@@ -138,7 +133,11 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             ...         # Implementation
             ...         pass
         """
-        def decorator(generator_class: Type[Generator]):
+        if supported_sequence_types is None:
+            supported_sequence_types = []
+        if tools_called is None:
+            tools_called = []
+        def decorator(generator_class: type[Generator]):
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, generator_class.__name__)
 
@@ -160,10 +159,9 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     def create(
         cls,
         key: str,
-        config_dict: Dict[str, Any],
+        config_dict: dict[str, Any],
     ) -> Generator:
-        """
-        Factory method to create Generator instance from JSON-compatible config.
+        """Factory method to create Generator instance from JSON-compatible config.
 
         This is the primary integration point with API/client layers. It:
         1. Retrieves the registered generator specification
@@ -207,7 +205,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         raise ValueError(f"Generator '{generator.__class__.__name__}' is not registered")
 
     @classmethod
-    def list_all(cls) -> List[GeneratorSpec]:
+    def list_all(cls) -> list[GeneratorSpec]:
         """List all registered generators as Pydantic models."""
         return list(cls._registry.values())
 

@@ -1,7 +1,5 @@
-"""
-proto_language/utils/export.py
+"""Five tables, each with a single natural format:.
 
-Five tables, each with a single natural format:
 - sequences:    One row per (result_idx, construct, segment)
 - constraints:  One row per (result_idx, construct, segment, constraint)
 - constructs:   One row per (result_idx, construct)
@@ -16,9 +14,10 @@ from __future__ import annotations
 import copy
 import csv
 import json
+from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
-from typing import IO, Any, Callable, Dict, List, Literal, Optional, Set, Union
+from typing import IO, Any, Literal
 
 from proto_language.storage.helpers import is_file_reference
 from proto_language.storage.store import get_file_store
@@ -26,7 +25,7 @@ from proto_language.utils.helpers import filter_inf_nan_scores
 
 # Type aliases
 Format = Literal["csv", "tsv", "json", "xlsx"]
-Results = Dict[str, Any]  # Output from build_results()
+Results = dict[str, Any]  # Output from build_results()
 
 
 # =============================================================================
@@ -36,7 +35,7 @@ Results = Dict[str, Any]  # Output from build_results()
 
 def build_results(
     constructs: list,
-    energy_scores: List[float],
+    energy_scores: list[float],
 ) -> Results:
     """Build standardized results from live Construct objects.
 
@@ -234,8 +233,8 @@ def _serialize_value(value: Any) -> Any:
 
 
 def _finalize_file_refs(
-    rows: List[Dict[str, Any]], *, resolve: bool = False
-) -> List[Dict[str, Any]]:
+    rows: list[dict[str, Any]], *, resolve: bool = False
+) -> list[dict[str, Any]]:
     """Post-process file references in flattened rows.
 
     When *resolve* is False (default), each file reference dict is replaced
@@ -282,12 +281,12 @@ def _finalize_file_refs(
     ]
 
 
-def _collect_all_columns(rows: List[Dict]) -> List[str]:
+def _collect_all_columns(rows: list[dict]) -> list[str]:
     """Collect all unique column names from rows, preserving insertion order."""
     columns = []
     seen = set()
     for row in rows:
-        for key in row.keys():
+        for key in row:
             if key not in seen:
                 columns.append(key)
                 seen.add(key)
@@ -295,8 +294,8 @@ def _collect_all_columns(rows: List[Dict]) -> List[str]:
 
 
 def _flatten_constraint_columns(
-    constraints: Dict[str, Dict], prefix: str = ""
-) -> Dict[str, Any]:
+    constraints: dict[str, dict], prefix: str = ""
+) -> dict[str, Any]:
     """Flatten all constraint data with {prefix}{label}.{field} namespacing.
 
     Used by flatten_sequences, flatten_constructs, flatten_optimization.
@@ -327,11 +326,11 @@ def _flatten_constraint_columns(
 
 def flatten_sequences(
     results: Results,
-    segments: Optional[Set[str]] = None,
-    result_indices: Optional[Set[int]] = None,
+    segments: set[str] | None = None,
+    result_indices: set[int] | None = None,
     *,
     resolve_files: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """One row per (result_idx, construct, segment). All constraint fields inline.
 
     Args:
@@ -375,12 +374,12 @@ def flatten_sequences(
 
 def flatten_constraints(
     results: Results,
-    segments: Optional[Set[str]] = None,
-    constraints: Optional[Set[str]] = None,
-    result_indices: Optional[Set[int]] = None,
+    segments: set[str] | None = None,
+    constraints: set[str] | None = None,
+    result_indices: set[int] | None = None,
     *,
     resolve_files: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """One row per (result_idx, construct, segment, constraint). All metrics.
 
     Args:
@@ -432,11 +431,11 @@ def flatten_constraints(
 
 def flatten_constructs(
     results: Results,
-    segments: Optional[Set[str]] = None,
-    result_indices: Optional[Set[int]] = None,
+    segments: set[str] | None = None,
+    result_indices: set[int] | None = None,
     *,
     resolve_files: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """One row per (result_idx, construct). Per-segment data as prefixed columns.
 
     Args:
@@ -491,13 +490,13 @@ def flatten_constructs(
 
 
 def flatten_optimization(
-    history: List[Dict[str, Any]],
-    segments: Optional[Set[str]] = None,
-    result_indices: Optional[Set[int]] = None,
+    history: list[dict[str, Any]],
+    segments: set[str] | None = None,
+    result_indices: set[int] | None = None,
     include_proposals: bool = False,
     *,
     resolve_files: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """One row per (timepoint, result_idx). Sequences + constraint scores.
 
     History entries use the same results format as extract_results(),
@@ -609,14 +608,14 @@ _ALL_TABLES = ("sequences", "constraints", "constructs", "optimization")
 def flatten_table(
     table: str,
     results: Results,
-    history: List[Dict[str, Any]],
+    history: list[dict[str, Any]],
     *,
-    segments: Optional[Set[str]] = None,
-    result_indices: Optional[Set[int]] = None,
-    constraints: Optional[Set[str]] = None,
+    segments: set[str] | None = None,
+    result_indices: set[int] | None = None,
+    constraints: set[str] | None = None,
     include_proposals: bool = False,
     resolve_files: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Dispatch to the appropriate flatten function for *table*.
 
     Args:
@@ -633,7 +632,7 @@ def flatten_table(
     Raises:
         ValueError: If *table* is not a recognized name.
     """
-    filters: Dict[str, Any] = {
+    filters: dict[str, Any] = {
         "segments": segments,
         "result_indices": result_indices,
         "resolve_files": resolve_files,
@@ -659,7 +658,7 @@ def flatten_table(
 # =============================================================================
 
 
-def to_csv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
+def to_csv(rows: list[dict], output: Path | IO | None = None) -> str:
     """Write rows to CSV format.
 
     Args:
@@ -683,15 +682,14 @@ def to_csv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
 
     if output is None:
         return csv_str
-    elif isinstance(output, Path):
+    if isinstance(output, Path):
         output.write_text(csv_str)
         return csv_str
-    else:
-        output.write(csv_str)
-        return csv_str
+    output.write(csv_str)
+    return csv_str
 
 
-def to_tsv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
+def to_tsv(rows: list[dict], output: Path | IO | None = None) -> str:
     """Write rows to TSV format.
 
     Args:
@@ -717,17 +715,16 @@ def to_tsv(rows: List[Dict], output: Union[Path, IO, None] = None) -> str:
 
     if output is None:
         return tsv_str
-    elif isinstance(output, Path):
+    if isinstance(output, Path):
         output.write_text(tsv_str)
         return tsv_str
-    else:
-        output.write(tsv_str)
-        return tsv_str
+    output.write(tsv_str)
+    return tsv_str
 
 
 def to_json(
-    rows: List[Dict],
-    output: Union[Path, IO, None] = None,
+    rows: list[dict],
+    output: Path | IO | None = None,
     indent: int = 2,
 ) -> str:
     """Write rows to JSON format.
@@ -744,15 +741,14 @@ def to_json(
 
     if output is None:
         return json_str
-    elif isinstance(output, Path):
+    if isinstance(output, Path):
         output.write_text(json_str)
         return json_str
-    else:
-        output.write(json_str)
-        return json_str
+    output.write(json_str)
+    return json_str
 
 
-def to_xlsx(rows: List[Dict], output: Union[Path, IO]) -> None:
+def to_xlsx(rows: list[dict], output: Path | IO) -> None:
     """Write rows to Excel format (single sheet).
 
     Args:
@@ -782,7 +778,7 @@ def to_xlsx(rows: List[Dict], output: Union[Path, IO]) -> None:
         wb.save(output)
 
 
-def to_xlsx_workbook(tables: Dict[str, List[Dict]], output: Path) -> None:
+def to_xlsx_workbook(tables: dict[str, list[dict]], output: Path) -> None:
     """Write multiple tables as sheets in a single Excel workbook.
 
     Args:
@@ -816,10 +812,10 @@ def to_xlsx_workbook(tables: Dict[str, List[Dict]], output: Path) -> None:
 
 
 def write_export(
-    rows: List[Dict],
+    rows: list[dict],
     format: Format,
-    path: Optional[Path] = None,
-) -> Union[str, None]:
+    path: Path | None = None,
+) -> str | None:
     """Write rows to the specified format.
 
     Args:
@@ -832,21 +828,20 @@ def write_export(
     """
     if format == "csv":
         return to_csv(rows, path)
-    elif format == "tsv":
+    if format == "tsv":
         return to_tsv(rows, path)
-    elif format == "json":
+    if format == "json":
         return to_json(rows, path)
-    elif format == "xlsx":
+    if format == "xlsx":
         if path is None:
             raise ValueError("xlsx format requires a file path")
         to_xlsx(rows, path)
         return None
-    else:
-        raise ValueError(f"Unsupported format: {format}")
+    raise ValueError(f"Unsupported format: {format}")
 
 
 def export_tables(
-    flatten_fn: Callable[[str], List[Dict[str, Any]]],
+    flatten_fn: Callable[[str], list[dict[str, Any]]],
     path: Path | str,
     format: Format,
     table: str | None = None,
@@ -884,10 +879,10 @@ def export_tables(
 
 def to_fasta(
     results: Results,
-    segments: Optional[Set[str]] = None,
-    result_indices: Optional[Set[int]] = None,
+    segments: set[str] | None = None,
+    result_indices: set[int] | None = None,
     header_format: str = "{construct}_{segment}_result{result_idx}",
-    output: Union[Path, IO, None] = None,
+    output: Path | IO | None = None,
 ) -> str:
     """Export sequences in FASTA format for bioinformatics pipelines.
 
@@ -902,7 +897,7 @@ def to_fasta(
     Returns:
         str: FASTA string if output is None.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     for result_entry in results.get("results", []):
         if (
             result_indices is not None
@@ -927,9 +922,8 @@ def to_fasta(
 
     if output is None:
         return fasta_str
-    elif isinstance(output, Path):
+    if isinstance(output, Path):
         output.write_text(fasta_str)
         return fasta_str
-    else:
-        output.write(fasta_str)
-        return fasta_str
+    output.write(fasta_str)
+    return fasta_str

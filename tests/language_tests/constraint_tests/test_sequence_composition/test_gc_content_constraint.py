@@ -1,4 +1,4 @@
-"""tests/language_tests/constraint_tests/test_sequence_composition/test_gc_content_constraint.py"""
+"""tests/language_tests/constraint_tests/test_sequence_composition/test_gc_content_constraint.py."""
 import pytest
 from pydantic import ValidationError
 
@@ -72,7 +72,7 @@ class TestGCContentConfigValidation:
 
     def test_min_gc_greater_than_max_gc_raises(self):
         """Test that min_gc > max_gc raises ValidationError."""
-        with pytest.raises(ValidationError, match="min_gc.*must be <= max_gc"):
+        with pytest.raises(ValidationError, match=r"min_gc.*must be <= max_gc"):
             GCContentConfig(min_gc=80, max_gc=20)
 
     def test_min_gc_equal_max_gc_allowed(self):

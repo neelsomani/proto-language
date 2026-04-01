@@ -1,8 +1,4 @@
-"""tests/language_tests/generator_tests/test_msa_generator.py
-
-Tests for MSAGenerator."""
-
-from __future__ import annotations
+"""Tests for MSAGenerator."""
 
 import copy
 import random
@@ -174,7 +170,7 @@ class TestMSAGeneratorAssign:
         gen = MSAGenerator(config)
         segment = Segment(sequence="MVLSPADKTN", sequence_type="protein")  # Length 10
 
-        with pytest.raises(ValueError, match="alignment length.*must match.*segment length"):
+        with pytest.raises(ValueError, match=r"alignment length.*must match.*segment length"):
             gen.assign(segment)
 
     def test_assign_all_gaps_rejected(self):
@@ -205,7 +201,7 @@ class TestMSAGeneratorSample:
         gen.sample()
         mutated = segment.proposal_sequences[0].sequence
 
-        diff_count = sum(1 for a, b in zip(initial, mutated) if a != b)
+        diff_count = sum(1 for a, b in zip(initial, mutated, strict=False) if a != b)
         assert diff_count == 1
 
     def test_sample_multiple_mutations(self):
@@ -223,7 +219,7 @@ class TestMSAGeneratorSample:
         gen.sample()
         mutated = segment.proposal_sequences[0].sequence
 
-        diff_count = sum(1 for a, b in zip(initial, mutated) if a != b)
+        diff_count = sum(1 for a, b in zip(initial, mutated, strict=False) if a != b)
         assert diff_count == 3
 
     def test_sample_respects_distribution(self):
@@ -246,7 +242,7 @@ class TestMSAGeneratorSample:
             gen.sample()
             mutated = segment.proposal_sequences[0].sequence
             # Find which position was mutated
-            for i, (orig, mut) in enumerate(zip("XGGG", mutated)):
+            for i, (orig, mut) in enumerate(zip("XGGG", mutated, strict=False)):
                 if orig != mut:
                     if i == 0:
                         if mut == "A":
@@ -281,7 +277,7 @@ class TestMSAGeneratorSample:
 
         # Each should have exactly 1 mutation
         for seq in mutated_seqs:
-            diff_count = sum(1 for a, b in zip("GGGG", seq) if a != b)
+            diff_count = sum(1 for a, b in zip("GGGG", seq, strict=False) if a != b)
             assert diff_count == 1
 
         # Mutations should be independent (high probability of different outcomes)
@@ -323,7 +319,7 @@ class TestMSAGeneratorSample:
         mutated = segment.proposal_sequences[0].sequence
 
         # Only position 0 can be mutated
-        diff_count = sum(1 for a, b in zip("GGGG", mutated) if a != b)
+        diff_count = sum(1 for a, b in zip("GGGG", mutated, strict=False) if a != b)
         assert diff_count == 1
         assert mutated[0] in ["A", "C"]
 

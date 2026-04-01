@@ -1,12 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_utils.py
-
-Tests cover:
-1. validate_range() - Range validation for constraint parameters
-2. calculate_range_deviation() - Deviation calculation for range-based constraints
-3. calculate_percentage_range_deviation() - Deviation for percentage-based ranges
-4. calculate_normalized_deviation() - Normalized deviation from target values
-"""
+"""Tests for range validation, deviation calculation, and normalization utilities."""
 
 import pytest
 

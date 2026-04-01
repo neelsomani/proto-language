@@ -1,10 +1,4 @@
-"""
-tests/language_tests/generator_tests/test_random_nucleotide_generator.py
-
-Tests for the RandomNucleotideGenerator.
-"""
-
-from __future__ import annotations
+"""Tests for the RandomNucleotideGenerator."""
 
 import copy
 
@@ -137,7 +131,7 @@ class TestRandomNucleotideGenerator:
         mutated_sequence = segment.proposal_sequences[0].sequence
 
         diff_count = sum(
-            1 for a, b in zip(initial_sequence, mutated_sequence) if a != b
+            1 for a, b in zip(initial_sequence, mutated_sequence, strict=False) if a != b
         )
         # At most num_mut positions differ (some random replacements may match original)
         assert diff_count <= num_mut

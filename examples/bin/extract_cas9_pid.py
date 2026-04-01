@@ -26,7 +26,6 @@ import argparse
 import csv
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from Bio.Align import PairwiseAligner, substitution_matrices
 
@@ -97,7 +96,7 @@ def extract_pid(
     proposal_seq: str,
     pid_start: int = PID_START,
     pid_end: int = PID_END,
-) -> Dict:
+) -> dict:
     """Align proposal to SpCas9 and extract the PID region.
 
     Returns dict with keys: pid_sequence, pid_length, pid_identity, n_matches.
@@ -150,7 +149,7 @@ def extract_pid(
 # ---------------------------------------------------------------------------
 # Load proposals
 # ---------------------------------------------------------------------------
-def load_proposals(tsv_paths: List[str]) -> List[Dict]:
+def load_proposals(tsv_paths: list[str]) -> list[dict]:
     """Load proposal rows from TSVs, sorted by pLDDT descending."""
     rows = []
     for tsv_path in tsv_paths:
@@ -175,7 +174,7 @@ def load_proposals(tsv_paths: List[str]) -> List[Dict]:
 # ---------------------------------------------------------------------------
 # Load cofold metrics
 # ---------------------------------------------------------------------------
-def load_cofold_metrics(cofold_dir: str) -> Dict[int, Dict]:
+def load_cofold_metrics(cofold_dir: str) -> dict[int, dict]:
     """Load cofold metrics from summary.tsv in the cofold output directory.
 
     Returns dict mapping proposal_idx -> metrics dict.
@@ -206,7 +205,7 @@ def load_cofold_metrics(cofold_dir: str) -> Dict[int, Dict]:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main(args: Optional[List[str]] = None) -> None:
+def main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Extract PAM Interacting Domains (PIDs) from Cas9 proposals.",
     )
@@ -249,7 +248,7 @@ def main(args: Optional[List[str]] = None) -> None:
     rows = load_proposals(parsed.proposal_tsvs)
 
     # Load cofold metrics if provided
-    cofold_metrics: Dict[int, Dict] = {}
+    cofold_metrics: dict[int, dict] = {}
     if parsed.cofold_dir:
         cofold_metrics = load_cofold_metrics(parsed.cofold_dir)
 
@@ -329,8 +328,7 @@ def main(args: Optional[List[str]] = None) -> None:
             f.write(header + "\n")
             # Wrap sequence at 80 chars
             seq = r["pid_sequence"]
-            for i in range(0, len(seq), 80):
-                f.write(seq[i : i + 80] + "\n")
+            f.writelines(seq[i : i + 80] + "\n" for i in range(0, len(seq), 80))
     logger.info(f"Wrote PID FASTA: {fasta_path}")
 
     # Write TSV

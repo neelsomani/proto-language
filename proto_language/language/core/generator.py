@@ -1,8 +1,4 @@
-"""
-proto_language/language/core/generator.py
-
-Provides the abstract interface for sequence generation algorithms.
-"""
+"""Provides the abstract interface for sequence generation algorithms."""
 
 from __future__ import annotations
 
@@ -10,16 +6,18 @@ import logging
 import random
 import warnings
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from .segment import Segment
+from proto_language.language.core.segment import Segment
+
+if TYPE_CHECKING:
+    from proto_language.language.generator.generator_registry import GeneratorSpec
 
 logger = logging.getLogger(__name__)
 
 
 class Generator(ABC):
-    """
-    Generator base class that modifies proposal_sequences of assigned segments during optimization.
+    """Generator base class that modifies proposal_sequences of assigned segments during optimization.
 
     Subclasses must implement `__init__()` and `sample()`. Override `assign()` only if
     additional validation or initialization is needed (call super().assign() first).
@@ -32,11 +30,10 @@ class Generator(ABC):
 
     @abstractmethod
     def __init__(self) -> None:
-        """
-        Initialize the generator with configuration parameters.
-        """
-        self._assigned_segment: Optional[Segment] = None
-        self.__spec: Optional[GeneratorSpec] = None  # Lazy-loaded via property
+        """Initialize the generator with configuration parameters."""
+        # TODO: add logic to handle multiple assigned segments (if necessary)
+        self._assigned_segment: Segment | None = None
+        self.__spec: GeneratorSpec | None = None  # Lazy-loaded via property
 
     # Required lazy loading for mock generators to function in tests.
     @property
@@ -78,9 +75,7 @@ class Generator(ABC):
 
     @abstractmethod
     def sample(self) -> None:
-        """
-        Sample new sequences by modifying the assigned Segment's proposal_sequences in-place.
-        """
+        """Sample new sequences by modifying the assigned Segment's proposal_sequences in-place."""
         raise NotImplementedError(f"Subclass {self.__class__.__name__} must implement the sample() method.")
 
     def _validate_generator(self) -> None:
@@ -95,20 +90,18 @@ class Generator(ABC):
 
         # Warn if segment already has populated sequences that will be overwritten (autoregressive only)
         if self._spec.category == "autoregressive" and self._assigned_segment.proposals_populated:
-            warnings.warn(f"Segment '{self._assigned_segment.label or 'unlabeled'}' has an input sequence that will be overwritten by {self.__class__.__name__}.")
+            warnings.warn(f"Segment '{self._assigned_segment.label or 'unlabeled'}' has an input sequence that will be overwritten by {self.__class__.__name__}.", stacklevel=2)
 
         # Initialize random sequences for mutation generators if no input template sequence provided.
-        if self._spec.category == "mutation":
-            if not self._assigned_segment.proposals_populated:
-                warnings.warn(f"Generator {self.__class__.__name__} is a mutation generator, but proposals have no sequences. Initializing random starting sequences.")
-                valid_chars = list(self._assigned_segment.valid_chars - set(" "))
-                for sequence in self._assigned_segment.proposal_sequences:
-                    random_sequence = "".join(random.choice(valid_chars) for _ in range(self._assigned_segment.sequence_length))
-                    sequence.sequence = random_sequence
+        if self._spec.category == "mutation" and not self._assigned_segment.proposals_populated:
+            warnings.warn(f"Generator {self.__class__.__name__} is a mutation generator, but proposals have no sequences. Initializing random starting sequences.", stacklevel=2)
+            valid_chars = list(self._assigned_segment.valid_chars - set(" "))
+            for sequence in self._assigned_segment.proposal_sequences:
+                random_sequence = "".join(random.choice(valid_chars) for _ in range(self._assigned_segment.sequence_length))  # noqa: S311 -- non-cryptographic, used for random sequence initialization
+                sequence.sequence = random_sequence
 
         # Initialize unknown (X) sequences for inverse folding generators if no input sequence provided.
-        if self._spec.category == "inverse_folding":
-            if not self._assigned_segment.proposals_populated:
+        if self._spec.category == "inverse_folding" and not self._assigned_segment.proposals_populated:
                 unknown_sequence = "X" * self._assigned_segment.sequence_length
                 for sequence in self._assigned_segment.proposal_sequences:
                     sequence.sequence = unknown_sequence

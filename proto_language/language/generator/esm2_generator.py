@@ -1,10 +1,4 @@
-"""
-proto_language/language/generator/esm2_generator.py
-
-ESM2 Generator for protein sequence generation
-"""
-
-from __future__ import annotations
+"""ESM2 Generator for protein sequence generation."""
 
 from typing import final
 
@@ -130,8 +124,7 @@ class ESM2Generator(Generator):
     """
 
     def __init__(self, config: ESM2GeneratorConfig) -> None:
-        """
-        Initialize the ESM-2 generator with model and sampling configuration.
+        """Initialize the ESM-2 generator with model and sampling configuration.
 
         Args:
             config (ESM2GeneratorConfig): Configuration object containing all generator parameters.
@@ -144,8 +137,7 @@ class ESM2Generator(Generator):
         self.batch_size = config.batch_size
 
     def sample(self) -> None:
-        """
-        Sample new amino acids at masked positions for all sequences in the batch.
+        """Sample new amino acids at masked positions for all sequences in the batch.
 
         For each sequence in the batch, applies the masking strategy to select
         positions, then uses ESM2 to sample new amino acids at those positions.

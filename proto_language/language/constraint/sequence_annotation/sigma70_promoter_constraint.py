@@ -1,13 +1,8 @@
-"""
-proto_language/language/constraint/sequence_annotation/sigma70_promoter_constraint.py
-
-sigma-70 promoter similarity constraint for evaluating promoter similarity.
-"""
+"""sigma-70 promoter similarity constraint for evaluating promoter similarity."""
 
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
 
 import numpy as np
 
@@ -124,13 +119,13 @@ class Sigma70PromoterConfig(BaseConfig):
         description="-10 box consensus sequence (6 bp Pribnow box, typically TATAAT for E. coli sigma-70)",
         advanced=True,
     )
-    probs_35: List[float] = ConfigField(
+    probs_35: list[float] = ConfigField(
         title="Conservation Probs -35 Box",
         default=[0.69, 0.79, 0.61, 0.56, 0.54, 0.54],
         description="Position-specific conservation probabilities for -35 box (6 values). From RegulonDB.",
         advanced=True,
     )
-    probs_10: List[float] = ConfigField(
+    probs_10: list[float] = ConfigField(
         title="Conservation Probs -10 Box",
         default=[0.77, 0.76, 0.60, 0.61, 0.56, 0.82],
         description="Position-specific conservation probabilities for -10 box (6 values). From RegulonDB.",
@@ -201,7 +196,7 @@ class Sigma70PromoterConfig(BaseConfig):
     supported_sequence_types=["dna"],
     num_input_sequences_per_tuple=1,
 )
-def sigma70_promoter_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Sigma70PromoterConfig) -> List[float]:
+def sigma70_promoter_constraint(input_sequences: list[tuple[Sequence, ...]], config: Sigma70PromoterConfig) -> list[float]:
     """Evaluate E. coli sigma-70 promoter similarity using PWM-based scoring.
 
     This constraint function evaluates bacterial promoter similarity by scanning
@@ -281,7 +276,6 @@ def sigma70_promoter_constraint(input_sequences: List[Tuple[Sequence, ...]], con
         >>> print(f"Matches: {metadata['total_matches']}/12")  # e.g., 11/12
         >>> print(f"Spacer: {metadata['spacer_len']} bp")  # 17
     """
-
     CONS_35 = config.consensus_35.upper()
     CONS_10 = config.consensus_10.upper()
     PROBS_35 = np.array(config.probs_35)
@@ -292,13 +286,13 @@ def sigma70_promoter_constraint(input_sequences: List[Tuple[Sequence, ...]], con
         prob_35 = np.prod(
             [
                 prob if b == c else (1.0 - prob)
-                for b, c, prob in zip(box35, CONS_35, PROBS_35)
+                for b, c, prob in zip(box35, CONS_35, PROBS_35, strict=False)
             ]
         )
         prob_10 = np.prod(
             [
                 prob if b == c else (1.0 - prob)
-                for b, c, prob in zip(box10, CONS_10, PROBS_10)
+                for b, c, prob in zip(box10, CONS_10, PROBS_10, strict=False)
             ]
         )
         raw_pwm = prob_35 * prob_10
@@ -306,8 +300,8 @@ def sigma70_promoter_constraint(input_sequences: List[Tuple[Sequence, ...]], con
         pwm_score = normalized_pwm ** config.gamma
         pwm_penalty = 1.0 - pwm_score
 
-        total_matches = sum(a == c for a, c in zip(box35, CONS_35)) + sum(
-            a == c for a, c in zip(box10, CONS_10)
+        total_matches = sum(a == c for a, c in zip(box35, CONS_35, strict=False)) + sum(
+            a == c for a, c in zip(box10, CONS_10, strict=False)
         )
         match_dev = (total_matches - config.k_opt) / config.match_sigma
         match_penalty = 1.0 - math.exp(-(match_dev**2))
@@ -326,7 +320,7 @@ def sigma70_promoter_constraint(input_sequences: List[Tuple[Sequence, ...]], con
             "spacer_len": spacer_len,
         }
 
-    penalties: List[float] = []
+    penalties: list[float] = []
 
     for (seq_obj,) in input_sequences:
         seq = seq_obj.sequence.upper().replace(" ", "").replace("\n", "")

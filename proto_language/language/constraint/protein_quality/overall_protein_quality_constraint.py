@@ -1,11 +1,8 @@
-"""proto_language/language/constraint/protein_quality/overall_protein_quality_constraint.py
-
-Overall protein quality constraint function."""
+"""Overall protein quality constraint function."""
 
 from __future__ import annotations
 
 import json
-from typing import List, Optional, Tuple
 
 import numpy as np
 from proto_tools import ProdigalConfig, ProdigalInput, run_prodigal_prediction
@@ -129,7 +126,7 @@ class ProteinQualitySubConfig(BaseConfig):
         title="Enable Sequence Length Constraint",
         description="Toggle to include the sequence length constraint. Provide min/max or target values below.",
     )
-    length_min_length: Optional[int] = ConfigField(
+    length_min_length: int | None = ConfigField(
         default=None,
         gt=0,
         title="Length Minimum",
@@ -137,7 +134,7 @@ class ProteinQualitySubConfig(BaseConfig):
         advanced=True,
         depends_on={"field": "enable_length"},
     )
-    length_max_length: Optional[int] = ConfigField(
+    length_max_length: int | None = ConfigField(
         default=None,
         gt=0,
         title="Length Maximum",
@@ -145,7 +142,7 @@ class ProteinQualitySubConfig(BaseConfig):
         advanced=True,
         depends_on={"field": "enable_length"},
     )
-    length_target_length: Optional[int] = ConfigField(
+    length_target_length: int | None = ConfigField(
         default=None,
         gt=0,
         title="Length Target",
@@ -238,7 +235,7 @@ class ProteinQualitySubConfig(BaseConfig):
         depends_on={"field": "enable_balanced_aas"},
     )
 
-    def get_length_config(self) -> Optional[SequenceLengthConfig]:
+    def get_length_config(self) -> SequenceLengthConfig | None:
         """Build the SequenceLengthConfig if enabled."""
         if not self.enable_length:
             return None
@@ -254,7 +251,7 @@ class ProteinQualitySubConfig(BaseConfig):
             )
         return SequenceLengthConfig(**filtered)
 
-    def get_complexity_config(self) -> Optional[ProteinComplexityConfig]:
+    def get_complexity_config(self) -> ProteinComplexityConfig | None:
         """Build the ProteinComplexityConfig if enabled."""
         if not self.enable_complexity:
             return None
@@ -263,7 +260,7 @@ class ProteinQualitySubConfig(BaseConfig):
             segmasker_path=self.complexity_segmasker_path,
         )
 
-    def get_repetitiveness_config(self) -> Optional[ProteinRepetitivenessConfig]:
+    def get_repetitiveness_config(self) -> ProteinRepetitivenessConfig | None:
         """Build the ProteinRepetitivenessConfig if enabled."""
         if not self.enable_repetitiveness:
             return None
@@ -272,13 +269,13 @@ class ProteinQualitySubConfig(BaseConfig):
             min_repeat_length=self.repetitiveness_min_repeat_length,
         )
 
-    def get_diversity_config(self) -> Optional[ProteinDiversityConfig]:
+    def get_diversity_config(self) -> ProteinDiversityConfig | None:
         """Build the ProteinDiversityConfig if enabled."""
         if not self.enable_diversity:
             return None
         return ProteinDiversityConfig(min_diversity=self.diversity_min_diversity)
 
-    def get_balanced_config(self) -> Optional[BalancedAaConfig]:
+    def get_balanced_config(self) -> BalancedAaConfig | None:
         """Build the BalancedAaConfig if enabled."""
         if not self.enable_balanced_aas:
             return None
@@ -376,7 +373,7 @@ class OverallProteinQualityConfig(BaseConfig):
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...]], config: OverallProteinQualityConfig) -> List[float]:
+def overall_protein_quality_constraint(input_sequences: list[tuple[Sequence, ...]], config: OverallProteinQualityConfig) -> list[float]:
     """Evaluate overall protein quality using multiple configurable sub-constraints.
 
     This constraint function provides a comprehensive assessment of protein quality
@@ -533,7 +530,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
         for input_sequence, proteins_list, num_genes in zip(
             dna_sequences,
             batch_result.predicted_orfs,
-            batch_result.num_orfs_per_sequence
+            batch_result.num_orfs_per_sequence, strict=False
         ):
             orf_dicts = [orf.model_dump() for orf in proteins_list]
             input_sequence._metadata["prodigal_proteins"] = store_file(
@@ -591,7 +588,7 @@ def overall_protein_quality_constraint(input_sequences: List[Tuple[Sequence, ...
 
             # Build details
             protein_quality_details = []
-            for prot_idx, (orf, protein_seq) in enumerate(zip(proteins_list, predicted_protein_seqs)):
+            for prot_idx, (orf, protein_seq) in enumerate(zip(proteins_list, predicted_protein_seqs, strict=False)):
                 individual_scores = {
                     name: scores[prot_idx]
                     for name, scores in quality_scores.items()

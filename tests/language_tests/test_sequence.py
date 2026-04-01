@@ -1,4 +1,4 @@
-"""tests/language_tests/test_sequence.py"""
+"""tests/language_tests/test_sequence.py."""
 import copy
 import warnings
 

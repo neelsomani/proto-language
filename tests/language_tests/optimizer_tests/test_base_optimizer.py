@@ -1,8 +1,7 @@
-"""tests/language_tests/optimizer_tests/test_base_optimizer.py"""
+"""tests/language_tests/optimizer_tests/test_base_optimizer.py."""
 from __future__ import annotations
 
 import logging
-from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,12 +21,12 @@ class ConcreteOptimizer(Optimizer):
     """Concrete implementation of Optimizer for testing purposes."""
     def __init__(
         self,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         num_proposals: int | None,
         num_results: int | None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
         verbose: bool = False,
         tracking_interval: int = 1,
         track_proposals: bool = False,
@@ -47,7 +46,6 @@ class ConcreteOptimizer(Optimizer):
     def run(self) -> None:
         """Dummy run implementation."""
         self._prepare_run()
-        pass
 
 
 class MockGenerator(Generator):
@@ -158,16 +156,16 @@ class TestOptimizerValidation:
     # 4. No duplicate instances
     def test_duplicate_generator_instance_raises(self):
         """Tests that same generator instance appearing twice raises ValueError."""
-        construct, generator, constraint, segment = _setup_optimizer_components()
+        construct, generator, constraint, _segment = _setup_optimizer_components()
         # Use same generator instance twice
-        with pytest.raises(ValueError, match="appears multiple times.*can only be used once"):
+        with pytest.raises(ValueError, match=r"appears multiple times.*can only be used once"):
             ConcreteOptimizer([construct], [generator, generator], [constraint], 4, 2)
 
     def test_duplicate_constraint_instance_raises(self):
         """Tests that same constraint instance appearing twice raises ValueError."""
         construct, generator, constraint, _ = _setup_optimizer_components()
         # Use same constraint instance twice
-        with pytest.raises(ValueError, match="appears multiple times.*can only be used once"):
+        with pytest.raises(ValueError, match=r"appears multiple times.*can only be used once"):
             ConcreteOptimizer([construct], [generator], [constraint, constraint], 4, 2)
 
     # 5. Unique constraint labels per segment (auto-renamed on collision)
@@ -766,7 +764,7 @@ class TestProgressSnapshot:
 
     def test_snapshot_validates_energy_scores_matches_result(self):
         """Tests that snapshot raises error if energy_scores length != result_sequences length."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
+        construct, generator, constraint, _segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
 
         # energy_scores doesn't match result_sequences length (1)
@@ -795,7 +793,7 @@ class TestStateRestartBehavior:
 
     def test_prepare_run_captures_state_on_first_call(self):
         """Tests that _prepare_run captures state on first call."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
+        construct, generator, constraint, _segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 2)
 
         assert optimizer._initial_state is None
@@ -914,7 +912,7 @@ class TestProposalTracking:
 
     def test_snapshot_includes_proposal_results(self):
         """_save_progress_snapshot includes proposal_results when track_proposals=True."""
-        construct, generator, constraint, segment = _setup_optimizer_components(num_proposals=2)
+        construct, generator, constraint, _segment = _setup_optimizer_components(num_proposals=2)
         optimizer = ConcreteOptimizer([construct], [generator], [constraint], 2, 1)
         optimizer.track_proposals = True
 

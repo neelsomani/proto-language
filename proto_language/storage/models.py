@@ -1,13 +1,9 @@
-"""
-proto_language/storage/models.py
-
-Data models for file storage references.
-"""
+"""Data models for file storage references."""
 
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -73,7 +69,7 @@ class FileReference(BaseModel):
             return False
         return data.get(FILE_REF_MARKER, False) is True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to a dictionary with the file reference marker.
 
         Returns:
@@ -88,7 +84,7 @@ class FileReference(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FileReference:
+    def from_dict(cls, data: dict[str, Any]) -> FileReference:
         """Create a FileReference from a dictionary.
 
         Args:

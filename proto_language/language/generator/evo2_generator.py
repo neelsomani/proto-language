@@ -1,12 +1,8 @@
-"""
-proto_language/language/generator/evo2_generator.py
-
-Evo2 Generator for DNA sequence generation
-"""
+"""Evo2 Generator for DNA sequence generation."""
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, final
+from typing import final
 
 from proto_tools import Evo2SampleConfig, Evo2SampleInput, run_evo2_sample
 from proto_tools.tools.causal_models.evo2.evo2_sample import (
@@ -96,7 +92,7 @@ class Evo2GeneratorConfig(BaseConfig):
     """
 
     # Required parameters
-    prompts: List[str] = ConfigField(
+    prompts: list[str] = ConfigField(
         title="Prompts",
         description="Prompt sequences for DNA sequence generation (single prompt or multiple)",
     )
@@ -107,7 +103,7 @@ class Evo2GeneratorConfig(BaseConfig):
     )
 
     # Advanced parameters
-    local_path: Optional[str] = ConfigField(
+    local_path: str | None = ConfigField(
         default=None,
         title="Local Checkpoint Path",
         description="Path to local checkpoint weights for custom or finetuned models",
@@ -135,13 +131,13 @@ class Evo2GeneratorConfig(BaseConfig):
         description="Scales the randomness of sampling by adjusting probability distribution sharpness.",
         advanced=True,
     )
-    force_prompt_threshold: Optional[int] = ConfigField(
+    force_prompt_threshold: int | None = ConfigField(
         default=None,
         title="Force Prompt Threshold",
         description="Optional number of tokens to prefill in parallel before switching to prompt forcing.",
         advanced=True,
     )
-    max_seqlen: Optional[int] = ConfigField(
+    max_seqlen: int | None = ConfigField(
         default=None,
         title="Max Sequence Length",
         description="Optional maximum sequence length to generate. Determines the max size of the cache if larger.",
@@ -202,7 +198,7 @@ class Evo2GeneratorConfig(BaseConfig):
     @model_validator(mode="after")
     def validate_prompts_length(self):
         """Validate that all prompts have the same length."""
-        if len(set(len(seq) for seq in self.prompts)) != 1:
+        if len({len(seq) for seq in self.prompts}) != 1:
             raise ValueError(f"All prompts must have same length, got: {[len(seq) for seq in self.prompts]}")
 
         return self
@@ -254,8 +250,7 @@ class Evo2Generator(Generator):
     """
 
     def __init__(self, config: Evo2GeneratorConfig) -> None:
-        """
-        Initialize the Evo2 generator with model configuration and sampling parameters.
+        """Initialize the Evo2 generator with model configuration and sampling parameters.
 
         For detailed documentation of Evo2 sampling parameters, refer to:
         https://github.com/arcinstitute/evo2 and https://github.com/Zymrael/vortex
@@ -280,14 +275,14 @@ class Evo2Generator(Generator):
         self.batch_size = config.batch_size
         self.store_kv_cache = config.store_kv_cache
         self.prepend_prompt = config.prepend_prompt
-        self.kv_caches: List[Dict] = []
+        self.kv_caches: list[dict] = []
 
     def sample(
         self,
-        prompts: Optional[List[str]] = None,
-        prepend_prompt: Optional[bool] = None,
-        num_tokens: Optional[int] = None,
-        old_kv_cache: Optional[Dict] = None,
+        prompts: list[str] | None = None,
+        prepend_prompt: bool | None = None,
+        num_tokens: int | None = None,
+        old_kv_cache: dict | None = None,
     ) -> None:
         """Generate sequences using the Evo2 model.
 
@@ -333,7 +328,7 @@ class Evo2Generator(Generator):
         ):
             proposal.sequence = sequence
 
-    def replicate_cache(self, cache: Dict, n_replicates: int) -> Dict:
+    def replicate_cache(self, cache: dict, n_replicates: int) -> dict:
         """Replicate cache N times for beam branching."""
         from vortex.model.cache import (
             HyenaCascadeFIRInferenceParams,
@@ -413,7 +408,7 @@ class Evo2Generator(Generator):
             ),
         }
 
-    def _replicate_prompts(self, prompts: List[str]) -> List[str]:
+    def _replicate_prompts(self, prompts: list[str]) -> list[str]:
         """Match prompt count to proposal count, replicating single prompts."""
         num_proposals = len(self._assigned_segment.proposal_sequences)
         if len(prompts) == num_proposals:

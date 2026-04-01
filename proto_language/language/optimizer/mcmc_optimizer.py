@@ -1,21 +1,15 @@
-"""
-proto_language/language/optimizer/mcmc_optimizer.py
-
-Metropolis-Hastings MCMC Optimizer that uses multiple sub-generators as proposal distributions and constraints to define the energy function.
-"""
+"""Metropolis-Hastings MCMC Optimizer that uses multiple sub-generators as proposal distributions and constraints to define the energy function."""
 from __future__ import annotations
 
 import copy
 import logging
 import math
 import random
-from typing import Callable, Dict, List, Optional, Tuple, final
+from collections.abc import Callable
+from typing import final
 
 import numpy as np
 from pydantic import model_validator
-
-logger = logging.getLogger(__name__)
-
 
 from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
@@ -26,6 +20,8 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
+
+logger = logging.getLogger(__name__)
 
 # Maximum safe exponent for np.exp() to prevent overflow
 MAX_EXP_ARG = 700.0
@@ -83,7 +79,7 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
     )
 
     # Advanced parameters
-    num_results: Optional[int] = ConfigField(
+    num_results: int | None = ConfigField(
         default=None,
         ge=1,
         title="Design Candidates",
@@ -181,15 +177,14 @@ class MCMCOptimizer(Optimizer):
 
     def __init__(
         self,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         config: MCMCOptimizerConfig,
-        custom_logging: Optional[Callable] = None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
+        custom_logging: Callable | None = None,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
     ) -> None:
-        """
-        Initialize the MCMC Optimizer with sub-generators and constraints.
+        """Initialize the MCMC Optimizer with sub-generators and constraints.
 
         Args:
             constructs (list[Construct]): List of Construct objects to optimize.
@@ -224,8 +219,7 @@ class MCMCOptimizer(Optimizer):
         self.min_temperature: float = config.min_temperature
 
     def run(self) -> None:
-        """
-        Execute Metropolis-Hastings MCMC sampling for sequence optimization.
+        """Execute Metropolis-Hastings MCMC sampling for sequence optimization.
 
         Runs the specified number of MCMC steps, where each step:
         1. Maintains `num_results` independent trajectories in `result_sequences`
@@ -267,7 +261,7 @@ class MCMCOptimizer(Optimizer):
             self._populate_proposal_sequences()
 
             # 3. Generate proposals for proposal_sequences in-place by randomly sampling a generator
-            generator = random.choice(self.generators)
+            generator = random.choice(self.generators)  # noqa: S311 -- non-cryptographic, used for stochastic generator selection
             generator.sample()
 
             # 4. Score proposal_sequences
@@ -282,7 +276,7 @@ class MCMCOptimizer(Optimizer):
                 self._log_mcmc_progress(step)
 
 
-    def _save_sequence_state(self) -> List[Tuple[Dict[int, Sequence], float]]:
+    def _save_sequence_state(self) -> list[tuple[dict[int, Sequence], float]]:
         """Save state of result sequences.
 
         Returns:
@@ -314,7 +308,7 @@ class MCMCOptimizer(Optimizer):
     def _select_topk_with_mcmc_acceptance(
         self,
         step: int,
-        old_result_sequences: List[Tuple[Dict[int, Sequence], float]],
+        old_result_sequences: list[tuple[dict[int, Sequence], float]],
     ) -> None:
         """Select the best proposal per trajectory and apply Metropolis-Hastings acceptance.
 
@@ -351,7 +345,7 @@ class MCMCOptimizer(Optimizer):
             # 2. Apply MH acceptance criterion
             valid_proposals_exist = best_proposal_idx is not None
             alpha = self._compute_mcmc_alpha(old_result_energy, best_energy, step)
-            accepted = valid_proposals_exist and random.random() < alpha
+            accepted = valid_proposals_exist and random.random() < alpha  # noqa: S311 -- non-cryptographic, used for Metropolis-Hastings acceptance
 
             # 3. Update trajectory state
             if accepted:
@@ -380,7 +374,7 @@ class MCMCOptimizer(Optimizer):
         self.energy_scores = self.energy_scores[:self.num_results]
 
     def _compute_temperature(self, step: int) -> float:
-        """Calculate annealed temperature: T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1))
+        """Calculate annealed temperature: T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1)).
 
         Args:
             step (int): Current MCMC iteration index.
@@ -392,11 +386,10 @@ class MCMCOptimizer(Optimizer):
         """
         if self.num_steps == 1:
             return self.max_temperature
-        else:
-            return self.max_temperature * (self.min_temperature / self.max_temperature) ** ((step - 1) / (self.num_steps - 1))
+        return self.max_temperature * (self.min_temperature / self.max_temperature) ** ((step - 1) / (self.num_steps - 1))
 
     def _compute_mcmc_alpha(self, current_energy: float, proposed_energy: float, step: int) -> float:
-        """Compute Metropolis-Hastings acceptance probability: alpha = min(1, exp(-(E_new - E_old) / T))
+        """Compute Metropolis-Hastings acceptance probability: alpha = min(1, exp(-(E_new - E_old) / T)).
 
         Args:
             current_energy (float): Energy of the current accepted state.

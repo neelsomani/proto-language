@@ -1,12 +1,6 @@
-"""
-proto_language/language/constraint/sequence_composition/sequence_length_constraint.py
-
-Sequence length constraint for evaluating sequence length properties.
-"""
+"""Sequence length constraint for evaluating sequence length properties."""
 
 from __future__ import annotations
-
-from typing import List, Optional, Tuple
 
 from pydantic import model_validator
 
@@ -48,7 +42,7 @@ class SequenceLengthConfig(BaseConfig):
             used together with min_length/max_length. Default: None.
     """
     # Required parameters
-    min_length: Optional[int] = ConfigField(
+    min_length: int | None = ConfigField(
         title="Minimum Acceptable Length",
         default=None,
         gt=0,
@@ -56,14 +50,14 @@ class SequenceLengthConfig(BaseConfig):
     )
 
     # Advanced parameters
-    max_length: Optional[int] = ConfigField(
+    max_length: int | None = ConfigField(
         title="Maximum Acceptable Length",
         default=None,
         gt=0,
         description="Maximum acceptable length (use with min_length for range mode)",
         advanced=True,
     )
-    target_length: Optional[int] = ConfigField(
+    target_length: int | None = ConfigField(
         title="Target Length",
         default=None,
         gt=0,
@@ -99,7 +93,7 @@ class SequenceLengthConfig(BaseConfig):
     supported_sequence_types=["dna", "rna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def sequence_length_constraint(input_sequences: List[Tuple[Sequence, ...]], config: SequenceLengthConfig) -> List[float]:
+def sequence_length_constraint(input_sequences: list[tuple[Sequence, ...]], config: SequenceLengthConfig) -> list[float]:
     """Evaluate sequence length against target value or acceptable range.
 
     This constraint function evaluates whether sequences have appropriate lengths.

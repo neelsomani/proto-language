@@ -1,13 +1,17 @@
-"""proto_language/language/core/program.py"""
+"""proto_language/language/core/program.py."""
 from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
+if TYPE_CHECKING:
+    from proto_tools.utils.tool_pool import ToolPool
+
+from proto_language.language.core.optimizer import Optimizer
 from proto_language.utils.export import (
     build_results,
     export_tables,
@@ -15,14 +19,11 @@ from proto_language.utils.export import (
     to_fasta,
 )
 
-from .optimizer import Optimizer
-
 logger = logging.getLogger(__name__)
 
 
 class Program:
-    """
-    Programs represent user-defined biological designs.
+    """Programs represent user-defined biological designs.
 
     This class supports sequential execution of multiple optimizers, where each
     optimizer builds on the results of the previous one. All optimizers must
@@ -93,13 +94,12 @@ class Program:
 
     def __init__(
         self,
-        optimizers: List[Optimizer],
+        optimizers: list[Optimizer],
         num_results: int,
         verbose: bool = False,
         compute: ToolPool | None = None,
     ) -> None:
-        """
-        Initialize a Program with a list of optimizers to run sequentially.
+        """Initialize a Program with a list of optimizers to run sequentially.
 
         Args:
             optimizers (list[Optimizer]): List of Optimizer objects to run in sequence. Each optimizer
@@ -178,14 +178,13 @@ class Program:
                 segment.construct_label = construct.label
 
         self.current_stage = 0
-        self._stage_results: List[Dict] = []
+        self._stage_results: list[dict] = []
         self._validate_program()
         logger.debug(f"Program initialized: optimizers={len(self.optimizers)}, constructs={len(self.constructs)}")
 
     @property
-    def energy_scores(self) -> List[float]:
-        """
-        Get energy scores from the final optimizer.
+    def energy_scores(self) -> list[float]:
+        """Get energy scores from the final optimizer.
 
         Returns:
             list[float]: List of energy scores where lower values indicate better solutions.
@@ -198,8 +197,7 @@ class Program:
         return self.optimizers[-1].energy_scores
 
     def _validate_program(self) -> None:
-        """
-        Validate program configuration before execution.
+        """Validate program configuration before execution.
 
         Checks:
             1. Resolved num_results: All optimizers must have num_results set.
@@ -232,7 +230,7 @@ class Program:
                     f"but optimizer 0 has {len(reference_constructs)}. "
                     "All optimizers must share the same construct objects."
                 )
-            for j, (construct, ref_construct) in enumerate(zip(optimizer.constructs, reference_constructs)):
+            for j, (construct, ref_construct) in enumerate(zip(optimizer.constructs, reference_constructs, strict=False)):
                 if construct is not ref_construct:
                     raise ValueError(
                         f"Optimizer {i} construct {j} is not the same object as "
@@ -243,7 +241,7 @@ class Program:
         # 3. Validate unique construct labels
         construct_labels = [c.label for c in self.constructs]
         if len(construct_labels) != len(set(construct_labels)):
-            duplicates = [l for l in construct_labels if construct_labels.count(l) > 1]
+            duplicates = [label for label in construct_labels if construct_labels.count(label) > 1]
             raise ValueError(f"Construct labels must be unique. Duplicates: {set(duplicates)}")
 
         # 4. Validate no segment reuse across constructs
@@ -278,8 +276,8 @@ class Program:
         # 6. Validate no generator/constraint reuse across optimizers
         # Each optimizer needs its own instances to avoid shared mutable state issues.
         if len(self.optimizers) > 1:
-            seen_generators: Dict[int, int] = {}
-            seen_constraints: Dict[int, int] = {}
+            seen_generators: dict[int, int] = {}
+            seen_constraints: dict[int, int] = {}
 
             for opt_idx, optimizer in enumerate(self.optimizers):
                 for gen in optimizer.generators:
@@ -310,8 +308,7 @@ class Program:
                 logger.debug(f"    {construct['label']}: {' | '.join(seqs)}")
 
     def run(self) -> None:
-        """
-        Execute the sequence optimization process for all optimizers sequentially.
+        """Execute the sequence optimization process for all optimizers sequentially.
 
         Each optimizer builds on the results of the previous one. State automatically
         persists between optimizers through the shared construct objects.
@@ -335,8 +332,7 @@ class Program:
                 self.run_stage(optimizer_stage_idx)
 
     def run_stage(self, stage_index: int) -> None:
-        """
-        Execute a specific optimization stage.
+        """Execute a specific optimization stage.
 
         Allows running optimizers one at a time with inspection of results between
         stages. Each stage builds on results from previous stages through shared
@@ -406,7 +402,7 @@ class Program:
             with self.compute:
                 yield
 
-    def get_stage_results(self, stage_index: int) -> Dict[str, Any]:
+    def get_stage_results(self, stage_index: int) -> dict[str, Any]:
         """Get results from a specific optimization stage."""
         if stage_index < 0 or stage_index >= len(self._stage_results):
             raise IndexError(f"Stage {stage_index} not available. Only {len(self._stage_results)} stage(s) run.")
@@ -425,13 +421,12 @@ class Program:
                 for seq in segment.proposal_sequences:
                     seq._constraints_metadata = {}
 
-    def extract_results(self, energy_scores: List[float]) -> Dict[str, Any]:
+    def extract_results(self, energy_scores: list[float]) -> dict[str, Any]:
         """Extract results from constructs."""
         return build_results(self.constructs, energy_scores)
 
-    def serialize_state(self) -> Dict:
-        """
-        Serialize minimal program state for persistence between stages.
+    def serialize_state(self) -> dict:
+        """Serialize minimal program state for persistence between stages.
 
         Only stores what's needed to reconstruct Sequence objects:
         sequence, sequence_type, valid_chars. Constraint metadata is
@@ -454,18 +449,17 @@ class Program:
 
         return {"segments": segment_states}
 
-    def restore_state(self, state: Dict, stage_index: int = None) -> None:
-        """
-        Restore program state from serialized data.
+    def restore_state(self, state: dict, stage_index: int | None = None) -> None:
+        """Restore program state from serialized data.
 
         Args:
             state (dict): Dictionary returned by serialize_state()
-            stage_index (int): Optional stage index to set current_stage to (for resuming from a specific stage)
+            stage_index (int | None): Optional stage index to set current_stage to (for resuming from a specific stage)
 
         Raises:
             ValueError: If state doesn't match program structure
         """
-        from .sequence import Sequence
+        from proto_language.language.core.sequence import Sequence
 
         all_segments = [seg for construct in self.constructs for seg in construct.segments]
 
@@ -475,7 +469,7 @@ class Program:
                 f"but state has {len(state['segments'])} segments"
             )
 
-        for segment, segment_state in zip(all_segments, state["segments"]):
+        for segment, segment_state in zip(all_segments, state["segments"], strict=False):
             segment.result_sequences = [
                 Sequence(
                     sequence=seq_data["sequence"],
@@ -493,7 +487,7 @@ class Program:
     # Export
     # =========================================================================
 
-    def _collect_history(self, stage: Optional[int] = None) -> List[Dict[str, Any]]:
+    def _collect_history(self, stage: int | None = None) -> list[dict[str, Any]]:
         if stage is not None:
             if stage < 0 or stage >= len(self.optimizers):
                 raise IndexError(
@@ -546,12 +540,12 @@ class Program:
         """
         results = self._results_for_stage(stage)
         history = self._collect_history(stage)
-        filters = dict(
-            segments=segments,
-            result_indices=result_indices,
-            constraints=constraints,
-            include_proposals=include_proposals,
-        )
+        filters = {
+            "segments": segments,
+            "result_indices": result_indices,
+            "constraints": constraints,
+            "include_proposals": include_proposals,
+        }
         return export_tables(
             lambda t: flatten_table(t, results, history, **filters),
             path, format, table,

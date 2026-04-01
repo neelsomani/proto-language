@@ -1,12 +1,10 @@
-"""
-proto_language/language/optimizer/optimizer_registry.py
+"""Provides a decorator-based API for registering optimizer classes with metadata and.
 
-Provides a decorator-based API for registering optimizer classes with metadata and
 automatic schema generation for API/client integration.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Type
+from typing import ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -15,8 +13,7 @@ from proto_language.language.core import Optimizer
 
 
 class OptimizerSpec(BaseSpec):
-    """
-    Specification for a registered optimizer.
+    """Specification for a registered optimizer.
 
     Extends BaseSpec with optimizer-specific metadata for discovery and schema generation.
 
@@ -36,11 +33,10 @@ class OptimizerSpec(BaseSpec):
     )
 
     # Private field - excluded from serialization
-    optimizer_class: Type[Optimizer] = Field(exclude=True)
+    optimizer_class: type[Optimizer] = Field(exclude=True)
 
 class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
-    """
-    Registry for optimizer discovery and schema generation.
+    """Registry for optimizer discovery and schema generation.
 
     Inherits common registry functionality from BaseRegistry and adds
     optimizer-specific metadata.
@@ -89,20 +85,19 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
     """
 
     # Each registry subclass must have its own _registry dict
-    _registry: Dict[str, OptimizerSpec] = {}
+    _registry: ClassVar[dict[str, OptimizerSpec]] = {}
 
     @classmethod
     def register(
         cls,
         key: str,
         label: str,
-        config: Type[BaseModel],
+        config: type[BaseModel],
         description: str,
         uses_gpu: bool = False,
         targets_single_segment: bool = False,
     ):
-        """
-        Decorator to register an optimizer class.
+        """Decorator to register an optimizer class.
 
         This is the optimizer-specific implementation of the abstract register()
         method from BaseRegistry.
@@ -130,7 +125,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
             ...         # Implementation
             ...         pass
         """
-        def decorator(optimizer_class: Type[Optimizer]):
+        def decorator(optimizer_class: type[Optimizer]):
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, optimizer_class.__name__)
 
@@ -156,7 +151,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         raise ValueError(f"Optimizer '{optimizer_class.__name__}' is not registered")
 
     @classmethod
-    def list_all(cls) -> List[OptimizerSpec]:
+    def list_all(cls) -> list[OptimizerSpec]:
         """List all registered optimizers as Pydantic models."""
         return list(cls._registry.values())
 

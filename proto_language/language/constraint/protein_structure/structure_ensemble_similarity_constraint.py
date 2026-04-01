@@ -1,7 +1,5 @@
-"""
-proto_language/language/constraint/protein_structure/structure_ensemble_similarity_constraint.py
+"""Contains implementation of structure ensemble similarity constraints.
 
-Contains implementation of structure ensemble similarity constraints
 for conformational ensemble sampling and PyMOL-based RMSD alignment.
 
 This constraint generates a conformational ensemble for a protein sequence and
@@ -14,7 +12,7 @@ from __future__ import annotations
 import os
 import tempfile
 from logging import getLogger
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 import numpy as np
 from proto_tools import (
@@ -43,9 +41,8 @@ def _compute_pymol_aligned_rmsd(
     mobile_pdb_text: str,
     target_selection: str = "name CA",
     mobile_selection: str = "name CA",
-) -> Dict[str, Any]:
-    """
-    Compute aligned RMSD using PyMOL's align command.
+) -> dict[str, Any]:
+    """Compute aligned RMSD using PyMOL's align command.
 
     PyMOL's align performs sequence alignment followed by structural superposition,
     making it robust to differences in residue numbering or sequence length.
@@ -88,7 +85,7 @@ def _compute_pymol_aligned_rmsd(
         cmd.load(tmp_mobile, "mobile")
 
         # align performs sequence alignment + structural superposition.
-        # Returns: (RMSD, n_atoms_aligned, n_cycles, RMSD_pre, n_atoms_pre, score, n_res)
+        # Returns: (RMSD, n_atoms_aligned, n_cycles, RMSD_pre, n_atoms_pre, score, n_res)  # noqa: ERA001
         result = cmd.align(
             f"mobile and {mobile_selection}",
             f"target and {target_selection}",
@@ -113,13 +110,12 @@ def _compute_pymol_aligned_rmsd(
 
 def _compute_ensemble_rmsds(
     target_pdb_text: str,
-    ensemble_pdb_frames: List[str],
+    ensemble_pdb_frames: list[str],
     target_selection: str = "name CA",
     mobile_selection: str = "name CA",
     verbose: bool = False,
-) -> List[float]:
-    """
-    Compute RMSD between a target structure and all frames in an ensemble.
+) -> list[float]:
+    """Compute RMSD between a target structure and all frames in an ensemble.
 
     Args:
         target_pdb_text (str): PDB content of the target (reference) structure.
@@ -150,11 +146,11 @@ def _compute_ensemble_rmsds(
 
 
 def _summarize_rmsds(
-    rmsds: List[float],
+    rmsds: list[float],
     aggregation: Literal["min", "p10", "mean", "median"] = "min",
-) -> Optional[float]:
-    """
-    Summarize a list of RMSD values into a single value. Returns None if the list
+) -> float | None:
+    """Summarize a list of RMSD values into a single value. Returns None if the list.
+
     is empty
 
     Args:
@@ -175,14 +171,13 @@ def _summarize_rmsds(
 
     if aggregation == "min":
         return float(np.min(arr))
-    elif aggregation == "p10":
+    if aggregation == "p10":
         return float(np.percentile(arr, 10))
-    elif aggregation == "mean":
+    if aggregation == "mean":
         return float(np.mean(arr))
-    elif aggregation == "median":
+    if aggregation == "median":
         return float(np.median(arr))
-    else:
-        raise ValueError(f"Unknown aggregation method: {aggregation}")
+    raise ValueError(f"Unknown aggregation method: {aggregation}")
 
 
 # ============================================================================
@@ -191,11 +186,11 @@ def _summarize_rmsds(
 
 def _prepare_target_structure(
     target_structure: Structure | str,
-    residue_range: Optional[Tuple[int, int]] = None,
-    chain_id: Optional[str] = None,
+    residue_range: tuple[int, int] | None = None,
+    chain_id: str | None = None,
 ) -> str:
-    """
-    Resolve the target structure to a PDB string, optionally extracting a
+    """Resolve the target structure to a PDB string, optionally extracting a.
+
     specific chain and residue range.
 
     Args:
@@ -225,8 +220,7 @@ def _prepare_target_structure(
 
 
 def _extract_chain_from_pdb(pdb_text: str, chain_id: str) -> str:
-    """
-    Extract a specific chain from PDB content.
+    """Extract a specific chain from PDB content.
 
     Args:
         pdb_text (str): Full PDB content.
@@ -237,7 +231,7 @@ def _extract_chain_from_pdb(pdb_text: str, chain_id: str) -> str:
     """
     extracted_lines = []
     for line in pdb_text.splitlines():
-        if line.startswith('ATOM') or line.startswith('HETATM'):
+        if line.startswith(('ATOM', 'HETATM')):
             if len(line) >= 22 and line[21] == chain_id:
                 extracted_lines.append(line)
         elif line.startswith('TER'):
@@ -259,8 +253,7 @@ def _extract_residue_range_from_pdb(
     start_res: int,
     end_res: int,
 ) -> str:
-    """
-    Extract a residue range from PDB content.
+    """Extract a residue range from PDB content.
 
     Args:
         pdb_text (str): Full PDB content.
@@ -272,7 +265,7 @@ def _extract_residue_range_from_pdb(
     """
     extracted_lines = []
     for line in pdb_text.splitlines():
-        if line.startswith('ATOM') or line.startswith('HETATM'):
+        if line.startswith(('ATOM', 'HETATM')):
             try:
                 # Residue number is in columns 23-26 (indices 22:26)
                 res_num = int(line[22:26].strip())
@@ -359,13 +352,13 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
     )
 
     # Target subsetting
-    target_chain_id: Optional[str] = ConfigField(
+    target_chain_id: str | None = ConfigField(
         title="Target Chain ID",
         default=None,
         description="Chain ID to extract from the target structure (e.g., 'A').",
         advanced=True,
     )
-    target_residue_range: Optional[Tuple[int, int]] = ConfigField(
+    target_residue_range: tuple[int, int] | None = ConfigField(
         title="Target Residue Range",
         default=None,
         description="Residue range (start, end) to extract from target (1-indexed, inclusive).",
@@ -373,7 +366,7 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
     )
 
     # Proposal subsetting
-    proposal_residue_range: Optional[Tuple[int, int]] = ConfigField(
+    proposal_residue_range: tuple[int, int] | None = ConfigField(
         title="Proposal Residue Range",
         default=None,
         description="Residue range (start, end) of the proposal sequence to use.",
@@ -422,8 +415,8 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
     @field_validator("target_residue_range", "proposal_residue_range", mode="after")
     @classmethod
     def validate_residue_range(
-        cls, v: Optional[Tuple[int, int]]
-    ) -> Optional[Tuple[int, int]]:
+        cls, v: tuple[int, int] | None
+    ) -> tuple[int, int] | None:
         """Validate residue ranges."""
         if v is not None:
             start, end = v
@@ -453,11 +446,11 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
     num_input_sequences_per_tuple=1,
 )
 def structure_ensemble_rmsd_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: StructureEnsembleSimilarityConfig,
-) -> List[float]:
-    """
-    Generate conformational ensembles and compute RMSD against an experimental
+) -> list[float]:
+    """Generate conformational ensembles and compute RMSD against an experimental.
+
     target structure.
 
     This constraint:

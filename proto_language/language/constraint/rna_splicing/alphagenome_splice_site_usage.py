@@ -1,14 +1,14 @@
-"""proto_language/language/constraint/rna_splicing/alphagenome_splice_site_usage.py
+"""Accepts three segments (left_flank, intron_core, right_flank), concatenates.
 
-Accepts three segments (left_flank, intron_core, right_flank), concatenates
 them into a target sequence, integrates the target into a genomic context
 via cassette insertion, and scores splice-site usage with AlphaGenome.
-Metadata is propagated back to all three input segments."""
+Metadata is propagated back to all three input segments.
+"""
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 import numpy as np
 from proto_tools.tools.sequence_scoring.alphagenome import (
@@ -29,7 +29,7 @@ def _normalize_output_key(key: str) -> str:
     return key.strip().lower().replace("-", "_")
 
 
-def _safe_numeric_array(value: Any) -> Optional[np.ndarray]:
+def _safe_numeric_array(value: Any) -> np.ndarray | None:
     try:
         arr = np.asarray(value, dtype=float)
     except (TypeError, ValueError):
@@ -41,7 +41,7 @@ def _safe_numeric_array(value: Any) -> Optional[np.ndarray]:
     return arr
 
 
-def _extract_splice_site_usage_track_payload(result_payload: Dict[str, Any]) -> Dict[str, Any]:
+def _extract_splice_site_usage_track_payload(result_payload: dict[str, Any]) -> dict[str, Any]:
     predictions = result_payload.get("predictions")
     if not isinstance(predictions, dict):
         raise ValueError("AlphaGenome result payload missing 'predictions' dictionary.")
@@ -57,7 +57,7 @@ def _extract_splice_site_usage_track_payload(result_payload: Dict[str, Any]) -> 
     raise ValueError("AlphaGenome prediction payload missing SPLICE_SITE_USAGE output.")
 
 
-def _extract_track_metadata_records(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _extract_track_metadata_records(payload: dict[str, Any]) -> list[dict[str, Any]]:
     metadata = payload.get("metadata")
     if metadata is None:
         return []
@@ -70,7 +70,7 @@ def _extract_track_metadata_records(payload: Dict[str, Any]) -> List[Dict[str, A
     return []
 
 
-def _extract_track_matrix(payload: Dict[str, Any]) -> np.ndarray:
+def _extract_track_matrix(payload: dict[str, Any]) -> np.ndarray:
     arr = _safe_numeric_array(payload.get("values"))
     if arr is None:
         raise ValueError("Unable to extract SPLICE_SITE_USAGE values from payload.")
@@ -94,9 +94,9 @@ def _strand_to_symbol(strand: str) -> str:
 
 def _select_track_columns(
     matrix: np.ndarray,
-    metadata_records: List[Dict[str, Any]],
+    metadata_records: list[dict[str, Any]],
     strand: str,
-) -> Tuple[np.ndarray, List[int]]:
+) -> tuple[np.ndarray, list[int]]:
     if strand == "all":
         return matrix, list(range(matrix.shape[1]))
 
@@ -106,7 +106,7 @@ def _select_track_columns(
             "SPLICE_SITE_USAGE metadata is missing; cannot apply strand-specific track selection."
         )
 
-    selected_indices: List[int] = []
+    selected_indices: list[int] = []
     for idx, row in enumerate(metadata_records):
         if idx >= matrix.shape[1]:
             break
@@ -124,7 +124,7 @@ def _select_track_columns(
 def _integrate_cassette_into_context(
     genomic_context: str,
     cassette_sequence: str,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """Center-replace genomic sequence span with cassette, preserving total length."""
     if len(cassette_sequence) > len(genomic_context):
         raise ValueError(
@@ -176,11 +176,11 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
     )
 
     # Scoring fields
-    ontology_terms: List[str] = ConfigField(
+    ontology_terms: list[str] = ConfigField(
         title="Ontology Terms",
         description="AlphaGenome ontology term(s) to score.",
     )
-    splice_pos: List[int] = ConfigField(
+    splice_pos: list[int] = ConfigField(
         title="Splice Position(s)",
         description=(
             "0-indexed position(s) in the concatenated target to evaluate."
@@ -224,7 +224,7 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
 
     @field_validator("ontology_terms", mode="before")
     @classmethod
-    def _normalize_terms(cls, terms: List[str] | str) -> List[str]:
+    def _normalize_terms(cls, terms: list[str] | str) -> list[str]:
         if isinstance(terms, str):
             terms = [terms]
         normalized = [t.strip() for t in terms if t and t.strip()]
@@ -234,7 +234,7 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
 
     @field_validator("splice_pos", mode="before")
     @classmethod
-    def _normalize_splice_pos(cls, positions: List[int] | int) -> List[int]:
+    def _normalize_splice_pos(cls, positions: list[int] | int) -> list[int]:
         if isinstance(positions, int):
             positions = [positions]
         if not positions:
@@ -259,9 +259,9 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
     num_input_sequences_per_tuple=3,
 )
 def alphagenome_splice_site_usage(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: AlphaGenomeSpliceSiteUsageConfig,
-) -> List[float]:
+) -> list[float]:
     """Score AlphaGenome SSU at selected positions in a three-part target.
 
     Each input tuple contains three DNA sequences (left_flank, intron_core,
@@ -321,7 +321,8 @@ def alphagenome_splice_site_usage(
             raise RuntimeError("Cassette insertion start drifted across batch.")
         integrated_seqs.append(integrated)
 
-    assert insert_start_ref is not None
+    if insert_start_ref is None:
+        raise RuntimeError("insert_start_ref was not set during sequence integration")
     cassette_offset = insert_start_ref + len(config.cassette_left_context)
     absolute_splice_pos = [cassette_offset + pos for pos in config.splice_pos]
 
@@ -342,7 +343,7 @@ def alphagenome_splice_site_usage(
     outputs = batch_output.results
 
     # 6. Extract scores and propagate metadata.
-    scores: List[float] = []
+    scores: list[float] = []
     for (left_flank, intron_core, right_flank), output in zip(
         input_sequences, outputs, strict=True
     ):

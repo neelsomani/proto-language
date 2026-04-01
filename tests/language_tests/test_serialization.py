@@ -1,8 +1,4 @@
-"""
-tests/language_tests/test_serialization.py
-
-Tests roundtrip serialization (to_dict -> from_dict) for Sequence, Segment, and Construct.
-"""
+"""Tests roundtrip serialization (to_dict -> from_dict) for Sequence, Segment, and Construct."""
 
 from proto_language.language.core import Construct, Segment, Sequence
 from proto_language.language.core.sequence import _DEFAULT_DNA_CHARS

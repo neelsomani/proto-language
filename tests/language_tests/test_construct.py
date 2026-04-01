@@ -1,4 +1,4 @@
-"""tests/language_tests/test_construct.py"""
+"""tests/language_tests/test_construct.py."""
 import pytest
 
 from proto_language.language.core import Construct, Segment, Sequence
@@ -97,7 +97,7 @@ class TestConstructValidation:
         """Tests that error message shows all found types."""
         seg_dna = Segment(sequence="ATCG", sequence_type="dna")
         seg_protein = Segment(sequence="MAKT", sequence_type="protein")
-        with pytest.raises(ValueError, match="dna.*protein|protein.*dna"):
+        with pytest.raises(ValueError, match=r"dna.*protein|protein.*dna"):
             Construct([seg_dna, seg_protein])
 
     # 3. Homogeneous valid chars
@@ -113,7 +113,7 @@ class TestConstructValidation:
         """Tests that duplicate segment labels raise ValueError."""
         seg1 = Segment(sequence="ATCG", sequence_type="dna", label="promoter")
         seg2 = Segment(sequence="GGGG", sequence_type="dna", label="promoter")
-        with pytest.raises(ValueError, match="Segment labels must be unique.*promoter"):
+        with pytest.raises(ValueError, match=r"Segment labels must be unique.*promoter"):
             Construct([seg1, seg2])
 
     def test_multiple_duplicate_labels_shows_all(self):
@@ -122,7 +122,7 @@ class TestConstructValidation:
         seg2 = Segment(sequence="GGGG", sequence_type="dna", label="dup1")
         seg3 = Segment(sequence="CCCC", sequence_type="dna", label="dup2")
         seg4 = Segment(sequence="TTTT", sequence_type="dna", label="dup2")
-        with pytest.raises(ValueError, match="Duplicates:.*dup"):
+        with pytest.raises(ValueError, match=r"Duplicates:.*dup"):
             Construct([seg1, seg2, seg3, seg4])
 
     def test_unlabeled_segments_get_auto_labels(self):
@@ -158,4 +158,4 @@ class TestConstructValidation:
         ]
 
         with pytest.raises(RuntimeError, match="mismatched result_sequences lengths"):
-            construct.joined_sequences
+            construct.joined_sequences  # noqa: B018

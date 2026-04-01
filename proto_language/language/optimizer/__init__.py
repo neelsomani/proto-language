@@ -1,17 +1,17 @@
+"""Optimizer registry and all registered optimization strategies."""
 # Registry and base infrastructure
 from proto_language.base_config import BaseOptimizerConfig
-
-from .beam_search_optimizer import (
+from proto_language.language.optimizer.beam_search_optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,
 )
-from .cycling_optimizer import CyclingOptimizer, CyclingOptimizerConfig
+from proto_language.language.optimizer.cycling_optimizer import CyclingOptimizer, CyclingOptimizerConfig
 
 # Optimizers
-from .mcmc_optimizer import MCMCOptimizer, MCMCOptimizerConfig
-from .optimizer_registry import OptimizerRegistry, OptimizerSpec, optimizer
-from .topk_optimizer import TopKOptimizer, TopKOptimizerConfig
+from proto_language.language.optimizer.mcmc_optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry, OptimizerSpec, optimizer
+from proto_language.language.optimizer.topk_optimizer import TopKOptimizer, TopKOptimizerConfig
 
 __all__ = [
     # Registry and base

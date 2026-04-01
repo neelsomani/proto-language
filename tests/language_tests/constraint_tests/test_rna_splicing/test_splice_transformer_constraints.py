@@ -1,11 +1,8 @@
-"""
-tests/language_tests/constraint_tests/test_rna_splicing/test_splice_transformer_constraints.py
+"""Tests for splice transformer constraints.
 
 Both constraints accept three-part input tuples (left_flank, intron_core,
 right_flank) and concatenate them into a single target sequence for scoring.
 """
-from __future__ import annotations
-
 from types import SimpleNamespace
 from unittest.mock import patch
 

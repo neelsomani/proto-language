@@ -1,8 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_protein_structure/test_protein_symmetry_ring_constraint.py
-
-Tests for Protein Symmetry Ring constraint.
-"""
+"""Tests for Protein Symmetry Ring constraint."""
 
 from unittest.mock import Mock, patch
 
@@ -45,9 +41,10 @@ ATOM     27  C   ARG C   3       4.509  12.451   0.000  1.00 90.00           C""
 
 
 class TestProteinSymmetryRingConstraint:
-    """tests/language_tests/constraint_tests/test_protein_structure/test_protein_symmetry_ring_constraint.py
+    """tests/language_tests/constraint_tests/test_protein_structure/test_protein_symmetry_ring_constraint.py.
 
-Tests for Protein Symmetry Ring constraint."""
+    Tests for Protein Symmetry Ring constraint.
+    """
 
     def test_scoring_algorithm(self):
         """Test basic constraint evaluation with mocked structure."""

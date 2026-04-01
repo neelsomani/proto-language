@@ -1,13 +1,9 @@
-"""
-proto_language/language/constraint/sequence_composition/kmer_frequency_constraint.py
-
-K-mer frequency constraint for evaluating sequence k-mer properties with arbitrary mer length.
-"""
+"""K-mer frequency constraint for evaluating sequence k-mer properties with arbitrary mer length."""
 
 from __future__ import annotations
 
 import itertools
-from typing import List, Literal, Optional, Tuple
+from typing import Literal
 
 import numpy as np
 from pydantic import field_validator, model_validator
@@ -77,7 +73,7 @@ class KmerFrequencyConfig(BaseConfig):
         **Usage deviation mode** compares observed to expected frequencies under
         a zero-order Markov model. Expected frequency = product of individual
         nucleotide frequencies. For example, if a sequence is 40% G and 60% C,
-        the expected CG dinucleotide frequency is 0.4 × 0.6 = 0.24. If observed
+        the expected CG dinucleotide frequency is 0.4 x 0.6 = 0.24. If observed
         is 0.12, usage_deviation = 0.12/0.24 = 0.5 (underrepresented).
 
         The constraint returns the maximum deviation across all k-mers as the penalty
@@ -108,7 +104,8 @@ class KmerFrequencyConfig(BaseConfig):
     )
 
     # Advanced parameters
-    specific_kmer: Optional[str] = ConfigField(
+    # TODO: This should be a different constraint
+    specific_kmer: str | None = ConfigField(
         title="Specific K-mer",
         default=None,
         description="If specified, only this k-mer is evaluated. If None, all possible k-mers of length k are evaluated.",
@@ -133,18 +130,16 @@ class KmerFrequencyConfig(BaseConfig):
             )
 
         # Validate frequency mode range
-        if self.scoring_mode == "frequency":
-            if self.max_value > 1.0:
-                raise ValueError(
-                    f"For frequency mode, max_value must be <= 1.0, got {self.max_value}"
-                )
+        if self.scoring_mode == "frequency" and self.max_value > 1.0:
+            raise ValueError(
+                f"For frequency mode, max_value must be <= 1.0, got {self.max_value}"
+            )
 
         # Validate specific_kmer length if provided
-        if self.specific_kmer is not None:
-            if len(self.specific_kmer) != self.k:
-                raise ValueError(
-                    f"specific_kmer length ({len(self.specific_kmer)}) must match k parameter ({self.k})"
-                )
+        if self.specific_kmer is not None and len(self.specific_kmer) != self.k:
+            raise ValueError(
+                f"specific_kmer length ({len(self.specific_kmer)}) must match k parameter ({self.k})"
+            )
 
         return self
 
@@ -159,8 +154,8 @@ class KmerFrequencyConfig(BaseConfig):
     supported_sequence_types=["dna", "rna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def kmer_frequency_constraint(input_sequences: List[Tuple[Sequence, ...]], config: KmerFrequencyConfig) -> List[float]:
-    """Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring modes
+def kmer_frequency_constraint(input_sequences: list[tuple[Sequence, ...]], config: KmerFrequencyConfig) -> list[float]:
+    """Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring modes.
 
     This constraint function analyzes k-mer (subsequences of length k) composition
     in DNA, RNA, or protein sequences using two possible scoring modes:
@@ -235,8 +230,7 @@ def kmer_frequency_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
         >>> deviations = coding_seq._metadata["3mer_usage_deviations"]
         >>> for codon, ratio in sorted(deviations.items(), key=lambda x: x[1], reverse=True):
         ...     print(f"{codon}: {ratio:.2f}x expected")
-       """
-
+    """
     scores = []
 
     for (seq,) in input_sequences:
@@ -293,7 +287,7 @@ def kmer_frequency_constraint(input_sequences: List[Tuple[Sequence, ...]], confi
             freqs = np.zeros(len(kmers), dtype=float)
             total_count = counts.sum()
 
-            for kmer, count in zip(uniq, counts):
+            for kmer, count in zip(uniq, counts, strict=False):
                 if kmer in kmer_index:
                     freqs[kmer_index[kmer]] = count / total_count
 

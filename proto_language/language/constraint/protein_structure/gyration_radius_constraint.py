@@ -1,13 +1,10 @@
-"""
-proto_language/language/constraint/protein_structure/gyration_radius_constraint.py
+"""Radius of gyration constraint using structure_metrics tool.
 
-Uses the structure_metrics tool to compute radius of gyration from PDB files,
-then scores based on deviation from a maximum acceptable radius.
+Computes radius of gyration from PDB files, then scores based on deviation
+from a maximum acceptable radius.
 """
 
 from __future__ import annotations
-
-from typing import List, Optional, Tuple
 
 from proto_tools import (
     StructureMetricsConfig,
@@ -38,7 +35,7 @@ class GyrationRadiusConfig(BaseConfig):
         gt=0.0,
         description="Maximum acceptable gyration radius in Angstroms",
     )
-    pdb_paths: Optional[List[str]] = ConfigField(
+    pdb_paths: list[str] | None = ConfigField(
         title="PDB Paths",
         default=None,
         description="Optional explicit PDB paths (otherwise reads from sequence metadata)",
@@ -58,9 +55,9 @@ class GyrationRadiusConfig(BaseConfig):
     num_input_sequences_per_tuple=1,
 )
 def gyration_radius_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: GyrationRadiusConfig,
-) -> List[float]:
+) -> list[float]:
     """Filter structures by radius of gyration.
 
     Computes the radius of gyration for each input structure and returns
@@ -100,8 +97,7 @@ def gyration_radius_constraint(
             StructureMetricsInput(pdb_paths=valid_paths),
             StructureMetricsConfig(),
         )
-        for idx, metrics in zip(valid_indices, metrics_result.metrics):
-            metrics_map[idx] = metrics
+        metrics_map = dict(zip(valid_indices, metrics_result.metrics, strict=False))
 
     # Compute scores
     scores = []

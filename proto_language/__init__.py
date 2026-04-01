@@ -1,6 +1,7 @@
+"""Public API surface for proto-language."""
 from __future__ import annotations
 
-from .language.constraint import (  # Registry; Sequence composition; Protein structure; Protein quality; Sequence annotation; RNA; Sequence alignment
+from proto_language.language.constraint import (
     ConstraintRegistry,
     ConstraintSpec,
     alphagenome_interval_track_constraint,
@@ -40,7 +41,7 @@ from .language.constraint import (  # Registry; Sequence composition; Protein st
     structure_rmsd_constraint,
     structure_tmscore_constraint,
 )
-from .language.core import (
+from proto_language.language.core import (
     BaseConfig,
     BaseRegistry,
     BaseSpec,
@@ -53,7 +54,7 @@ from .language.core import (
     Sequence,
     SequenceType,
 )
-from .language.generator import (  # Registry; Masking; Mutation generators; Language model generators
+from proto_language.language.generator import (
     ESM2Generator,
     ESM2GeneratorConfig,
     ESM3Generator,
@@ -79,7 +80,7 @@ from .language.generator import (  # Registry; Masking; Mutation generators; Lan
     RandomProteinGeneratorConfig,
     generator,
 )
-from .language.optimizer import (  # Registry; Optimizers
+from proto_language.language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,
@@ -95,10 +96,10 @@ from .language.optimizer import (  # Registry; Optimizers
 )
 
 # Logging
-from .logging_config import get_logger, setup_logging
+from proto_language.logging_config import get_logger, setup_logging
 
 # File resolution utilities
-from .storage import resolve_file, resolve_paths
+from proto_language.storage import resolve_file, resolve_paths
 
 __all__ = [
     # Base infrastructure

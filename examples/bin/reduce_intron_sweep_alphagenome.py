@@ -19,8 +19,9 @@ import csv
 import math
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any
 
 import matplotlib
 
@@ -40,7 +41,7 @@ TASK_DIR_PATTERN = re.compile(r"task_(\d+)$")
 SPECIFICITY_TOKENS = ("max_brain", "min_brain", "max_blood", "min_blood")
 
 
-def _natural_task_sort_key(path: Path) -> Tuple[int, str]:
+def _natural_task_sort_key(path: Path) -> tuple[int, str]:
     match = TASK_DIR_PATTERN.search(path.name)
     if match:
         return (int(match.group(1)), path.name)
@@ -54,7 +55,7 @@ def _safe_float(raw: str) -> float:
         return math.nan
 
 
-def _safe_int(raw: str) -> Optional[int]:
+def _safe_int(raw: str) -> int | None:
     try:
         return int(raw)
     except (TypeError, ValueError):
@@ -83,8 +84,8 @@ def _min_or_nan(values: Iterable[float]) -> float:
     return float(np.min(np.asarray(finite, dtype=float)))
 
 
-def _parse_config_env(path: Path) -> Dict[str, str]:
-    out: Dict[str, str] = {}
+def _parse_config_env(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
     if not path.exists():
         return out
     for line in path.read_text().splitlines():
@@ -96,12 +97,12 @@ def _parse_config_env(path: Path) -> Dict[str, str]:
     return out
 
 
-def _parse_stdout_iterations(path: Path) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
+def _parse_stdout_iterations(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     if not path.exists():
         return rows
 
-    current: Optional[Dict[str, Any]] = None
+    current: dict[str, Any] | None = None
 
     def finalize_current() -> None:
         nonlocal current
@@ -140,8 +141,8 @@ def _parse_stdout_iterations(path: Path) -> List[Dict[str, Any]]:
     return rows
 
 
-def _parse_stderr_iterations(path: Path) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
+def _parse_stderr_iterations(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     if not path.exists():
         return rows
 
@@ -161,12 +162,12 @@ def _parse_stderr_iterations(path: Path) -> List[Dict[str, Any]]:
     return rows
 
 
-def _parse_stdout_ag_groups(path: Path) -> List[Dict[str, Any]]:
-    groups: List[Dict[str, Any]] = []
+def _parse_stdout_ag_groups(path: Path) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
     if not path.exists():
         return groups
 
-    current_scores: Optional[List[float]] = None
+    current_scores: list[float] | None = None
 
     def finalize_group() -> None:
         nonlocal current_scores
@@ -198,7 +199,7 @@ def _parse_stdout_ag_groups(path: Path) -> List[Dict[str, Any]]:
     return groups
 
 
-def _parse_task_iterations(stdout_log: Path, stderr_log: Path) -> List[Dict[str, Any]]:
+def _parse_task_iterations(stdout_log: Path, stderr_log: Path) -> list[dict[str, Any]]:
     """Parse per-iteration energy/temperature + AG means from task logs.
 
     Current sweep logs write:
@@ -230,9 +231,9 @@ def _count_specificity_terms(specificity_type: str) -> int:
 
 def _infer_constraint_counts(
     stdout_log: Path,
-    config_env: Dict[str, str],
-    iter_rows: List[Dict[str, Any]],
-) -> Dict[str, int]:
+    config_env: dict[str, str],
+    iter_rows: list[dict[str, Any]],
+) -> dict[str, int]:
     """Infer active constraint counts for a task.
 
     Prefers parsing unique constraint labels from stdout log. Falls back to
@@ -300,9 +301,9 @@ def _infer_constraint_counts(
 
 
 def _normalize_energy_metrics(
-    metrics: Dict[str, Any],
+    metrics: dict[str, Any],
     constraint_count_total: int,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     def norm(value: Any) -> float:
         as_float = _safe_float(value)
         if constraint_count_total <= 0 or not _is_finite(as_float):
@@ -325,8 +326,8 @@ def _normalize_energy_metrics(
     }
 
 
-def _compute_summary_metrics(iter_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    metrics: Dict[str, Any] = {
+def _compute_summary_metrics(iter_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    metrics: dict[str, Any] = {
         "iterations_logged": len(iter_rows),
         "first_iter": None,
         "last_iter": None,
@@ -388,7 +389,7 @@ def _compute_summary_metrics(iter_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     return metrics
 
 
-def _write_tsv(path: Path, rows: List[Dict[str, Any]], field_names: List[str]) -> None:
+def _write_tsv(path: Path, rows: list[dict[str, Any]], field_names: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=field_names, delimiter="\t")
@@ -398,8 +399,8 @@ def _write_tsv(path: Path, rows: List[Dict[str, Any]], field_names: List[str]) -
 
 
 def _plot_energy_trajectories(
-    per_config_iters: Dict[str, List[Dict[str, Any]]],
-    summary_rows: List[Dict[str, Any]],
+    per_config_iters: dict[str, list[dict[str, Any]]],
+    summary_rows: list[dict[str, Any]],
     out_path: Path,
     *,
     energy_metric_key: str = "energy",
@@ -410,7 +411,7 @@ def _plot_energy_trajectories(
 ) -> None:
     fig, ax = plt.subplots(figsize=(11, 5.5), constrained_layout=True)
 
-    best_cfg: Optional[str] = None
+    best_cfg: str | None = None
     best_energy = math.inf
     for row in summary_rows:
         value = _safe_float(str(row.get(summary_metric_key, "")))
@@ -452,15 +453,15 @@ def _plot_energy_trajectories(
 
 
 def _normalize_iteration_energies(
-    per_config_iters: Dict[str, List[Dict[str, Any]]],
-    summary_rows: List[Dict[str, Any]],
-) -> Dict[str, List[Dict[str, Any]]]:
-    constraints_by_cfg: Dict[str, int] = {}
+    per_config_iters: dict[str, list[dict[str, Any]]],
+    summary_rows: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    constraints_by_cfg: dict[str, int] = {}
     for row in summary_rows:
         cfg = str(row.get("config_id", ""))
         constraints_by_cfg[cfg] = int(row.get("constraint_count_total", 0))
 
-    out: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    out: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for config_id, rows in per_config_iters.items():
         denom = constraints_by_cfg.get(str(config_id), 0)
         for row in rows:
@@ -475,13 +476,13 @@ def _normalize_iteration_energies(
 
 
 def _plot_ag_trajectories(
-    per_config_iters: Dict[str, List[Dict[str, Any]]],
-    summary_rows: List[Dict[str, Any]],
+    per_config_iters: dict[str, list[dict[str, Any]]],
+    summary_rows: list[dict[str, Any]],
     out_path: Path,
 ) -> None:
     fig, ax = plt.subplots(figsize=(11, 5.5), constrained_layout=True)
 
-    best_cfg: Optional[str] = None
+    best_cfg: str | None = None
     best_ag = math.inf
     for row in summary_rows:
         value = row.get("min_ag_mean", math.nan)
@@ -520,7 +521,7 @@ def _plot_ag_trajectories(
 
 
 def _plot_pareto_min_energy_vs_ag(
-    summary_rows: List[Dict[str, Any]],
+    summary_rows: list[dict[str, Any]],
     out_path: Path,
     max_annotations: int,
     *,
@@ -528,7 +529,7 @@ def _plot_pareto_min_energy_vs_ag(
     title: str = "Config Pareto View: min AG score vs min energy",
     y_label: str = "min total energy (lower is better)",
 ) -> None:
-    plot_rows: List[Dict[str, Any]] = []
+    plot_rows: list[dict[str, Any]] = []
     for row in summary_rows:
         energy_value = _safe_float(str(row.get(energy_metric_key, "")))
         ag_value = _safe_float(str(row.get("min_ag_mean", "")))
@@ -605,7 +606,7 @@ def _plot_pareto_min_energy_vs_ag(
 
 
 def _plot_metrics_vs_temperature(
-    summary_rows: List[Dict[str, Any]],
+    summary_rows: list[dict[str, Any]],
     out_path: Path,
     *,
     energy_metric_key: str = "min_energy",
@@ -650,8 +651,8 @@ def _plot_metrics_vs_temperature(
             )
 
         uniq_temps = sorted({float(t) for t in temps})
-        mean_vals: List[float] = []
-        mean_temps: List[float] = []
+        mean_vals: list[float] = []
+        mean_temps: list[float] = []
         for temp in uniq_temps:
             mask = (temps == temp) & np.isfinite(metric_vals)
             if not np.any(mask):
@@ -673,7 +674,7 @@ def _plot_metrics_vs_temperature(
 
 
 def _plot_param_value_bars(
-    param_rows: List[Dict[str, Any]],
+    param_rows: list[dict[str, Any]],
     metric_key: str,
     title: str,
     out_path: Path,
@@ -700,7 +701,7 @@ def _plot_param_value_bars(
     plt.close(fig)
 
 
-def _build_param_value_summary(summary_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _build_param_value_summary(summary_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     params = [
         "initialization",
         "temperature",
@@ -710,9 +711,9 @@ def _build_param_value_summary(summary_rows: List[Dict[str, Any]]) -> List[Dict[
         "alphagenome_brain_weight",
         "alphagenome_blood_weight",
     ]
-    out_rows: List[Dict[str, Any]] = []
+    out_rows: list[dict[str, Any]] = []
     for param in params:
-        grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in summary_rows:
             value = str(row.get(param, ""))
             grouped[value].append(row)
@@ -747,7 +748,7 @@ def _build_param_value_summary(summary_rows: List[Dict[str, Any]]) -> List[Dict[
     return out_rows
 
 
-def _row_status(row: Dict[str, Any]) -> str:
+def _row_status(row: dict[str, Any]) -> str:
     if not row.get("stdout_log_path"):
         return "missing_stdout"
     if int(row.get("iterations_logged", 0)) <= 0:
@@ -759,7 +760,7 @@ def _row_status(row: Dict[str, Any]) -> str:
     return "complete"
 
 
-def _to_summary_field_order() -> List[str]:
+def _to_summary_field_order() -> list[str]:
     return [
         "sweep_id",
         "task_id",
@@ -815,7 +816,7 @@ def _to_summary_field_order() -> List[str]:
     ]
 
 
-def _to_iteration_field_order() -> List[str]:
+def _to_iteration_field_order() -> list[str]:
     return [
         "sweep_id",
         "task_id",
@@ -866,9 +867,9 @@ def main() -> None:
     if not task_dirs:
         raise ValueError(f"No task directories found under: {sweep_log_dir}")
 
-    summary_rows: List[Dict[str, Any]] = []
-    iteration_rows: List[Dict[str, Any]] = []
-    per_config_iters: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    summary_rows: list[dict[str, Any]] = []
+    iteration_rows: list[dict[str, Any]] = []
+    per_config_iters: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for task_dir in task_dirs:
         match = TASK_DIR_PATTERN.search(task_dir.name)
@@ -893,7 +894,7 @@ def main() -> None:
             constraint_counts["constraint_count_total"],
         )
 
-        summary_row: Dict[str, Any] = {
+        summary_row: dict[str, Any] = {
             "sweep_id": sweep_id,
             "task_id": task_id,
             "config_id": config_id,

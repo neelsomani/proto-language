@@ -1,8 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_sequence_annotation/test_mmseqs_similarity_constraint.py
-
-Tests the MMseqs2 similarity constraint for protein sequences.
-"""
+"""Tests the MMseqs2 similarity constraint for protein sequences."""
 
 import json
 from unittest.mock import patch

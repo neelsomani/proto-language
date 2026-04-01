@@ -1,12 +1,8 @@
-"""
-proto_language/language/generator/evo1_generator.py
-
-Evo1 Generator for DNA sequence generation.
-"""
+"""Evo1 Generator for DNA sequence generation."""
 
 from __future__ import annotations
 
-from typing import List, Optional, final
+from typing import final
 
 from proto_tools import (
     EVO1_MODEL_CHECKPOINTS,
@@ -37,7 +33,7 @@ class Evo1GeneratorConfig(BaseConfig):
         verbose (bool): Whether to print generation progress.
     """
 
-    prompts: List[str] = ConfigField(
+    prompts: list[str] = ConfigField(
         title="Prompts",
         description="Prompt sequences for DNA generation (single prompt or multiple)",
     )
@@ -91,7 +87,7 @@ class Evo1GeneratorConfig(BaseConfig):
     @model_validator(mode="after")
     def validate_prompts_length(self):
         """Validate that all prompts have the same length."""
-        if len(set(len(seq) for seq in self.prompts)) != 1:
+        if len({len(seq) for seq in self.prompts}) != 1:
             raise ValueError(
                 f"All prompts must have same length, got: {[len(seq) for seq in self.prompts]}"
             )
@@ -132,6 +128,7 @@ class Evo1Generator(Generator):
     """
 
     def __init__(self, config: Evo1GeneratorConfig) -> None:
+        """Initialize Evo1 generator from config."""
         super().__init__()
         self.config = config
         self.prompts = config.prompts
@@ -144,8 +141,8 @@ class Evo1Generator(Generator):
 
     def sample(
         self,
-        prompts: Optional[List[str]] = None,
-        prepend_prompt: Optional[bool] = None,
+        prompts: list[str] | None = None,
+        prepend_prompt: bool | None = None,
     ) -> None:
         """Generate sequences using the Evo1 model.
 
@@ -185,7 +182,7 @@ class Evo1Generator(Generator):
             ):
                 proposal._metadata["evo1_score"] = score
 
-    def _replicate_prompts(self, prompts: List[str]) -> List[str]:
+    def _replicate_prompts(self, prompts: list[str]) -> list[str]:
         """Match prompt count to proposal count, replicating single prompts."""
         num_proposals = len(self._assigned_segment.proposal_sequences)
         if len(prompts) == num_proposals:

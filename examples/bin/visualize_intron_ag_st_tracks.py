@@ -26,7 +26,7 @@ import sys
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Literal, Optional, Tuple, get_args
+from typing import Any, Literal, get_args
 
 import matplotlib
 
@@ -118,7 +118,7 @@ class VisualizeIntronAGSTTracksArgs(Tap):
     filename_prefix: str = ""
 
 
-def _split_csv(raw: str) -> List[str]:
+def _split_csv(raw: str) -> list[str]:
     return [token.strip() for token in raw.split(",") if token.strip()]
 
 
@@ -157,9 +157,9 @@ def _normalize_intron_sequence(raw_sequence: str) -> str:
     return canonicalized
 
 
-def _dedupe_keep_order(items: List[str]) -> List[str]:
+def _dedupe_keep_order(items: list[str]) -> list[str]:
     seen = set()
-    deduped: List[str] = []
+    deduped: list[str] = []
     for item in items:
         if item in seen:
             continue
@@ -168,8 +168,8 @@ def _dedupe_keep_order(items: List[str]) -> List[str]:
     return deduped
 
 
-def _load_introns_from_stdout_log(path: str) -> List[str]:
-    introns: List[str] = []
+def _load_introns_from_stdout_log(path: str) -> list[str]:
+    introns: list[str] = []
     for line in Path(path).read_text().splitlines():
         match = LOG_INTRON_PATTERN.search(line)
         if not match:
@@ -178,11 +178,11 @@ def _load_introns_from_stdout_log(path: str) -> List[str]:
     return introns
 
 
-def _load_introns_from_sequence_file(path: str) -> List[str]:
+def _load_introns_from_sequence_file(path: str) -> list[str]:
     lines = Path(path).read_text().splitlines()
     if any(line.startswith(">") for line in lines):
-        sequences: List[str] = []
-        current: List[str] = []
+        sequences: list[str] = []
+        current: list[str] = []
         for line in lines:
             stripped = line.strip()
             if not stripped:
@@ -215,8 +215,8 @@ def _load_introns_from_sequence_file(path: str) -> List[str]:
     return sequences
 
 
-def _load_design_introns(args: VisualizeIntronAGSTTracksArgs) -> List[str]:
-    introns: List[str] = []
+def _load_design_introns(args: VisualizeIntronAGSTTracksArgs) -> list[str]:
+    introns: list[str] = []
 
     if args.intron_sequences_csv:
         introns.extend(
@@ -240,7 +240,7 @@ def _load_design_introns(args: VisualizeIntronAGSTTracksArgs) -> List[str]:
     return introns
 
 
-def _resolve_terms(cell_name: str, override_terms_csv: str) -> List[str]:
+def _resolve_terms(cell_name: str, override_terms_csv: str) -> list[str]:
     override_terms = _split_csv(override_terms_csv)
     if override_terms:
         return override_terms
@@ -269,7 +269,7 @@ def _resolve_tissue_enum(raw_value: str) -> SpliceTransformerTissue:
     return token
 
 
-def _tissue_channel_index(tissue: SpliceTransformerTissue) -> Optional[int]:
+def _tissue_channel_index(tissue: SpliceTransformerTissue) -> int | None:
     return SPLICE_TISSUE_CHANNEL_INDEX[tissue]
 
 
@@ -301,7 +301,7 @@ def _read_context_sequence(path: str) -> str:
 def _integrate_cassette_into_context(
     genomic_context: str,
     cassette_sequence: str,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     if len(cassette_sequence) > len(genomic_context):
         raise ValueError(
             f"Cassette length {len(cassette_sequence)} exceeds genomic context length {len(genomic_context)}."
@@ -318,7 +318,7 @@ def _integrate_cassette_into_context(
     return integrated, insert_start
 
 
-def _safe_numeric_array(value: Any) -> Optional[np.ndarray]:
+def _safe_numeric_array(value: Any) -> np.ndarray | None:
     try:
         arr = np.asarray(value, dtype=float)
     except (TypeError, ValueError):
@@ -330,7 +330,7 @@ def _safe_numeric_array(value: Any) -> Optional[np.ndarray]:
     return arr
 
 
-def _collect_value_arrays(node: Any, arrays: List[np.ndarray]) -> None:
+def _collect_value_arrays(node: Any, arrays: list[np.ndarray]) -> None:
     if isinstance(node, dict):
         if "values" in node:
             arr = _safe_numeric_array(node["values"])
@@ -345,7 +345,7 @@ def _collect_value_arrays(node: Any, arrays: List[np.ndarray]) -> None:
             _collect_value_arrays(child, arrays)
 
 
-def _extract_rna_matrix(result_payload: Dict[str, Any]) -> np.ndarray:
+def _extract_rna_matrix(result_payload: dict[str, Any]) -> np.ndarray:
     predictions = result_payload.get("predictions")
     if not isinstance(predictions, dict):
         raise ValueError("AlphaGenome result payload missing 'predictions' dictionary.")
@@ -359,7 +359,7 @@ def _extract_rna_matrix(result_payload: Dict[str, Any]) -> np.ndarray:
     if rna_payload is None:
         raise ValueError("AlphaGenome prediction payload missing RNA_SEQ output.")
 
-    arrays: List[np.ndarray] = []
+    arrays: list[np.ndarray] = []
     _collect_value_arrays(rna_payload, arrays)
     if not arrays:
         raise ValueError("Unable to extract RNA values from AlphaGenome payload.")
@@ -389,7 +389,7 @@ def _normalize_output_key(key: str) -> str:
     return key.strip().lower().replace("-", "_")
 
 
-def _extract_splice_site_usage_track_payload(result_payload: Dict[str, Any]) -> Dict[str, Any]:
+def _extract_splice_site_usage_track_payload(result_payload: dict[str, Any]) -> dict[str, Any]:
     predictions = result_payload.get("predictions")
     if not isinstance(predictions, dict):
         raise ValueError("AlphaGenome result payload missing 'predictions' dictionary.")
@@ -405,7 +405,7 @@ def _extract_splice_site_usage_track_payload(result_payload: Dict[str, Any]) -> 
     raise ValueError("AlphaGenome prediction payload missing SPLICE_SITE_USAGE output.")
 
 
-def _extract_track_metadata_records(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _extract_track_metadata_records(payload: dict[str, Any]) -> list[dict[str, Any]]:
     metadata = payload.get("metadata")
     if metadata is None:
         return []
@@ -418,7 +418,7 @@ def _extract_track_metadata_records(payload: Dict[str, Any]) -> List[Dict[str, A
     return []
 
 
-def _extract_track_matrix(payload: Dict[str, Any]) -> np.ndarray:
+def _extract_track_matrix(payload: dict[str, Any]) -> np.ndarray:
     arr = _safe_numeric_array(payload.get("values"))
     if arr is None:
         raise ValueError("Unable to extract SPLICE_SITE_USAGE values from payload.")
@@ -442,7 +442,7 @@ def _strand_to_symbol(strand: str) -> str:
 
 def _select_track_columns(
     matrix: np.ndarray,
-    metadata_records: List[Dict[str, Any]],
+    metadata_records: list[dict[str, Any]],
     strand: str,
 ) -> np.ndarray:
     if strand == "all":
@@ -454,7 +454,7 @@ def _select_track_columns(
             "SPLICE_SITE_USAGE metadata is missing; cannot apply strand-specific track selection."
         )
 
-    selected_indices: List[int] = []
+    selected_indices: list[int] = []
     for idx, row in enumerate(metadata_records):
         if idx >= matrix.shape[1]:
             break
@@ -469,7 +469,7 @@ def _select_track_columns(
 
 
 def _extract_ssu_signal(
-    result_payload: Dict[str, Any],
+    result_payload: dict[str, Any],
     strand: str,
     expected_length: int,
 ) -> np.ndarray:
@@ -505,10 +505,10 @@ def _extract_ssu_signal(
 
 
 def _predict_alphagenome_payloads(
-    sequences: List[str],
-    ontology_terms: List[str],
+    sequences: list[str],
+    ontology_terms: list[str],
     args: VisualizeIntronAGSTTracksArgs,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if not sequences:
         return []
 
@@ -529,7 +529,7 @@ def _window_to_rows(
     end: int,
     sequence_length: int,
     num_rows: int,
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     row_start = int(math.floor(start * num_rows / sequence_length))
     row_end = int(math.ceil(end * num_rows / sequence_length))
     row_start = max(0, min(row_start, num_rows - 1))
@@ -539,7 +539,7 @@ def _window_to_rows(
 
 def _window_mean_matrix(
     matrix: np.ndarray,
-    window: Tuple[int, int],
+    window: tuple[int, int],
     sequence_length: int,
 ) -> float:
     row_start, row_end = _window_to_rows(
@@ -553,7 +553,7 @@ def _window_mean_matrix(
 
 def _window_mean_signal(
     signal: np.ndarray,
-    window: Tuple[int, int],
+    window: tuple[int, int],
 ) -> float:
     start, end = window
     start = max(0, min(start, signal.shape[0]))
@@ -584,7 +584,7 @@ def _resample_signal_to_target(
 def _extract_rna_signal_on_target(
     matrix: np.ndarray,
     sequence_length: int,
-    target_window: Tuple[int, int],
+    target_window: tuple[int, int],
     target_length: int,
     smoothing_window: int,
 ) -> np.ndarray:
@@ -603,11 +603,11 @@ def _extract_rna_signal_on_target(
     return _smooth_signal(signal, smoothing_window)
 
 
-def _aggregate_regions(region_dicts: List[Dict[str, Tuple[int, int]]]) -> Dict[str, Tuple[int, int]]:
+def _aggregate_regions(region_dicts: list[dict[str, tuple[int, int]]]) -> dict[str, tuple[int, int]]:
     if not region_dicts:
         raise ValueError("Cannot aggregate empty region list.")
     names = sorted({name for regions in region_dicts for name in regions})
-    aggregated: Dict[str, Tuple[int, int]] = {}
+    aggregated: dict[str, tuple[int, int]] = {}
     for name in names:
         starts = [regions[name][0] for regions in region_dicts if name in regions]
         ends = [regions[name][1] for regions in region_dicts if name in regions]
@@ -621,7 +621,7 @@ def _aggregate_regions(region_dicts: List[Dict[str, Tuple[int, int]]]) -> Dict[s
     return aggregated
 
 
-def _draw_spans(ax: Any, regions: Dict[str, Tuple[int, int]]) -> None:
+def _draw_spans(ax: Any, regions: dict[str, tuple[int, int]]) -> None:
     style = {
         "gene": ("#a1d99b", 0.14),
         "left_exon": ("#31a354", 0.24),
@@ -639,7 +639,7 @@ def _apply_std_band(
     ax: Any,
     x_bp: np.ndarray,
     mean_signal: np.ndarray,
-    std_signal: Optional[np.ndarray],
+    std_signal: np.ndarray | None,
     color: str,
 ) -> None:
     if std_signal is None:
@@ -655,8 +655,8 @@ def _apply_std_band(
 
 
 def _set_xlim(
-    axes: List[Any],
-    regions: Dict[str, Tuple[int, int]],
+    axes: list[Any],
+    regions: dict[str, tuple[int, int]],
     sequence_length: int,
     view_mode: str,
     gene_flank_bp: int,
@@ -688,10 +688,10 @@ def _plot_tracks_svg(
     st_tissue_target: np.ndarray,
     st_tissue_offtarget: np.ndarray,
     sequence_length: int,
-    regions: Dict[str, Tuple[int, int]],
+    regions: dict[str, tuple[int, int]],
     donor_eval_pos: int,
     acceptor_eval_pos: int,
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     target_cell_label: str,
     offtarget_cell_label: str,
     target_tissue_label: str,
@@ -701,14 +701,14 @@ def _plot_tracks_svg(
     gene_flank_bp: int,
     intron_flank_bp: int,
     out_path: Path,
-    ag_rna_target_std: Optional[np.ndarray] = None,
-    ag_rna_offtarget_std: Optional[np.ndarray] = None,
-    ag_ssu_target_std: Optional[np.ndarray] = None,
-    ag_ssu_offtarget_std: Optional[np.ndarray] = None,
-    st_donor_std: Optional[np.ndarray] = None,
-    st_acceptor_std: Optional[np.ndarray] = None,
-    st_tissue_target_std: Optional[np.ndarray] = None,
-    st_tissue_offtarget_std: Optional[np.ndarray] = None,
+    ag_rna_target_std: np.ndarray | None = None,
+    ag_rna_offtarget_std: np.ndarray | None = None,
+    ag_ssu_target_std: np.ndarray | None = None,
+    ag_ssu_offtarget_std: np.ndarray | None = None,
+    st_donor_std: np.ndarray | None = None,
+    st_acceptor_std: np.ndarray | None = None,
+    st_tissue_target_std: np.ndarray | None = None,
+    st_tissue_offtarget_std: np.ndarray | None = None,
 ) -> None:
     fig, axes = plt.subplots(
         4,
@@ -882,7 +882,7 @@ def _plot_tracks_svg(
     plt.close(fig)
 
 
-def _aggregate_design_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _aggregate_design_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
     if not entries:
         raise ValueError("Cannot aggregate empty context entries.")
 
@@ -908,10 +908,10 @@ def _aggregate_design_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         "st_target_splice_mean",
         "st_offtarget_splice_mean",
     ]
-    metric_values: Dict[str, List[float]] = {key: [] for key in metric_keys}
-    region_dicts: List[Dict[str, Tuple[int, int]]] = []
-    donor_eval_positions: List[int] = []
-    acceptor_eval_positions: List[int] = []
+    metric_values: dict[str, list[float]] = {key: [] for key in metric_keys}
+    region_dicts: list[dict[str, tuple[int, int]]] = []
+    donor_eval_positions: list[int] = []
+    acceptor_eval_positions: list[int] = []
 
     signal_keys = [
         "ag_rna_target",
@@ -923,7 +923,7 @@ def _aggregate_design_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         "st_tissue_target",
         "st_tissue_offtarget",
     ]
-    stacked_signals: Dict[str, List[np.ndarray]] = {key: [] for key in signal_keys}
+    stacked_signals: dict[str, list[np.ndarray]] = {key: [] for key in signal_keys}
 
     for entry in entries:
         for key in signal_keys:
@@ -939,7 +939,7 @@ def _aggregate_design_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         donor_eval_positions.append(int(entry["donor_eval_pos"]))
         acceptor_eval_positions.append(int(entry["acceptor_eval_pos"]))
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "x_bp": reference_x,
         "sequence_length": int(entries[0]["sequence_length"]),
         "regions": _aggregate_regions(region_dicts),
@@ -955,7 +955,7 @@ def _aggregate_design_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         result[f"{key}_mean"] = np.mean(signal_stack, axis=0)
         result[f"{key}_std"] = np.std(signal_stack, axis=0)
 
-    aggregated_metrics: Dict[str, float] = {}
+    aggregated_metrics: dict[str, float] = {}
     for key, values in metric_values.items():
         arr = np.asarray(values, dtype=float)
         aggregated_metrics[key] = float(np.mean(arr))
@@ -964,7 +964,7 @@ def _aggregate_design_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     return result
 
 
-def _to_row(values: Dict[str, Any], field_names: List[str]) -> Dict[str, Any]:
+def _to_row(values: dict[str, Any], field_names: list[str]) -> dict[str, Any]:
     return {field: values.get(field, "") for field in field_names}
 
 
@@ -1004,7 +1004,7 @@ def main() -> None:
         for idx, intron in enumerate(intron_sequences):
             handle.write(f">design_{idx:03d}\n{intron}\n")
 
-    summary_rows: List[Dict[str, Any]] = []
+    summary_rows: list[dict[str, Any]] = []
     field_names = [
         "design_index",
         "design_hash",
@@ -1034,7 +1034,7 @@ def main() -> None:
         "st_offtarget_specificity_min_score",
         "svg_path",
     ]
-    aggregated_summary_rows: List[Dict[str, Any]] = []
+    aggregated_summary_rows: list[dict[str, Any]] = []
     aggregated_field_names = [
         "design_index",
         "design_hash",
@@ -1087,8 +1087,8 @@ def main() -> None:
         for design_index, intron_sequence in enumerate(intron_sequences):
             design_hash = hashlib.sha1(intron_sequence.encode()).hexdigest()[:10]
 
-            plasmid_records: List[Dict[str, Any]] = []
-            context_records: List[Dict[str, Any]] = []
+            plasmid_records: list[dict[str, Any]] = []
+            context_records: list[dict[str, Any]] = []
 
             for plasmid_context_path in plasmid_context_paths:
                 splice_args = SimpleNamespace(
@@ -1113,7 +1113,7 @@ def main() -> None:
                 gene_window = (gene_start_pos, gene_end_pos + 1)
                 left_exon = (gene_start_pos, donor_start_pos)
                 right_exon = (acceptor_end_pos + 1, gene_end_pos + 1)
-                exon_windows: List[Tuple[int, int]] = []
+                exon_windows: list[tuple[int, int]] = []
                 if left_exon[1] > left_exon[0]:
                     exon_windows.append(left_exon)
                 if right_exon[1] > right_exon[0]:
@@ -1278,7 +1278,7 @@ def main() -> None:
             if len(target_payloads) != len(context_records) or len(offtarget_payloads) != len(context_records):
                 raise RuntimeError("AlphaGenome output count did not match context count.")
 
-            design_context_entries: List[Dict[str, Any]] = []
+            design_context_entries: list[dict[str, Any]] = []
 
             for context_record, target_payload, offtarget_payload in zip(
                 context_records,

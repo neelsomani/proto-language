@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 from glob import glob
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
 
 
-def parse_fname_evo2(fname: str) -> List[Dict[str, Any]]:
+def parse_fname_evo2(fname: str) -> list[dict[str, Any]]:
     """
     Parse the TopK results from Evo 2. Multiple runs per file.
     """
@@ -19,7 +21,7 @@ def parse_fname_evo2(fname: str) -> List[Dict[str, Any]]:
     data_dicts = []
 
     curr_intron = None
-    with open(fname, 'r') as f:
+    with open(fname) as f:
         while line_content := f.readline():
 
             if line_content.strip().startswith('sequence (intron): '):
@@ -52,7 +54,7 @@ def parse_fname_evo2(fname: str) -> List[Dict[str, Any]]:
     return data_dicts
 
 
-def parse_fname_mcmc(fname: str, starting_point: str) -> Dict[str, Any]:
+def parse_fname_mcmc(fname: str, starting_point: str) -> dict[str, Any]:
     """
     Parse the MCMC results from various starting points. Single run per file.
     """
@@ -66,7 +68,7 @@ def parse_fname_mcmc(fname: str, starting_point: str) -> Dict[str, Any]:
     curr_intron = None
     curr_energy = None
     data_dict = None
-    with open(fname, 'r') as f:
+    with open(fname) as f:
         f.seek(0, 2)  # Go to end of file.
         file_size = f.tell()
         bytes_to_read = min(file_size, 200 * 100)

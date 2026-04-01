@@ -1,7 +1,5 @@
-"""
-proto_language/language/core/optimizer.py
+"""Base class for iterative optimization algorithms that coordinate multiple.
 
-Base class for iterative optimization algorithms that coordinate multiple
 generators and constraints to search for optimal biological sequences.
 """
 
@@ -11,12 +9,17 @@ import copy
 import logging
 import math
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 from proto_tools.utils.tool_cache import ToolCache, _program_tool_cache
 
+from proto_language.language.core.constraint import Constraint
+from proto_language.language.core.construct import Construct
+from proto_language.language.core.generator import Generator
+from proto_language.language.core.sequence import Sequence
 from proto_language.utils.export import (
     build_proposal_results,
     build_results,
@@ -27,15 +30,12 @@ from proto_language.utils.export import (
 
 logger = logging.getLogger(__name__)
 
-from .constraint import Constraint
-from .construct import Construct
-from .generator import Generator
-from .sequence import Sequence
+if TYPE_CHECKING:
+    from proto_language.language.core.segment import Segment
 
 
 class Optimizer(ABC):
-    """
-    Base class for optimization algorithms.
+    """Base class for optimization algorithms.
 
     Coordinates multiple generators and constraints to search for optimal
     biological sequences through iterative optimization. Unlike generators
@@ -67,20 +67,19 @@ class Optimizer(ABC):
     @abstractmethod
     def __init__(
         self,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         num_results: int | None,
         tracking_interval: int,
         track_proposals: bool,
         verbose: bool,
         proposals_per_result: int = 1,
         num_proposals: int | None = None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
-        custom_logging: Optional[Callable] = None,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
+        custom_logging: Callable | None = None,
     ) -> None:
-        """
-        Initialize the Optimizer with dual-pool semantics.
+        """Initialize the Optimizer with dual-pool semantics.
 
         Args:
             constructs (list[Construct]): List of Construct objects to optimize.
@@ -113,9 +112,9 @@ class Optimizer(ABC):
         self.num_proposals = num_proposals
         self.clear_tool_cache = clear_tool_cache
         self.custom_logging = custom_logging
-        self.energy_scores: List[float] = []
-        self.history: List[Dict[str, Any]] = []
-        self._initial_state: Optional[Dict] = None  # Captured on first run() for restart
+        self.energy_scores: list[float] = []
+        self.history: list[dict[str, Any]] = []
+        self._initial_state: dict | None = None  # Captured on first run() for restart
         self._labels_deduplicated: bool = False
 
         # Per-proposal tracking (set by score_energy / optimizer-specific logic)
@@ -142,14 +141,14 @@ class Optimizer(ABC):
         return tuple(seg for construct in self.constructs for seg in construct.segments)
 
     @property
-    def constraint_weights(self) -> List[float]:
+    def constraint_weights(self) -> list[float]:
         """Get all constraint weights."""
         return [constraint.weight for constraint in self.constraints]
 
     @abstractmethod
     def run(self) -> None:
-        """
-        Subclasses should implement this method to run the optimization process.
+        """Subclasses should implement this method to run the optimization process.
+
         Implementations should modify generator outputs in-place.
         """
         raise NotImplementedError("Subclasses must implement the run method.")
@@ -159,8 +158,7 @@ class Optimizer(ABC):
         operation: Literal["add", "multiply"] = "add",
         filter_penalty: float = float("inf"),
     ) -> None:
-        """
-        Compute energy scores by combining all constraint evaluation scores on the proposal sequences.
+        """Compute energy scores by combining all constraint evaluation scores on the proposal sequences.
 
         Filter constraints are evaluated first. Rejected proposals skip subsequent
         constraint evaluations for performance. Sets ``_proposal_outcomes`` with
@@ -203,10 +201,10 @@ class Optimizer(ABC):
             if self.verbose:
                 logger.info(f"Filter {idx+1}: {constraint.label}")
             results = constraint.evaluate(mask=passed, verbose=self.verbose)
-            for i, (p, r) in enumerate(zip(passed, results)):
+            for i, (p, r) in enumerate(zip(passed, results, strict=True)):
                 if p and not r:
                     self._proposal_outcomes[i] = constraint.label
-            passed = [p and r for p, r in zip(passed, results)]
+            passed = [p and r for p, r in zip(passed, results, strict=True)]
 
         # Pass 2: Score passing proposals (skip rejected proposals for performance)
         all_scores = []
@@ -230,11 +228,11 @@ class Optimizer(ABC):
         elif operation == "multiply":
             self.energy_scores = [math.prod(s[i] for s in all_scores) for i in range(num_sequences)]
         else:
-            raise ValueError(f"Operation must be 'add' or 'multiply'")
+            raise ValueError("Operation must be 'add' or 'multiply'")
 
         # Check for inconsistent state
-        assert len(self.energy_scores) == num_sequences, \
-            ("Inconsistent state: energy scores should have the same length as proposals")
+        if len(self.energy_scores) != num_sequences:
+            raise RuntimeError("Inconsistent state: energy scores should have the same length as proposals")
 
         # NaN signals "not evaluated" and propagates through arithmetic, making bugs visible
         for i, score in enumerate(self.energy_scores):
@@ -262,8 +260,7 @@ class Optimizer(ABC):
         self._clear_tool_cache()
 
     def _clear_tool_cache(self) -> None:
-        """
-        Clear tool cache based on configuration.
+        """Clear tool cache based on configuration.
 
         Config Behavior:
         - int: Clear cache if size (in bytes) exceeds this threshold.
@@ -293,8 +290,7 @@ class Optimizer(ABC):
             raise ValueError(f"Invalid type of clear_tool_cache: {type(self.clear_tool_cache)}")
 
     def _validate_optimizer(self) -> None:
-        """
-        Validate optimizer configuration before execution.
+        """Validate optimizer configuration before execution.
 
         Checks:
             1. Non-empty lists: Constructs, generators, and constraints must be provided.
@@ -377,7 +373,7 @@ class Optimizer(ABC):
         subclasses with custom ``_validate_optimizer()`` can call it directly.
         """
         if not self._labels_deduplicated:
-            segment_label_counts: Dict[tuple, int] = {}  # (base_label, segment_id) -> count
+            segment_label_counts: dict[tuple, int] = {}  # (base_label, segment_id) -> count
             for constraint in self.constraints:
                 # Capture label before any renaming so multi-segment constraints
                 # use a stable key across all their segments.
@@ -399,7 +395,7 @@ class Optimizer(ABC):
                         segment_label_counts[key] = 0
             self._labels_deduplicated = True
 
-    def _validate_target_segment(self, target_segment: "Segment") -> None:
+    def _validate_target_segment(self, target_segment: Segment) -> None:
         """Validate target_segment is in constructs and that generators/constraints respect it.
 
         Checks:
@@ -433,7 +429,7 @@ class Optimizer(ABC):
                     f"'{target_segment.label or 'unlabeled'}' in its inputs"
                 )
 
-    def _sync_proposal_pools(self, target_segment: "Segment") -> None:
+    def _sync_proposal_pools(self, target_segment: Segment) -> None:
         """Sync non-target segment proposal pools to match target_segment's pool size.
 
         Maintains the invariant that all segments have equal num_proposals.
@@ -618,12 +614,12 @@ class Optimizer(ABC):
             include_proposals (bool): Include proposal rows (optimization table only).
         """
         results = build_results(self.constructs, self.energy_scores)
-        filters = dict(
-            segments=segments,
-            result_indices=result_indices,
-            constraints=constraints,
-            include_proposals=include_proposals,
-        )
+        filters = {
+            "segments": segments,
+            "result_indices": result_indices,
+            "constraints": constraints,
+            "include_proposals": include_proposals,
+        }
         return export_tables(
             lambda t: flatten_table(t, results, self.history, **filters),
             path, format, table,

@@ -1,7 +1,12 @@
-from .gc_content_constraint import gc_content_constraint
-from .kmer_frequency_constraint import kmer_frequency_constraint
-from .max_homopolymer_constraint import max_homopolymer_constraint
-from .sequence_length_constraint import sequence_length_constraint
+"""Sequence composition constraints (GC content, k-mer frequency, homopolymer, length)."""
+from proto_language.language.constraint.sequence_composition.gc_content_constraint import gc_content_constraint
+from proto_language.language.constraint.sequence_composition.kmer_frequency_constraint import kmer_frequency_constraint
+from proto_language.language.constraint.sequence_composition.max_homopolymer_constraint import (
+    max_homopolymer_constraint,
+)
+from proto_language.language.constraint.sequence_composition.sequence_length_constraint import (
+    sequence_length_constraint,
+)
 
 __all__ = [
     "sequence_length_constraint",

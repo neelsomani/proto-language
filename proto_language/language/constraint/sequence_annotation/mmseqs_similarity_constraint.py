@@ -1,13 +1,9 @@
-"""
-proto_language/language/constraint/sequence_annotation/mmseqs_similarity_constraint.py
-
-Supports DNA (with ORF prediction) and Protein sequences (direct search).
-"""
+"""Supports DNA (with ORF prediction) and Protein sequences (direct search)."""
 
 from __future__ import annotations
 
 import json
-from typing import List, Literal, Tuple
+from typing import Literal
 
 import numpy as np
 from proto_tools import (
@@ -142,6 +138,7 @@ class MMseqsSimilarityConfig(BaseConfig):
 
     @model_validator(mode='after')
     def validate_similarity_range(self):
+        """Ensure min_similarity does not exceed max_similarity."""
         if self.min_similarity > self.max_similarity:
             raise ValueError(f"min_similarity ({self.min_similarity}) must be <= max_similarity ({self.max_similarity}).")
         return self
@@ -157,7 +154,7 @@ class MMseqsSimilarityConfig(BaseConfig):
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: MMseqsSimilarityConfig) -> List[float]:
+def mmseqs_similarity_constraint(input_sequences: list[tuple[Sequence, ...]], config: MMseqsSimilarityConfig) -> list[float]:
     """Evaluate sequence similarity using MMseqs2 protein database search.
 
     This constraint function evaluates whether protein sequences (or proteins
@@ -268,7 +265,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
 
     # Build protein list with mapping back to input sequences
     # protein_data: List of (seq_idx, protein_sequence) tuples
-    protein_data: List[tuple] = []
+    protein_data: list[tuple] = []
 
     # Get proteins (ORF prediction for DNA, direct for protein)
     if sequence_type == "dna":
@@ -287,8 +284,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
                 sequences[seq_idx]._metadata["prodigal_orfs"] = store_file(
                     json.dumps(orf_dicts), FileType.JSON
                 ) if orf_dicts else None
-                for orf in orfs_list:
-                    protein_data.append((seq_idx, orf.amino_acid_sequence))
+                protein_data.extend((seq_idx, orf.amino_acid_sequence) for orf in orfs_list)
 
         else:  # orfipy
             orfipy_input = OrfipyInput(sequences=sequences_clean)
@@ -300,8 +296,7 @@ def mmseqs_similarity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
                 sequences[seq_idx]._metadata["orfipy_orfs"] = store_file(
                     json.dumps(orf_dicts), FileType.JSON
                 ) if orf_dicts else None
-                for orf in orfs_list:
-                    protein_data.append((seq_idx, orf.amino_acid_sequence))
+                protein_data.extend((seq_idx, orf.amino_acid_sequence) for orf in orfs_list)
 
     else:  # PROTEIN sequences - use directly
         for seq_idx, seq in enumerate(sequences):

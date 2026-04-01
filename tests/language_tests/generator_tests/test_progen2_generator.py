@@ -1,4 +1,4 @@
-"""tests/language_tests/generator_tests/test_progen2_generator.py"""
+"""tests/language_tests/generator_tests/test_progen2_generator.py."""
 import copy
 
 import pytest
@@ -142,7 +142,7 @@ class TestProGen2GeneratorValidation:
         segment = Segment(length=5, sequence_type="protein")
         generator.assign(segment)
 
-        with pytest.raises(ValueError, match="Prompt length.*must be less than.*segment length"):
+        with pytest.raises(ValueError, match=r"Prompt length.*must be less than.*segment length"):
             generator.sample()
 
     def test_prompt_equal_segment_length_with_prepend(self):
@@ -153,7 +153,7 @@ class TestProGen2GeneratorValidation:
         segment = Segment(length=len(prompt), sequence_type="protein")
         generator.assign(segment)
 
-        with pytest.raises(ValueError, match="Prompt length.*must be less than.*segment length"):
+        with pytest.raises(ValueError, match=r"Prompt length.*must be less than.*segment length"):
             generator.sample()
 
     @pytest.mark.parametrize("seq_type", ["dna", "rna"])

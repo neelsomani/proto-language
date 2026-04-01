@@ -1,12 +1,9 @@
-"""tests/language_tests/optimizer_tests/test_cycling_optimizer.py
-
-Tests for CyclingOptimizer."""
+"""Tests for CyclingOptimizer."""
 
 from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import List
 
 import pytest
 from proto_tools import InverseFoldingStructureInput, Structure
@@ -45,7 +42,7 @@ def make_mock_conditioning_fn(num_proposals: int):
     """Create a mock conditioning function that returns structures."""
     structures = [make_mock_structure() for _ in range(num_proposals)]
 
-    def conditioning_fn(sequences: List[Sequence]) -> List[Structure]:
+    def conditioning_fn(sequences: list[Sequence]) -> list[Structure]:
         return structures
 
     return conditioning_fn, structures
@@ -417,7 +414,7 @@ class TestCyclingOptimizerRun:
         components = _setup_cycling_components(num_steps=1, num_results=3)
 
         # Create a conditioning function that returns wrong number of items
-        def wrong_length_conditioning_fn(sequences: List[Sequence]):
+        def wrong_length_conditioning_fn(sequences: list[Sequence]):
             # Returns only 1 item instead of num_proposals (3)
             return [make_mock_structure()]
 
@@ -446,7 +443,7 @@ class TestCyclingOptimizerRun:
         components = _setup_cycling_components(num_steps=1, num_results=2)
 
         # Create a conditioning function that returns too many items
-        def too_many_conditioning_fn(sequences: List[Sequence]):
+        def too_many_conditioning_fn(sequences: list[Sequence]):
             # Returns 5 items instead of num_proposals (2)
             return [make_mock_structure() for _ in range(5)]
 
@@ -678,8 +675,7 @@ class TestAcceptPatternBehavior:
             filter_call_count[0] += 1
             if filter_call_count[0] == 1:
                 return [0.0 for _ in input_sequences]  # Pass
-            else:
-                return [1.0 for _ in input_sequences]  # Fail
+            return [1.0 for _ in input_sequences]  # Fail
 
         step_dependent_filter._constraint_config_class = EmptyConfig
         step_dependent_filter._constraint_supported_sequence_types = ["protein"]
@@ -948,11 +944,11 @@ class TestCyclingOptimizerRestart:
         assert len(captured_proposals) == len(original_proposals)
 
         # Verify sequences match
-        for orig, captured in zip(original_result, captured_result):
+        for orig, captured in zip(original_result, captured_result, strict=False):
             assert orig.sequence == captured['sequence']
             assert orig.sequence_type == captured['sequence_type']
 
-        for orig, captured in zip(original_proposals, captured_proposals):
+        for orig, captured in zip(original_proposals, captured_proposals, strict=False):
             assert orig.sequence == captured['sequence']
             assert orig.sequence_type == captured['sequence_type']
 

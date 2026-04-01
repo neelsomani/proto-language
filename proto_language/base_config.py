@@ -1,11 +1,7 @@
-"""
-proto_language/base_config.py
-
-Base configuration classes for all pydantic configs.
-"""
+"""Base configuration classes for all pydantic configs."""
 from __future__ import annotations
 
-from typing import Any, TypedDict, Union
+from typing import Any, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field as PydanticField
@@ -27,27 +23,26 @@ class DependsOn(TypedDict, total=False):
     """
 
     field: str  # Required: sibling field key to watch
-    value: Union[str, int, float, bool, list]  # Optional: value(s) to match
+    value: str | int | float | bool | list  # Optional: value(s) to match
     not_null: bool  # Optional: True means "show when not None"
 
 
 def ConfigField(
     default: Any = ...,
     *,
-    title: str = None,
-    description: str = None,
+    title: str | None = None,
+    description: str | None = None,
     advanced: bool = False,
     hidden: bool = False,
     depends_on: DependsOn | None = None,
     **kwargs,
 ) -> Any:
-    """
-    Custom Field wrapper that automatically adds metadata flags to json_schema_extra.
+    """Custom Field wrapper that automatically adds metadata flags to json_schema_extra.
 
     Args:
         default (Any): Default value for the configuration field.
-        title (str): Human-readable display title for the field.
-        description (str): Short description shown in the client UI.
+        title (str | None): Human-readable display title for the field.
+        description (str | None): Short description shown in the client UI.
         advanced (bool): If True, field appears in "Advanced" section of UI.
         hidden (bool): If True, field is hidden from UI completely.
         depends_on (DependsOn | None): If set, field is only visible when the
@@ -83,8 +78,7 @@ def ConfigField(
 
 
 class BaseConfig(BaseModel):
-    """
-    Base configuration class for consistent behavior across all configs (tools, constraints, and generators).
+    """Base configuration class for consistent behavior across all configs (tools, constraints, and generators).
 
     Example:
         >>> class MyToolConfig(BaseConfig):

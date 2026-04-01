@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import math
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Literal
 
 from proto_tools.utils.tool_instance import ToolInstance
 from tap import Tap
@@ -96,15 +98,15 @@ class ProgramIntronAlphaGenomeArgs(Tap):
     mcmc_candidates_per_result: int = 1
 
 
-def _split_csv(arg: str) -> List[str]:
+def _split_csv(arg: str) -> list[str]:
     return [token.strip() for token in arg.split(",") if token.strip()]
 
 
 def _resolve_terms(
     cell_name: str,
     override_terms_csv: str,
-    defaults: Dict[str, List[str]],
-) -> List[str]:
+    defaults: dict[str, list[str]],
+) -> list[str]:
     override_terms = _split_csv(override_terms_csv)
     if override_terms:
         return override_terms
@@ -537,7 +539,7 @@ if __name__ == "__main__":
     if not all_constraints:
         raise RuntimeError("No constraints were configured. Enable at least one scoring path.")
 
-    optimizer_for_logging: Dict[str, Optional[MCMCOptimizer]] = {"instance": None}
+    optimizer_for_logging: dict[str, MCMCOptimizer | None] = {"instance": None}
 
     def _format_intron_sequence(left: str, intron_core: str, right: str) -> str:
         if len(left) >= 2 and len(right) >= 2:
@@ -549,7 +551,7 @@ if __name__ == "__main__":
             return f"{float(value):.6f}"
         return str(value)
 
-    def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
+    def custom_logging(step: int, outputs: tuple[Segment]) -> None:
         print(f"\tstep: {step}")
         optimizer_instance = optimizer_for_logging["instance"]
         num_results = len(outputs[1].result_sequences)

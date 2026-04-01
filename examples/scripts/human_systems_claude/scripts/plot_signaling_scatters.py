@@ -17,7 +17,7 @@ plt.rcParams['axes.labelpad'] = 2
 
 # Load data
 tsv_df = pd.read_csv('analyze_af3_signaling_with_mmseqs.tsv', sep='\t')
-with open('examples/scripts/human_systems_claude/outputs/vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway/run_20260122_213114_848609/results.json', 'r') as f:
+with open('examples/scripts/human_systems_claude/outputs/vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway/run_20260122_213114_848609/results.json') as f:
     native_data = json.load(f)
 
 # Extract native values for each complex

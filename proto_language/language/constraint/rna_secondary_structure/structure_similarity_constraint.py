@@ -1,7 +1,4 @@
-"""
-proto_language/language/constraint/rna_secondary_structure/structure_similarity_constraint.py
-
-Constraint functions for RNA secondary structure similarity comparison.
+"""Constraint functions for RNA secondary structure similarity comparison.
 
 Uses ViennaRNA for secondary structure prediction and provides four independent
 constraint functions for different aspects of structural comparison.
@@ -10,7 +7,6 @@ constraint functions for different aspects of structural comparison.
 from __future__ import annotations
 
 from logging import getLogger
-from typing import List, Set, Tuple
 
 import numpy as np
 from proto_tools import ViennaRNAConfig, ViennaRNAInput, run_viennarna
@@ -27,11 +23,10 @@ logger = getLogger(__name__)
 # =============================================================================
 
 def _fold_sequences(
-    sequences: List[str],
+    sequences: list[str],
     temperature: float = 37.0,
-) -> List[Tuple[str, float]]:
-    """
-    Fold multiple sequences using ViennaRNA.
+) -> list[tuple[str, float]]:
+    """Fold multiple sequences using ViennaRNA.
 
     Args:
         sequences (list[str]): List of RNA/DNA sequences
@@ -46,7 +41,7 @@ def _fold_sequences(
     return [(r.structure, r.mfe) for r in output.results]
 
 
-def _get_base_pairs(structure: str) -> Set[Tuple[int, int]]:
+def _get_base_pairs(structure: str) -> set[tuple[int, int]]:
     """Extract base pairs as (i, j) tuples from dot-bracket notation."""
     pairs = set()
     stack = []
@@ -63,7 +58,7 @@ def _get_base_pairs(structure: str) -> Set[Tuple[int, int]]:
     return pairs
 
 
-def _extract_structural_motifs(structure: str) -> List[str]:
+def _extract_structural_motifs(structure: str) -> list[str]:
     """Extract structural motifs (stems, hairpins, bulges, etc.)."""
     if not structure:
         return []
@@ -290,7 +285,6 @@ class RNAMotifSimilarityConfig(RNAStructureConstraintBaseConfig):
         temperature (float): Folding temperature in Celsius. Inherited from
             ``RNAStructureConstraintBaseConfig``. Default: 37.0.
     """
-    pass
 
 
 class RNAFeatureSimilarityConfig(RNAStructureConstraintBaseConfig):
@@ -309,7 +303,6 @@ class RNAFeatureSimilarityConfig(RNAStructureConstraintBaseConfig):
         temperature (float): Folding temperature in Celsius. Inherited from
             ``RNAStructureConstraintBaseConfig``. Default: 37.0.
     """
-    pass
 
 
 class RNABasePairSimilarityConfig(RNAStructureConstraintBaseConfig):
@@ -359,11 +352,11 @@ class RNABasePairSimilarityConfig(RNAStructureConstraintBaseConfig):
     num_input_sequences_per_tuple=1,
 )
 def rna_property_similarity_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: RNAPropertySimilarityConfig,
-) -> List[float]:
-    """
-    Compare basic structural properties (length, pairing ratio) between proposals
+) -> list[float]:
+    """Compare basic structural properties (length, pairing ratio) between proposals.
+
     and reference.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
@@ -388,7 +381,7 @@ def rna_property_similarity_constraint(
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
-    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences):
+    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences, strict=False):
         if not cand_structure:
             scores.append(1.0)
             continue
@@ -436,11 +429,11 @@ def rna_property_similarity_constraint(
     num_input_sequences_per_tuple=1,
 )
 def rna_motif_similarity_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: RNAMotifSimilarityConfig,
-) -> List[float]:
-    """
-    Compare structural motifs (stems, hairpins, bulges) between proposals and
+) -> list[float]:
+    """Compare structural motifs (stems, hairpins, bulges) between proposals and.
+
     reference using Jaccard similarity.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
@@ -462,7 +455,7 @@ def rna_motif_similarity_constraint(
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
-    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences):
+    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences, strict=False):
         if not cand_structure:
             scores.append(1.0)
             continue
@@ -507,11 +500,10 @@ def rna_motif_similarity_constraint(
     num_input_sequences_per_tuple=1,
 )
 def rna_feature_similarity_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: RNAFeatureSimilarityConfig,
-) -> List[float]:
-    """
-    Construct 10-dim feature vectors and compare using cosine similarity.
+) -> list[float]:
+    """Construct 10-dim feature vectors and compare using cosine similarity.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
 
@@ -533,7 +525,7 @@ def rna_feature_similarity_constraint(
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
-    for (cand_structure, cand_mfe), (seq,) in zip(cand_results, input_sequences):
+    for (cand_structure, cand_mfe), (seq,) in zip(cand_results, input_sequences, strict=False):
         if not cand_structure:
             scores.append(1.0)
             continue
@@ -577,11 +569,10 @@ def rna_feature_similarity_constraint(
     num_input_sequences_per_tuple=1,
 )
 def rna_basepair_similarity_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: RNABasePairSimilarityConfig,
-) -> List[float]:
-    """
-    Compare base pair sets between proposals and reference using Jaccard similarity.
+) -> list[float]:
+    """Compare base pair sets between proposals and reference using Jaccard similarity.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
 
@@ -603,7 +594,7 @@ def rna_basepair_similarity_constraint(
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
     scores = []
-    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences):
+    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences, strict=False):
         if not cand_structure:
             scores.append(1.0)
             continue

@@ -8,6 +8,8 @@ Example:
     python plot_ensemble_energy_landscape.py 1ake.pdb 4ake.pdb topology.pdb samples.xtc landscape.svg
 """
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 
@@ -50,7 +52,7 @@ def load_ensemble_frames(topology_path: str, trajectory_path: str) -> list[str]:
         frame = traj[i]
         with tempfile.NamedTemporaryFile(suffix='.pdb', delete=False) as tmp:
             frame.save_pdb(tmp.name)
-            with open(tmp.name, 'r') as f:
+            with open(tmp.name) as f:
                 frames.append(f.read())
             Path(tmp.name).unlink()
 
@@ -209,9 +211,9 @@ def main() -> None:
     print(f"Loading ensemble from {args.topology} + {args.trajectory}...")
 
     # Load reference PDBs
-    with open(args.pdb1, 'r') as f:
+    with open(args.pdb1) as f:
         pdb1_text = f.read()
-    with open(args.pdb2, 'r') as f:
+    with open(args.pdb2) as f:
         pdb2_text = f.read()
 
     # Extract chains if specified

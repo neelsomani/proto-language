@@ -1,6 +1,4 @@
-"""tests/language_tests/constraint_tests/test_sequence_annotation/test_alphagenome_interval_track_constraint.py
-
-Unit tests for AlphaGenome interval-track sequence-annotation constraint."""
+"""Unit tests for AlphaGenome interval-track sequence-annotation constraint."""
 
 from __future__ import annotations
 

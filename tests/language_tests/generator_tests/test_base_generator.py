@@ -1,5 +1,4 @@
-"""tests/language_tests/generator_tests/test_base_generator.py"""
-from __future__ import annotations
+"""tests/language_tests/generator_tests/test_base_generator.py."""
 
 from unittest.mock import MagicMock, patch
 
@@ -22,7 +21,6 @@ class ConcreteGenerator(Generator):
 
     def sample(self) -> None:
         """Dummy sample implementation that does nothing."""
-        pass
 
 
 class TestGeneratorBase:

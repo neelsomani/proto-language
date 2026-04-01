@@ -1,7 +1,5 @@
-"""
-tests/tests_cpu/test_program_multiple_optimizers.py
+"""Tests for Program class with multiple sequential optimizers.
 
-Tests for Program class with multiple sequential optimizers.
 Verifies that state persists correctly between optimizers and that
 different optimizer combinations work as expected.
 """
@@ -127,7 +125,7 @@ class TestMultipleOptimizers:
 
         # Create two optimizers with different numbers of steps
         optimizers = []
-        for i, num_steps in enumerate([3, 5]):
+        for _i, num_steps in enumerate([3, 5]):
             gen_config = RandomNucleotideGeneratorConfig(
                 masking_strategy=MaskingStrategy(num_mutations=1)
             )
@@ -280,7 +278,7 @@ class TestMultipleOptimizers:
         )
 
         # Should raise ValueError
-        with pytest.raises(ValueError, match="has .* constructs"):
+        with pytest.raises(ValueError, match=r"has .* constructs"):
             Program(optimizers=[optimizer1, optimizer2], num_results=1)
 
     def test_empty_optimizers_list_fails(self):
@@ -457,7 +455,7 @@ class TestMultipleOptimizers:
             config=TopKOptimizerConfig(num_samples=5, num_results=1),
         )
 
-        with pytest.raises(ValueError, match="Generator.*reused"):
+        with pytest.raises(ValueError, match=r"Generator.*reused"):
             Program(optimizers=[optimizer1, optimizer2], num_results=1)
 
     def test_constraint_reuse_across_optimizers_fails(self):
@@ -494,7 +492,7 @@ class TestMultipleOptimizers:
             config=TopKOptimizerConfig(num_samples=5, num_results=1),
         )
 
-        with pytest.raises(ValueError, match="Constraint.*reused"):
+        with pytest.raises(ValueError, match=r"Constraint.*reused"):
             Program(optimizers=[optimizer1, optimizer2], num_results=1)
 
     def test_single_optimizer_no_reuse_validation(self):

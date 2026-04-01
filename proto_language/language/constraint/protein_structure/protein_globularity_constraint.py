@@ -1,14 +1,9 @@
-"""
-proto_language/language/constraint/protein_structure/protein_globularity_constraint.py
-
-Protein globularity constraint for compact protein structures.
-"""
+"""Protein globularity constraint for compact protein structures."""
 
 from __future__ import annotations
 
 import json
 from io import StringIO
-from typing import List, Tuple
 
 import numpy as np
 from proto_tools import (
@@ -98,7 +93,7 @@ class ProteinGlobularityConfig(BaseConfig):
     supported_sequence_types=["dna", "protein"],
     num_input_sequences_per_tuple=1,
 )
-def protein_globularity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinGlobularityConfig) -> List[float]:
+def protein_globularity_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinGlobularityConfig) -> list[float]:
     """Encourage compact, globular protein structures using ESMFold.
 
     This constraint function uses ESMFold to predict protein 3D structures
@@ -180,20 +175,17 @@ def protein_globularity_constraint(input_sequences: List[Tuple[Sequence, ...]], 
         >>> print(dna_seq._metadata["esmfold_best_globularity"])  # e.g., 7.8 Å (best among predicted proteins)
         >>> print(dna_seq._metadata["esmfold_protein_globularities"])  # e.g., [9.2, 7.8]
     """
-
     # Extract sequences from tuples and delegate to type-specific handlers
     sequences = [seq for (seq,) in input_sequences]
     if sequences[0].sequence_type == "protein":
         return _evaluate_protein_globularity(sequences, config)
-    else:
-        return _evaluate_dna_globularity(sequences, config)
+    return _evaluate_dna_globularity(sequences, config)
 
 
 def _evaluate_protein_globularity(
-    protein_sequences: List[Sequence], config: ProteinGlobularityConfig
-) -> List[float]:
+    protein_sequences: list[Sequence], config: ProteinGlobularityConfig
+) -> list[float]:
     """Evaluate protein globularity directly."""
-
     # Create complexes with n_replications of each protein sequence
     complexes = [
         StructurePredictionComplex(
@@ -212,7 +204,7 @@ def _evaluate_protein_globularity(
 
     scores = []
     for protein_seq, comp, structure in zip(
-        protein_sequences, complexes, output.structures
+        protein_sequences, complexes, output.structures, strict=False
     ):
         protein_seq._metadata.update(
             {
@@ -238,9 +230,9 @@ def _evaluate_protein_globularity(
 
 
 def _evaluate_dna_globularity(
-    dna_sequences: List[Sequence],
+    dna_sequences: list[Sequence],
     config: ProteinGlobularityConfig
-) -> List[float]:
+) -> list[float]:
     """Evaluate DNA sequences via Prodigal then globularity."""
     prodigal_result = run_prodigal_prediction(
         ProdigalInput(input_sequences=[seq.sequence for seq in dna_sequences]),
@@ -252,7 +244,7 @@ def _evaluate_dna_globularity(
     for dna_seq, proteins_list, num_genes in zip(
         dna_sequences,
         prodigal_result.predicted_orfs,
-        prodigal_result.num_orfs_per_sequence
+        prodigal_result.num_orfs_per_sequence, strict=False
     ):
         orf_dicts = [orf.model_dump() for orf in proteins_list]
         dna_seq._metadata.update({

@@ -1,8 +1,6 @@
-"""
-tests/conftest.py
+"""Test configuration and fixtures for the proto-language test suite."""
 
-Test configuration and fixtures for the proto-language test suite.
-"""
+from __future__ import annotations
 
 import json
 import logging
@@ -26,7 +24,7 @@ def is_on_chimera() -> bool:
 
 # Helper to create a mock generator spec for patching
 def _create_mock_generator_spec(
-    category: str = "autoregressive", sequence_types: list = None
+    category: str = "autoregressive", sequence_types: list | None = None
 ):
     """Create a mock GeneratorSpec with the given category."""
     mock_spec = Mock()
@@ -203,15 +201,13 @@ def pytest_sessionfinish(session, exitstatus):
             if failed > 0:
                 summary_lines.append("\nFailed tests:")
                 failed_reports = stats.get('failed', [])
-                for report in failed_reports:
-                    summary_lines.append(f"  - {report.nodeid}")
+                summary_lines.extend(f"  - {report.nodeid}" for report in failed_reports)
 
             # Add list of error tests if any
             if errors > 0:
                 summary_lines.append("\nTests with errors:")
                 error_reports = stats.get('error', [])
-                for report in error_reports:
-                    summary_lines.append(f"  - {report.nodeid}")
+                summary_lines.extend(f"  - {report.nodeid}" for report in error_reports)
 
             summary_lines.append("=" * 80)
 

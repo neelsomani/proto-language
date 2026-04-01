@@ -1,13 +1,8 @@
-"""
-proto_language/storage/resolver.py
-
-Utilities for resolving and caching GCS file references to local paths.
+"""Utilities for resolving and caching GCS file references to local paths.
 
 Used primarily for downloading pre-existing GCS-hosted databases (e.g., MMseqs DBs)
 to a local cache directory for tool execution.
 """
-
-from __future__ import annotations
 
 import hashlib
 import logging
@@ -134,9 +129,8 @@ def resolve_paths(value: Any) -> Any:
         if value.startswith(("gcs://", "gs://")):
             return str(resolve_file(value))
         return value
-    elif isinstance(value, dict):
+    if isinstance(value, dict):
         return {k: resolve_paths(v) for k, v in value.items()}
-    elif isinstance(value, list):
+    if isinstance(value, list):
         return [resolve_paths(item) for item in value]
-    else:
-        return value
+    return value

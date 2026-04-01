@@ -1,15 +1,11 @@
-"""
-proto_language/language/constraint/sequence_annotation/seq_motif_constraint.py
-
-Sequence motif constraint for scoring DNA sequences against motifs using MEME.
-"""
+"""Sequence motif constraint for scoring DNA sequences against motifs using MEME."""
 
 from __future__ import annotations
 
 import os
 import subprocess
 import tempfile
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Literal
 
 import numpy as np
 from pydantic import field_validator
@@ -101,13 +97,13 @@ class SeqMotifConfig(BaseConfig):
         title="Path to MEME Suite binaries",
         description="Path to directory containing MEME Suite binaries (must include fimo).",
     )
-    wanted: Optional[List[str]] = ConfigField(
+    wanted: list[str] | None = ConfigField(
         title="Wanted Motifs",
         default=None,
         description="Motifs that should be present: 'all' (all motifs), 'none' (no requirement), or list of motif names.",
         examples=[["motif1", "motif2"], ["all"], ["none"]],
     )
-    not_wanted: Optional[List[str]] = ConfigField(
+    not_wanted: list[str] | None = ConfigField(
         title="Unwanted Motifs",
         default=None,
         description="Motifs that should NOT be present: 'all' (reject all), 'none' (allow all), or list of motif names.",
@@ -168,7 +164,7 @@ class SeqMotifConfig(BaseConfig):
     supported_sequence_types=["dna"],
     num_input_sequences_per_tuple=1,
 )
-def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: SeqMotifConfig) -> List[float]:
+def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: SeqMotifConfig) -> list[float]:
     """Score DNA sequences against sequence motifs using MEME.
 
     This constraint function uses MEME Suite's Find Individual Motif
@@ -241,13 +237,9 @@ def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Se
         >>> metadata = promoter_seq._metadata["motif_constraint"]
         >>> print(metadata["found"])  # e.g., {"SP1": 1e-8, "lacI": 3e-6}
     """
-
     # Parse motif names
-    motif_names = []
     with open(config.motifs_path) as f:
-        for line in f:
-            if line.startswith("MOTIF"):
-                motif_names.append(line.split()[1])
+        motif_names = [line.split()[1] for line in f if line.startswith("MOTIF")]
 
     # Normalize "all"/"none"
     wanted = config.wanted
@@ -288,13 +280,13 @@ def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Se
         elif not_wanted and not wanted:
             wanted = set(motif_names) - not_wanted
 
-    penalties: List[float] = []
+    penalties: list[float] = []
 
     for (seq_obj,) in input_sequences:
         seq = seq_obj.sequence.upper().replace(" ", "").replace("\n", "")
 
         # Run MEME with FIMO
-        found: Dict[str, float] = {}
+        found: dict[str, float] = {}
         with tempfile.TemporaryDirectory() as tmpdir:
             fasta_path = os.path.join(tmpdir, "seq.fa")
             with open(fasta_path, "w") as f:
@@ -302,7 +294,7 @@ def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Se
 
             fimo_out = os.path.join(tmpdir, "fimo_out")
             fimo_bin = os.path.join(config.meme_bin_path, "fimo")
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 [fimo_bin, "--oc", fimo_out, config.motifs_path, fasta_path],
                 check=True,
                 stdout=subprocess.DEVNULL,
@@ -383,12 +375,7 @@ def seq_motif_constraint(input_sequences: List[Tuple[Sequence, ...]], config: Se
                 details[motif] = {"penalty": 1.0 * config.scale, "status": "wanted_missing"}
             else:
                 e_val = found[motif]
-                if e_val > 0:
-                    penalty_val = min(
-                        1.0, config.scale * (1.0 / (1.0 + np.exp(-10 * (e_val - 0.1))))
-                    )
-                else:
-                    penalty_val = 0.0
+                penalty_val = min(1.0, config.scale * (1.0 / (1.0 + np.exp(-10 * (e_val - 0.1))))) if e_val > 0 else 0.0
                 wanted_penalties.append(penalty_val)
                 details[motif] = {
                     "penalty": penalty_val,

@@ -1,9 +1,7 @@
-"""tests/utils_tests/test_validate_exports.py
+"""Uses synthetic temp files to test AST parsing and validation logic.
 
-Uses synthetic temp files to test AST parsing and validation logic
-without depending on the real codebase."""
-from __future__ import annotations
-
+without depending on the real codebase.
+"""
 import json
 
 # Import the validator functions directly
@@ -141,7 +139,7 @@ class TestExtractImports:
             from .tools import *
         ''')
         tree = parse_init(init)
-        names, has_wildcard = extract_imports(tree)
+        _names, has_wildcard = extract_imports(tree)
         assert has_wildcard
 
     def test_aliased_import(self, tmp_path):
@@ -481,7 +479,7 @@ class TestValidateDomain:
             "root": "pkg",
             "checks": ["all_consistency"],
         }
-        errors, warnings = validate_domain(domain, tmp_path, set())
+        errors, _warnings = validate_domain(domain, tmp_path, set())
         assert len(errors) == 1
         assert errors[0].symbol == "Stale"
 
@@ -503,7 +501,7 @@ class TestValidateDomain:
             "registry_decorators": ["tool"],
             "checks": ["all_consistency", "registry_exports"],
         }
-        errors, warnings = validate_domain(domain, tmp_path, set())
+        errors, _warnings = validate_domain(domain, tmp_path, set())
         assert len(errors) == 1
         assert errors[0].symbol == "run_my_tool"
 
@@ -538,7 +536,7 @@ class TestValidateDomain:
             "root": "nonexistent_pkg",
             "checks": ["all_consistency"],
         }
-        errors, warnings = validate_domain(domain, tmp_path, set())
+        errors, _warnings = validate_domain(domain, tmp_path, set())
         assert len(errors) == 1
         assert "domain root not found" in errors[0].message
 

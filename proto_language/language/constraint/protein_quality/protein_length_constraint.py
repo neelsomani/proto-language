@@ -1,12 +1,6 @@
-"""
-proto_language/language/constraint/protein_quality/protein_length_constraint.py
-
-Protein length constraint function.
-"""
+"""Protein length constraint function."""
 
 from __future__ import annotations
-
-from typing import List, Tuple
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
@@ -59,7 +53,7 @@ class ProteinLengthConfig(BaseConfig):
     supported_sequence_types=["protein"],
     num_input_sequences_per_tuple=1,
 )
-def protein_length_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinLengthConfig) -> List[float]:
+def protein_length_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinLengthConfig) -> list[float]:
     """Evaluate whether protein sequence lengths fall within an acceptable range.
 
     This constraint function checks if protein sequences have lengths within a

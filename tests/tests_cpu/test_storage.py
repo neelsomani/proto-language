@@ -1,8 +1,4 @@
-"""
-tests/tests_cpu/test_storage.py
-
-Tests for the storage module.
-"""
+"""Tests for the storage module."""
 
 import os
 from pathlib import Path

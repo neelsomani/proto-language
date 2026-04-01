@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.language.constraint import gc_content_constraint
@@ -106,7 +104,7 @@ mcmc_config = MCMCOptimizerConfig(
     max_temperature=2.0,
 )
 
-def mcmc_custom_logger(step: int, outputs: Tuple[Segment]) -> None:
+def mcmc_custom_logger(step: int, outputs: tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].proposal_sequences[0]
     gc_content = output_sequence._metadata["constraints"]["gc_content_constraint"]["data"].get("gc_content", "N/A")
     print(

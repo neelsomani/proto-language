@@ -35,7 +35,6 @@ import logging
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +70,7 @@ FILTER_PATTERN = re.compile(
 )
 
 
-def parse_log(log_path: Path) -> Dict[str, Dict[str, int]]:
+def parse_log(log_path: Path) -> dict[str, dict[str, int]]:
     """Parse a single SLURM log and return per-filter stats.
 
     Returns dict mapping filter name -> {"passed": N, "total": M, "batches": B}.
@@ -99,7 +98,7 @@ def extract_job_id(log_path: Path) -> str:
     return log_path.stem
 
 
-def print_job_table(job_id: str, stats: Dict[str, Dict[str, int]]) -> None:
+def print_job_table(job_id: str, stats: dict[str, dict[str, int]]) -> None:
     """Print a formatted table for a single job."""
     print(f"\n{'=' * 70}")
     print(f"Job {job_id}")
@@ -116,7 +115,7 @@ def print_job_table(job_id: str, stats: Dict[str, Dict[str, int]]) -> None:
 
 
 def print_aggregate_table(
-    all_stats: Dict[str, Dict[str, int]], n_jobs: int, total_samples: int
+    all_stats: dict[str, dict[str, int]], n_jobs: int, total_samples: int
 ) -> None:
     """Print a formatted aggregate table across all jobs."""
     print(f"\n{'=' * 70}")
@@ -144,7 +143,7 @@ def print_aggregate_table(
                   f"({yield_pct:.3f}% end-to-end yield)")
 
 
-def discover_logs(log_dir: str) -> List[str]:
+def discover_logs(log_dir: str) -> list[str]:
     """Find all evocas9_topk log files in the given directory."""
     pattern = str(Path(log_dir) / LOG_GLOB)
     paths = sorted(glob.glob(pattern))
@@ -155,7 +154,7 @@ def discover_logs(log_dir: str) -> List[str]:
     return paths
 
 
-def main(args: Optional[List[str]] = None) -> None:
+def main(args: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Analyze evocas9_topk SLURM logs for per-filter pass rates.",
     )

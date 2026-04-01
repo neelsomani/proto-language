@@ -1,8 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_rna_secondary_structure/test_structure_similarity.py
-
-All tests call ViennaRNA via ToolInstance (requires micromamba).
-"""
+"""All tests call ViennaRNA via ToolInstance (requires micromamba)."""
 
 import pytest
 

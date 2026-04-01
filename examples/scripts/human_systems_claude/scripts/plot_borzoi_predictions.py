@@ -13,7 +13,6 @@ Usage:
 import argparse
 import math
 from pathlib import Path
-from typing import List, Optional
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -122,7 +121,7 @@ def embed_sequence_in_context(
     return full_sequence
 
 
-def get_output_tracks(track_pattern: str, targets_file: str = BORZOI_HUMAN_TARGETS) -> List[int]:
+def get_output_tracks(track_pattern: str, targets_file: str = BORZOI_HUMAN_TARGETS) -> list[int]:
     """
     Get Borzoi output track indices matching a pattern.
 
@@ -143,7 +142,7 @@ def get_output_tracks(track_pattern: str, targets_file: str = BORZOI_HUMAN_TARGE
 
 def run_all_replicates(
     full_sequence: str,
-    output_tracks: List[int],
+    output_tracks: list[int],
     species: str = 'human',
     avg_tracks: bool = True,
     verbose: bool = True,
@@ -231,9 +230,9 @@ def plot_borzoi_predictions(
     design_len: int,
     output_path: str,
     track_name: str = "CREB1 ChIP-seq",
-    title: Optional[str] = None,
+    title: str | None = None,
     highlight_design: bool = True,
-    zoom_window_bp: Optional[int] = None,
+    zoom_window_bp: int | None = None,
 ):
     """
     Plot Borzoi predictions from all 4 replicates.

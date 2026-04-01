@@ -1,7 +1,5 @@
-"""
-proto_language/utils/helpers.py
+"""This module provides utilities for metadata management and structural/geometric.
 
-This module provides utilities for metadata management and structural/geometric
 calculations used across the proto-language framework.
 """
 
@@ -10,7 +8,6 @@ from __future__ import annotations
 import math
 import random
 import subprocess
-from typing import List, Optional
 
 import numpy as np
 
@@ -36,8 +33,7 @@ def filter_inf_nan_scores(score: float) -> float | None:
 
 
 def validate_range(value: float, min_val: float, max_val: float, name: str) -> None:
-    """
-    Validate that a value falls within the specified range.
+    """Validate that a value falls within the specified range.
 
     Args:
         value (float): The value to validate.
@@ -53,8 +49,7 @@ def validate_range(value: float, min_val: float, max_val: float, name: str) -> N
 
 
 def calculate_range_deviation(actual: float, min_val: float, max_val: float) -> float:
-    """
-    Calculate deviation from acceptable range for general constraints.
+    """Calculate deviation from acceptable range for general constraints.
 
     Args:
         actual (float): The actual measured value.
@@ -67,17 +62,15 @@ def calculate_range_deviation(actual: float, min_val: float, max_val: float) -> 
     """
     if min_val <= actual <= max_val:
         return MIN_ENERGY
-    elif actual < min_val:
+    if actual < min_val:
         return min(MAX_ENERGY, (min_val - actual) / max(min_val, 1))
-    else:
-        return min(MAX_ENERGY, (actual - max_val) / max(max_val, 1))
+    return min(MAX_ENERGY, (actual - max_val) / max(max_val, 1))
 
 
 def calculate_percentage_range_deviation(
     actual: float, min_val: float, max_val: float
 ) -> float:
-    """
-    Calculate deviation from acceptable range for percentage-based constraints (0-100%).
+    """Calculate deviation from acceptable range for percentage-based constraints (0-100%).
 
     Args:
         actual (float): The actual measured percentage value.
@@ -90,15 +83,13 @@ def calculate_percentage_range_deviation(
     """
     if min_val <= actual <= max_val:
         return MIN_ENERGY
-    elif actual < min_val:
+    if actual < min_val:
         return min(MAX_ENERGY, (min_val - actual) / max(min_val, 1))
-    else:
-        return min(MAX_ENERGY, (actual - max_val) / max(100 - max_val, 1))
+    return min(MAX_ENERGY, (actual - max_val) / max(100 - max_val, 1))
 
 
 def calculate_gc_content(sequence: str) -> float:
-    """
-    Calculate the GC content percentage of a DNA/RNA sequence.
+    """Calculate the GC content percentage of a DNA/RNA sequence.
 
     Args:
         sequence (str): DNA or RNA sequence string.
@@ -115,8 +106,7 @@ def calculate_gc_content(sequence: str) -> float:
 
 
 def calculate_normalized_deviation(actual: float, target: float) -> float:
-    """
-    Calculate normalized deviation from target value for target-based constraints.
+    """Calculate normalized deviation from target value for target-based constraints.
 
     Args:
         actual (float): The actual measured value.
@@ -134,8 +124,8 @@ def sigmoid_score(
     inflection: float,
     slope: float = 3.0,
 ) -> float:
-    """
-    Squeezes a non-negative metric (i.e., >= 0) into a 0-1 score using a sigmoid
+    """Squeezes a non-negative metric (i.e., >= 0) into a 0-1 score using a sigmoid.
+
     function.
 
     Args:
@@ -150,7 +140,7 @@ def sigmoid_score(
     if metric < 0:
         raise ValueError(f"Input metric value cannot be negative, found {metric}")
 
-    # 1 / (1 + e^(-k(x - x0)))
+    # 1 / (1 + e^(-k(x - x0)))  # noqa: ERA001
     # We want low metric -> 0 and high metric -> 1.
     # The standard sigmoid 1/(1+e^-x) goes 0->1 as x increases.
     # We use slope * (metric - inflection).
@@ -163,8 +153,8 @@ def inverse_sigmoid_score(
     inflection: float,
     slope: float = 3.0,
 ) -> float:
-    """
-    Inverts the sigmoid_score function to recover the original metric from a 0-1
+    """Inverts the sigmoid_score function to recover the original metric from a 0-1.
+
     score using the **logit function**. Helps to recover the original metric from a
     0-1 score.
 
@@ -186,14 +176,14 @@ def inverse_sigmoid_score(
         raise ValueError("Slope cannot be zero for inversion.")
 
     # Mathematical derivation:
-    # y = 1 / (1 + e^(-k(x - x0)))
+    # y = 1 / (1 + e^(-k(x - x0)))  # noqa: ERA001
     # 1/y = 1 + e^(-k(x - x0))
     # (1 - y) / y = e^(-k(x - x0))
     # ln((1 - y) / y) = -slope * (metric - inflection)
     # -1/slope * ln((1 - y) / y) = metric - inflection
     #
     # Using the property -ln(a/b) = ln(b/a):
-    # metric = inflection + (1/slope) * ln(y / (1 - y))
+    # metric = inflection + (1/slope) * ln(y / (1 - y))  # noqa: ERA001
 
     return inflection + (np.log(score / (1.0 - score)) / slope)
 
@@ -203,16 +193,15 @@ def inverse_sigmoid_score(
 # =============================================================================
 
 
-def mask_k(sequence: str, k: int, mask_str: str = "_", fixed_indices: List[int] = None) -> str:
-    """
-    Mask k random positions of a sequence.
+def mask_k(sequence: str, k: int, mask_str: str = "_", fixed_indices: list[int] | None = None) -> str:
+    """Mask k random positions of a sequence.
 
     Args:
         sequence (str): The sequence to mask.
         k (int): The number of positions to mask.
         mask_str (str): The string of characters that replace sequence characters
             in masked positions.
-        fixed_indices (list[int]): The indices of the positions that are fixed and
+        fixed_indices (list[int] | None): The indices of the positions that are fixed and
             should not be masked.
     """
     if k > len(sequence):
@@ -239,17 +228,16 @@ def mask_k(sequence: str, k: int, mask_str: str = "_", fixed_indices: List[int] 
 
 
 def mask_p(
-    sequence: str, p: float, mask_str: str = "_", fixed_indices: List[int] = None
+    sequence: str, p: float, mask_str: str = "_", fixed_indices: list[int] | None = None
 ) -> str:
-    """
-    Mask a random fraction of positions in a sequence.
+    """Mask a random fraction of positions in a sequence.
 
     Args:
         sequence (str): The sequence to mask.
         p (float): The fraction of positions to mask.
         mask_str (str): The string of characters that replace sequence characters
             in masked positions.
-        fixed_indices (list[int]): Sequence positions that should remain unchanged during mutation.
+        fixed_indices (list[int] | None): Sequence positions that should remain unchanged during mutation.
 
     Returns:
         str: The masked sequence.
@@ -267,16 +255,15 @@ def mask_p(
     k = max(1, int(p * num_designable_positions))
 
     # Mask the sequence
-    masked_sequence = mask_k(sequence, k, mask_str, fixed_indices)
+    return mask_k(sequence, k, mask_str, fixed_indices)
 
-    return masked_sequence
 
 
 def mask_assigned_positions(
     sequence: str, inds_to_mask: list[int], mask_str: str = "_"
 ) -> str:
-    """
-    Returns a masked version of the sequence where the positions in inds_to_mask
+    """Returns a masked version of the sequence where the positions in inds_to_mask.
+
     are replaced with the mask_str.
 
     Args:
@@ -299,9 +286,8 @@ def mask_assigned_positions(
     return "".join(sequence_list)
 
 
-def run_subprocess_command(cmd: List[str], tool_name: str) -> subprocess.CompletedProcess:
-    """
-    Run subprocess command with error handling.
+def run_subprocess_command(cmd: list[str], tool_name: str) -> subprocess.CompletedProcess:
+    """Run subprocess command with error handling.
 
     Args:
         cmd (list[str]): Command and arguments to execute.
@@ -313,7 +299,7 @@ def run_subprocess_command(cmd: List[str], tool_name: str) -> subprocess.Complet
     Raises:
         RuntimeError: If the subprocess exits with a non-zero return code.
     """
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
     if proc.returncode != 0:
         raise RuntimeError(
             f"{tool_name} failed (exit {proc.returncode})\n"
@@ -322,7 +308,7 @@ def run_subprocess_command(cmd: List[str], tool_name: str) -> subprocess.Complet
     return proc
 
 
-def resolve_sequence_ids(sequences: List[str], ids: Optional[List[str]]) -> List[str]:
+def resolve_sequence_ids(sequences: list[str], ids: list[str] | None) -> list[str]:
     """Resolve sequence identifiers, using provided IDs or generating defaults.
 
     Args:

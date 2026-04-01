@@ -1,4 +1,4 @@
-"""tests/language_tests/constraint_tests/test_base_constraint.py"""
+"""tests/language_tests/constraint_tests/test_base_constraint.py."""
 from __future__ import annotations
 
 import copy
@@ -7,21 +7,19 @@ import math
 import pytest
 from pydantic import BaseModel
 
-from proto_language.language.core import Constraint, Segment
-
-from .utils import (
+from constraint_tests.utils import (
     mock_dna_only_scoring_function,
     mock_multi_input_scoring_function,
     mock_multi_input_scoring_function_disjoint,
     mock_protein_only_scoring_function,
     mock_single_input_scoring_function,
 )
+from proto_language.language.core import Constraint, Segment
 
 
 # Empty config model for mock constraint functions
 class MockConstraintConfig(BaseModel):
     """Empty config for mock constraints that don't need parameters."""
-    pass
 
 
 def _make_segment_with_proposals(sequences: list[str], seq_type: str = "dna") -> Segment:
@@ -84,7 +82,7 @@ class TestConstraintEvaluation:
         constraint.evaluate()
 
         # Check metadata was propagated in nested format
-        for i, seq in enumerate(segment.proposal_sequences):
+        for _i, seq in enumerate(segment.proposal_sequences):
             constraints = seq._constraints_metadata
             assert "mock_multi_input_scoring_function" in constraints
             assert "t_count" in constraints["mock_multi_input_scoring_function"]["data"]
@@ -391,7 +389,7 @@ class TestConstraintWeight:
         """Test that setting both weight and threshold raises ValueError."""
         segment = Segment(sequence="ATCG", sequence_type="dna")
 
-        with pytest.raises(ValueError, match="Both threshold .* and weight .* are set"):
+        with pytest.raises(ValueError, match=r"Both threshold .* and weight .* are set"):
             Constraint(
                 inputs=[segment],
                 function=mock_single_input_scoring_function,

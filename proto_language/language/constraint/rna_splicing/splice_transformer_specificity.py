@@ -1,7 +1,4 @@
-"""
-proto_language/language/constraint/rna_splicing/splice_transformer_specificity.py
-
-Evaluate tissue-specific splicing with SpliceTransformer.
+"""Evaluate tissue-specific splicing with SpliceTransformer.
 
 Accepts three segments (left_flank, intron_core, right_flank), concatenates
 them into a single 1-kb target sequence, and scores tissue-specific splice
@@ -10,7 +7,7 @@ site usage. Metadata is propagated back to all three input segments.
 from __future__ import annotations
 
 import logging
-from typing import List, Literal, Tuple
+from typing import Literal
 
 from proto_tools import (
     SpliceTransformerConfig,
@@ -124,7 +121,7 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
         title="Right Context",
         description="Sequence of the right context for SpliceTransformer",
     )
-    splice_pos: List[int] = ConfigField(
+    splice_pos: list[int] = ConfigField(
         title="Splice Position(s)",
         description="0-indexed position(s) into input_sequence on which to compute the score",
     )
@@ -171,9 +168,9 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     num_input_sequences_per_tuple=3,
 )
 def splice_transformer_specificity(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: SpliceTransformerSpecificityConfig,
-) -> List[float]:
+) -> list[float]:
     """Score tissue-specific splice site usage for three-segment intron boundaries.
 
     Accepts three segments (left_flank, intron_core, right_flank), concatenates
@@ -189,7 +186,8 @@ def splice_transformer_specificity(
     if not input_sequences:
         return []
 
-    assert len(config.left_context) == len(config.right_context)
+    if len(config.left_context) != len(config.right_context):
+        raise ValueError(f"Left/right context lengths must match: {len(config.left_context)} != {len(config.right_context)}")
     context_length = len(config.left_context)
     tissue_channel_index = SPLICE_TISSUE_CHANNEL_INDEX[config.tissue]
 

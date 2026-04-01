@@ -1,12 +1,6 @@
-"""
-proto_language/language/constraint/protein_quality/protein_diversity_constraint.py
-
-Protein diversity constraint function.
-"""
+"""Protein diversity constraint function."""
 
 from __future__ import annotations
-
-from typing import List, Tuple
 
 import numpy as np
 
@@ -57,7 +51,7 @@ class ProteinDiversityConfig(BaseConfig):
     supported_sequence_types=["protein"],
     num_input_sequences_per_tuple=1,
 )
-def protein_diversity_constraint(input_sequences: List[Tuple[Sequence, ...]], config: ProteinDiversityConfig) -> List[float]:
+def protein_diversity_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinDiversityConfig) -> list[float]:
     """Evaluate amino acid diversity in protein sequences.
 
     This constraint function measures the diversity of amino acid types present
@@ -130,6 +124,6 @@ def protein_diversity_constraint(input_sequences: List[Tuple[Sequence, ...]], co
     for i, (input_sequence,) in enumerate(input_sequences):
         input_sequence._metadata["aa_diversity_score"] = float(diversity_scores[i])
         input_sequence._metadata["unique_amino_acid_count"] = int(unique_aa_counts[i])
-        input_sequence._metadata["unique_amino_acids"] = sorted(list(set(seq_strings[i])))
+        input_sequence._metadata["unique_amino_acids"] = sorted(set(seq_strings[i]))
 
     return scores_array.tolist()

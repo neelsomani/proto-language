@@ -1,8 +1,4 @@
-"""
-tests/language_tests/test_program.py
-
-Tests for Program class including state management and restart behavior.
-"""
+"""Tests for Program class including state management and restart behavior."""
 
 from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
@@ -29,6 +25,8 @@ def _create_simple_program(
     """Create a simple program for testing.
 
     Args:
+        num_stages: Number of optimizer stages to create.
+        sequence: DNA sequence string for the test segment.
         compute: Compute parameter for Program. Defaults to nullcontext()
             to skip auto-detection.
             Pass compute=None to test auto-detection behavior.
@@ -40,7 +38,7 @@ def _create_simple_program(
     construct = Construct([segment])
 
     optimizers = []
-    for i in range(num_stages):
+    for _i in range(num_stages):
         gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         generator = RandomNucleotideGenerator(gen_config)
         generator.assign(segment)
@@ -488,7 +486,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        with pytest.raises(ValueError, match="has 1 constructs.*has 2"):
+        with pytest.raises(ValueError, match=r"has 1 constructs.*has 2"):
             Program(optimizers=[opt1, opt2], num_results=2)
 
     def test_mismatched_construct_identity_raises(self):
@@ -550,7 +548,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        with pytest.raises(ValueError, match="Construct labels must be unique.*same_label"):
+        with pytest.raises(ValueError, match=r"Construct labels must be unique.*same_label"):
             Program(optimizers=[opt], num_results=2)
 
     def test_segment_reuse_across_constructs_raises(self):
@@ -571,7 +569,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        with pytest.raises(ValueError, match="Segment.*used in multiple constructs"):
+        with pytest.raises(ValueError, match=r"Segment.*used in multiple constructs"):
             Program(optimizers=[opt], num_results=2)
 
     def test_dangling_segment_raises(self):
@@ -592,7 +590,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        with pytest.raises(ValueError, match="never populated.*no input sequence and no generator"):
+        with pytest.raises(ValueError, match=r"never populated.*no input sequence and no generator"):
             Program(optimizers=[opt], num_results=2)
 
     def test_generator_reuse_across_optimizers_raises(self):
@@ -622,7 +620,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        with pytest.raises(ValueError, match="Generator.*reused across optimizer"):
+        with pytest.raises(ValueError, match=r"Generator.*reused across optimizer"):
             Program(optimizers=[opt1, opt2], num_results=2)
 
     def test_constraint_reuse_across_optimizers_raises(self):
@@ -651,7 +649,7 @@ class TestProgramValidation:
             config=TopKOptimizerConfig(num_samples=3, num_results=2),
         )
 
-        with pytest.raises(ValueError, match="Constraint.*reused across optimizer"):
+        with pytest.raises(ValueError, match=r"Constraint.*reused across optimizer"):
             Program(optimizers=[opt1, opt2], num_results=2)
 
 

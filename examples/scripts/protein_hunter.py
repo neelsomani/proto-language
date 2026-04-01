@@ -22,7 +22,6 @@ import argparse
 import os
 import sys
 from datetime import datetime
-from typing import List, Tuple
 
 from proto_tools import StructurePredictionComplex, predict_structures
 
@@ -155,7 +154,7 @@ def run_protein_hunter(
         )
 
         # Define conditioning function.
-        def structure_conditioning_fn(sequences: List[Sequence]) -> List:
+        def structure_conditioning_fn(sequences: list[Sequence]) -> list:
             """
             Predict 3D structures and store PDBs in metadata for retrieval later.
             """
@@ -172,7 +171,7 @@ def run_protein_hunter(
 
             return structures
 
-        def step_logging(cycle: int, segments: Tuple[Segment, ...]) -> None:
+        def step_logging(cycle: int, segments: tuple[Segment, ...]) -> None:
             """Log progress for the best proposal after each cycle."""
             # Just grab the first proposal to show progress
             best_seq = segments[0].result_sequences[0]
@@ -205,7 +204,7 @@ def run_protein_hunter(
         results_file = os.path.join(run_dir, "results_summary.txt")
 
         with open(results_file, "w") as f:
-            f.write(f"# Protein Hunter Design Results\n")
+            f.write("# Protein Hunter Design Results\n")
             f.write(f"# Timestamp: {datetime.now().isoformat()}\n\n")
 
             for i, seq in enumerate(protein.result_sequences):

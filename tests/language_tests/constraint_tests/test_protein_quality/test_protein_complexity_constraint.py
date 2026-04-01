@@ -1,13 +1,4 @@
-"""
-tests/language_tests/constraint_tests/test_protein_quality/test_protein_complexity_constraint.py
-
-Tests cover:
-1. Basic functionality with mocked segmasker
-2. Configuration validation
-3. Registry integration
-4. Error handling
-5. Metadata propagation
-"""
+"""Tests for protein complexity constraint with mocked segmasker and config validation."""
 
 from unittest.mock import patch
 

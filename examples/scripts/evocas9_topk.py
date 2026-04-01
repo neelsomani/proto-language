@@ -31,7 +31,7 @@ import gzip
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -80,10 +80,10 @@ LONGEST_ALPHA_THRESHOLD = 50
 
 # Key: DNA sequence string
 # Values populated incrementally by successive filter constraints
-CACHE: Dict[str, Dict[str, Any]] = {}
+CACHE: dict[str, dict[str, Any]] = {}
 
 # Training sequences loaded once and reused across combos
-_TRAINING_SEQS: Optional[dict] = None
+_TRAINING_SEQS: dict | None = None
 
 # ============================================================================
 # Helpers
@@ -131,7 +131,7 @@ def _load_training_sequences(fasta_path: Path) -> dict:
     """Load FASTA into {id: sequence} dict."""
     sequences = {}
     current_id = None
-    current_seq: List[str] = []
+    current_seq: list[str] = []
 
     with open(fasta_path) as f:
         for line in f:
@@ -159,7 +159,7 @@ def _get_training_seqs() -> dict:
     return _TRAINING_SEQS
 
 
-def _get_protein(dna: str) -> Optional[str]:
+def _get_protein(dna: str) -> str | None:
     """Look up cached protein for a DNA sequence."""
     entry = CACHE.get(dna)
     if entry:
@@ -167,7 +167,7 @@ def _get_protein(dna: str) -> Optional[str]:
     return None
 
 
-def _parse_seq_index(target_name: str) -> Optional[int]:
+def _parse_seq_index(target_name: str) -> int | None:
     """Parse integer index from HMM/mmseqs target names like 'seq_42' or '42'."""
     try:
         if target_name.startswith("seq_"):
@@ -183,9 +183,9 @@ def _parse_seq_index(target_name: str) -> Optional[int]:
 
 
 def orf_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by ORF length. Caches protein translation.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -221,9 +221,9 @@ def orf_filter(
 
 
 def cas9_phmm_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by Cas9 profile HMM hit.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -283,9 +283,9 @@ def cas9_phmm_filter(
 
 
 def crispr_array_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by CRISPR array detection. Caches repeat sequence.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -325,9 +325,9 @@ def crispr_array_filter(
 
 
 def identity_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by sequence identity to training set. Caches identity and nearest hit.
 
     Returns 0.0 for PASS (identity < threshold or no hit), 1.0 for FAIL.
@@ -390,9 +390,9 @@ def identity_filter(
 
 
 def gap_gini_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by gap Gini on MAFFT alignment vs nearest training hit.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -452,9 +452,9 @@ def gap_gini_filter(
 
 
 def domain_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by presence of all required Cas9 domains.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -491,7 +491,7 @@ def domain_filter(
     )
 
     # Build per-protein domain sets
-    protein_domains: Dict[int, List[str]] = {i: [] for i in range(len(proteins))}
+    protein_domains: dict[int, list[str]] = {i: [] for i in range(len(proteins))}
     if (
         hmm_result.domain_hits_df is not None
         and not hmm_result.domain_hits_df.empty
@@ -523,9 +523,9 @@ def domain_filter(
 
 
 def tracr_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by tracrRNA prediction. Caches tracrRNA and interaction energy.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -579,9 +579,9 @@ def tracr_filter(
 
 
 def structure_filter(
-    input_sequences: List[Tuple[Any, ...]],
+    input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> List[float]:
+) -> list[float]:
     """Filter by AF3 structure prediction + metrics.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -661,7 +661,7 @@ def structure_filter(
                 pdb_file = pdb_files[0]
             else:
                 logger.error(
-                    f"  structure_filter: PDB not found for proposal"
+                    "  structure_filter: PDB not found for proposal"
                 )
                 continue
 
@@ -746,7 +746,7 @@ def build_program(
     batch_size: int,
     verbose: bool = False,
     af3_output_dir: str = "af3_pdbs",
-) -> Tuple[Any, Any]:
+) -> tuple[Any, Any]:
     """Build a Program with a single TopK optimizer for one (temp, top_k) combo.
 
     Returns:
@@ -881,10 +881,10 @@ def build_program(
 
 def collect_results(
     segment: Any,
-    cache: Dict[str, Dict[str, Any]],
+    cache: dict[str, dict[str, Any]],
     temperature: float,
     top_k_val: int,
-) -> List[dict]:
+) -> list[dict]:
     """Collect passing proposals from segment result_sequences and cache."""
     results = []
     for i, seq in enumerate(segment.result_sequences):
@@ -918,7 +918,7 @@ def collect_results(
 
 
 def save_results(
-    results: List[dict],
+    results: list[dict],
     output_tsv: Path,
     output_fasta: Path,
 ) -> None:
@@ -1071,7 +1071,7 @@ def main():
     logger.info(f"Batch size: {batch_size}")
     logger.info("=" * 60)
 
-    all_results: List[dict] = []
+    all_results: list[dict] = []
     combo_idx = 0
 
     for temp in TEMPERATURES:

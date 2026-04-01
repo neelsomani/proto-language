@@ -10,7 +10,7 @@ import argparse
 import os
 import sys
 from datetime import datetime
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from proto_language.language.constraint import (
     protein_globularity_constraint,
@@ -96,7 +96,7 @@ class LogCapture:
         self.log_file.close()
 
 
-def _get_constraints_metadata(sequence: Sequence) -> Dict[str, Any]:
+def _get_constraints_metadata(sequence: Sequence) -> dict[str, Any]:
     """Return constraint metadata across old/new sequence metadata layouts."""
     metadata_view = getattr(sequence, "metadata", None)
     if isinstance(metadata_view, dict):
@@ -136,15 +136,15 @@ def run_optimization(
 
     try:
         # Log parameters
-        print(f"=" * 60)
-        print(f"Symmetric Protein Design")
-        print(f"=" * 60)
-        print(f"Parameters:")
+        print("=" * 60)
+        print("Symmetric Protein Design")
+        print("=" * 60)
+        print("Parameters:")
         print(f"  Monomer length: {monomer_length}")
         print(f"  N symmetric units: {n_symmetric_units}")
         print(f"  N steps: {n_steps}")
         print(f"  Output directory: {run_dir}")
-        print(f"=" * 60)
+        print("=" * 60)
 
         #######################
         ## Segments ##
@@ -208,7 +208,7 @@ def run_optimization(
         ## Custom Logging ##
         #################
 
-        def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
+        def custom_logging(step: int, outputs: tuple[Segment]) -> None:
             output_sequence: Sequence = outputs[0].result_sequences[0]
             constraints = _get_constraints_metadata(output_sequence)
 
@@ -291,12 +291,12 @@ def run_optimization(
         # Save final sequence and metrics
         seq_path = os.path.join(run_dir, "final_sequence.txt")
         with open(seq_path, "w") as f:
-            f.write(f"# Symmetric Protein Design Result\n")
+            f.write("# Symmetric Protein Design Result\n")
             f.write(f"# Monomer length: {monomer_length}\n")
             f.write(f"# N symmetric units: {n_symmetric_units}\n")
             f.write(f"# N steps: {n_steps}\n")
             f.write(f"# Timestamp: {datetime.now().isoformat()}\n")
-            f.write(f"\n")
+            f.write("\n")
             f.write(f"Monomer sequence:\n{protomer_sequence._sequence}\n")
             f.write(f"\nFolded sequence (duplicated):\n{folded_sequence}\n")
             f.write(f"\nFinal pLDDT: {final_plddt}\n")
@@ -304,7 +304,7 @@ def run_optimization(
         print(f"Saved sequence to: {seq_path}")
 
         print(f"\n{'=' * 60}")
-        print(f"Optimization complete!")
+        print("Optimization complete!")
         print(f"Results saved to: {run_dir}")
         print(f"{'=' * 60}")
 

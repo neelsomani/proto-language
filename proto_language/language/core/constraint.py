@@ -1,5 +1,4 @@
-"""
-proto_language/language/core/constraint.py
+"""Constraint evaluation and metadata propagation for sequences.
 
 Constraints score how well sequences satisfy biological or design requirements,
 returning values between 0.0 (perfect) and 1.0 (worst). Constraints can optionally
@@ -9,20 +8,20 @@ Key Features:
     - Evaluation of all proposals as a batch
     - Multi-segment support (pass tuple of sequences per proposal)
     - Automatic metadata propagation back to original sequences
-    - Threshold-based filtering (converts scores to boolean accept/reject)
+    - Threshold-based filtering (converts scores to boolean accept/reject).
 """
 from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from pydantic import BaseModel
 
+from proto_language.language.core.segment import Segment
+from proto_language.language.core.sequence import Sequence
 from proto_language.utils.helpers import filter_inf_nan_scores
-
-from .segment import Segment
-from .sequence import Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -60,16 +59,15 @@ class ConstraintFunction(Protocol):
 
     def __call__(
         self,
-        input_sequences: List[Tuple[Sequence, ...]],
+        input_sequences: list[tuple[Sequence, ...]],
         config: BaseModel
-    ) -> List[float]:
+    ) -> list[float]:
         """Evaluate sequences and return scores between 0.0 and 1.0."""
         ...
 
 
 class Constraint:
-    """
-    Constraints handle evaluation and metadata propagation for sequences.
+    """Constraints handle evaluation and metadata propagation for sequences.
 
     All constraint functions use a standardized signature:
         (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
@@ -134,15 +132,14 @@ class Constraint:
 
     def __init__(
         self,
-        inputs: List[Segment],
+        inputs: list[Segment],
         function: Callable,
-        function_config: BaseModel | Dict[str, Any],
-        label: Optional[str] = None,
-        threshold: Optional[float] = None,
-        weight: Optional[float] = None,
+        function_config: BaseModel | dict[str, Any],
+        label: str | None = None,
+        threshold: float | None = None,
+        weight: float | None = None,
     ):
-        """
-        Initialize a constraint.
+        """Initialize a constraint.
 
         Args:
             inputs (list[Segment]): List of Segment objects to evaluate. Each proposal is evaluated
@@ -180,7 +177,7 @@ class Constraint:
 
     # Read-only properties for external access
     @property
-    def inputs(self) -> List[Segment]:
+    def inputs(self) -> list[Segment]:
         """Input segments (read-only)."""
         return self._inputs
 
@@ -195,7 +192,7 @@ class Constraint:
         return self._function_config
 
     @property
-    def threshold(self) -> Optional[float]:
+    def threshold(self) -> float | None:
         """Threshold for filtering mode (read-only)."""
         return self._threshold
 
@@ -206,11 +203,10 @@ class Constraint:
 
     def evaluate(
         self,
-        mask: Optional[List[bool]] = None,
+        mask: list[bool] | None = None,
         verbose: bool = False
-    ) -> List[float] | List[bool]:
-        """
-        Evaluate the constraint on proposals.
+    ) -> list[float] | list[bool]:
+        """Evaluate the constraint on proposals.
 
         This method orchestrates the evaluation:
         1. Extract proposal sequences from input segments (only those that passed)
@@ -301,9 +297,9 @@ class Constraint:
 
         return final_scores
 
-    def _preprocess_sequence_at_index(self, sequence_idx: int) -> Tuple[Sequence, ...]:
-        """
-        Preprocess sequence(s) at a specific batch position for scoring by creating clean Sequence
+    def _preprocess_sequence_at_index(self, sequence_idx: int) -> tuple[Sequence, ...]:
+        """Preprocess sequence(s) at a specific batch position for scoring by creating clean Sequence.
+
         objects with fresh metadata to pass to the scoring function.
 
         Args:
@@ -326,9 +322,8 @@ class Constraint:
             dummy_sequences.append(dummy_seq)
         return tuple(dummy_sequences)
 
-    def _propagate_metadata_to_sequence(self, sequence_idx: int, scored_sequence: Tuple[Sequence, ...], score: float) -> None:
-        """
-        Write constraint results to original sequences in structured format.
+    def _propagate_metadata_to_sequence(self, sequence_idx: int, scored_sequence: tuple[Sequence, ...], score: float) -> None:
+        """Write constraint results to original sequences in structured format.
 
         Stores constraint data under _constraints_metadata[constraint_label] with:
         - Standard evaluation fields at top level (score, weight, weighted_score)
@@ -377,7 +372,7 @@ class Constraint:
         # (e.g., inputs=[protomer, protomer, protomer] for symmetric proteins)
         processed_original_ids = set()
 
-        for seg_idx, (segment, scored_seq) in enumerate(zip(self._inputs, scored_sequence)):
+        for seg_idx, (segment, scored_seq) in enumerate(zip(self._inputs, scored_sequence, strict=True)):
             original_seq = segment.proposal_sequences[sequence_idx]
             original_id = id(original_seq)
             if original_id in processed_original_ids:
@@ -394,7 +389,7 @@ class Constraint:
                 "score": filter_inf_nan_scores(score),
                 "weight": self._weight,
                 "weighted_score": filter_inf_nan_scores(score * self._weight),
-                "data": custom_data if custom_data else {},
+                "data": custom_data or {},
             }
 
             # Add segment linking info for multi-segment constraints
@@ -405,8 +400,7 @@ class Constraint:
             original_seq._constraints_metadata[self.label] = constraint_data
 
     def _validate_constraint(self) -> None:
-        """
-        Validate constraint configuration.
+        """Validate constraint configuration.
 
         Checks:
             1. Non-empty: At least one segment must be provided.
@@ -429,7 +423,7 @@ class Constraint:
         # Check sequence types are supported
         supported_types = getattr(self._function, '_constraint_supported_sequence_types', None)
         if supported_types is None:
-            warnings.warn(f"Constraint function '{self._function.__name__}' missing supported_sequence_types attribute. Allowing all sequence types as input to constraint.")
+            warnings.warn(f"Constraint function '{self._function.__name__}' missing supported_sequence_types attribute. Allowing all sequence types as input to constraint.", stacklevel=2)
         else:
             for seg in self._inputs:
                 if seg.sequence_type not in supported_types:
@@ -439,7 +433,7 @@ class Constraint:
         # Check number of input sequences per tuple matches requirement
         num_input_sequences_per_tuple = getattr(self._function, '_constraint_num_input_sequences_per_tuple', None)
         if num_input_sequences_per_tuple is None:
-            warnings.warn(f"Constraint '{self.label}' does not specify required number of input sequences per tuple. Using {len(self._inputs)} input segment(s).")
+            warnings.warn(f"Constraint '{self.label}' does not specify required number of input sequences per tuple. Using {len(self._inputs)} input segment(s).", stacklevel=2)
         else:
             num_inputs = len(self._inputs)
             if num_inputs != num_input_sequences_per_tuple:

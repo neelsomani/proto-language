@@ -5,7 +5,7 @@ proto-language: constraint-based optimization framework for designing biological
 ## Architecture
 
 1. **Language core** (`proto_language/language/`): Constraints, Generators, Optimizers, Programs (DSL)
-2. **Tools** (`proto-tools/`): 25+ bioinformatics tool wrappers.
+2. **Tools** (`proto-tools/`): Bioinformatics tool wrappers.
    Git submodule tracking `evo-design/proto-tools` (branch: main).
    Has its own CLAUDE.md, notes/, tests, and CI.
 
@@ -88,7 +88,7 @@ When a code change alters behavior documented in this file or any `SKILL.md`, up
 | `proto_language/language/core/` | `general-dev` SKILL.md (Data Model, Result Export) |
 | `proto_language/base_config.py` | `general-dev` SKILL.md (Config Pattern) |
 | `tests/conftest.py`, pytest markers | CLAUDE.md Test Conventions, `testing` SKILL.md |
-| New skills or commands added | CLAUDE.md Skills & Commands section |
+| New skills added | CLAUDE.md Skills section |
 | Docstring conventions | CLAUDE.md (Docstring Conventions), `tests/test_docstring_consistency.py` |
 
 The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
@@ -97,7 +97,7 @@ The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
 
 - `from __future__ import annotations` only where needed (files using 3.10+ annotation syntax in runtime positions)
 - `logging.getLogger(__name__)`, never `print()`
-- Ruff (line length 120, 22 rule groups with Google-convention pydocstyle — see `pyproject.toml [tool.ruff.lint]` for full config)
+- Ruff (line length 120, Google-convention pydocstyle — see `pyproject.toml [tool.ruff.lint]` for full config)
 - Mypy (strict mode with Pydantic plugin — see `pyproject.toml [tool.mypy]` for full config). Every `# type: ignore` must include the error code (e.g., `# type: ignore[union-attr]`). Prefer `assert` guards for type narrowing over `# type: ignore`.
 - Pydantic v2 for all configs: inherit `BaseConfig`, use `ConfigField` (not `Field`). Use `depends_on` for conditional field visibility (show/hide fields based on another field's value).
 - Registry keys: kebab-case. Config classes: `{Name}Config`. Files: `{name}_constraint.py` / `{name}_generator.py`
@@ -153,7 +153,7 @@ Use sub-agents aggressively to parallelize independent work:
 
 The general rule: if two tasks don't depend on each other's output, run them in parallel sub-agents.
 
-## Skills (`.claude/skills/`) & Commands (`.claude/commands/`)
+## Skills (`.claude/skills/`)
 
 ### For users (writing programs)
 

@@ -132,17 +132,16 @@ class RandomNucleotideGenerator(Generator):
             RuntimeError: If called before assign().
         """
         self._validate_generator()
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
 
-        sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
+        sequences = [seq.sequence for seq in self.segment.proposal_sequences]
         tool_input = RandomNucleotideSampleInput(sequences=sequences)
         tool_config = RandomNucleotideSampleConfig(
             masking_strategy=self.masking_strategy,
             substitution_scheme=self.substitution_scheme,
-            sequence_type=self._assigned_segment.sequence_type,
+            sequence_type=self.segment.sequence_type,
             seed=self.seed,
         )
         result = run_random_nucleotide_sample(inputs=tool_input, config=tool_config)
 
-        for proposal, sequence in zip(self._assigned_segment.proposal_sequences, result.sequences, strict=True):
+        for proposal, sequence in zip(self.segment.proposal_sequences, result.sequences, strict=True):
             proposal.sequence = sequence

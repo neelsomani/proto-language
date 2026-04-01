@@ -149,7 +149,6 @@ class Evo1Generator(Generator):
             prepend_prompt (bool | None): Optional override for prepend_prompt setting.
         """
         self._validate_generator()
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
 
         sampling_prompts = prompts if prompts is not None else self._replicate_prompts(self.prompts)
         prepend_prompt = prepend_prompt if prepend_prompt is not None else self.prepend_prompt
@@ -169,17 +168,16 @@ class Evo1Generator(Generator):
         evo1_output = run_evo1_sample(inputs=inputs, config=sample_config)
         generated_sequences = evo1_output.sequences
 
-        for proposal, sequence in zip(self._assigned_segment.proposal_sequences, generated_sequences, strict=True):
+        for proposal, sequence in zip(self.segment.proposal_sequences, generated_sequences, strict=True):
             proposal.sequence = sequence
 
         if evo1_output.scores:
-            for proposal, score in zip(self._assigned_segment.proposal_sequences, evo1_output.scores, strict=True):
+            for proposal, score in zip(self.segment.proposal_sequences, evo1_output.scores, strict=True):
                 proposal._metadata["evo1_score"] = score
 
     def _replicate_prompts(self, prompts: list[str]) -> list[str]:
         """Match prompt count to proposal count, replicating single prompts."""
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
-        num_proposals = len(self._assigned_segment.proposal_sequences)
+        num_proposals = len(self.segment.proposal_sequences)
         if len(prompts) == num_proposals:
             return prompts
         if len(prompts) == 1:
@@ -188,8 +186,7 @@ class Evo1Generator(Generator):
 
     def _compute_num_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
         """Compute tokens to generate based on segment length and prompt settings."""
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
-        segment_length = self._assigned_segment.sequence_length
+        segment_length = self.segment.sequence_length
         num_tokens = (segment_length - prompt_length) if prepend_prompt else segment_length
         if num_tokens < 1:
             raise ValueError(f"Prompt length ({prompt_length}) exceeds segment length ({segment_length})")

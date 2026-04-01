@@ -226,7 +226,6 @@ class ProGen2Generator(Generator):
             prepend_prompt (bool | None): Optional override for prepend_prompt setting.
         """
         self._validate_generator()
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
         sampling_prompts = prompts if prompts is not None else self._replicate_prompts(self.prompts)
         prepend_prompt = prepend_prompt if prepend_prompt is not None else self.prepend_prompt
         max_length = self._compute_max_length(len(sampling_prompts[0]), prepend_prompt)
@@ -250,13 +249,12 @@ class ProGen2Generator(Generator):
         output = run_progen2_sample(tool_input, tool_config)
         generated_sequences = output.sequences
 
-        for proposal, sequence in zip(self._assigned_segment.proposal_sequences, generated_sequences, strict=True):
+        for proposal, sequence in zip(self.segment.proposal_sequences, generated_sequences, strict=True):
             proposal.sequence = sequence
 
     def _replicate_prompts(self, prompts: list[str]) -> list[str]:
         """Match prompt count to proposal count, replicating single prompts."""
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
-        num_proposals = len(self._assigned_segment.proposal_sequences)
+        num_proposals = len(self.segment.proposal_sequences)
         if len(prompts) == num_proposals:
             return prompts
         if len(prompts) == 1:
@@ -265,8 +263,7 @@ class ProGen2Generator(Generator):
 
     def _compute_max_length(self, prompt_length: int, prepend_prompt: bool) -> int:
         """Compute max_length for ProGen2 based on segment length and prompt settings."""
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
-        segment_length = self._assigned_segment.sequence_length
+        segment_length = self.segment.sequence_length
         if prepend_prompt:
             if prompt_length >= segment_length:
                 raise ValueError(

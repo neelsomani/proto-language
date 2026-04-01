@@ -174,8 +174,7 @@ class MSAGenerator(Generator):
             RuntimeError: If called before assign().
         """
         self._validate_generator()
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
-        for sequence in self._assigned_segment.proposal_sequences:
+        for sequence in self.segment.proposal_sequences:
             seq_list = list(sequence.sequence)
 
             # Cap mutations at available mutable positions

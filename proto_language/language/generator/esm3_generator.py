@@ -145,9 +145,8 @@ class ESM3Generator(Generator):
             RuntimeError: If called before assign().
         """
         self._validate_generator()
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
 
-        sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
+        sequences = [seq.sequence for seq in self.segment.proposal_sequences]
         esm3_input = ESM3SampleInput(sequences=sequences)
         config = ESM3SampleConfig(
             model_checkpoint=self.model_checkpoint,
@@ -160,5 +159,5 @@ class ESM3Generator(Generator):
         result = run_esm3_sample(inputs=esm3_input, config=config)
         mutated_sequences = result.sequences
 
-        for proposal, sequence in zip(self._assigned_segment.proposal_sequences, mutated_sequences, strict=True):
+        for proposal, sequence in zip(self.segment.proposal_sequences, mutated_sequences, strict=True):
             proposal.sequence = sequence

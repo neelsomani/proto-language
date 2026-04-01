@@ -284,8 +284,7 @@ class LigandMPNNGenerator(Generator):
             ValueError: If no structure_inputs provided and none configured.
         """
         self._validate_generator()
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
-        num_proposals = self._assigned_segment.num_proposals
+        num_proposals = self.segment.num_proposals
 
         # Normalize and use provided structure_inputs, or fall back to config
         sampling_structure_inputs = (
@@ -334,7 +333,7 @@ class LigandMPNNGenerator(Generator):
             all_metrics.extend(design.ligandmpnn_metrics)
 
         for proposal, sequence, score in zip(
-            self._assigned_segment.proposal_sequences,
+            self.segment.proposal_sequences,
             generated_sequences,
             all_metrics,
             strict=True,

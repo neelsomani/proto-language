@@ -138,9 +138,8 @@ class RandomProteinGenerator(Generator):
             RuntimeError: If called before assign().
         """
         self._validate_generator()
-        assert self._assigned_segment is not None  # noqa: S101 -- mypy type narrowing
 
-        sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
+        sequences = [seq.sequence for seq in self.segment.proposal_sequences]
         tool_input = RandomProteinSampleInput(sequences=sequences)
         tool_config = RandomProteinSampleConfig(
             masking_strategy=self.masking_strategy,
@@ -149,5 +148,5 @@ class RandomProteinGenerator(Generator):
         )
         result = run_random_protein_sample(inputs=tool_input, config=tool_config)
 
-        for proposal, sequence in zip(self._assigned_segment.proposal_sequences, result.sequences, strict=True):
+        for proposal, sequence in zip(self.segment.proposal_sequences, result.sequences, strict=True):
             proposal.sequence = sequence

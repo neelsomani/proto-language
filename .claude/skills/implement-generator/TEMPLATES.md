@@ -125,7 +125,7 @@ class MyGenerator(Generator):
     def sample(self) -> None:
         self._validate_generator()
 
-        proposals = self._assigned_segment.proposal_sequences
+        proposals = self.segment.proposal_sequences
         sequences = [seq.sequence for seq in proposals]
 
         # Call external tool or compute locally
@@ -226,7 +226,7 @@ from proto_tools import (
 def sample(self) -> None:
     self._validate_generator()
 
-    sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
+    sequences = [seq.sequence for seq in self.segment.proposal_sequences]
 
     # Build tool input/config
     tool_input = ToolInput(sequences=sequences)
@@ -242,5 +242,5 @@ def sample(self) -> None:
 
     # Update proposals in-place
     for i, sequence in enumerate(generated):
-        self._assigned_segment.proposal_sequences[i].sequence = sequence
+        self.segment.proposal_sequences[i].sequence = sequence
 ```

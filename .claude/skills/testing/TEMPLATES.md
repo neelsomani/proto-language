@@ -107,7 +107,7 @@ class TestMyGenerator:
         gen = MyGenerator(config)
         segment = Segment(sequence="A" * 50, sequence_type="protein")
         gen.assign(segment)
-        assert gen._assigned_segment is segment
+        assert gen.segment is segment
 
     def test_sample_mutates_sequence(self):
         """sample() modifies proposal sequences in-place."""
@@ -163,7 +163,7 @@ class TestMyGeneratorValidation:
         gen = MyGenerator(config)
         segment = Segment(length=50, sequence_type="protein")
         gen.assign(segment)
-        assert gen._assigned_segment is segment
+        assert gen.segment is segment
 ```
 
 ## Optimizer Test Template

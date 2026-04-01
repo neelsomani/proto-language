@@ -46,6 +46,13 @@ class Generator(ABC):
             self.__spec = GeneratorRegistry.get(GeneratorRegistry.get_key(self))
         return self.__spec
 
+    @property
+    def segment(self) -> Segment:
+        """The assigned segment. Raises RuntimeError if not yet assigned."""
+        if self._assigned_segment is None:
+            raise RuntimeError(f"{self.__class__.__name__} has no assigned segment. Call assign() first.")
+        return self._assigned_segment
+
     def assign(self, assigned_segment: Segment) -> None:
         """Assign a Segment to the generator.
 
@@ -82,10 +89,7 @@ class Generator(ABC):
 
     def _validate_generator(self) -> None:
         """Validate the generator."""
-        if self._assigned_segment is None:
-            raise RuntimeError(f"Generator {self.__class__.__name__} has no segment assigned.")
-
-        segment = self._assigned_segment
+        segment = self.segment  # raises RuntimeError if not assigned
 
         if not segment.proposal_sequences:
             raise RuntimeError(f"Segment '{segment.label or 'unlabeled'}' has an empty proposal_sequences pool.")

@@ -35,7 +35,8 @@ allowed-tools:
 class Generator(ABC):
     @abstractmethod
     def __init__(self) -> None:
-        self._assigned_segment: Optional[Segment] = None
+        self._assigned_segment: Segment | None = None  # backing field
+        # self.segment property returns Segment (raises if not assigned)
 
     def assign(self, assigned_segment: Segment) -> None:
         # Validates: not ligand, sequence type compatible
@@ -43,7 +44,7 @@ class Generator(ABC):
 
     @abstractmethod
     def sample(self) -> None:
-        # Modifies self._assigned_segment.proposal_sequences IN PLACE
+        # Modifies self.segment.proposal_sequences IN PLACE
 
     def _validate_generator(self) -> None:
         # Called at start of sample(). Validates state, performs lazy initialization.
@@ -113,12 +114,12 @@ from proto_tools import run_{tool}, {Tool}Input, {Tool}Config
 
 def sample(self) -> None:
     self._validate_generator()
-    sequences = [seq.sequence for seq in self._assigned_segment.proposal_sequences]
+    sequences = [seq.sequence for seq in self.segment.proposal_sequences]
     tool_input = ToolInput(sequences=sequences)
     tool_config = ToolConfig(model=self.model_name, temperature=self.temperature, batch_size=self.batch_size)
     result = run_tool(inputs=tool_input, config=tool_config)
     for i, sequence in enumerate(result.sequences):
-        self._assigned_segment.proposal_sequences[i].sequence = sequence
+        self.segment.proposal_sequences[i].sequence = sequence
 ```
 
 ## Batching Architecture

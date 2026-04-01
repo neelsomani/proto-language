@@ -93,9 +93,7 @@ _TRAINING_SEQS: dict | None = None
 def _get_training_fasta() -> Path:
     """Build combined training FASTA from individual .gz files (cached)."""
     if TRAINING_FASTA_CACHE.exists():
-        logger.info(
-            f"Using cached combined training FASTA: {TRAINING_FASTA_CACHE}"
-        )
+        logger.info(f"Using cached combined training FASTA: {TRAINING_FASTA_CACHE}")
         return TRAINING_FASTA_CACHE
 
     if not TRAINING_FASTA_DIR.exists():
@@ -105,9 +103,7 @@ def _get_training_fasta() -> Path:
 
     fasta_files = sorted(TRAINING_FASTA_DIR.glob("*.fasta.gz"))
     if not fasta_files:
-        raise FileNotFoundError(
-            f"No .fasta.gz files found in {TRAINING_FASTA_DIR}"
-        )
+        raise FileNotFoundError(f"No .fasta.gz files found in {TRAINING_FASTA_DIR}")
 
     TRAINING_FASTA_CACHE.parent.mkdir(parents=True, exist_ok=True)
     total_seqs = 0
@@ -260,14 +256,10 @@ def cas9_phmm_filter(
     )
 
     hmm_hits = set()
-    if (
-        hmm_result.sequence_hits_df is not None
-        and not hmm_result.sequence_hits_df.empty
-    ):
-        for _, row in hmm_result.sequence_hits_df.iterrows():
-            j = _parse_seq_index(row.get("target_name", ""))
-            if j is not None and 0 <= j < len(proteins):
-                hmm_hits.add(j)
+    for hit in hmm_result.sequence_hits:
+        j = _parse_seq_index(hit.target_name)
+        if j is not None and 0 <= j < len(proteins):
+            hmm_hits.add(j)
 
     scores = [1.0] * len(input_sequences)
     for protein_idx in hmm_hits:
@@ -276,8 +268,7 @@ def cas9_phmm_filter(
 
     n_pass = sum(1 for s in scores if s == 0.0)
     logger.info(
-        f"cas9_phmm_filter: {n_pass}/{len(scores)} have Cas9 pHMM hit "
-        f"(E < {evalue})"
+        f"cas9_phmm_filter: {n_pass}/{len(scores)} have Cas9 pHMM hit (E < {evalue})"
     )
     return scores
 
@@ -318,9 +309,7 @@ def crispr_array_filter(
             scores.append(1.0)
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(
-        f"crispr_array_filter: {n_pass}/{len(scores)} have CRISPR arrays"
-    )
+    logger.info(f"crispr_array_filter: {n_pass}/{len(scores)} have CRISPR arrays")
     return scores
 
 
@@ -383,8 +372,7 @@ def identity_filter(
 
     n_pass = sum(1 for s in scores if s == 0.0)
     logger.info(
-        f"identity_filter: {n_pass}/{len(scores)} have identity < "
-        f"{threshold:.0%}"
+        f"identity_filter: {n_pass}/{len(scores)} have identity < {threshold:.0%}"
     )
     return scores
 
@@ -427,9 +415,7 @@ def gap_gini_filter(
         )
 
         if align_result.msa and len(align_result.msa) >= 2:
-            al1, al2 = _trim_alignment(
-                align_result.msa[0], align_result.msa[1]
-            )
+            al1, al2 = _trim_alignment(align_result.msa[0], align_result.msa[1])
             if al1 is not None:
                 gini = _gap_gini_single(al1, al2)
             else:
@@ -445,9 +431,7 @@ def gap_gini_filter(
             scores.append(1.0)
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(
-        f"gap_gini_filter: {n_pass}/{len(scores)} have gap Gini < {threshold}"
-    )
+    logger.info(f"gap_gini_filter: {n_pass}/{len(scores)} have gap Gini < {threshold}")
     return scores
 
 
@@ -492,18 +476,13 @@ def domain_filter(
 
     # Build per-protein domain sets
     protein_domains: dict[int, list[str]] = {i: [] for i in range(len(proteins))}
-    if (
-        hmm_result.domain_hits_df is not None
-        and not hmm_result.domain_hits_df.empty
-    ):
-        for _, row in hmm_result.domain_hits_df.iterrows():
-            j = _parse_seq_index(row.get("target_name", ""))
-            hmm_name = row.get("query_name", "")
-            if j is not None and j in protein_domains:
-                for domain in required:
-                    if domain.lower() in hmm_name.lower():
-                        if domain not in protein_domains[j]:
-                            protein_domains[j].append(domain)
+    for hit in hmm_result.domain_hits:
+        j = _parse_seq_index(hit.target_name)
+        if j is not None and j in protein_domains:
+            for domain in required:
+                if domain.lower() in hit.query_name.lower():
+                    if domain not in protein_domains[j]:
+                        protein_domains[j].append(domain)
 
     scores = [1.0] * len(input_sequences)
     for protein_idx, original_idx in enumerate(valid_indices):
@@ -516,9 +495,7 @@ def domain_filter(
             scores[original_idx] = 0.0
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(
-        f"domain_filter: {n_pass}/{len(scores)} have all required domains"
-    )
+    logger.info(f"domain_filter: {n_pass}/{len(scores)} have all required domains")
     return scores
 
 
@@ -539,17 +516,13 @@ def tracr_filter(
     sequences = [seq_tuple[0].sequence for seq_tuple in input_sequences]
 
     tracr_workers = len(os.sched_getaffinity(0)) or 1
-    logger.info(
-        f"tracr_filter: CRISPRtracrRNA prediction ({tracr_workers} workers)..."
-    )
+    logger.info(f"tracr_filter: CRISPRtracrRNA prediction ({tracr_workers} workers)...")
     tracr_result = run_crispr_tracr(
         CrisprTracrInput(sequences=sequences),
         CrisprTracrConfig(model_type="II", num_workers=tracr_workers),
     )
     if tracr_result.success is False:
-        raise RuntimeError(
-            f"tracrRNA prediction failed: {tracr_result.errors}"
-        )
+        raise RuntimeError(f"tracrRNA prediction failed: {tracr_result.errors}")
 
     scores = []
     for i, dna in enumerate(sequences):
@@ -572,9 +545,7 @@ def tracr_filter(
             scores.append(1.0)
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(
-        f"tracr_filter: {n_pass}/{len(scores)} have tracrRNA + IntaRNA"
-    )
+    logger.info(f"tracr_filter: {n_pass}/{len(scores)} have tracrRNA + IntaRNA")
     return scores
 
 
@@ -638,9 +609,7 @@ def structure_filter(
                     name=af3_name,
                     output_dir=proposal_dir,
                     use_msa=True,
-                    colabfold_search_config=ColabfoldSearchConfig(
-                        search_mode="local"
-                    ),
+                    colabfold_search_config=ColabfoldSearchConfig(search_mode="local"),
                 ),
             )
         except Exception as e:
@@ -686,10 +655,7 @@ def structure_filter(
 
             # Combined filter
             plddt_ok = plddt is not None and plddt >= plddt_threshold
-            rg_ok = (
-                m.gyration_radius is not None
-                and m.gyration_radius < rg_threshold
-            )
+            rg_ok = m.gyration_radius is not None and m.gyration_radius < rg_threshold
             alpha_ok = (
                 m.longest_alpha_helix is not None
                 and m.longest_alpha_helix < alpha_threshold
@@ -705,14 +671,10 @@ def structure_filter(
                     reasons.append(f"Rg={m.gyration_radius}")
                 if not alpha_ok:
                     reasons.append(f"alpha={m.longest_alpha_helix}")
-                logger.info(
-                    f"  structure_filter: FAIL ({'; '.join(reasons)})"
-                )
+                logger.info(f"  structure_filter: FAIL ({'; '.join(reasons)})")
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(
-        f"structure_filter: {n_pass}/{len(scores)} passed structure checks"
-    )
+    logger.info(f"structure_filter: {n_pass}/{len(scores)} passed structure checks")
     return scores
 
 
@@ -951,45 +913,29 @@ def save_results(
                     "proposal_idx": r["proposal_idx"],
                     "temperature": r["temperature"],
                     "top_k": r["top_k"],
-                    "score": (
-                        f"{r['score']:.4f}"
-                        if r["score"] is not None
-                        else ""
-                    ),
+                    "score": (f"{r['score']:.4f}" if r["score"] is not None else ""),
                     "identity": (
-                        f"{r['identity']:.4f}"
-                        if r["identity"] is not None
-                        else ""
+                        f"{r['identity']:.4f}" if r["identity"] is not None else ""
                     ),
                     "gap_gini": (
-                        f"{r['gap_gini']:.4f}"
-                        if r["gap_gini"] is not None
-                        else ""
+                        f"{r['gap_gini']:.4f}" if r["gap_gini"] is not None else ""
                     ),
                     "domains_found": (
-                        ",".join(r["domains_found"])
-                        if r["domains_found"]
-                        else ""
+                        ",".join(r["domains_found"]) if r["domains_found"] else ""
                     ),
                     "interaction_energy": (
                         f"{r['interaction_energy']:.2f}"
                         if r["interaction_energy"] is not None
                         else ""
                     ),
-                    "plddt": (
-                        f"{r['plddt']:.1f}"
-                        if r["plddt"] is not None
-                        else ""
-                    ),
+                    "plddt": (f"{r['plddt']:.1f}" if r["plddt"] is not None else ""),
                     "gyration_radius": (
                         f"{r['gyration_radius']:.1f}"
                         if r["gyration_radius"] is not None
                         else ""
                     ),
                     "longest_alpha_helix": (
-                        r["longest_alpha"]
-                        if r["longest_alpha"] is not None
-                        else ""
+                        r["longest_alpha"] if r["longest_alpha"] is not None else ""
                     ),
                     "pdb_path": r["pdb_path"] or "",
                     "dna_sequence": r["dna_sequence"],
@@ -1003,9 +949,7 @@ def save_results(
 
     with open(output_fasta, "w") as f:
         for r in results:
-            plddt_str = (
-                f" plddt={r['plddt']:.1f}" if r["plddt"] is not None else ""
-            )
+            plddt_str = f" plddt={r['plddt']:.1f}" if r["plddt"] is not None else ""
             header = (
                 f">cas9_proposal_{r['proposal_idx']} "
                 f"temp={r['temperature']} top_k={r['top_k']}"
@@ -1063,8 +1007,7 @@ def main():
     logger.info("Cas9 Generation Pipeline (TopK Optimizer)")
     logger.info("=" * 60)
     logger.info(
-        f"Sweep: {len(TEMPERATURES)} temps x {len(TOP_KS)} top_k "
-        f"= {n_combos} combos"
+        f"Sweep: {len(TEMPERATURES)} temps x {len(TOP_KS)} top_k = {n_combos} combos"
     )
     logger.info(f"Samples per combo: {args.n_samples}")
     logger.info(f"Total sequences: {total_seqs}")
@@ -1078,17 +1021,14 @@ def main():
         for top_k_val in TOP_KS:
             combo_idx += 1
             logger.info(
-                f"\nCombo {combo_idx}/{n_combos}: "
-                f"temp={temp}, top_k={top_k_val}"
+                f"\nCombo {combo_idx}/{n_combos}: temp={temp}, top_k={top_k_val}"
             )
 
             CACHE.clear()
             structure_filter._next_idx = 0
 
             output_base = Path(args.output).stem.replace("_proposals", "")
-            af3_output_dir = (
-                f"{output_base}_af3_pdbs/temp{temp}_topk{top_k_val}"
-            )
+            af3_output_dir = f"{output_base}_af3_pdbs/temp{temp}_topk{top_k_val}"
             program, segment = build_program(
                 n_samples=args.n_samples,
                 temperature=temp,
@@ -1103,8 +1043,7 @@ def main():
             all_results.extend(results)
 
             logger.info(
-                f"Combo {combo_idx}: {len(results)} proposals passed "
-                f"all filters"
+                f"Combo {combo_idx}: {len(results)} proposals passed all filters"
             )
 
     logger.info("\n" + "=" * 60)

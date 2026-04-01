@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Validate export chain consistency across proto-language and proto-tools.
+# ruff: noqa: T201  -- CLI script, print() is intentional
+"""Validate export chain consistency across proto-language and proto-tools.
 
 AST-based, zero dependencies (stdlib only). Parses __init__.py files without
 executing them.
@@ -33,11 +33,11 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import json
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -50,7 +50,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # ---------------------------------------------------------------------------
 
 
-def parse_init(init_path: Path) -> Optional[ast.Module]:
+def parse_init(init_path: Path) -> ast.Module | None:
     """Parse an __init__.py file into an AST, returning None on failure."""
     try:
         source = init_path.read_text(encoding="utf-8")
@@ -60,26 +60,25 @@ def parse_init(init_path: Path) -> Optional[ast.Module]:
         return None
 
 
-def extract_all_list(tree: ast.Module) -> Optional[List[str]]:
+def extract_all_list(tree: ast.Module) -> list[str] | None:
     """Extract __all__ from an AST module, merging base assignment and += augmentations."""
-    result: Optional[List[str]] = None
+    result: list[str] | None = None
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id == "__all__":
                     result = _extract_string_list(node.value)
-        if isinstance(node, ast.AugAssign):
-            if isinstance(node.target, ast.Name) and node.target.id == "__all__":
-                augmented = _extract_string_list(node.value)
-                if augmented is not None:
-                    if result is None:
-                        result = augmented
-                    else:
-                        result.extend(augmented)
+        if isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name) and node.target.id == "__all__":
+            augmented = _extract_string_list(node.value)
+            if augmented is not None:
+                if result is None:
+                    result = augmented
+                else:
+                    result.extend(augmented)
     return result
 
 
-def _extract_string_list(node: ast.expr) -> Optional[List[str]]:
+def _extract_string_list(node: ast.expr) -> list[str] | None:
     """Extract a list of string constants from a List or Tuple AST node."""
     if not isinstance(node, (ast.List, ast.Tuple)):
         return None
@@ -95,20 +94,19 @@ def _extract_string_list(node: ast.expr) -> Optional[List[str]]:
     return names
 
 
-def extract_imports(tree: ast.Module) -> Tuple[Set[str], bool]:
-    """
-    Extract all imported names from an __init__.py AST.
+def extract_imports(tree: ast.Module) -> tuple[set[str], bool]:
+    """Extract all imported names from an __init__.py AST.
 
     Returns:
         (set of imported symbol names, whether wildcard import is used)
     """
-    names: Set[str] = set()
+    names: set[str] = set()
     has_wildcard = False
 
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                imported = alias.asname if alias.asname else alias.name.split(".")[-1]
+                imported = alias.asname or alias.name.split(".")[-1]
                 names.add(imported)
 
         elif isinstance(node, ast.ImportFrom):
@@ -116,15 +114,15 @@ def extract_imports(tree: ast.Module) -> Tuple[Set[str], bool]:
                 if alias.name == "*":
                     has_wildcard = True
                 else:
-                    imported = alias.asname if alias.asname else alias.name
+                    imported = alias.asname or alias.name
                     names.add(imported)
 
     return names, has_wildcard
 
 
-def extract_definitions(tree: ast.Module) -> Set[str]:
+def extract_definitions(tree: ast.Module) -> set[str]:
     """Extract top-level class and function definitions from an AST module."""
-    defs: Set[str] = set()
+    defs: set[str] = set()
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             defs.add(node.name)
@@ -136,11 +134,11 @@ def extract_definitions(tree: ast.Module) -> Set[str]:
 
 
 def extract_decorated_names(
-    py_path: Path, decorator_names: Set[str]
-) -> Dict[str, str]:
-    """
-    Find all functions/classes decorated with any of the given decorator names
-    in a .py file. Returns a dict of {function_name: decorator_name}.
+    py_path: Path, decorator_names: set[str]
+) -> dict[str, str]:
+    """Find all functions/classes decorated with any of the given decorator names.
+
+    Scans a .py file. Returns a dict of {function_name: decorator_name}.
     """
     try:
         source = py_path.read_text(encoding="utf-8")
@@ -148,7 +146,7 @@ def extract_decorated_names(
     except (SyntaxError, UnicodeDecodeError):
         return {}
 
-    decorated: Dict[str, str] = {}
+    decorated: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             for dec in node.decorator_list:
@@ -158,7 +156,7 @@ def extract_decorated_names(
     return decorated
 
 
-def _get_decorator_name(node: ast.expr) -> Optional[str]:
+def _get_decorator_name(node: ast.expr) -> str | None:
     """Extract the name of a decorator from its AST node."""
     if isinstance(node, ast.Name):
         return node.id
@@ -174,12 +172,9 @@ def _get_decorator_name(node: ast.expr) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-def discover_init_chain(root_dir: Path) -> List[Path]:
-    """
-    Discover all __init__.py files under root_dir, sorted by depth (deepest first).
-    """
-    inits = sorted(root_dir.rglob("__init__.py"), key=lambda p: len(p.parts), reverse=True)
-    return inits
+def discover_init_chain(root_dir: Path) -> list[Path]:
+    """Discover all __init__.py files under root_dir, sorted by depth (deepest first)."""
+    return sorted(root_dir.rglob("__init__.py"), key=lambda p: len(p.parts), reverse=True)
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +185,7 @@ def discover_init_chain(root_dir: Path) -> List[Path]:
 class ValidationError:
     """A single validation error."""
 
-    def __init__(self, symbol: str, message: str, file: Path):
+    def __init__(self, symbol: str, message: str, file: Path):  # noqa: D107
         self.symbol = symbol
         self.message = message
         self.file = file
@@ -200,20 +195,18 @@ class ValidationError:
         try:
             rel = self.file.relative_to(REPO_ROOT)
         except ValueError:
-            try:
+            with contextlib.suppress(ValueError):
                 rel = self.file.relative_to(REPO_ROOT.parent)
-            except ValueError:
-                pass
         return f"{self.symbol}: {self.message} ({rel})"
 
 
-def load_exceptions(config: dict) -> Set[str]:
+def load_exceptions(config: dict) -> set[str]:
     """Extract exception symbols from the config's exceptions section."""
     exc_section = config.get("exceptions", {})
     if isinstance(exc_section, list):
         return set(exc_section)
     if isinstance(exc_section, dict):
-        all_exceptions: Set[str] = set()
+        all_exceptions: set[str] = set()
         for key, val in exc_section.items():
             if key.startswith("_"):
                 continue
@@ -241,9 +234,8 @@ def load_config(config_path: Path) -> dict:
     return data
 
 
-def resolve_domain_root(domain: dict, repo_root: Path) -> Optional[Path]:
-    """
-    Resolve the root directory for a domain.
+def resolve_domain_root(domain: dict, repo_root: Path) -> Path | None:
+    """Resolve the root directory for a domain.
 
     Checks the primary 'root' relative to repo_root first, then falls back
     to 'root_search' paths (for tools submodule / sibling repo).
@@ -261,10 +253,10 @@ def resolve_domain_root(domain: dict, repo_root: Path) -> Optional[Path]:
 
 
 def validate_all_consistency(
-    init_path: Path, tree: ast.Module, all_list: List[str]
-) -> List[ValidationError]:
-    """
-    Check that every entry in __all__ is actually imported or defined in this module.
+    init_path: Path, tree: ast.Module, all_list: list[str]
+) -> list[ValidationError]:
+    """Check that every entry in __all__ is actually imported or defined in this module.
+
     Catches stale __all__ entries that reference removed symbols.
     """
     imported, _ = extract_imports(tree)
@@ -273,28 +265,23 @@ def validate_all_consistency(
     # Remove __all__ itself from available (it's an assignment, not a real export)
     available.discard("__all__")
 
-    errors = []
-    for name in all_list:
-        if name not in available:
-            errors.append(
-                ValidationError(
-                    symbol=name,
-                    message="listed in __all__ but not imported or defined",
-                    file=init_path,
-                )
-            )
-    return errors
+    return [
+        ValidationError(
+            symbol=name,
+            message="listed in __all__ but not imported or defined",
+            file=init_path,
+        )
+        for name in all_list
+        if name not in available
+    ]
 
 
 def validate_registry_exports(
-    parsed: Dict[Path, Tuple[ast.Module, Optional[List[str]]]],
-    decorated_by_file: Dict[Path, Dict[str, str]],
-    exceptions: Set[str],
-) -> List[ValidationError]:
-    """
-    Check that every @decorator-registered function in the package is exported
-    by its immediate parent __init__.py's __all__.
-    """
+    parsed: dict[Path, tuple[ast.Module, list[str] | None]],
+    decorated_by_file: dict[Path, dict[str, str]],
+    exceptions: set[str],
+) -> list[ValidationError]:
+    """Check that every @decorator-registered function is exported by its parent __init__.py."""
     errors = []
     for py_file, decorated in sorted(decorated_by_file.items()):
         # Look up the immediate parent __init__.py's __all__
@@ -324,12 +311,10 @@ def validate_registry_exports(
 
 def validate_package_root_exports(
     package_root: Path,
-    decorated_by_file: Dict[Path, Dict[str, str]],
-    exceptions: Set[str],
-) -> List[ValidationError]:
-    """
-    Check that every @decorator-registered function in the domain is exported
-    by the package_root's __init__.py __all__.
+    decorated_by_file: dict[Path, dict[str, str]],
+    exceptions: set[str],
+) -> list[ValidationError]:
+    """Check that every @decorator-registered function is exported by the package root.
 
     This catches symbols that are correctly exported by their immediate parent
     (e.g., constraint/__init__.py) but missing from the top-level package
@@ -339,7 +324,7 @@ def validate_package_root_exports(
     pkg_root_init = package_root / "__init__.py"
 
     if not pkg_root_init.exists():
-        root_all: Set[str] = set()
+        root_all: set[str] = set()
     else:
         tree = parse_init(pkg_root_init)
         if tree is None:
@@ -384,11 +369,10 @@ def _rel(path: Path) -> str:
 def validate_domain(
     domain: dict,
     repo_root: Path,
-    exceptions: Set[str],
+    exceptions: set[str],
     verbose: bool = False,
-) -> Tuple[List[ValidationError], List[str]]:
-    """
-    Validate a single domain from the config.
+) -> tuple[list[ValidationError], list[str]]:
+    """Validate a single domain from the config.
 
     Returns:
         (list of errors, list of warnings)
@@ -398,8 +382,8 @@ def validate_domain(
     decorator_names = set(domain.get("registry_decorators", []))
     depth = domain.get("depth")
 
-    domain_errors: List[ValidationError] = []
-    domain_warnings: List[str] = []
+    domain_errors: list[ValidationError] = []
+    domain_warnings: list[str] = []
 
     # Resolve root directory
     root_dir = resolve_domain_root(domain, repo_root)
@@ -436,9 +420,9 @@ def validate_domain(
         init_files = discover_init_chain(root_dir)
         if not init_files:
             if verbose:
-                print(f"    No __init__.py files found")
+                print("    No __init__.py files found")
             return domain_errors, domain_warnings
-        parsed: Dict[Path, Tuple[ast.Module, Optional[List[str]]]] = {}
+        parsed: dict[Path, tuple[ast.Module, list[str] | None]] = {}
         for init in init_files:
             tree = parse_init(init)
             if tree is None:
@@ -449,7 +433,7 @@ def validate_domain(
     # Check 1: __all__ consistency
     if "all_consistency" in checks:
         if verbose:
-            print(f"    Checking __all__ consistency...")
+            print("    Checking __all__ consistency...")
         for init, (tree, all_list) in parsed.items():
             if all_list is None:
                 continue
@@ -459,7 +443,7 @@ def validate_domain(
             domain_errors.extend(errors)
 
     # Scan decorated names once (shared by checks 2 + 3 + zero-count warning)
-    decorated_by_file: Dict[Path, Dict[str, str]] = {}
+    decorated_by_file: dict[Path, dict[str, str]] = {}
     if "registry_exports" in checks and decorator_names:
         for py_file in sorted(root_dir.rglob("*.py")):
             if py_file.name == "__init__.py":
@@ -506,6 +490,7 @@ def validate_domain(
 
 
 def main() -> int:
+    """Validate export chain consistency (config-driven)."""
     parser = argparse.ArgumentParser(
         description="Validate export chain consistency (config-driven)."
     )
@@ -532,8 +517,8 @@ def main() -> int:
     if args.verbose and exceptions:
         print(f"Loaded {len(exceptions)} exception(s)")
 
-    all_errors: List[ValidationError] = []
-    all_warnings: List[str] = []
+    all_errors: list[ValidationError] = []
+    all_warnings: list[str] = []
 
     for domain in config["domains"]:
         # Filter to single domain if requested

@@ -630,7 +630,7 @@ class BeamSearchOptimizer(Optimizer):
         logger.debug(f"  Prompt length: {len(beam.running_sequence)}")
         logger.debug(f"  Batch size: {self.batch_size}")
 
-    def _log_cache_state(self, kv_cache: dict | None) -> None:  # type: ignore[type-arg]
+    def _log_cache_state(self, kv_cache: dict[str, Any] | None) -> None:
         """Log KV cache state for debugging."""
         if kv_cache:
             kv = next(iter(kv_cache['mha'].key_value_memory_dict.values()))

@@ -382,13 +382,13 @@ def _process_protein_sequences(
             json.dumps([serializable_result]), FileType.JSON
         )
         input_sequence._metadata["domain_keywords_found"] = result["keywords_found"]
-        if matching_hits is not None and len(matching_hits) > 0:
+        if len(matching_hits) > 0:
             input_sequence._metadata["domain_matching_hits"] = store_file(
                 json.dumps([hit.model_dump() for hit in matching_hits]), FileType.JSON
             )
         else:
             input_sequence._metadata["domain_matching_hits"] = None
-        if all_hits is not None and len(all_hits) > 0:
+        if len(all_hits) > 0:
             input_sequence._metadata["hmmscan_all_hits"] = store_file(
                 json.dumps([hit.model_dump() for hit in all_hits]), FileType.JSON
             )

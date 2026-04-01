@@ -94,7 +94,7 @@ class StructureBasedConstraintConfig(BaseConfig):
             ValueError: If structure_tool is unknown or tool_config type doesn't match.
         """
         if not isinstance(values, dict):
-            return values  # type: ignore[unreachable]
+            return values  # type: ignore[unreachable]  -- Pydantic mode="before" can pass model instances
 
         structure_tool = values.get("structure_tool", "esmfold")
         tool_config = values.get("tool_config")

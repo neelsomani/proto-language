@@ -280,8 +280,9 @@ class MCMCOptimizer(Optimizer):
                 - segments dict: {segment_id -> deepcopied Sequence object}
                 - energy: float (energy_scores[result_idx])
         """
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
         sequence_state = []
-        for result_idx in range(self.num_results):  # type: ignore[arg-type]
+        for result_idx in range(self.num_results):
             segments_dict = {}
             for segment in self.segments:
                 seg_id = id(segment)
@@ -325,7 +326,8 @@ class MCMCOptimizer(Optimizer):
         """
         outcomes = list(self._proposal_outcomes)
 
-        for result_idx in range(self.num_results):  # type: ignore[arg-type]
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
+        for result_idx in range(self.num_results):
             old_segments_dict, old_result_energy = old_result_sequences[result_idx]
             proposal_pool_start = result_idx * self._proposals_per_result
             proposal_pool_end = (result_idx + 1) * self._proposals_per_result

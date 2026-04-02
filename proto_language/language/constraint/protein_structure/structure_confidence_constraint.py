@@ -30,7 +30,7 @@ logger = getLogger(__name__)
 # Constants
 # ============================================================================
 
-TOOL_AVAILABLE_METRICS: dict[str, set] = {  # type: ignore[type-arg]
+TOOL_AVAILABLE_METRICS: dict[str, set[str]] = {
     "esmfold": {"avg_plddt", "ptm", "avg_pae"},
     "alphafold3": {"avg_plddt", "ptm", "iptm", "avg_pae"},
     "boltz2": {"avg_plddt", "ptm", "iptm", "avg_pae"},

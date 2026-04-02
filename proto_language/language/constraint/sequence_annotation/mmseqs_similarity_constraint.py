@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 from proto_tools import (
@@ -265,7 +265,7 @@ def mmseqs_similarity_constraint(
 
     # Build protein list with mapping back to input sequences
     # protein_data: List of (seq_idx, protein_sequence) tuples
-    protein_data: list[tuple] = []  # type: ignore[type-arg]
+    protein_data: list[tuple[int, str]] = []
 
     # Get proteins (ORF prediction for DNA, direct for protein)
     if sequence_type == "dna":
@@ -351,7 +351,7 @@ def mmseqs_similarity_constraint(
 
     # Aggregate hits by input sequence
     # seq_hits[seq_idx] = list of all hits for that input sequence
-    seq_hits: dict = {i: [] for i in range(len(sequences))}  # type: ignore[type-arg]
+    seq_hits: dict[int, list[dict[str, Any]]] = {i: [] for i in range(len(sequences))}
 
     for prot_idx, result in enumerate(mmseqs_result.results):
         seq_idx = protein_to_seq_idx[prot_idx]
@@ -409,6 +409,6 @@ def mmseqs_similarity_constraint(
             }
         )
 
-        scores.append(MIN_ENERGY if not violations else min(MAX_ENERGY, np.mean(violations)))  # type: ignore[arg-type]
+        scores.append(MIN_ENERGY if not violations else min(MAX_ENERGY, float(np.mean(violations))))
 
     return scores

@@ -323,12 +323,14 @@ class BeamSearchOptimizer(Optimizer):
     def _capture_initial_state(self) -> None:
         """Capture state and reset BeamSearch-specific state for fresh run."""
         super()._capture_initial_state()
-        self.beams = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]  # type: ignore[arg-type]
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
+        self.beams = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]
 
     def _restore_initial_state(self) -> None:
         """Restore to captured state and reset BeamSearch-specific state."""
         super()._restore_initial_state()
-        self.beams = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]  # type: ignore[arg-type]
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
+        self.beams = [BeamState(running_sequence=self.prompt) for _ in range(self.num_results)]
 
     def run(self) -> None:
         """Run beam search within a single segment.
@@ -340,6 +342,8 @@ class BeamSearchOptimizer(Optimizer):
         4. Select top K proposals and update beam states for next beam
         """
         self._prepare_run()
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
+        assert self.num_proposals is not None  # noqa: S101 -- mypy type narrowing
 
         # BeamSearch always starts from its configured prompt.
         if any(seq.sequence for seg in self.segments for seq in seg.result_sequences):
@@ -348,7 +352,7 @@ class BeamSearchOptimizer(Optimizer):
             )
 
         # BeamSearch starts from empty prompt; no meaningful initial snapshot
-        self.energy_scores = [float("inf")] * self.num_results  # type: ignore[operator]
+        self.energy_scores = [float("inf")] * self.num_results
 
         if self.verbose:
             self._log_run_start()
@@ -469,12 +473,13 @@ class BeamSearchOptimizer(Optimizer):
         Raises:
             RuntimeError: If unable to get enough valid proposals after max attempts
         """
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
         # Track valid proposals per beam
-        beam_proposals: dict[int, list[BeamState]] = {b: [] for b in range(self.num_results)}  # type: ignore[arg-type]
+        beam_proposals: dict[int, list[BeamState]] = {b: [] for b in range(self.num_results)}
 
         # Initial generation: Generate proposals for all beams
         all_proposals = []
-        for beam_idx in range(self.num_results):  # type: ignore[arg-type]
+        for beam_idx in range(self.num_results):
             proposals = self._generate_proposals_for_beam(beam_idx, prepend_prompt, num_tokens)
             all_proposals.extend(proposals)
 
@@ -496,9 +501,7 @@ class BeamSearchOptimizer(Optimizer):
         # Resample beams until each has proposals_per_result valid proposals
         for attempt in range(1, self.max_resample_attempts + 1):
             beams_to_resample = [
-                b
-                for b in range(self.num_results)  # type: ignore[arg-type]
-                if len(beam_proposals[b]) < self._proposals_per_result
+                b for b in range(self.num_results) if len(beam_proposals[b]) < self._proposals_per_result
             ]
 
             if not beams_to_resample:
@@ -525,11 +528,7 @@ class BeamSearchOptimizer(Optimizer):
                         beam_proposals[beam_idx].append(proposal)
 
         # Verify each beam has at least proposals_per_result valid proposals
-        insufficient_beams = [
-            b
-            for b in range(self.num_results)  # type: ignore[arg-type]
-            if len(beam_proposals[b]) < self._proposals_per_result
-        ]
+        insufficient_beams = [b for b in range(self.num_results) if len(beam_proposals[b]) < self._proposals_per_result]
         if insufficient_beams:
             counts = {b: len(beam_proposals[b]) for b in insufficient_beams}
             raise RuntimeError(
@@ -539,7 +538,7 @@ class BeamSearchOptimizer(Optimizer):
 
         # Flatten and sort by energy to get all valid proposals
         all_valid_proposals = []
-        for beam_idx in range(self.num_results):  # type: ignore[arg-type]
+        for beam_idx in range(self.num_results):
             # Sort by most recent score and take top proposals_per_result
             sorted_proposals = sorted(beam_proposals[beam_idx], key=lambda b: b.beam_scores[-1])[
                 : self._proposals_per_result

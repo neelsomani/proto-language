@@ -231,13 +231,13 @@ class TopKOptimizer(Optimizer):
             round_num (int): The 1-indexed round number (for tracking purposes).
             save_snapshot (bool): Whether to save a progress snapshot after this round.
         """
+        assert self._initial_state is not None  # noqa: S101 -- mypy type narrowing
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
+        assert self.num_proposals is not None  # noqa: S101 -- mypy type narrowing
         # 1. Reset proposal sequences to their initial state
         for seg_idx, segment in enumerate(self.segments):
-            proposals = self._initial_state["segments"][seg_idx]["proposals"]  # type: ignore[index]
-            segment.proposal_sequences = [
-                Sequence.from_dict(proposals[i])
-                for i in range(self.num_proposals)  # type: ignore[arg-type]
-            ]
+            proposals = self._initial_state["segments"][seg_idx]["proposals"]
+            segment.proposal_sequences = [Sequence.from_dict(proposals[i]) for i in range(self.num_proposals)]
 
         # 2. Run all generators sequentially
         for generator in self.generators:
@@ -252,7 +252,7 @@ class TopKOptimizer(Optimizer):
                 continue
             energy = self.energy_scores[proposal_idx]
 
-            if len(self._result_energies) < self.num_results:  # type: ignore[operator]
+            if len(self._result_energies) < self.num_results:
                 pos = bisect.bisect_left(self._result_energies, energy)
                 self._insert_into_topk(pos, proposal_idx, energy)
             elif energy < self._result_energies[-1]:
@@ -326,7 +326,8 @@ class TopKOptimizer(Optimizer):
             if (
                 threshold_mode
                 and len(self._result_energies) == self.num_results
-                and self._result_energies[-1] < self.energy_threshold  # type: ignore[operator]
+                and self.energy_threshold is not None
+                and self._result_energies[-1] < self.energy_threshold
             ):
                 threshold_met = True
                 if self.verbose:
@@ -402,7 +403,7 @@ class TopKOptimizer(Optimizer):
             if len(self.energy_scores) > 1:
                 logger.debug(f"  Worst in top-k: {worst_in_topk:.6f}")
 
-            if self.num_results <= 20:  # type: ignore[operator]
+            if self.num_results is not None and self.num_results <= 20:
                 logger.debug(f"Top-{self.num_results} constructs:")
                 for i, energy in enumerate(self.energy_scores):
                     logger.debug(f"  Rank {i + 1}: Energy={energy:.6f}")

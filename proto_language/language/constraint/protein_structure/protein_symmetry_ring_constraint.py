@@ -196,7 +196,7 @@ def protein_symmetry_ring_constraint(
     """
     # Extract sequences from tuples and separate by type
     sequences = [seq for (seq,) in input_sequences]
-    by_type = {"dna": [], "protein": []}  # type: ignore[var-annotated]
+    by_type: dict[str, list[Sequence]] = {"dna": [], "protein": []}
     for seq in sequences:
         by_type[seq.sequence_type].append(seq)
 

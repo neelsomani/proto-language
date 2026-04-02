@@ -50,7 +50,7 @@ class ProteinHunterPipelineConfig(BaseConfig):
     )
 
 
-def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Callable:  # type: ignore[type-arg]
+def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Callable[..., Any]:
     """Create protein hunter conditioning function (structure prediction -> inverse folding).
 
     The Protein Hunter algorithm predicts 3D structures from current sequences,
@@ -63,7 +63,7 @@ def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Ca
 
     structure_tool = config.protein_hunter.structure_tool if config.protein_hunter else "boltz2"
 
-    def conditioning_fn(sequences: list[Sequence]) -> list:  # type: ignore[type-arg]
+    def conditioning_fn(sequences: list[Sequence]) -> list[Any]:
         complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
         return predict_structures(complexes, structure_tool, {}).structures  # type: ignore[no-any-return]
 
@@ -88,7 +88,7 @@ def _resolve_conditioning_fn(
     config: CyclingOptimizerConfig,
     generator: Generator,
     conditioning_fn: Callable[..., Any] | None = None,
-) -> Callable:  # type: ignore[type-arg]
+) -> Callable[..., Any]:
     """Resolve the conditioning function from either direct parameter or pipeline config.
 
     Args:
@@ -97,7 +97,7 @@ def _resolve_conditioning_fn(
         conditioning_fn (Callable[..., Any] | None): Optional directly-provided conditioning function
 
     Returns:
-        Callable: The resolved conditioning function
+        Callable[..., Any]: The resolved conditioning function
 
     Raises:
         ValueError: If both or neither of conditioning_fn/pipeline are provided,
@@ -304,7 +304,7 @@ class CyclingOptimizer(Optimizer):
         constraints: list[Constraint],
         config: CyclingOptimizerConfig,
         conditioning_fn: Callable[[list[Sequence]], list[Any]] | None = None,
-        custom_logging: Callable[[int, tuple], None] | None = None,  # type: ignore[type-arg]
+        custom_logging: Callable[[int, tuple[Segment, ...]], None] | None = None,
         clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
     ) -> None:
         """Initialize the Cycling Optimizer.
@@ -322,8 +322,8 @@ class CyclingOptimizer(Optimizer):
                 Signature: ``(sequences: List[Sequence]) -> List[Any]``
                 Returns one conditioning item per proposal.
                 Mutually exclusive with ``config.pipeline`` - use one or the other.
-            custom_logging (Callable[[int, tuple], None] | None): Optional callback called at tracked steps (governed by ``tracking_interval``)
-                with signature ``(step: int, segments: tuple) -> None``.
+            custom_logging (Callable[[int, tuple[Segment, ...]], None] | None): Optional callback called at tracked steps (governed by ``tracking_interval``)
+                with signature ``(step: int, segments: tuple[Segment, ...]) -> None``.
             clear_tool_cache (int | bool | list[str]): Cache management setting. (int) byte threshold,
                 (bool) clear all, or (List[str]) specific tool names.
 

@@ -1,7 +1,5 @@
 """Test configuration and fixtures for the proto-language test suite."""
 
-from __future__ import annotations
-
 import json
 import logging
 import os

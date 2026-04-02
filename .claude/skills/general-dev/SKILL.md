@@ -19,8 +19,6 @@ allowed-tools:
 ## File Header (every new file)
 
 ```python
-from __future__ import annotations
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,10 +28,9 @@ Never use `print()`. Always use `logger.info()` / `logger.debug()` / `logger.war
 
 ## Import Ordering (enforced by ruff)
 
-1. `from __future__ import annotations`
-2. Standard library (`os`, `logging`, `typing`, etc.)
-3. Third-party (`pydantic`, `numpy`, etc.)
-4. Local (`proto_language.*`)
+1. Standard library (`os`, `logging`, `typing`, etc.)
+2. Third-party (`pydantic`, `numpy`, etc.)
+3. Local (`proto_language.*`)
 
 ## Data Model (`proto_language/language/core/`)
 

@@ -3,8 +3,6 @@
 performs beam search, accumulating KV cache state across beams.
 """
 
-from __future__ import annotations
-
 import logging
 import math
 from collections.abc import Callable
@@ -146,7 +144,7 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
     )
 
     @model_validator(mode="after")
-    def validate_config(self) -> BeamSearchOptimizerConfig:
+    def validate_config(self) -> "BeamSearchOptimizerConfig":
         """Validate beam search configuration."""
         if not self.prompt:
             raise ValueError("prompt must be non-empty")

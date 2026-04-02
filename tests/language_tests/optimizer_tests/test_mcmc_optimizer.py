@@ -1,7 +1,5 @@
 """tests/language_tests/optimizer_tests/test_mcmc_optimizer.py."""
 
-from __future__ import annotations
-
 import copy
 
 import pytest

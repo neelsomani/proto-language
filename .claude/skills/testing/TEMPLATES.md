@@ -85,9 +85,8 @@ class TestMyConstraint:
 ## Generator Test Template
 
 ```python
-from __future__ import annotations
-
 import copy
+
 import pytest
 from proto_language.language.core import Segment
 from proto_language.language.generator import MyGenerator, MyGeneratorConfig
@@ -169,8 +168,6 @@ class TestMyGeneratorValidation:
 ## Optimizer Test Template
 
 ```python
-from __future__ import annotations
-
 import copy
 from typing import Tuple
 

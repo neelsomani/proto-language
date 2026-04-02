@@ -28,8 +28,6 @@ Generator.sample()
 File: `proto_language/language/generator/{name}_generator.py`
 
 ```python
-from __future__ import annotations
-
 import logging
 from typing import List, Optional, final
 

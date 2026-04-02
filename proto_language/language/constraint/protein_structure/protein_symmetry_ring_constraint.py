@@ -1,7 +1,5 @@
 """Protein symmetry ring constraint for symmetric multimeric structures."""
 
-from __future__ import annotations
-
 import json
 from io import StringIO
 

@@ -1,7 +1,5 @@
 """mock_structure.py."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from proto_tools import BFactorType, Structure, load_structure_file

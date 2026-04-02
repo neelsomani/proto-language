@@ -1,7 +1,5 @@
 """Unit tests for AlphaGenome interval-track sequence-annotation constraint."""
 
-from __future__ import annotations
-
 from unittest.mock import patch
 
 import numpy as np

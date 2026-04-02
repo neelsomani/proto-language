@@ -4,8 +4,6 @@ Uses ViennaRNA for secondary structure prediction and provides four independent
 constraint functions for different aspects of structural comparison.
 """
 
-from __future__ import annotations
-
 from logging import getLogger
 
 import numpy as np

@@ -5,8 +5,6 @@ right_flank), integrates them into a genomic context via cassette insertion,
 and scores splice-site usage with AlphaGenome.
 """
 
-from __future__ import annotations
-
 from unittest.mock import patch
 
 import numpy as np

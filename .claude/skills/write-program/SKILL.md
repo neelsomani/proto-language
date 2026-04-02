@@ -41,8 +41,6 @@ Every program follows this exact flow:
 ## Complete Template
 
 ```python
-from __future__ import annotations
-
 from proto_language.language.core import (
     Constraint,
     Construct,

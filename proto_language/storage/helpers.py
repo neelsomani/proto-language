@@ -1,7 +1,5 @@
 """Convenience functions for storing and retrieving file content."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from proto_language.storage.models import FileReference, FileType

@@ -3,8 +3,6 @@
 calculations used across the proto-language framework.
 """
 
-from __future__ import annotations
-
 import math
 import random
 import subprocess

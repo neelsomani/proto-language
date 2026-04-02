@@ -1,7 +1,5 @@
 """Protein complexity constraint function."""
 
-from __future__ import annotations
-
 from proto_tools import (
     SegmaskerConfig,
     SegmaskerInput,

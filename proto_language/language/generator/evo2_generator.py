@@ -1,7 +1,5 @@
 """Evo2 Generator for DNA sequence generation."""
 
-from __future__ import annotations
-
 from typing import Any, final
 
 from proto_tools import Evo2SampleConfig, Evo2SampleInput, run_evo2_sample
@@ -196,7 +194,7 @@ class Evo2GeneratorConfig(BaseConfig):
         return [v] if isinstance(v, str) else v
 
     @model_validator(mode="after")
-    def validate_prompts_length(self) -> Evo2GeneratorConfig:
+    def validate_prompts_length(self) -> "Evo2GeneratorConfig":
         """Validate that all prompts have the same length."""
         if len({len(seq) for seq in self.prompts}) != 1:
             raise ValueError(f"All prompts must have same length, got: {[len(seq) for seq in self.prompts]}")

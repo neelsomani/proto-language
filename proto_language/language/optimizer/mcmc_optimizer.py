@@ -1,7 +1,5 @@
 """Metropolis-Hastings MCMC Optimizer that uses multiple sub-generators as proposal distributions and constraints to define the energy function."""
 
-from __future__ import annotations
-
 import copy
 import logging
 import math
@@ -108,7 +106,7 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
     )
 
     @model_validator(mode="after")
-    def validate_cross_field_constraints(self) -> MCMCOptimizerConfig:
+    def validate_cross_field_constraints(self) -> "MCMCOptimizerConfig":
         """Validate cross-field constraints."""
         # Validate min_temperature < max_temperature for annealing
         if self.min_temperature >= self.max_temperature:

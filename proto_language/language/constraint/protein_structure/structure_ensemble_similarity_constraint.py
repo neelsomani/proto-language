@@ -7,8 +7,6 @@ computes the similarity between ensemble members and an experimental target
 structure using PyMOL's align command.
 """
 
-from __future__ import annotations
-
 import os
 import tempfile
 from logging import getLogger

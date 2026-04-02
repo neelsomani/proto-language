@@ -1,7 +1,5 @@
 """Base configuration classes for all pydantic configs."""
 
-from __future__ import annotations
-
 from typing import Any, TypedDict
 
 from pydantic import BaseModel, ConfigDict

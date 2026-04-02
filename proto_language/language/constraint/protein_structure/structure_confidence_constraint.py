@@ -10,8 +10,6 @@ Constraints:
 - structure-pae: Average predicted aligned error.
 """
 
-from __future__ import annotations
-
 from logging import getLogger
 
 from proto_tools import StructurePredictionComplex, predict_structures

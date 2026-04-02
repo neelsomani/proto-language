@@ -1,7 +1,5 @@
 """Data models for file storage references."""
 
-from __future__ import annotations
-
 from enum import Enum
 from typing import Any
 
@@ -84,7 +82,7 @@ class FileReference(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FileReference:
+    def from_dict(cls, data: dict[str, Any]) -> "FileReference":
         """Create a FileReference from a dictionary.
 
         Args:

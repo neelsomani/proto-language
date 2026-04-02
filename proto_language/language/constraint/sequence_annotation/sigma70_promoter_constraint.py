@@ -1,7 +1,5 @@
 """sigma-70 promoter similarity constraint for evaluating promoter similarity."""
 
-from __future__ import annotations
-
 import math
 
 import numpy as np

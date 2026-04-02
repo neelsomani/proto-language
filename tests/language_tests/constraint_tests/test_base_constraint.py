@@ -1,7 +1,5 @@
 """tests/language_tests/constraint_tests/test_base_constraint.py."""
 
-from __future__ import annotations
-
 import copy
 import math
 

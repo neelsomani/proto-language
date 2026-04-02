@@ -35,8 +35,6 @@ allowed-tools:
 File: `proto_language/language/constraint/{category}/{name}_constraint.py`
 
 ```python
-from __future__ import annotations
-
 import logging
 from typing import List, Optional, Tuple
 

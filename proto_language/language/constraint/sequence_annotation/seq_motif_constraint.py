@@ -1,7 +1,5 @@
 """Sequence motif constraint for scoring DNA sequences against motifs using MEME."""
 
-from __future__ import annotations
-
 import os
 import subprocess
 import tempfile

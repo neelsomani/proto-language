@@ -4,8 +4,6 @@ Provides automatic log directory management, suppression of noisy third-party
 loggers, and integration with Python's warnings system.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 import sys

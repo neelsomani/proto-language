@@ -11,8 +11,6 @@ Transition Matrix:
 Note: BeamSearch ignores previous state by design (always starts from prompt).
 """
 
-from __future__ import annotations
-
 import random
 from unittest.mock import Mock
 

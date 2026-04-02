@@ -1,7 +1,5 @@
 """Constraint for evaluating the frequency or usage deviation of a single specific k-mer."""
 
-from __future__ import annotations
-
 import math
 from typing import Literal
 
@@ -61,7 +59,7 @@ class SpecificKmerConfig(BaseConfig):
         return v.upper()
 
     @model_validator(mode="after")
-    def validate_config(self) -> SpecificKmerConfig:
+    def validate_config(self) -> "SpecificKmerConfig":
         """Validate configuration parameters."""
         if self.min_value > self.max_value:
             raise ValueError(f"min_value ({self.min_value}) must be <= max_value ({self.max_value})")

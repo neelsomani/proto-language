@@ -1,7 +1,5 @@
 """MSAGenerator for sampling mutations from multiple sequence alignment distributions."""
 
-from __future__ import annotations
-
 import random
 from typing import Any, final
 

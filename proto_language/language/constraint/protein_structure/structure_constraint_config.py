@@ -4,8 +4,6 @@ This module provides standardized configuration classes for constraints that
 use structure prediction tools (ESMFold, AlphaFold3, Boltz2, Chai1).
 """
 
-from __future__ import annotations
-
 from typing import Any, Literal
 
 from proto_tools import (

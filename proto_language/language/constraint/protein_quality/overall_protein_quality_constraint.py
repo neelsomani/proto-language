@@ -1,7 +1,5 @@
 """Overall protein quality constraint function."""
 
-from __future__ import annotations
-
 import json
 
 import numpy as np
@@ -348,7 +346,7 @@ class OverallProteinQualityConfig(BaseConfig):
     )
 
     @model_validator(mode="after")
-    def validate_config(self) -> OverallProteinQualityConfig:
+    def validate_config(self) -> "OverallProteinQualityConfig":
         """Validate that at least one sub-constraint is specified."""
         sub_config = self.protein_quality_config
         if not any(

@@ -1,7 +1,5 @@
 """Maximum homopolymer constraint for evaluating sequence homopolymer properties."""
 
-from __future__ import annotations
-
 import itertools
 
 import numpy as np

@@ -5,8 +5,6 @@ them into a single 1-kb target sequence, and scores tissue-specific splice
 site usage. Metadata is propagated back to all three input segments.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Literal
 

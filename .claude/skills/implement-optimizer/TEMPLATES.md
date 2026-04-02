@@ -118,8 +118,6 @@ This enables the `target_segment` field for single-segment selection.
 File: `proto_language/language/optimizer/{name}_optimizer.py`
 
 ```python
-from __future__ import annotations
-
 import copy
 import logging
 from typing import Callable, List, Optional, final

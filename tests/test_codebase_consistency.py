@@ -1,7 +1,5 @@
 """consistency."""
 
-from __future__ import annotations
-
 import inspect
 import types
 from typing import Union, get_args, get_origin

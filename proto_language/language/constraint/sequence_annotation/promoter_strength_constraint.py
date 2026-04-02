@@ -1,7 +1,5 @@
 """Promoter strength constraint using Salis Lab Promoter Calculator."""
 
-from __future__ import annotations
-
 from typing import Literal
 
 from promoter_calculator.wrapper import promoter_calculator

@@ -1,7 +1,5 @@
 """Tests for BeamSearchOptimizer - single-segment iterative beam search."""
 
-from __future__ import annotations
-
 import copy
 import random
 from unittest.mock import Mock

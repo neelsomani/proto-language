@@ -1,7 +1,5 @@
 """Represents building blocks for biological constructs."""
 
-from __future__ import annotations
-
 import copy
 import logging
 from collections.abc import Iterator
@@ -165,7 +163,7 @@ class Segment:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Segment:
+    def from_dict(cls, data: dict[str, Any]) -> "Segment":
         """Deserialize Segment from dictionary."""
         # Reconstruct original sequence
         original_seq = Sequence.from_dict(data["original_sequence"])

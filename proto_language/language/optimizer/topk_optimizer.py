@@ -1,7 +1,5 @@
 """TopK Optimizer that runs multiple independent sampling rounds and returns the top-k best constructs."""
 
-from __future__ import annotations
-
 import bisect
 import copy
 import logging
@@ -87,7 +85,7 @@ class TopKOptimizerConfig(BaseOptimizerConfig):
     )
 
     @model_validator(mode="after")
-    def validate_params(self) -> TopKOptimizerConfig:
+    def validate_params(self) -> "TopKOptimizerConfig":
         """Validate parameter relationships."""
         # num_results must not exceed num_samples (only validate when num_results is set)
         if self.num_results is not None and self.num_results > self.num_samples:

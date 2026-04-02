@@ -1,7 +1,5 @@
 """Docstring consistency tests for type accuracy and formatting conventions."""
 
-from __future__ import annotations
-
 import ast
 import contextlib
 import re

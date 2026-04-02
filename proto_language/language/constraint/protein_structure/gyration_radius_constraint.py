@@ -4,8 +4,6 @@ Computes radius of gyration from PDB files, then scores based on deviation
 from a maximum acceptable radius.
 """
 
-from __future__ import annotations
-
 from proto_tools import (
     StructureMetricsConfig,
     StructureMetricsInput,

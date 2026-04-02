@@ -1,7 +1,5 @@
 """Boltz binding strength constraint for protein-protein and protein-ligand interactions."""
 
-from __future__ import annotations
-
 from typing import Any, Literal
 
 from numpy import clip

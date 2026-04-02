@@ -1,7 +1,5 @@
 """Protein globularity constraint for compact protein structures."""
 
-from __future__ import annotations
-
 import json
 from io import StringIO
 

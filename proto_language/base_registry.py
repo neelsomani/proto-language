@@ -1,7 +1,5 @@
 """Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Generic, TypeVar, cast
 

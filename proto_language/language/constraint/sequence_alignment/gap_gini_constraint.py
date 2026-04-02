@@ -13,8 +13,6 @@ A low Gini (< 0.1) indicates evenly distributed gaps (good alignment);
 a high Gini (>= 0.3) suggests concentrated gaps (truncation artifact).
 """
 
-from __future__ import annotations
-
 import logging
 import re
 

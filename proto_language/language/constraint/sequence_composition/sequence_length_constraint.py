@@ -1,7 +1,5 @@
 """Sequence length constraint for evaluating sequence length properties."""
 
-from __future__ import annotations
-
 from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
@@ -67,7 +65,7 @@ class SequenceLengthConfig(BaseConfig):
     )
 
     @model_validator(mode="after")
-    def validate_length_config(self) -> SequenceLengthConfig:
+    def validate_length_config(self) -> "SequenceLengthConfig":
         """Ensure either (min_length + max_length) OR target_length is provided."""
         has_range = self.min_length is not None and self.max_length is not None
         has_target = self.target_length is not None

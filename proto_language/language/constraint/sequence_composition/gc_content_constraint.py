@@ -1,7 +1,5 @@
 """GC content constraint for evaluating sequence GC content properties."""
 
-from __future__ import annotations
-
 from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
@@ -44,7 +42,7 @@ class GCContentConfig(BaseConfig):
     )
 
     @model_validator(mode="after")
-    def validate_gc_range(self) -> GCContentConfig:
+    def validate_gc_range(self) -> "GCContentConfig":
         """Ensure min_gc <= max_gc."""
         if self.min_gc > self.max_gc:
             raise ValueError(f"min_gc ({self.min_gc}) must be <= max_gc ({self.max_gc})")

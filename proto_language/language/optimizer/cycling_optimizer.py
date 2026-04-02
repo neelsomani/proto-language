@@ -4,8 +4,6 @@ and passes its output to a generator. Supports optional constraint filtering wit
 accept pattern for passing proposals.
 """
 
-from __future__ import annotations
-
 import copy
 import inspect
 import logging
@@ -50,7 +48,7 @@ class ProteinHunterPipelineConfig(BaseConfig):
     )
 
 
-def _create_protein_hunter_conditioning_fn(config: CyclingOptimizerConfig) -> Callable[..., Any]:
+def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> Callable[..., Any]:
     """Create protein hunter conditioning function (structure prediction -> inverse folding).
 
     The Protein Hunter algorithm predicts 3D structures from current sequences,
@@ -85,7 +83,7 @@ CYCLING_PIPELINES: dict[str, dict[str, Any]] = {
 
 
 def _resolve_conditioning_fn(
-    config: CyclingOptimizerConfig,
+    config: "CyclingOptimizerConfig",
     generator: Generator,
     conditioning_fn: Callable[..., Any] | None = None,
 ) -> Callable[..., Any]:
@@ -231,7 +229,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
     )
 
     @model_validator(mode="after")
-    def validate_pipeline_config(self) -> CyclingOptimizerConfig:
+    def validate_pipeline_config(self) -> "CyclingOptimizerConfig":
         """Validate that pipeline-specific config is provided when pipeline is set."""
         if self.pipeline == "protein-hunter" and self.protein_hunter is None:
             # Auto-create default config if not provided

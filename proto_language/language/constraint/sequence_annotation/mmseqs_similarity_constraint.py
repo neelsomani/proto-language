@@ -1,7 +1,5 @@
 """Supports DNA (with ORF prediction) and Protein sequences (direct search)."""
 
-from __future__ import annotations
-
 import json
 from typing import Any, Literal
 
@@ -138,7 +136,7 @@ class MMseqsSimilarityConfig(BaseConfig):
     )
 
     @model_validator(mode="after")
-    def validate_similarity_range(self) -> MMseqsSimilarityConfig:
+    def validate_similarity_range(self) -> "MMseqsSimilarityConfig":
         """Ensure min_similarity does not exceed max_similarity."""
         if self.min_similarity > self.max_similarity:
             raise ValueError(

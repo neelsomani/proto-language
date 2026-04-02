@@ -9,8 +9,6 @@
 Supports CSV, TSV, JSON, FASTA, and Excel output formats.
 """
 
-from __future__ import annotations
-
 import copy
 import csv
 import json

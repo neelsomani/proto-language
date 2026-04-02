@@ -4,8 +4,6 @@ protein sequences, making it particularly effective for enzyme design
 and binding site optimization.
 """
 
-from __future__ import annotations
-
 from typing import Any, final
 
 from proto_tools import (

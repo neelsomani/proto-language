@@ -3,8 +3,6 @@
 supporting multiple structure prediction tools (ESMFold, AlphaFold3, Boltz, Chai1).
 """
 
-from __future__ import annotations
-
 import os
 import tempfile
 from logging import getLogger
@@ -195,7 +193,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     )
 
     @model_validator(mode="after")
-    def validate_target(self) -> StructureSimilarityConfig:
+    def validate_target(self) -> "StructureSimilarityConfig":
         """Ensure exactly one target source is provided."""
         sources = [self.target_chains, self.target_structure]
         provided = sum(s is not None for s in sources)
@@ -345,7 +343,7 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
     )
 
     @model_validator(mode="after")
-    def validate_normalization(self) -> StructureTMScoreConfig:
+    def validate_normalization(self) -> "StructureTMScoreConfig":
         """Validate TMscore normalization field."""
         valid = ["structure1", "structure2", "max", "min", "mean"]
         if self.tm_score_normalization not in valid:

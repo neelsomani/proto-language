@@ -5,8 +5,6 @@ via cassette insertion, and scores splice-site usage with AlphaGenome.
 Metadata is propagated back to all three input segments.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any, Literal
 

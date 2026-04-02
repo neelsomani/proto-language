@@ -1,7 +1,5 @@
 """Protein length constraint function."""
 
-from __future__ import annotations
-
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence

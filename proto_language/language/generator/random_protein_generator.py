@@ -1,7 +1,5 @@
 """RandomProteinGenerator for CPU-based random protein mutagenesis."""
 
-from __future__ import annotations
-
 from typing import final
 
 from proto_tools import (

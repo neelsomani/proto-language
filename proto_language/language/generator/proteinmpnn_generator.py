@@ -1,7 +1,5 @@
 """ProteinMPNN Generator for structure-conditioned protein sequence design."""
 
-from __future__ import annotations
-
 from typing import Any, final
 
 from proto_tools import (

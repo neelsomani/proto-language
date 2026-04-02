@@ -11,8 +11,6 @@ Key Features:
     - Threshold-based filtering (converts scores to boolean accept/reject).
 """
 
-from __future__ import annotations
-
 import logging
 import warnings
 from collections.abc import Callable

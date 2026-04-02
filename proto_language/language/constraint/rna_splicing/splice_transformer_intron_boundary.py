@@ -5,8 +5,6 @@ them into a single 1-kb target sequence, and scores donor/acceptor splice
 sites. Metadata is propagated back to all three input segments.
 """
 
-from __future__ import annotations
-
 import logging
 
 import numpy as np

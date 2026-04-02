@@ -3,8 +3,6 @@
 Represents a single DNA, RNA, protein, or ligand sequence with validation and metadata.
 """
 
-from __future__ import annotations
-
 import copy
 import warnings
 from collections.abc import Iterable
@@ -187,7 +185,7 @@ class Sequence:
         """
         return self._sequence[key]
 
-    def __deepcopy__(self, memo: dict[int, Any]) -> Sequence:
+    def __deepcopy__(self, memo: dict[int, Any]) -> "Sequence":
         """Optimized deepcopy: share stable data, only copy mutable dicts.
 
         - _valid_chars, _sequence_type, _sequence: Immutable, share reference
@@ -213,7 +211,7 @@ class Sequence:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Sequence:
+    def from_dict(cls, data: dict[str, Any]) -> "Sequence":
         """Deserialize Sequence from dictionary."""
         if data.get("valid_chars"):
             chars = frozenset(data["valid_chars"])

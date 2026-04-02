@@ -1,7 +1,5 @@
 """Represents a full biological construct composed of multiple segments."""
 
-from __future__ import annotations
-
 import logging
 from collections.abc import Iterable
 from typing import Any
@@ -123,7 +121,7 @@ class Construct:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Construct:
+    def from_dict(cls, data: dict[str, Any]) -> "Construct":
         """Deserialize Construct from dictionary."""
         segments = [Segment.from_dict(seg_data) for seg_data in data["segments"]]
         return cls(segments=segments, label=data.get("label"))

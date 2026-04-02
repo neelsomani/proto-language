@@ -3,15 +3,13 @@
 generators and constraints to search for optimal biological sequences.
 """
 
-from __future__ import annotations
-
 import copy
 import logging
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import pandas as pd
 from proto_tools.utils.tool_cache import ToolCache, _program_tool_cache
@@ -19,6 +17,7 @@ from proto_tools.utils.tool_cache import ToolCache, _program_tool_cache
 from proto_language.language.core.constraint import Constraint
 from proto_language.language.core.construct import Construct
 from proto_language.language.core.generator import Generator
+from proto_language.language.core.segment import Segment
 from proto_language.language.core.sequence import Sequence
 from proto_language.utils.export import (
     build_proposal_results,
@@ -29,9 +28,6 @@ from proto_language.utils.export import (
 )
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from proto_language.language.core.segment import Segment
 
 
 class Optimizer(ABC):

@@ -1,17 +1,11 @@
 """Provides the abstract interface for sequence generation algorithms."""
 
-from __future__ import annotations
-
 import logging
 import random
 import warnings
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
 from proto_language.language.core.segment import Segment
-
-if TYPE_CHECKING:
-    from proto_language.language.generator.generator_registry import GeneratorSpec
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +26,11 @@ class Generator(ABC):
     def __init__(self) -> None:
         """Initialize the generator with configuration parameters."""
         self._assigned_segment: Segment | None = None
-        self.__spec: GeneratorSpec | None = None  # Lazy-loaded via property
+        self.__spec: "GeneratorSpec | None" = None  # type: ignore[name-defined]  # noqa: F821, UP037 -- circular import; lazy-loaded via property
 
     # Required lazy loading for mock generators to function in tests.
     @property
-    def _spec(self) -> GeneratorSpec:
+    def _spec(self) -> "GeneratorSpec":  # type: ignore[name-defined]  # noqa: F821 -- circular import; resolved at runtime
         """Lazy-load the generator spec from the registry."""
         if self.__spec is None:
             from proto_language.language.generator.generator_registry import (

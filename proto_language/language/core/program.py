@@ -1,17 +1,13 @@
 """proto_language/language/core/program.py."""
 
-from __future__ import annotations
-
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import pandas as pd
-
-if TYPE_CHECKING:
-    from proto_tools.utils.tool_pool import ToolPool
+from proto_tools.utils.tool_pool import ToolPool
 
 from proto_language.language.core.optimizer import Optimizer
 from proto_language.utils.export import (

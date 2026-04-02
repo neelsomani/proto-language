@@ -8,9 +8,12 @@ import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 from proto_language.storage.models import FileReference, FileType
+
+if TYPE_CHECKING:
+    from google.cloud.storage import Bucket, Client
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +245,7 @@ class GCSFileStore(FileStore):
         logger.info(f"GCSFileStore initialized for bucket {bucket_name}")
 
     @property
-    def client(self) -> Any:
+    def client(self) -> Client:
         """Lazy-load GCS client.
 
         Supports credentials via:
@@ -274,7 +277,7 @@ class GCSFileStore(FileStore):
         return self._client
 
     @property
-    def bucket(self) -> Any:
+    def bucket(self) -> Bucket:
         """Lazy-load GCS bucket."""
         if self._bucket is None:
             self._bucket = self.client.bucket(self.bucket_name)

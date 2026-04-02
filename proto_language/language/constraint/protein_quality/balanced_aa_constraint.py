@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from typing import cast
 
 import numpy as np
 
@@ -194,4 +195,4 @@ def balanced_aa_constraint(input_sequences: list[tuple[Sequence, ...]], config: 
         input_sequence._metadata["min_aa_frequency_threshold"] = config.min_aa_frequency
 
     # Return penalty scores
-    return penalties.tolist()  # type: ignore[no-any-return]
+    return cast(list[float], penalties.tolist())

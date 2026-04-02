@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
@@ -127,4 +129,4 @@ def protein_diversity_constraint(
         input_sequence._metadata["unique_amino_acid_count"] = int(unique_aa_counts[i])
         input_sequence._metadata["unique_amino_acids"] = sorted(set(seq_strings[i]))
 
-    return scores_array.tolist()  # type: ignore[no-any-return]
+    return cast(list[float], scores_array.tolist())

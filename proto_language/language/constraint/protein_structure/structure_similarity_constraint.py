@@ -95,7 +95,7 @@ def _compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> dict[str, Any]:
 
 def _filter_pdb_by_plddt(pdb_text: str, threshold: float) -> str:
     """Filters PDB text, keeping only residues with B-factor (pLDDT) >= threshold."""
-    if threshold is None or threshold <= 0:  # type: ignore[redundant-expr]
+    if threshold <= 0:
         return pdb_text
 
     filtered_lines = []

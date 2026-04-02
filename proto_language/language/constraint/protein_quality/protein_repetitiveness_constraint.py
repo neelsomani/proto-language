@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from typing import cast
 
 import numpy as np
 
@@ -139,7 +140,7 @@ def protein_repetitiveness_constraint(
         input_sequence._metadata["repetitiveness_score"] = float(repetitiveness_scores[i])
         input_sequence._metadata["max_repetitive_fraction"] = float(repetitiveness_scores[i])
 
-    return scores.tolist()  # type: ignore[no-any-return]
+    return cast(list[float], scores.tolist())
 
 
 def _calculate_repetitiveness_score(seq: str, min_repeat_length: int = 3) -> float:

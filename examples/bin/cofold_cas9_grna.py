@@ -10,7 +10,6 @@ Usage:
     python examples/bin/cofold_cas9_grna.py a.tsv b.tsv c.tsv --output-dir my_output/
     python examples/bin/cofold_cas9_grna.py cas9_topk_2000_*_proposals.tsv --no-msa
 """
-from __future__ import annotations
 
 import argparse
 import csv
@@ -70,9 +69,7 @@ def construct_sgrna(
     crRNA = dna_to_rna(crispr_repeat)
     tracrRNA = dna_to_rna(tracr_rna_sequence)
     if max_tracr_length is not None and len(tracrRNA) > max_tracr_length:
-        logger.info(
-            f"Truncating tracrRNA from {len(tracrRNA)}nt to {max_tracr_length}nt"
-        )
+        logger.info(f"Truncating tracrRNA from {len(tracrRNA)}nt to {max_tracr_length}nt")
         tracrRNA = tracrRNA[:max_tracr_length]
     return SGRNA_SPACER + crRNA + TETRALOOP_LINKER + tracrRNA
 
@@ -103,8 +100,7 @@ def download_reference_pdb(output_dir: Path) -> Path:
                 continue
         filtered_lines.append(line)
     pdb_path.write_text("".join(filtered_lines))
-    logger.info(f"Saved reference PDB (chains {','.join(sorted(keep_chains))}) "
-                f"to {pdb_path}")
+    logger.info(f"Saved reference PDB (chains {','.join(sorted(keep_chains))}) to {pdb_path}")
     return pdb_path
 
 
@@ -121,17 +117,19 @@ def run_usalign(
     usalign_path = shutil.which("USalign")
     if not usalign_path:
         raise ImportError(
-            "The 'USalign' binary is required for structural alignment. "
-            "Install via: conda install -c bioconda usalign"
+            "The 'USalign' binary is required for structural alignment. Install via: conda install -c bioconda usalign"
         )
 
     cmd = [
         usalign_path,
         str(proposal_pdb),
         str(reference_pdb),
-        "-mm", "1",   # multimeric alignment mode
-        "-ter", "1",  # treat each chain as separate entity
-        "-o", str(output_prefix),
+        "-mm",
+        "1",  # multimeric alignment mode
+        "-ter",
+        "1",  # treat each chain as separate entity
+        "-o",
+        str(output_prefix),
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -203,15 +201,14 @@ def cofold_proposal(
     proposal_dir = output_dir / f"proposal_{proposal_idx}"
     proposal_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(
-        f"Proposal {proposal_idx}: protein={len(protein_sequence)}aa, "
-        f"sgRNA={len(sgrna_sequence)}nt"
-    )
+    logger.info(f"Proposal {proposal_idx}: protein={len(protein_sequence)}aa, sgRNA={len(sgrna_sequence)}nt")
 
-    complex_input = StructurePredictionComplex(chains=[
-        Chain(sequence=protein_sequence, entity_type="protein"),
-        Chain(sequence=sgrna_sequence, entity_type="rna"),
-    ])
+    complex_input = StructurePredictionComplex(
+        chains=[
+            Chain(sequence=protein_sequence, entity_type="protein"),
+            Chain(sequence=sgrna_sequence, entity_type="rna"),
+        ]
+    )
     inputs = AlphaFold3Input(complexes=[complex_input])
     config = AlphaFold3Config(
         name=f"cas9_grna_{proposal_idx}",
@@ -334,10 +331,7 @@ def main(args: list[str] | None = None) -> list[dict]:
         tracr_rna_sequence = row["tracr_rna_sequence"]
 
         if not crispr_repeat or not tracr_rna_sequence:
-            logger.warning(
-                f"Proposal {global_idx} (orig {orig_idx}): "
-                f"missing crRNA or tracrRNA, skipping"
-            )
+            logger.warning(f"Proposal {global_idx} (orig {orig_idx}): missing crRNA or tracrRNA, skipping")
             continue
 
         sgrna = construct_sgrna(crispr_repeat, tracr_rna_sequence, max_tracr)
@@ -371,13 +365,9 @@ def main(args: list[str] | None = None) -> list[dict]:
         superposed_prefix = proposal_dir / "superposed_to_4OO8"
 
         try:
-            usalign_metrics = run_usalign(
-                proposal_pdb, reference_pdb, superposed_prefix
-            )
+            usalign_metrics = run_usalign(proposal_pdb, reference_pdb, superposed_prefix)
         except subprocess.CalledProcessError as e:
-            logger.warning(
-                f"Proposal {global_idx}: USalign failed: {e}"
-            )
+            logger.warning(f"Proposal {global_idx}: USalign failed: {e}")
             usalign_metrics = {
                 "tm_score_1": None,
                 "tm_score_2": None,
@@ -423,11 +413,20 @@ def main(args: list[str] | None = None) -> list[dict]:
     if results:
         summary_path = output_dir / "summary.tsv"
         fieldnames = [
-            "proposal_idx", "temperature", "top_k",
-            "protein_length", "sgrna_length",
-            "avg_plddt", "ptm", "iptm", "ranking_score",
-            "tm_score_proposal", "tm_score_reference", "rmsd",
-            "pdb_path", "superposed_path",
+            "proposal_idx",
+            "temperature",
+            "top_k",
+            "protein_length",
+            "sgrna_length",
+            "avg_plddt",
+            "ptm",
+            "iptm",
+            "ranking_score",
+            "tm_score_proposal",
+            "tm_score_reference",
+            "rmsd",
+            "pdb_path",
+            "superposed_path",
         ]
         with open(summary_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
@@ -436,9 +435,9 @@ def main(args: list[str] | None = None) -> list[dict]:
         logger.info(f"Summary written to {summary_path}")
 
         # Print summary table to stdout
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"Cas9-sgRNA Cofolding Summary ({len(results)} proposals)")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
         header = (
             f"{'Idx':>4s}  {'Prot':>5s}  {'sgRNA':>5s}  "
             f"{'pLDDT':>6s}  {'pTM':>5s}  {'ipTM':>5s}  "
@@ -447,6 +446,7 @@ def main(args: list[str] | None = None) -> list[dict]:
         print(header)
         print("-" * len(header))
         for r in results:
+
             def fmt(v, w=5, d=3):
                 return f"{v:{w}.{d}f}" if v is not None else f"{'N/A':>{w}s}"
 
@@ -465,7 +465,7 @@ def main(args: list[str] | None = None) -> list[dict]:
         print()
         print("TM(c) = TM-score normalized by proposal length")
         print("TM(r) = TM-score normalized by reference (4OO8) length")
-        print(f"{'='*80}\n")
+        print(f"{'=' * 80}\n")
 
     return results
 

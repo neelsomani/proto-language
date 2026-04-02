@@ -12,8 +12,6 @@ Given a sweep ID, it writes:
   5) comparison plots across sweep configs/params
 """
 
-from __future__ import annotations
-
 import argparse
 import csv
 import math
@@ -30,12 +28,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 
-ITERATION_PATTERN = re.compile(
-    r"Iteration\s+(\d+)\s+\|\s+energy:\s*([-+0-9.eE]+),\s*T:\s*([-+0-9.eE]+)"
-)
-AG_SCORE_PATTERN = re.compile(
-    r"alphagenome_(?:splice_site_usage|interval_track)_score:\s*([-+0-9.eE]+)"
-)
+ITERATION_PATTERN = re.compile(r"Iteration\s+(\d+)\s+\|\s+energy:\s*([-+0-9.eE]+),\s*T:\s*([-+0-9.eE]+)")
+AG_SCORE_PATTERN = re.compile(r"alphagenome_(?:splice_site_usage|interval_track)_score:\s*([-+0-9.eE]+)")
 LEFT_FLANK_PATTERN = re.compile(r"sequence\s+\(left_flank\):")
 TASK_DIR_PATTERN = re.compile(r"task_(\d+)$")
 SPECIFICITY_TOKENS = ("max_brain", "min_brain", "max_blood", "min_blood")
@@ -271,24 +265,22 @@ def _infer_constraint_counts(
         n_boundary = context_count
 
     if n_specificity == 0 and enable_splice_transformer and enable_splice_specificity:
-        n_specificity = context_count * _count_specificity_terms(
-            config_env.get("SPECIFICITY_TYPE", "")
-        )
+        n_specificity = context_count * _count_specificity_terms(config_env.get("SPECIFICITY_TYPE", ""))
 
     if n_alphagenome == 0 and enable_alphagenome:
-        ag_counts = [
-            int(r.get("ag_count", 0))
-            for r in iter_rows
-            if int(r.get("ag_count", 0)) > 0
-        ]
+        ag_counts = [int(r.get("ag_count", 0)) for r in iter_rows if int(r.get("ag_count", 0)) > 0]
         if ag_counts:
             n_alphagenome = int(round(float(np.median(np.asarray(ag_counts, dtype=float)))))
         else:
             # Conservative fallback for legacy/missing logs.
             genomic_context_count = 4 if multicontext else 1
-            n_alphagenome = context_count * genomic_context_count * max(
-                1,
-                _count_specificity_terms(config_env.get("SPECIFICITY_TYPE", "")),
+            n_alphagenome = (
+                context_count
+                * genomic_context_count
+                * max(
+                    1,
+                    _count_specificity_terms(config_env.get("SPECIFICITY_TYPE", "")),
+                )
             )
 
     n_total = n_boundary + n_specificity + n_alphagenome
@@ -314,15 +306,9 @@ def _normalize_energy_metrics(
         "start_energy_per_constraint": norm(metrics.get("start_energy", math.nan)),
         "final_energy_per_constraint": norm(metrics.get("final_energy", math.nan)),
         "min_energy_per_constraint": norm(metrics.get("min_energy", math.nan)),
-        "energy_delta_final_per_constraint": norm(
-            metrics.get("energy_delta_final", math.nan)
-        ),
-        "energy_delta_best_per_constraint": norm(
-            metrics.get("energy_delta_best", math.nan)
-        ),
-        "energy_at_best_ag_per_constraint": norm(
-            metrics.get("energy_at_best_ag", math.nan)
-        ),
+        "energy_delta_final_per_constraint": norm(metrics.get("energy_delta_final", math.nan)),
+        "energy_delta_best_per_constraint": norm(metrics.get("energy_delta_best", math.nan)),
+        "energy_at_best_ag_per_constraint": norm(metrics.get("energy_at_best_ag", math.nan)),
     }
 
 
@@ -351,9 +337,7 @@ def _compute_summary_metrics(iter_rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     iterations = np.asarray([int(r["iteration"]) for r in iter_rows], dtype=int)
     energies = np.asarray([float(r["energy"]) for r in iter_rows], dtype=float)
-    temperatures = np.asarray(
-        [float(r["temperature_logged"]) for r in iter_rows], dtype=float
-    )
+    temperatures = np.asarray([float(r["temperature_logged"]) for r in iter_rows], dtype=float)
     ag_means = np.asarray([float(r["ag_mean"]) for r in iter_rows], dtype=float)
     ag_counts = np.asarray([int(r["ag_count"]) for r in iter_rows], dtype=int)
 
@@ -596,8 +580,26 @@ def _plot_pareto_min_energy_vs_ag(
         ax.annotate(cfg, (x[idx], y[idx]), textcoords="offset points", xytext=(4, 3), fontsize=7)
 
     legend_items = [
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="#bbbbbb", markeredgecolor="black", label="ST specificity: True", markersize=7),
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="#bbbbbb", markeredgecolor="white", label="ST specificity: False", markersize=7),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="#bbbbbb",
+            markeredgecolor="black",
+            label="ST specificity: True",
+            markersize=7,
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="#bbbbbb",
+            markeredgecolor="white",
+            label="ST specificity: False",
+            markersize=7,
+        ),
     ]
     ax.legend(handles=legend_items, loc="best", fontsize=8)
 
@@ -720,12 +722,8 @@ def _build_param_value_summary(summary_rows: list[dict[str, Any]]) -> list[dict[
         for value, rows in grouped.items():
             final_energy = [_safe_float(str(r.get("final_energy", ""))) for r in rows]
             min_energy = [_safe_float(str(r.get("min_energy", ""))) for r in rows]
-            final_energy_norm = [
-                _safe_float(str(r.get("final_energy_per_constraint", ""))) for r in rows
-            ]
-            min_energy_norm = [
-                _safe_float(str(r.get("min_energy_per_constraint", ""))) for r in rows
-            ]
+            final_energy_norm = [_safe_float(str(r.get("final_energy_per_constraint", ""))) for r in rows]
+            min_energy_norm = [_safe_float(str(r.get("min_energy_per_constraint", ""))) for r in rows]
             final_ag = [_safe_float(str(r.get("final_ag_mean", ""))) for r in rows]
             min_ag = [_safe_float(str(r.get("min_ag_mean", ""))) for r in rows]
             out_rows.append(
@@ -834,8 +832,12 @@ def main() -> None:
         description="Reduce/visualize intron AlphaGenome sweep results for one sweep ID.",
     )
     parser.add_argument("--sweep_id", required=True, help="Sweep ID (e.g., sweep_20260220_010203).")
-    parser.add_argument("--log_root", default="log/intron_alphagenome", help="Root directory containing sweep task logs.")
-    parser.add_argument("--run_root", default="runs/intron_alphagenome", help="Root directory containing per-config run dirs.")
+    parser.add_argument(
+        "--log_root", default="log/intron_alphagenome", help="Root directory containing sweep task logs."
+    )
+    parser.add_argument(
+        "--run_root", default="runs/intron_alphagenome", help="Root directory containing per-config run dirs."
+    )
     parser.add_argument(
         "--output_dir",
         default="",
@@ -946,16 +948,12 @@ def main() -> None:
 
     complete_rows = [r for r in summary_rows if r.get("status") == "complete"]
 
-    energy_rank_rows = [
-        r for r in complete_rows if _is_finite(_safe_float(str(r.get("min_energy", ""))))
-    ]
+    energy_rank_rows = [r for r in complete_rows if _is_finite(_safe_float(str(r.get("min_energy", ""))))]
     energy_rank_rows.sort(key=lambda r: float(r["min_energy"]))
     _write_tsv(output_dir / "top_by_min_energy.tsv", energy_rank_rows[: args.top_k], summary_fields)
 
     energy_norm_rank_rows = [
-        r
-        for r in complete_rows
-        if _is_finite(_safe_float(str(r.get("min_energy_per_constraint", ""))))
+        r for r in complete_rows if _is_finite(_safe_float(str(r.get("min_energy_per_constraint", ""))))
     ]
     energy_norm_rank_rows.sort(key=lambda r: float(r["min_energy_per_constraint"]))
     _write_tsv(
@@ -964,9 +962,7 @@ def main() -> None:
         summary_fields,
     )
 
-    ag_rank_rows = [
-        r for r in complete_rows if _is_finite(_safe_float(str(r.get("min_ag_mean", ""))))
-    ]
+    ag_rank_rows = [r for r in complete_rows if _is_finite(_safe_float(str(r.get("min_ag_mean", ""))))]
     ag_rank_rows.sort(key=lambda r: float(r["min_ag_mean"]))
     _write_tsv(output_dir / "top_by_min_ag.tsv", ag_rank_rows[: args.top_k], summary_fields)
 

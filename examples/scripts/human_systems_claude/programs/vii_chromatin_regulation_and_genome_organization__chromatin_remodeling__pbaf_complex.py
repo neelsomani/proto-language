@@ -32,6 +32,7 @@ from proto_language.language.core import Constraint, Segment
 # CUSTOMIZE HERE: Add row-specific constraints
 # =============================================================================
 
+
 def add_custom_constraints(
     gene_id_to_segment: dict[str, Segment],
 ) -> list[Constraint]:
@@ -77,12 +78,19 @@ def add_custom_constraints(
 # MAIN EXECUTION
 # =============================================================================
 
+
 def main():
     # Paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(script_dir)
-    config_path = os.path.join(project_dir, 'configs', 'vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex.json')
-    output_dir = os.path.join(project_dir, 'outputs', 'vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex')
+    config_path = os.path.join(
+        project_dir,
+        "configs",
+        "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex.json",
+    )
+    output_dir = os.path.join(
+        project_dir, "outputs", "vii_chromatin_regulation_and_genome_organization__chromatin_remodeling__pbaf_complex"
+    )
 
     # Load configuration
     config = load_config(config_path)
@@ -98,8 +106,8 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     # Build and run program
-    gene_ids = config['all_gene_ids']
-    n_steps = config.get('n_steps_per_generator', 3)
+    gene_ids = config["all_gene_ids"]
+    n_steps = config.get("n_steps_per_generator", 3)
 
     print(f"\nBuilding diversification program for {len(gene_ids)} genes...")
     program, gene_id_to_segment = gene_ids_to_program(
@@ -116,18 +124,18 @@ def main():
     results = score_complexes_in_program_with_af3(
         program=program,
         gene_ids=gene_ids,
-        complexes=config['complexes'],
+        complexes=config["complexes"],
         output_dir=output_dir,
     )
 
     print(f"\nDone! Results saved to: {output_dir}")
 
     # Return exit code based on success
-    if results['summary']['failed'] > 0:
+    if results["summary"]["failed"] > 0:
         print(f"WARNING: {results['summary']['failed']} complex(es) had errors")
         return 1
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

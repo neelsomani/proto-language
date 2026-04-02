@@ -7,8 +7,6 @@ Defaults to HG38 reference genome and peaks corresponding to the Borzoi entry
 ``CHIP:CREB1:HepG2``.
 """
 
-from __future__ import annotations
-
 import os
 
 import pandas as pd
@@ -21,8 +19,8 @@ FLANK_LENGTH = 262_144  # Half of Borzoi input context.
 
 def reverse_complement(seq: str) -> str:
     """Return the reverse complement of a DNA sequence."""
-    complement = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C', 'N': 'N'}
-    return ''.join(complement.get(base, 'N') for base in reversed(seq.upper()))
+    complement = {"A": "T", "T": "A", "C": "G", "G": "C", "N": "N"}
+    return "".join(complement.get(base, "N") for base in reversed(seq.upper()))
 
 
 def load_creb_peaks(creb_peak_file: str) -> pd.DataFrame:
@@ -36,19 +34,29 @@ def load_creb_peaks(creb_peak_file: str) -> pd.DataFrame:
         DataFrame with CREB peaks
     """
     # Handle gzipped files
-    if creb_peak_file.endswith('.gz'):
-        creb_peaks = pd.read_csv(creb_peak_file, sep='\t', header=None, compression='gzip')
+    if creb_peak_file.endswith(".gz"):
+        creb_peaks = pd.read_csv(creb_peak_file, sep="\t", header=None, compression="gzip")
     else:
-        creb_peaks = pd.read_csv(creb_peak_file, sep='\t', header=None)
+        creb_peaks = pd.read_csv(creb_peak_file, sep="\t", header=None)
 
-    creb_peaks.rename(columns={
-        0: 'chr', 1: 'start', 2: 'end', 3: 'name',
-        4: 'score', 5: 'strand', 6: 'signalValue', 7: 'p-value',
-        8: 'q-value', 9: 'peak'
-    }, inplace=True)
+    creb_peaks.rename(
+        columns={
+            0: "chr",
+            1: "start",
+            2: "end",
+            3: "name",
+            4: "score",
+            5: "strand",
+            6: "signalValue",
+            7: "p-value",
+            8: "q-value",
+            9: "peak",
+        },
+        inplace=True,
+    )
 
     # Calculate summit position (peak column is 0-based offset from start)
-    creb_peaks['summit'] = creb_peaks['start'] + creb_peaks['peak']
+    creb_peaks["summit"] = creb_peaks["start"] + creb_peaks["peak"]
 
     return creb_peaks
 
@@ -65,17 +73,12 @@ def get_max_activity_peak(creb_peaks: pd.DataFrame) -> pd.Series:
     Returns:
         Series with the maximum activity peak
     """
-    max_idx = creb_peaks[creb_peaks['chr'] != 'chrM']['signalValue'].idxmax()
+    max_idx = creb_peaks[creb_peaks["chr"] != "chrM"]["signalValue"].idxmax()
     return creb_peaks.loc[max_idx]
 
 
 def extract_flanking_sequences(
-    chrom: str,
-    start: int,
-    end: int,
-    strand: str,
-    hg38: Fasta,
-    flank_length: int = FLANK_LENGTH
+    chrom: str, start: int, end: int, strand: str, hg38: Fasta, flank_length: int = FLANK_LENGTH
 ) -> tuple[str, str]:
     """
     Extract flanking sequences to the left and right of a peak.
@@ -112,10 +115,10 @@ def extract_flanking_sequences(
     left_seq_raw = hg38[chrom][left_start:left_end].seq.upper()
     right_seq_raw = hg38[chrom][right_start:right_end].seq.upper()
 
-    if strand == '+':
+    if strand == "+":
         left_seq = left_seq_raw
         right_seq = right_seq_raw
-    elif strand == '-':
+    elif strand == "-":
         # For minus strand, swap and reverse complement
         # "Left" in biological sense (upstream) is actually downstream in genomic coords
         left_seq = reverse_complement(right_seq_raw)
@@ -130,9 +133,7 @@ def extract_flanking_sequences(
 
 
 def main(
-    creb_peak_file: str = DEFAULT_CREB_PEAK_FILE,
-    hg38_ref_file: str = HG38_REF_FILE,
-    output_dir: str | None = None
+    creb_peak_file: str = DEFAULT_CREB_PEAK_FILE, hg38_ref_file: str = HG38_REF_FILE, output_dir: str | None = None
 ) -> dict[str, dict | str]:
     """
     Main function to extract flanking sequences around max activity peak.
@@ -152,9 +153,9 @@ def main(
 
     # Get max activity peak
     max_peak = get_max_activity_peak(creb_peaks)
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Maximum activity peak:")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"  Chromosome: {max_peak['chr']}")
     print(f"  Start: {max_peak['start']}")
     print(f"  End: {max_peak['end']}")
@@ -163,7 +164,7 @@ def main(
     print(f"  Signal Value: {max_peak['signalValue']}")
     print(f"  q-value: {max_peak['q-value']}")
     print(f"  Name: {max_peak['name']}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Load reference genome
     print(f"Loading reference genome from {hg38_ref_file}...")
@@ -172,12 +173,12 @@ def main(
     # Extract flanking sequences
     print(f"Extracting {FLANK_LENGTH:,}-bp flanking sequences...")
     left_seq, right_seq = extract_flanking_sequences(
-        chrom=max_peak['chr'],
-        start=max_peak['start'],
-        end=max_peak['end'],
-        strand=max_peak['strand'],
+        chrom=max_peak["chr"],
+        start=max_peak["start"],
+        end=max_peak["end"],
+        strand=max_peak["strand"],
         hg38=hg38,
-        flank_length=FLANK_LENGTH
+        flank_length=FLANK_LENGTH,
     )
 
     print(f"\nLeft sequence length: {len(left_seq):,} bp")
@@ -193,44 +194,39 @@ def main(
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-        strand_label = 'plus' if max_peak['strand'] == '+' else 'minus'
+        strand_label = "plus" if max_peak["strand"] == "+" else "minus"
 
         # Save left sequence
         left_file = os.path.join(output_dir, f"max_peak_left_{FLANK_LENGTH}bp_{strand_label}.fa")
-        with open(left_file, 'w') as f:
-            f.write(f">{max_peak['chr']}:{max_peak['start']}-{max_peak['end']}_left_{FLANK_LENGTH}bp_strand{max_peak['strand']}\n")
+        with open(left_file, "w") as f:
+            f.write(
+                f">{max_peak['chr']}:{max_peak['start']}-{max_peak['end']}_left_{FLANK_LENGTH}bp_strand{max_peak['strand']}\n"
+            )
             # Write in 80-character lines
-            f.writelines(left_seq[i:i+80] + '\n' for i in range(0, len(left_seq), 80))
+            f.writelines(left_seq[i : i + 80] + "\n" for i in range(0, len(left_seq), 80))
         print(f"\nLeft sequence saved to: {left_file}")
 
         # Save right sequence
         right_file = os.path.join(output_dir, f"max_peak_right_{FLANK_LENGTH}bp_{strand_label}.fa")
-        with open(right_file, 'w') as f:
-            f.write(f">{max_peak['chr']}:{max_peak['start']}-{max_peak['end']}_right_{FLANK_LENGTH}bp_strand{max_peak['strand']}\n")
-            f.writelines(right_seq[i:i+80] + '\n' for i in range(0, len(right_seq), 80))
+        with open(right_file, "w") as f:
+            f.write(
+                f">{max_peak['chr']}:{max_peak['start']}-{max_peak['end']}_right_{FLANK_LENGTH}bp_strand{max_peak['strand']}\n"
+            )
+            f.writelines(right_seq[i : i + 80] + "\n" for i in range(0, len(right_seq), 80))
         print(f"Right sequence saved to: {right_file}")
 
-    return {
-        'peak': max_peak.to_dict(),
-        'left_sequence': left_seq,
-        'right_sequence': right_seq
-    }
+    return {"peak": max_peak.to_dict(), "left_sequence": left_seq, "right_sequence": right_seq}
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract flanking sequences around max activity CREB peak")
-    parser.add_argument("--creb_peak_file", type=str, default=DEFAULT_CREB_PEAK_FILE,
-                        help="Path to CREB peaks BED file (supports .gz)")
-    parser.add_argument("--hg38_ref_file", type=str, default=HG38_REF_FILE,
-                        help="Path to hg38 reference genome FASTA")
-    parser.add_argument("--output_dir", type=str, default=None,
-                        help="Output directory for saving sequences (optional)")
+    parser.add_argument(
+        "--creb_peak_file", type=str, default=DEFAULT_CREB_PEAK_FILE, help="Path to CREB peaks BED file (supports .gz)"
+    )
+    parser.add_argument("--hg38_ref_file", type=str, default=HG38_REF_FILE, help="Path to hg38 reference genome FASTA")
+    parser.add_argument("--output_dir", type=str, default=None, help="Output directory for saving sequences (optional)")
     args = parser.parse_args()
 
-    result = main(
-        creb_peak_file=args.creb_peak_file,
-        hg38_ref_file=args.hg38_ref_file,
-        output_dir=args.output_dir
-    )
+    result = main(creb_peak_file=args.creb_peak_file, hg38_ref_file=args.hg38_ref_file, output_dir=args.output_dir)

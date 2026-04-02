@@ -4,7 +4,6 @@ Program symmetric proteins with configurable parameters.
 Usage:
     python program_symmetric_proteins.py --monomer-length 100 --n-symmetric-units 3 --n-steps 10000 --output-dir ./outputs
 """
-from __future__ import annotations
 
 import argparse
 import os
@@ -34,9 +33,7 @@ from proto_language.storage import get_file_content
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Design symmetric proteins using MCMC optimization"
-    )
+    parser = argparse.ArgumentParser(description="Design symmetric proteins using MCMC optimization")
     parser.add_argument(
         "--monomer-length",
         type=int,
@@ -68,8 +65,7 @@ def setup_output_dir(base_output_dir: str, monomer_length: int, n_symmetric_unit
     """Create timestamped output directory with parameter info."""
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     run_dir = os.path.join(
-        base_output_dir,
-        f"sym{n_symmetric_units}_len{monomer_length}_steps{n_steps}/run_{run_timestamp}"
+        base_output_dir, f"sym{n_symmetric_units}_len{monomer_length}_steps{n_steps}/run_{run_timestamp}"
     )
     os.makedirs(run_dir, exist_ok=True)
     return run_dir
@@ -219,9 +215,13 @@ def run_optimization(
             ptm = constraints.get("structure_ptm_constraint", {}).get("data", {}).get("ptm")
 
             # Get esmfolded_sequence from symmetry constraint
-            folded_sequence = constraints.get("protein_symmetry_ring_constraint", {}).get("data", {}).get(
-                "esmfolded_sequence",
-                "N/A",
+            folded_sequence = (
+                constraints.get("protein_symmetry_ring_constraint", {})
+                .get("data", {})
+                .get(
+                    "esmfolded_sequence",
+                    "N/A",
+                )
             )
 
             print(
@@ -238,7 +238,7 @@ def run_optimization(
 
         mcmc_optimizer_config = MCMCOptimizerConfig(
             num_steps=n_steps,
-            max_temperature=1.,
+            max_temperature=1.0,
             min_temperature=0.0001,
             verbose=True,
         )

@@ -41,6 +41,7 @@ from proto_language.utils import inverse_sigmoid_score
 # CUSTOMIZE HERE: Add row-specific constraints
 # =============================================================================
 
+
 def add_custom_constraints(
     gene_id_to_segment: dict[str, Segment],
 ) -> list[Constraint]:
@@ -86,6 +87,7 @@ def add_custom_constraints(
 # MAIN EXECUTION
 # =============================================================================
 
+
 def main():
     # =============================================================================
     # Design the CREB DNA sequence.
@@ -113,8 +115,10 @@ def main():
     # Paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(script_dir)
-    config_path = os.path.join(project_dir, 'configs', 'vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway.json')
-    output_dir = os.path.join(project_dir, 'outputs', 'vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway')
+    config_path = os.path.join(
+        project_dir, "configs", "vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway.json"
+    )
+    output_dir = os.path.join(project_dir, "outputs", "vi_signaling_pathways__b2ar_to_tf_pathway__b2ar_to_tf_pathway")
 
     # Load configuration
     config = load_config(config_path)
@@ -130,8 +134,8 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     # Build and run program
-    gene_ids = config['all_gene_ids']
-    n_steps = config.get('n_steps_per_generator', 3)
+    gene_ids = config["all_gene_ids"]
+    n_steps = config.get("n_steps_per_generator", 3)
     n_steps = 5
 
     print(f"\nBuilding diversification program for {len(gene_ids)} genes...")
@@ -148,36 +152,36 @@ def main():
     # Score monomers based on BioEmu-predicted ensemble.
     # =============================================================================
 
-    run_dir = os.environ.get('RUN_OUTPUT_DIR')
+    run_dir = os.environ.get("RUN_OUTPUT_DIR")
     if run_dir is None:
         # Fallback for local runs (not via SLURM)
         run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        run_dir = os.path.join(output_dir, f'run_{run_timestamp}')
+        run_dir = os.path.join(output_dir, f"run_{run_timestamp}")
         os.makedirs(run_dir, exist_ok=True)
 
-    bioemu_dir_prefix = str(os.path.join(run_dir, 'bioemu_outputs'))
+    bioemu_dir_prefix = str(os.path.join(run_dir, "bioemu_outputs"))
 
     rmsd_score_gnas_inactive = Constraint(
         inputs=[program.constructs[1].segments[0]],
         function=structure_ensemble_rmsd_constraint,
         function_config={
-            'target_structure': 'examples/data/pdb_cache/6au6.pdb',
-            'target_chain_id': 'A',
-            'target_residue_range': (85, 394),
-            'proposal_residue_range': (85, 394),
-            'bioemu_config': {
-                'num_samples': 3000,
-                'output_dir': bioemu_dir_prefix + '_gnas',
-                'batch_size': 100,
+            "target_structure": "examples/data/pdb_cache/6au6.pdb",
+            "target_chain_id": "A",
+            "target_residue_range": (85, 394),
+            "proposal_residue_range": (85, 394),
+            "bioemu_config": {
+                "num_samples": 3000,
+                "output_dir": bioemu_dir_prefix + "_gnas",
+                "batch_size": 100,
             },
-            'rmsd_aggregation': 'min',
-            'inflection_point_angstroms': 3.,
-            'sigmoid_slope': 3.,
-            'verbose': True,
+            "rmsd_aggregation": "min",
+            "inflection_point_angstroms": 3.0,
+            "sigmoid_slope": 3.0,
+            "verbose": True,
         },
-        label='ensemble_rmsd_gnas_inactive',
+        label="ensemble_rmsd_gnas_inactive",
     ).evaluate()[0]
-    rmsd_gnas_inactive = inverse_sigmoid_score(rmsd_score_gnas_inactive, 3., 3.)
+    rmsd_gnas_inactive = inverse_sigmoid_score(rmsd_score_gnas_inactive, 3.0, 3.0)
 
     print(f"Min RMSD = {rmsd_gnas_inactive} against inactive Galpha-s (PDB 6AU6)")
 
@@ -185,23 +189,23 @@ def main():
         inputs=[program.constructs[1].segments[0]],
         function=structure_ensemble_rmsd_constraint,
         function_config={
-            'target_structure': 'examples/data/pdb_cache/3sn6.pdb',
-            'target_chain_id': 'A',
-            'target_residue_range': (85, 394),
-            'proposal_residue_range': (85, 394),
-            'bioemu_config': {
-                'num_samples': 3000,
-                'output_dir': bioemu_dir_prefix + '_gnas',
-                'batch_size': 100,
+            "target_structure": "examples/data/pdb_cache/3sn6.pdb",
+            "target_chain_id": "A",
+            "target_residue_range": (85, 394),
+            "proposal_residue_range": (85, 394),
+            "bioemu_config": {
+                "num_samples": 3000,
+                "output_dir": bioemu_dir_prefix + "_gnas",
+                "batch_size": 100,
             },
-            'rmsd_aggregation': 'min',
-            'inflection_point_angstroms': 3.,
-            'sigmoid_slope': 3.,
-            'verbose': True,
+            "rmsd_aggregation": "min",
+            "inflection_point_angstroms": 3.0,
+            "sigmoid_slope": 3.0,
+            "verbose": True,
         },
-        label='ensemble_rmsd_gnas_exchange',
+        label="ensemble_rmsd_gnas_exchange",
     ).evaluate()[0]
-    rmsd_gnas_exchange = inverse_sigmoid_score(rmsd_score_gnas_exchange, 3., 3.)
+    rmsd_gnas_exchange = inverse_sigmoid_score(rmsd_score_gnas_exchange, 3.0, 3.0)
 
     print(f"Min RMSD = {rmsd_gnas_exchange} against Galpha-s in exchange state (PDB 3SN6)")
 
@@ -209,23 +213,23 @@ def main():
         inputs=[program.constructs[6].segments[0]],
         function=structure_ensemble_rmsd_constraint,
         function_config={
-            'target_structure': 'examples/data/pdb_cache/1rl3.pdb',
-            'target_chain_id': 'A',
-            'target_residue_range': (119, 379),
-            'proposal_residue_range': (119, 379),
-            'bioemu_config': {
-                'num_samples': 1000,
-                'output_dir': bioemu_dir_prefix + '_prkar1a',
-                'batch_size': 100,
+            "target_structure": "examples/data/pdb_cache/1rl3.pdb",
+            "target_chain_id": "A",
+            "target_residue_range": (119, 379),
+            "proposal_residue_range": (119, 379),
+            "bioemu_config": {
+                "num_samples": 1000,
+                "output_dir": bioemu_dir_prefix + "_prkar1a",
+                "batch_size": 100,
             },
-            'rmsd_aggregation': 'min',
-            'inflection_point_angstroms': 3.,
-            'sigmoid_slope': 3.,
-            'verbose': True,
+            "rmsd_aggregation": "min",
+            "inflection_point_angstroms": 3.0,
+            "sigmoid_slope": 3.0,
+            "verbose": True,
         },
-        label='ensemble_rmsd_prkar1a_homodimer',
+        label="ensemble_rmsd_prkar1a_homodimer",
     ).evaluate()[0]
-    rmsd_prkar1a_homodimer = inverse_sigmoid_score(rmsd_score_prkar1a_homodimer, 3., 3.)
+    rmsd_prkar1a_homodimer = inverse_sigmoid_score(rmsd_score_prkar1a_homodimer, 3.0, 3.0)
 
     print(f"Min RMSD = {rmsd_prkar1a_homodimer} against homodimer PKA-R (PDB 1RL3)")
 
@@ -233,23 +237,23 @@ def main():
         inputs=[program.constructs[6].segments[0]],
         function=structure_ensemble_rmsd_constraint,
         function_config={
-            'target_structure': 'examples/data/pdb_cache/2qcs.pdb',
-            'target_chain_id': 'B',
-            'target_residue_range': (119, 379),
-            'proposal_residue_range': (119, 379),
-            'bioemu_config': {
-                'num_samples': 1000,
-                'output_dir': bioemu_dir_prefix + '_prkar1a',
-                'batch_size': 100,
+            "target_structure": "examples/data/pdb_cache/2qcs.pdb",
+            "target_chain_id": "B",
+            "target_residue_range": (119, 379),
+            "proposal_residue_range": (119, 379),
+            "bioemu_config": {
+                "num_samples": 1000,
+                "output_dir": bioemu_dir_prefix + "_prkar1a",
+                "batch_size": 100,
             },
-            'rmsd_aggregation': 'min',
-            'inflection_point_angstroms': 3.,
-            'sigmoid_slope': 3.,
-            'verbose': True,
+            "rmsd_aggregation": "min",
+            "inflection_point_angstroms": 3.0,
+            "sigmoid_slope": 3.0,
+            "verbose": True,
         },
-        label='ensemble_rmsd_prkar1a_tetramer',
+        label="ensemble_rmsd_prkar1a_tetramer",
     ).evaluate()[0]
-    rmsd_prkar1a_tetramer = inverse_sigmoid_score(rmsd_score_prkar1a_tetramer, 3., 3.)
+    rmsd_prkar1a_tetramer = inverse_sigmoid_score(rmsd_score_prkar1a_tetramer, 3.0, 3.0)
 
     print(f"Min RMSD = {rmsd_prkar1a_tetramer} against tetrameric PKA-R (PDB 2QCS)")
 
@@ -258,64 +262,74 @@ def main():
     # =============================================================================
 
     # Add epinephrine to b2AR structure (index 0).
-    gene_ids.append('L_epinephrine')
-    config['complexes'][0]['gene_ids'].append('L_epinephrine')
-    config['complexes'][0]['stoichiometry']['L_epinephrine'] = 1
+    gene_ids.append("L_epinephrine")
+    config["complexes"][0]["gene_ids"].append("L_epinephrine")
+    config["complexes"][0]["stoichiometry"]["L_epinephrine"] = 1
     program.constructs.append(
-        Construct([
-            Segment(
-                sequence='CNC[C@@H](c1ccc(c(c1)O)O)O',
-                sequence_type='ligand',
-            )
-        ])
+        Construct(
+            [
+                Segment(
+                    sequence="CNC[C@@H](c1ccc(c(c1)O)O)O",
+                    sequence_type="ligand",
+                )
+            ]
+        )
     )
 
     # Add ATP to adenylyl cyclase structure (index 3).
-    gene_ids.append('ATP')
-    config['complexes'][3]['gene_ids'].append('ATP')
-    config['complexes'][3]['stoichiometry']['ATP'] = 1
+    gene_ids.append("ATP")
+    config["complexes"][3]["gene_ids"].append("ATP")
+    config["complexes"][3]["stoichiometry"]["ATP"] = 1
     program.constructs.append(
-        Construct([
-            Segment(
-                sequence='c1nc(c2c(n1)n(cn2)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@](=O)(O)OP(=O)(O)O)O)O)N',
-                sequence_type='ligand',
-            )
-        ])
+        Construct(
+            [
+                Segment(
+                    sequence="c1nc(c2c(n1)n(cn2)[C@H]3[C@@H]([C@@H]([C@H](O3)CO[P@@](=O)(O)O[P@](=O)(O)OP(=O)(O)O)O)O)N",
+                    sequence_type="ligand",
+                )
+            ]
+        )
     )
 
     # Add KIX domain of CREB binding protein (CBP) (index 4).
-    gene_ids.append('CREBBP_KIX')
-    config['complexes'][5]['gene_ids'].append('CREBBP_KIX')
-    config['complexes'][5]['stoichiometry']['CREBBP_KIX'] = 2  # There are two CREBs, so 2 CBP KIXs.
+    gene_ids.append("CREBBP_KIX")
+    config["complexes"][5]["gene_ids"].append("CREBBP_KIX")
+    config["complexes"][5]["stoichiometry"]["CREBBP_KIX"] = 2  # There are two CREBs, so 2 CBP KIXs.
     program.constructs.append(
-        Construct([
-            Segment(
-                sequence='GVRKGWHEHVTQDLRSHLVHKLVQAIFPTPDPAALKDRRMENLVAYAKKVEGDMYESANSRDEYYHLLAEKIYKIQKELE',
-                sequence_type='protein',
-            )
-        ])
+        Construct(
+            [
+                Segment(
+                    sequence="GVRKGWHEHVTQDLRSHLVHKLVQAIFPTPDPAALKDRRMENLVAYAKKVEGDMYESANSRDEYYHLLAEKIYKIQKELE",
+                    sequence_type="protein",
+                )
+            ]
+        )
     )
 
     # Add (generated) DNA binding site of CREB (index 4).
-    gene_ids += [ 'CREB_TF_motif1', 'CREB_TF_motif2' ]
-    config['complexes'][5]['gene_ids'] += [ 'CREB_TF_motif1', 'CREB_TF_motif2' ]
-    config['complexes'][5]['stoichiometry']['CREB_TF_motif1'] = 1
-    config['complexes'][5]['stoichiometry']['CREB_TF_motif2'] = 1
+    gene_ids += ["CREB_TF_motif1", "CREB_TF_motif2"]
+    config["complexes"][5]["gene_ids"] += ["CREB_TF_motif1", "CREB_TF_motif2"]
+    config["complexes"][5]["stoichiometry"]["CREB_TF_motif1"] = 1
+    config["complexes"][5]["stoichiometry"]["CREB_TF_motif2"] = 1
     program.constructs.append(
-        Construct([
-            Segment(
-                sequence=creb_dna_small,
-                sequence_type='dna',
-            )
-        ])
+        Construct(
+            [
+                Segment(
+                    sequence=creb_dna_small,
+                    sequence_type="dna",
+                )
+            ]
+        )
     )
     program.constructs.append(
-        Construct([
-            Segment(
-                sequence=creb_dna_small_revcomp,
-                sequence_type='dna',
-            )
-        ])
+        Construct(
+            [
+                Segment(
+                    sequence=creb_dna_small_revcomp,
+                    sequence_type="dna",
+                )
+            ]
+        )
     )
 
     # Score complexes with AF3.
@@ -323,18 +337,18 @@ def main():
     results = score_complexes_in_program_with_af3(
         program=program,
         gene_ids=gene_ids,
-        complexes=config['complexes'],
+        complexes=config["complexes"],
         output_dir=output_dir,
     )
 
     print(f"\nDone! Results saved to: {output_dir}")
 
     # Return exit code based on success
-    if results['summary']['failed'] > 0:
+    if results["summary"]["failed"] > 0:
         print(f"WARNING: {results['summary']['failed']} complex(es) had errors")
         return 1
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

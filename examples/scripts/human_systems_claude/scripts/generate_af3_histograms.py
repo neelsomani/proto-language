@@ -15,7 +15,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 
 
 # Figure dimensions (mm -> inches)
@@ -25,19 +25,19 @@ MM_TO_INCH = 1 / 25.4
 
 # Plot styling
 COLORS = {
-    'plddt': '#4C78A8',      # Steel blue
-    'ptm': '#54A24B',        # Green
-    'iptm': '#EECA3B',       # Gold
-    'tm_score': '#72B7B2',   # Teal
-    'rmsd': '#E45756',       # Coral red
+    "plddt": "#4C78A8",  # Steel blue
+    "ptm": "#54A24B",  # Green
+    "iptm": "#EECA3B",  # Gold
+    "tm_score": "#72B7B2",  # Teal
+    "rmsd": "#E45756",  # Coral red
 }
 
 METRICS = [
-    ('plddt', 'pLDDT', (0, 1)),
-    ('ptm', 'pTM', (0, 1)),
-    ('iptm', 'ipTM', (0, 1)),
-    ('tm_score', 'TM-score', (0, 1)),
-    ('rmsd', 'RMSD (Å)', (0, 15)),
+    ("plddt", "pLDDT", (0, 1)),
+    ("ptm", "pTM", (0, 1)),
+    ("iptm", "ipTM", (0, 1)),
+    ("tm_score", "TM-score", (0, 1)),
+    ("rmsd", "RMSD (Å)", (0, 15)),
 ]
 
 
@@ -47,30 +47,31 @@ def setup_matplotlib():
 
     # Check available fonts and use Arial if available, else Liberation Sans
     available_fonts = {f.name for f in fm.fontManager.ttflist}
-    if 'Arial' in available_fonts:
-        font_family = 'Arial'
-    elif 'Liberation Sans' in available_fonts:
-        font_family = 'Liberation Sans'
+    if "Arial" in available_fonts:
+        font_family = "Arial"
+    elif "Liberation Sans" in available_fonts:
+        font_family = "Liberation Sans"
     else:
-        font_family = 'DejaVu Sans'  # Matplotlib default fallback
+        font_family = "DejaVu Sans"  # Matplotlib default fallback
 
-    plt.rcParams.update({'font.family': font_family})
-    plt.rcParams.update({
-        'font.size': 6,
-        'axes.linewidth': 0.5,
-        'axes.labelsize': 7,
-        'xtick.major.width': 0.5,
-        'ytick.major.width': 0.5,
-        'xtick.major.size': 2,
-        'ytick.major.size': 2,
-        'xtick.labelsize': 6,
-        'ytick.labelsize': 6,
-        'svg.fonttype': 'none',  # Keep text as text in SVG
-    })
+    plt.rcParams.update({"font.family": font_family})
+    plt.rcParams.update(
+        {
+            "font.size": 6,
+            "axes.linewidth": 0.5,
+            "axes.labelsize": 7,
+            "xtick.major.width": 0.5,
+            "ytick.major.width": 0.5,
+            "xtick.major.size": 2,
+            "ytick.major.size": 2,
+            "xtick.labelsize": 6,
+            "ytick.labelsize": 6,
+            "svg.fonttype": "none",  # Keep text as text in SVG
+        }
+    )
 
 
-def create_histogram(data: pd.Series, label: str, color: str, xlim: tuple,
-                     output_path: Path, n_bins: int = 15):
+def create_histogram(data: pd.Series, label: str, color: str, xlim: tuple, output_path: Path, n_bins: int = 15):
     """
     Create a single histogram panel.
 
@@ -96,50 +97,51 @@ def create_histogram(data: pd.Series, label: str, color: str, xlim: tuple,
     plt.subplots_adjust(left=0.18, right=0.95, top=0.92, bottom=0.22)
 
     # Histogram
-    ax.hist(data, bins=n_bins, color=color, edgecolor='white',
-            linewidth=0.3, alpha=0.9, range=xlim)
+    ax.hist(data, bins=n_bins, color=color, edgecolor="white", linewidth=0.3, alpha=0.9, range=xlim)
     ax.set_xlim(xlim)
 
     # Median line
     median = data.median()
-    ax.axvline(median, color='#333333', linestyle='--', linewidth=0.7)
+    ax.axvline(median, color="#333333", linestyle="--", linewidth=0.7)
 
     # Labels
     ax.set_xlabel(label, fontsize=7)
-    ax.set_ylabel('Count', fontsize=7)
+    ax.set_ylabel("Count", fontsize=7)
 
     # Ticks
-    ax.tick_params(axis='both', which='major', labelsize=6, pad=2)
+    ax.tick_params(axis="both", which="major", labelsize=6, pad=2)
     if xlim[1] == 1:
         ax.set_xticks([0, 0.5, 1])
     else:
         ax.set_xticks([0, 5, 10, 15])
 
     # Clean up spines
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     # Save
-    plt.savefig(f'{output_path}.svg', format='svg')
-    plt.savefig(f'{output_path}.png', format='png', dpi=300)
+    plt.savefig(f"{output_path}.svg", format="svg")
+    plt.savefig(f"{output_path}.png", format="png", dpi=300)
     plt.close()
 
     return median, data.mean(), data.min(), data.max()
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Generate AF3 metric distribution histograms'
+    parser = argparse.ArgumentParser(description="Generate AF3 metric distribution histograms")
+    parser.add_argument("input_tsv", type=Path, help="Input TSV file with AF3 analysis results")
+    parser.add_argument(
+        "output_dir",
+        type=Path,
+        nargs="?",
+        default=Path("."),
+        help="Output directory for figures (default: current dir)",
     )
-    parser.add_argument('input_tsv', type=Path,
-                        help='Input TSV file with AF3 analysis results')
-    parser.add_argument('output_dir', type=Path, nargs='?', default=Path('.'),
-                        help='Output directory for figures (default: current dir)')
     args = parser.parse_args()
 
     # Load data
-    df = pd.read_csv(args.input_tsv, sep='\t')
-    df_success = df[df['status'] == 'Success'].copy()
+    df = pd.read_csv(args.input_tsv, sep="\t")
+    df_success = df[df["status"] == "Success"].copy()
     print(f"Loaded {len(df_success)} successful predictions from {len(df)} total")
 
     # Setup
@@ -157,16 +159,14 @@ def main():
             continue
 
         data = df_success[col].dropna()
-        output_path = args.output_dir / f'af3_hist_{col}'
+        output_path = args.output_dir / f"af3_hist_{col}"
 
-        median, mean, min_val, max_val = create_histogram(
-            data, label, COLORS[col], xlim, output_path
-        )
+        median, mean, min_val, max_val = create_histogram(data, label, COLORS[col], xlim, output_path)
 
         print(f"{label:<12} {median:>8.2f} {mean:>8.2f} {min_val:>7.2f}–{max_val:.2f}")
 
     print(f"\nSaved SVG and PNG files to: {args.output_dir.resolve()}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

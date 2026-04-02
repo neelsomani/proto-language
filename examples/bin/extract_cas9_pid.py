@@ -20,7 +20,6 @@ Usage:
         --cofold-dir cofold_cas9_grna_output_v2 \\
         --output-dir pid_extraction_output
 """
-from __future__ import annotations
 
 import argparse
 import csv
@@ -262,10 +261,7 @@ def main(args: list[str] | None = None) -> None:
         global_idx = row["global_idx"]
         protein_seq = row["protein_sequence"]
 
-        logger.info(
-            f"Proposal {global_idx}: extracting PID "
-            f"(protein length={len(protein_seq)})"
-        )
+        logger.info(f"Proposal {global_idx}: extracting PID (protein length={len(protein_seq)})")
 
         # Extract PID via pairwise alignment
         pid_result = extract_pid(protein_seq, parsed.pid_start, parsed.pid_end)
@@ -370,15 +366,15 @@ def main(args: list[str] | None = None) -> None:
     logger.info(f"Wrote PID summary TSV: {tsv_path}")
 
     # Print ranked table to stdout
-    print(f"\n{'='*100}")
+    print(f"\n{'=' * 100}")
     print("Cas9 PID Extraction Summary (ranked by PID identity)")
-    print(f"{'='*100}")
+    print(f"{'=' * 100}")
     print(
         f"{'Idx':>4}  {'Temp':>5}  {'TopK':>4}  "
         f"{'pLDDT':>6}  {'FullID':>6}  {'PID_ID':>6}  {'PIDLen':>6}  "
         f"{'ProtLen':>7}  {'Domains'}"
     )
-    print(f"{'-'*100}")
+    print(f"{'-' * 100}")
     for r in results:
         print(
             f"{r['global_idx']:>4}  "
@@ -394,15 +390,13 @@ def main(args: list[str] | None = None) -> None:
 
     # Print cofold metrics if available
     if cofold_metrics:
-        print(f"\n{'='*100}")
+        print(f"\n{'=' * 100}")
         print("Cofold Metrics")
-        print(f"{'='*100}")
+        print(f"{'=' * 100}")
         print(
-            f"{'Idx':>4}  {'PID_ID':>6}  "
-            f"{'pTM':>5}  {'ipTM':>5}  {'Rank':>5}  "
-            f"{'TM(c)':>6}  {'TM(r)':>6}  {'RMSD':>6}"
+            f"{'Idx':>4}  {'PID_ID':>6}  {'pTM':>5}  {'ipTM':>5}  {'Rank':>5}  {'TM(c)':>6}  {'TM(r)':>6}  {'RMSD':>6}"
         )
-        print(f"{'-'*100}")
+        print(f"{'-' * 100}")
         for r in results:
             print(
                 f"{r['global_idx']:>4}  "
@@ -415,14 +409,14 @@ def main(args: list[str] | None = None) -> None:
                 f"{float(r['rmsd'] or 0):>6.2f}"
             )
 
-    print(f"\n{'='*100}")
+    print(f"\n{'=' * 100}")
     print(f"Output directory: {output_dir}")
     print(f"  PID FASTA:   {fasta_path}")
     print(f"  PID summary: {tsv_path}")
     print(f"  Total proposals: {len(results)}")
     ref_pid_len = parsed.pid_end - parsed.pid_start + 1
     print(f"  Reference PID: SpCas9 residues {parsed.pid_start}-{parsed.pid_end} ({ref_pid_len} aa)")
-    print(f"{'='*100}\n")
+    print(f"{'=' * 100}\n")
 
 
 if __name__ == "__main__":

@@ -30,22 +30,22 @@ from proto_tools import (
 # Constants from the design script
 BORZOI_OUTPUT_RESOLUTION = 32  # bp per output bin (note: actually 524288/6144 ≈ 85.3)
 BORZOI_FLANK = 163_840  # Flanking region not included in output
-BORZOI_HUMAN_TARGETS = 'examples/data/borzoi_targets_human.txt'
+BORZOI_HUMAN_TARGETS = "examples/data/borzoi_targets_human.txt"
 
 # Default paths for flanking sequences (same as design script)
-DEFAULT_LEFT_FLANK = 'examples/data/creb_dna_design_left_flank.fasta'
-DEFAULT_RIGHT_FLANK = 'examples/data/creb_dna_design_right_flank.fasta'
+DEFAULT_LEFT_FLANK = "examples/data/creb_dna_design_left_flank.fasta"
+DEFAULT_RIGHT_FLANK = "examples/data/creb_dna_design_right_flank.fasta"
 
 # Slate gray color palette for replicates (light to dark)
 SLATE_COLORS = [
-    '#94a3b8',  # slate-400
-    '#64748b',  # slate-500
-    '#475569',  # slate-600
-    '#334155',  # slate-700
+    "#94a3b8",  # slate-400
+    "#64748b",  # slate-500
+    "#475569",  # slate-600
+    "#334155",  # slate-700
 ]
-SLATE_MEAN = '#1e293b'  # slate-800 for mean line
-SLATE_STD = '#cbd5e1'   # slate-300 for std fill
-SLATE_HIGHLIGHT = '#e2e8f0'  # slate-200 for design region highlight
+SLATE_MEAN = "#1e293b"  # slate-800 for mean line
+SLATE_STD = "#cbd5e1"  # slate-300 for std fill
+SLATE_HIGHLIGHT = "#e2e8f0"  # slate-200 for design region highlight
 
 # Figure dimensions (100 mm x 30 mm)
 FIG_WIDTH_MM = 100
@@ -55,18 +55,18 @@ MM_TO_INCHES = 1 / 25.4
 
 def setup_plot_style():
     """Configure matplotlib for publication-quality figures."""
-    mpl.rcParams['font.family'] = 'Liberation Sans'
-    mpl.rcParams['font.size'] = 7
-    mpl.rcParams['axes.labelsize'] = 8
-    mpl.rcParams['axes.titlesize'] = 9
-    mpl.rcParams['legend.fontsize'] = 6
-    mpl.rcParams['xtick.labelsize'] = 6
-    mpl.rcParams['ytick.labelsize'] = 6
-    mpl.rcParams['axes.linewidth'] = 0.5
-    mpl.rcParams['xtick.major.width'] = 0.5
-    mpl.rcParams['ytick.major.width'] = 0.5
-    mpl.rcParams['lines.linewidth'] = 0.75
-    mpl.rcParams['svg.fonttype'] = 'none'  # Keep text as text in SVG
+    mpl.rcParams["font.family"] = "Liberation Sans"
+    mpl.rcParams["font.size"] = 7
+    mpl.rcParams["axes.labelsize"] = 8
+    mpl.rcParams["axes.titlesize"] = 9
+    mpl.rcParams["legend.fontsize"] = 6
+    mpl.rcParams["xtick.labelsize"] = 6
+    mpl.rcParams["ytick.labelsize"] = 6
+    mpl.rcParams["axes.linewidth"] = 0.5
+    mpl.rcParams["xtick.major.width"] = 0.5
+    mpl.rcParams["ytick.major.width"] = 0.5
+    mpl.rcParams["lines.linewidth"] = 0.75
+    mpl.rcParams["svg.fonttype"] = "none"  # Keep text as text in SVG
 
 
 def load_flanking_sequences(
@@ -74,8 +74,8 @@ def load_flanking_sequences(
     right_flank_path: str = DEFAULT_RIGHT_FLANK,
 ) -> tuple[str, str]:
     """Load left and right flanking sequences from FASTA files."""
-    left_flank_seq = str(SeqIO.read(left_flank_path, 'fasta').seq)
-    right_flank_seq = str(SeqIO.read(right_flank_path, 'fasta').seq)
+    left_flank_seq = str(SeqIO.read(left_flank_path, "fasta").seq)
+    right_flank_seq = str(SeqIO.read(right_flank_path, "fasta").seq)
     return left_flank_seq, right_flank_seq
 
 
@@ -99,24 +99,21 @@ def embed_sequence_in_context(
     design_len = len(designed_seq)
 
     # Calculate how much flanking sequence we need on each side
-    len_left_flank = math.ceil((BORZOI_CONTEXT - design_len) / 2.)
-    len_right_flank = math.floor((BORZOI_CONTEXT - design_len) / 2.)
+    len_left_flank = math.ceil((BORZOI_CONTEXT - design_len) / 2.0)
+    len_right_flank = math.floor((BORZOI_CONTEXT - design_len) / 2.0)
 
     # Ensure we have enough flanking sequence
-    assert len(left_flank_seq) >= len_left_flank, \
+    assert len(left_flank_seq) >= len_left_flank, (
         f"Left flank too short: need {len_left_flank}, have {len(left_flank_seq)}"
-    assert len(right_flank_seq) >= len_right_flank, \
+    )
+    assert len(right_flank_seq) >= len_right_flank, (
         f"Right flank too short: need {len_right_flank}, have {len(right_flank_seq)}"
-
-    # Build the full sequence
-    full_sequence = (
-        left_flank_seq[-len_left_flank:] +
-        designed_seq +
-        right_flank_seq[:len_right_flank]
     )
 
-    assert len(full_sequence) == BORZOI_CONTEXT, \
-        f"Full sequence length {len(full_sequence)} != {BORZOI_CONTEXT}"
+    # Build the full sequence
+    full_sequence = left_flank_seq[-len_left_flank:] + designed_seq + right_flank_seq[:len_right_flank]
+
+    assert len(full_sequence) == BORZOI_CONTEXT, f"Full sequence length {len(full_sequence)} != {BORZOI_CONTEXT}"
 
     return full_sequence
 
@@ -132,18 +129,16 @@ def get_output_tracks(track_pattern: str, targets_file: str = BORZOI_HUMAN_TARGE
     Returns:
         List of track indices
     """
-    borzoi_target_df = pd.read_csv(targets_file, sep='\t')
-    all_tracks = list(borzoi_target_df['description'])
-    matching_tracks = [
-        idx for idx, track in enumerate(all_tracks) if track_pattern in track
-    ]
+    borzoi_target_df = pd.read_csv(targets_file, sep="\t")
+    all_tracks = list(borzoi_target_df["description"])
+    matching_tracks = [idx for idx, track in enumerate(all_tracks) if track_pattern in track]
     return matching_tracks
 
 
 def run_all_replicates(
     full_sequence: str,
     output_tracks: list[int],
-    species: str = 'human',
+    species: str = "human",
     avg_tracks: bool = True,
     verbose: bool = True,
 ) -> np.ndarray:
@@ -160,7 +155,7 @@ def run_all_replicates(
     Returns:
         numpy array of shape (4, BORZOI_OUTPUT) with predictions from each replicate
     """
-    full_sequence = full_sequence.replace('N', 'A')
+    full_sequence = full_sequence.replace("N", "A")
 
     borzoi_input = BorzoiInput(sequence=full_sequence)
 
@@ -193,7 +188,7 @@ def compute_design_region_mask(
         Tuple of (boolean mask, start_bin, end_bin)
     """
     # Calculate flanking lengths used in embedding
-    len_left_flank = math.ceil((BORZOI_CONTEXT - design_len) / 2.)
+    len_left_flank = math.ceil((BORZOI_CONTEXT - design_len) / 2.0)
 
     # The Borzoi output excludes BORZOI_FLANK on each side
     # So the output covers positions [BORZOI_FLANK, BORZOI_CONTEXT - BORZOI_FLANK)
@@ -248,8 +243,7 @@ def plot_borzoi_predictions(
     """
     setup_plot_style()
 
-    assert predictions.shape == (4, BORZOI_OUTPUT), \
-        f"Expected shape (4, {BORZOI_OUTPUT}), got {predictions.shape}"
+    assert predictions.shape == (4, BORZOI_OUTPUT), f"Expected shape (4, {BORZOI_OUTPUT}), got {predictions.shape}"
 
     # Compute x-axis in kb (relative to center of context)
     output_len_bp = BORZOI_CONTEXT - 2 * BORZOI_FLANK  # 196,608 bp
@@ -279,7 +273,7 @@ def plot_borzoi_predictions(
         ax.plot(
             x_centered,
             predictions[i],
-            label=f'Rep {i}',
+            label=f"Rep {i}",
             color=SLATE_COLORS[i],
             alpha=0.9,
         )
@@ -299,10 +293,10 @@ def plot_borzoi_predictions(
     ax.plot(
         x_centered,
         mean_pred,
-        label='Mean',
+        label="Mean",
         color=SLATE_MEAN,
         linewidth=1.0,
-        linestyle='--',
+        linestyle="--",
     )
 
     # Highlight the designed region
@@ -320,8 +314,8 @@ def plot_borzoi_predictions(
         )
 
     # Labels and formatting
-    ax.set_xlabel('Position (kb)')
-    ax.set_ylabel(f'{track_name}')
+    ax.set_xlabel("Position (kb)")
+    ax.set_ylabel(f"{track_name}")
 
     if title is not None:
         ax.set_title(title)
@@ -334,7 +328,7 @@ def plot_borzoi_predictions(
 
     # Minimal legend
     ax.legend(
-        loc='upper right',
+        loc="upper right",
         frameon=False,
         ncol=5,
         handlelength=1.0,
@@ -342,106 +336,104 @@ def plot_borzoi_predictions(
     )
 
     # Clean up spines
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     plt.tight_layout(pad=0.3)
 
     # Ensure output path has .svg extension
     output_path = Path(output_path)
-    if output_path.suffix.lower() != '.svg':
-        output_path = output_path.with_suffix('.svg')
+    if output_path.suffix.lower() != ".svg":
+        output_path = output_path.with_suffix(".svg")
 
-    plt.savefig(output_path, format='svg', bbox_inches='tight', pad_inches=0.02)
+    plt.savefig(output_path, format="svg", bbox_inches="tight", pad_inches=0.02)
     plt.close()
 
     print(f"Saved plot to {output_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Plot Borzoi predictions for a designed DNA sequence'
-    )
+    parser = argparse.ArgumentParser(description="Plot Borzoi predictions for a designed DNA sequence")
 
     # Input options (mutually exclusive)
     input_group = parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument(
-        '--sequence',
+        "--sequence",
         type=str,
-        help='DNA sequence string to analyze',
+        help="DNA sequence string to analyze",
     )
     input_group.add_argument(
-        '--sequence_file',
+        "--sequence_file",
         type=str,
-        help='Path to FASTA file containing the designed sequence',
+        help="Path to FASTA file containing the designed sequence",
     )
 
     # Output
     parser.add_argument(
-        '--output',
+        "--output",
         type=str,
         required=True,
-        help='Output path for the plot (will be saved as .svg)',
+        help="Output path for the plot (will be saved as .svg)",
     )
 
     # Flanking sequences
     parser.add_argument(
-        '--left_flank',
+        "--left_flank",
         type=str,
         default=DEFAULT_LEFT_FLANK,
-        help='Path to left flanking sequence FASTA',
+        help="Path to left flanking sequence FASTA",
     )
     parser.add_argument(
-        '--right_flank',
+        "--right_flank",
         type=str,
         default=DEFAULT_RIGHT_FLANK,
-        help='Path to right flanking sequence FASTA',
+        help="Path to right flanking sequence FASTA",
     )
 
     # Track specification
     parser.add_argument(
-        '--track_pattern',
+        "--track_pattern",
         type=str,
-        default='CHIP:CREB1:HepG2',
-        help='Pattern to match Borzoi output tracks (default: CHIP:CREB1:HepG2)',
+        default="CHIP:CREB1:HepG2",
+        help="Pattern to match Borzoi output tracks (default: CHIP:CREB1:HepG2)",
     )
     parser.add_argument(
-        '--track_indices',
+        "--track_indices",
         type=int,
-        nargs='+',
-        help='Explicit track indices (overrides --track_pattern)',
+        nargs="+",
+        help="Explicit track indices (overrides --track_pattern)",
     )
 
     # Zoom option
     parser.add_argument(
-        '--zoom',
+        "--zoom",
         type=int,
-        metavar='BP',
-        help='Zoom to a centered window of this size in bp (e.g., --zoom 10000 for 10kb window)',
+        metavar="BP",
+        help="Zoom to a centered window of this size in bp (e.g., --zoom 10000 for 10kb window)",
     )
 
     # Other options
     parser.add_argument(
-        '--species',
+        "--species",
         type=str,
-        default='human',
-        choices=['human', 'mouse'],
-        help='Species for Borzoi model',
+        default="human",
+        choices=["human", "mouse"],
+        help="Species for Borzoi model",
     )
     parser.add_argument(
-        '--title',
+        "--title",
         type=str,
-        help='Custom plot title',
+        help="Custom plot title",
     )
     parser.add_argument(
-        '--no_highlight',
-        action='store_true',
-        help='Do not highlight the designed region',
+        "--no_highlight",
+        action="store_true",
+        help="Do not highlight the designed region",
     )
     parser.add_argument(
-        '--verbose',
-        action='store_true',
-        help='Print verbose output',
+        "--verbose",
+        action="store_true",
+        help="Print verbose output",
     )
 
     args = parser.parse_args()
@@ -450,7 +442,7 @@ def main():
     if args.sequence:
         designed_seq = args.sequence.upper()
     else:
-        designed_seq = str(SeqIO.read(args.sequence_file, 'fasta').seq).upper()
+        designed_seq = str(SeqIO.read(args.sequence_file, "fasta").seq).upper()
 
     print(f"Designed sequence length: {len(designed_seq)} bp")
 
@@ -517,5 +509,5 @@ def main():
     print(f"  Ensemble: mean={ensemble_mean:.2f} ± {ensemble_std:.2f}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

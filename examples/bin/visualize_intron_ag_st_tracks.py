@@ -16,8 +16,6 @@ cropped back out and mapped onto the 1 kb target coordinates so the AlphaGenome
 and SpliceTransformer rows can be compared directly.
 """
 
-from __future__ import annotations
-
 import csv
 import hashlib
 import math
@@ -128,9 +126,7 @@ def _normalize_intron_sequence(raw_sequence: str) -> str:
         raise ValueError("Encountered empty intron sequence.")
     invalid = set(sequence) - set("ACGTN")
     if invalid:
-        raise ValueError(
-            f"Intron sequence has invalid DNA characters: {sorted(invalid)}."
-        )
+        raise ValueError(f"Intron sequence has invalid DNA characters: {sorted(invalid)}.")
     if len(sequence) < 4:
         warnings.warn(
             f"Very short intron sequence ({len(sequence)} bp) encountered; attempting canonicalization.",
@@ -219,9 +215,7 @@ def _load_design_introns(args: VisualizeIntronAGSTTracksArgs) -> list[str]:
     introns: list[str] = []
 
     if args.intron_sequences_csv:
-        introns.extend(
-            _normalize_intron_sequence(seq) for seq in _split_csv(args.intron_sequences_csv)
-        )
+        introns.extend(_normalize_intron_sequence(seq) for seq in _split_csv(args.intron_sequences_csv))
 
     if args.design_sequences_path:
         introns.extend(_load_introns_from_sequence_file(args.design_sequences_path))
@@ -250,9 +244,7 @@ def _resolve_terms(cell_name: str, override_terms_csv: str) -> list[str]:
     if ":" in cell_name:
         return [cell_name.strip()]
     if key:
-        raise ValueError(
-            f"Unsupported cell alias '{cell_name}'. Provide a known alias or explicit ontology term."
-        )
+        raise ValueError(f"Unsupported cell alias '{cell_name}'. Provide a known alias or explicit ontology term.")
     raise ValueError("Cell name / ontology term cannot be empty.")
 
 
@@ -279,9 +271,7 @@ def _extract_tissue_signal(
 ) -> np.ndarray:
     channel = _tissue_channel_index(tissue)
     if channel is None:
-        tissue_channels = sorted(
-            index for index in SPLICE_TISSUE_CHANNEL_INDEX.values() if index is not None
-        )
+        tissue_channels = sorted(index for index in SPLICE_TISSUE_CHANNEL_INDEX.values() if index is not None)
         return np.mean(prediction[:, tissue_channels], axis=1)
     return prediction[:, channel]
 
@@ -292,9 +282,7 @@ def _read_context_sequence(path: str) -> str:
         raise ValueError(f"Context file is empty: {path}")
     invalid_chars = set(sequence) - set("ACGTN")
     if invalid_chars:
-        raise ValueError(
-            f"Context file contains invalid DNA characters {sorted(invalid_chars)}: {path}"
-        )
+        raise ValueError(f"Context file contains invalid DNA characters {sorted(invalid_chars)}: {path}")
     return sequence
 
 
@@ -308,11 +296,7 @@ def _integrate_cassette_into_context(
         )
     insert_start = (len(genomic_context) - len(cassette_sequence)) // 2
     insert_end = insert_start + len(cassette_sequence)
-    integrated = (
-        genomic_context[:insert_start]
-        + cassette_sequence
-        + genomic_context[insert_end:]
-    )
+    integrated = genomic_context[:insert_start] + cassette_sequence + genomic_context[insert_end:]
     if len(integrated) != len(genomic_context):
         raise RuntimeError("Integrated sequence length mismatch.")
     return integrated, insert_start
@@ -450,9 +434,7 @@ def _select_track_columns(
 
     strand_symbol = _strand_to_symbol(strand)
     if not metadata_records:
-        raise ValueError(
-            "SPLICE_SITE_USAGE metadata is missing; cannot apply strand-specific track selection."
-        )
+        raise ValueError("SPLICE_SITE_USAGE metadata is missing; cannot apply strand-specific track selection.")
 
     selected_indices: list[int] = []
     for idx, row in enumerate(metadata_records):
@@ -462,9 +444,7 @@ def _select_track_columns(
             selected_indices.append(idx)
 
     if not selected_indices:
-        raise ValueError(
-            f"No SPLICE_SITE_USAGE tracks matched strand='{strand_symbol}' in metadata."
-        )
+        raise ValueError(f"No SPLICE_SITE_USAGE tracks matched strand='{strand_symbol}' in metadata.")
     return matrix[:, selected_indices]
 
 
@@ -979,8 +959,7 @@ def main() -> None:
     intron_sequences = _load_design_introns(args)
     if not intron_sequences:
         raise ValueError(
-            "No intron designs found. Provide one of: "
-            "--stdout_log, --design_sequences_path, --intron_sequences_csv."
+            "No intron designs found. Provide one of: --stdout_log, --design_sequences_path, --intron_sequences_csv."
         )
 
     plasmid_context_paths = _split_csv(args.plasmid_context_paths)
@@ -990,10 +969,7 @@ def main() -> None:
     if not genomic_context_paths:
         raise ValueError("No genomic context paths provided.")
 
-    genomic_contexts = [
-        (Path(path).stem, path, _read_context_sequence(path))
-        for path in genomic_context_paths
-    ]
+    genomic_contexts = [(Path(path).stem, path, _read_context_sequence(path)) for path in genomic_context_paths]
     target_terms = _resolve_terms(args.target_cell, args.target_ontology_terms)
     offtarget_terms = _resolve_terms(args.offtarget_cell, args.offtarget_ontology_terms)
     target_tissue = _resolve_tissue_enum(args.target_tissue)
@@ -1194,13 +1170,11 @@ def main() -> None:
             st_prediction = np.asarray(st_output.prediction)
             if st_prediction.ndim != 3:
                 raise ValueError(
-                    "Unexpected SpliceTransformer prediction rank; "
-                    f"expected 3D, got shape {st_prediction.shape}."
+                    f"Unexpected SpliceTransformer prediction rank; expected 3D, got shape {st_prediction.shape}."
                 )
             if st_prediction.shape[0] != len(plasmid_records):
                 raise ValueError(
-                    "SpliceTransformer batch size mismatch: "
-                    f"{st_prediction.shape[0]} != {len(plasmid_records)}."
+                    f"SpliceTransformer batch size mismatch: {st_prediction.shape[0]} != {len(plasmid_records)}."
                 )
 
             for plasmid_record, prediction in zip(plasmid_records, st_prediction, strict=True):
@@ -1228,12 +1202,8 @@ def main() -> None:
                 splice_positions = [donor_eval_pos, acceptor_eval_pos]
                 target_intron_signal = _window_mean_signal(target_signal, intron_window)
                 offtarget_intron_signal = _window_mean_signal(offtarget_signal, intron_window)
-                target_exon_signal = float(
-                    np.mean([_window_mean_signal(target_signal, w) for w in exon_windows])
-                )
-                offtarget_exon_signal = float(
-                    np.mean([_window_mean_signal(offtarget_signal, w) for w in exon_windows])
-                )
+                target_exon_signal = float(np.mean([_window_mean_signal(target_signal, w) for w in exon_windows]))
+                offtarget_exon_signal = float(np.mean([_window_mean_signal(offtarget_signal, w) for w in exon_windows]))
                 eps = 1e-9
                 target_ratio = target_intron_signal / max(target_exon_signal, eps)
                 offtarget_ratio = offtarget_intron_signal / max(offtarget_exon_signal, eps)
@@ -1298,9 +1268,7 @@ def main() -> None:
                     context_record["left_exon_integrated"],
                     context_record["right_exon_integrated"],
                 ]
-                exon_windows_integrated = [
-                    window for window in exon_windows_integrated if window[1] > window[0]
-                ]
+                exon_windows_integrated = [window for window in exon_windows_integrated if window[1] > window[0]]
                 splice_positions_integrated = context_record["splice_positions_integrated"]
 
                 target_rna_matrix = _extract_rna_matrix(target_payload)
@@ -1369,9 +1337,7 @@ def main() -> None:
                 ag_target_ratio = ag_target_intron_rna / max(ag_target_exon_rna, eps)
                 ag_offtarget_ratio = ag_offtarget_intron_rna / max(ag_offtarget_exon_rna, eps)
                 ag_rna_ratio_delta = ag_target_ratio - ag_offtarget_ratio
-                ag_target_splice_mean = float(
-                    np.mean([target_ssu_full[pos] for pos in splice_positions_integrated])
-                )
+                ag_target_splice_mean = float(np.mean([target_ssu_full[pos] for pos in splice_positions_integrated]))
                 ag_offtarget_splice_mean = float(
                     np.mean([offtarget_ssu_full[pos] for pos in splice_positions_integrated])
                 )

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 import random
 import shutil
@@ -18,28 +16,28 @@ from proto_tools.tools.masked_models.masking import MaskingStrategy
 from tqdm import tqdm
 
 
-def collect_uniprot_data(uniprot_id: str, cluster_name: str = 'UniRef50') -> dict[str, Any]:
+def collect_uniprot_data(uniprot_id: str, cluster_name: str = "UniRef50") -> dict[str, Any]:
     """
     For a given UniProt ID, get the wildtype sequence and all sequences from
     its UniRef cluster.
     """
     wt_seq = None
-    for record in SeqIO.parse('examples/data/human_genes.fasta', 'fasta'):
-        if record.id.startswith(f'sp|{uniprot_id}|'):
+    for record in SeqIO.parse("examples/data/human_genes.fasta", "fasta"):
+        if record.id.startswith(f"sp|{uniprot_id}|"):
             wt_seq = str(record.seq)
             break
     if wt_seq is None:
-        raise ValueError(f'Could not find sequence of {uniprot_id} in reference FASTA')
+        raise ValueError(f"Could not find sequence of {uniprot_id} in reference FASTA")
 
-    fasta_fname = f'examples/data/human_gene_{cluster_name.lower()}/fasta/{cluster_name}_{uniprot_id}.fasta'
+    fasta_fname = f"examples/data/human_gene_{cluster_name.lower()}/fasta/{cluster_name}_{uniprot_id}.fasta"
     if not os.path.exists(fasta_fname):
-        raise FileNotFoundError(f'Could not find {fasta_fname}')
-    uniref_seqs = [ str(record.seq) for record in SeqIO.parse(fasta_fname, 'fasta') ]
+        raise FileNotFoundError(f"Could not find {fasta_fname}")
+    uniref_seqs = [str(record.seq) for record in SeqIO.parse(fasta_fname, "fasta")]
 
     return {
-        'uniprot_id': uniprot_id,
-        'wt_seq': wt_seq,
-        'uniref_seqs': uniref_seqs,
+        "uniprot_id": uniprot_id,
+        "wt_seq": wt_seq,
+        "uniref_seqs": uniref_seqs,
     }
 
 
@@ -49,23 +47,27 @@ def sample_progen2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[di
     """
     from proto_tools.tools.causal_models.progen2 import ProGen2Model
 
-    model_checkpoints = [ 'progen2-medium', 'progen2-large', 'progen2-xlarge', ]
-    prompt_lengths = [ 16, 32, 64 ]
+    model_checkpoints = [
+        "progen2-medium",
+        "progen2-large",
+        "progen2-xlarge",
+    ]
+    prompt_lengths = [16, 32, 64]
 
-    print('Benchmarking ProGen2...')
+    print("Benchmarking ProGen2...")
 
     data: list[dict[str, Any]] = []  # Metadata for sampled sequences.
 
     for model_checkpoint in model_checkpoints:
-        print(f'\tTesting ProGen2 checkpoint {model_checkpoint}...')
+        print(f"\tTesting ProGen2 checkpoint {model_checkpoint}...")
 
         progen2_model = ProGen2Model(model_checkpoint)
 
         for prompt_length in prompt_lengths:
-            print(f'\t\tTesting ProGen2 prompt length {prompt_length}...')
+            print(f"\t\tTesting ProGen2 prompt length {prompt_length}...")
 
-            namespace = f'{model_checkpoint}:{prompt_length}'
-            prompts = [ uniprot_data['wt_seq'][:prompt_length] ]
+            namespace = f"{model_checkpoint}:{prompt_length}"
+            prompts = [uniprot_data["wt_seq"][:prompt_length]]
 
             for sample_idx in range(n_samples):
                 outputs = progen2_model(
@@ -73,20 +75,22 @@ def sample_progen2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[di
                     temperature=0.2,
                     top_p=0.95,
                     top_k=0,
-                    max_length=len(uniprot_data['wt_seq']) + 2,
+                    max_length=len(uniprot_data["wt_seq"]) + 2,
                     truncate_at_stop=True,
                     strip_special_tokens=True,
                     prepend_prompt=True,
-                    device='cuda',
+                    device="cuda",
                     verbose=False,
                 )
 
-                data.append({
-                    'model_namespace': namespace,
-                    'sample_idx': sample_idx,
-                    'uniprot_id': uniprot_data['uniprot_id'],
-                    'sample_seq': outputs['sequences'][0]
-                })
+                data.append(
+                    {
+                        "model_namespace": namespace,
+                        "sample_idx": sample_idx,
+                        "uniprot_id": uniprot_data["uniprot_id"],
+                        "sample_seq": outputs["sequences"][0],
+                    }
+                )
 
     return data
 
@@ -100,38 +104,40 @@ def sample_esm3(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[
         ESM3Model,
     )
 
-    mutation_fractions = [ 0.25, 0.5, 0.75, 1.0 ]
-    temperatures = [ 0.3, 0.7 ]
+    mutation_fractions = [0.25, 0.5, 0.75, 1.0]
+    temperatures = [0.3, 0.7]
 
-    print('Benchmarking ESM3...')
+    print("Benchmarking ESM3...")
 
-    model_checkpoint = 'esm3_sm_open_v1'
+    model_checkpoint = "esm3_sm_open_v1"
     esm3_model = ESM3Model(model_checkpoint=model_checkpoint)
 
     data: list[dict[str, Any]] = []  # Metadata for sampled sequences.
 
     for mutation_fraction in mutation_fractions:
         for temperature in temperatures:
-            namespace = f'{model_checkpoint}:{mutation_fraction}:{temperature}'
+            namespace = f"{model_checkpoint}:{mutation_fraction}:{temperature}"
 
-            seq_len = len(uniprot_data['wt_seq'])
+            seq_len = len(uniprot_data["wt_seq"])
             num_mutations = int(mutation_fraction * seq_len)
 
             for sample_idx in range(n_samples):
                 results = esm3_model.sample(
-                    sequences=[ uniprot_data['wt_seq'] ],
+                    sequences=[uniprot_data["wt_seq"]],
                     temperature=temperature,
                     masking_strategy=MaskingStrategy(num_mutations=num_mutations),
-                    device='cuda',
+                    device="cuda",
                     verbose=False,
                 )
 
-                data.append({
-                    'model_namespace': namespace,
-                    'sample_idx': sample_idx,
-                    'uniprot_id': uniprot_data['uniprot_id'],
-                    'sample_seq': results[0],
-                })
+                data.append(
+                    {
+                        "model_namespace": namespace,
+                        "sample_idx": sample_idx,
+                        "uniprot_id": uniprot_data["uniprot_id"],
+                        "sample_seq": results[0],
+                    }
+                )
 
     return data
 
@@ -177,7 +183,7 @@ def sample_diverse_subset(sequences: list[str], k: int, kmer_size: int = 3, rand
         return sequences
 
     # 1. Vectorize sequences into k-mer counts (Bag of Words).
-    vectorizer = CountVectorizer(analyzer='char', ngram_range=(kmer_size, kmer_size))
+    vectorizer = CountVectorizer(analyzer="char", ngram_range=(kmer_size, kmer_size))
     X = vectorizer.fit_transform(sequences)
 
     # 2. Farthest Point Sampling (Greedy MaxMin).
@@ -190,9 +196,7 @@ def sample_diverse_subset(sequences: list[str], k: int, kmer_size: int = 3, rand
     # This array tracks the distance from every point to the *closest* selected point so far.
     # We initialize it with the distances to our first selection.
     # We use 'cosine' metric (1 - cosine_similarity).
-    min_dists = pairwise_distances(
-        X[selected_indices[0]], X, metric='cosine'
-    ).flatten()
+    min_dists = pairwise_distances(X[selected_indices[0]], X, metric="cosine").flatten()
 
     # Step C: Greedily pick the farthest point K-1 times.
     for _ in range(k - 1):
@@ -201,15 +205,13 @@ def sample_diverse_subset(sequences: list[str], k: int, kmer_size: int = 3, rand
         selected_indices.append(farthest_idx)
 
         # Calculate distances from the new point to all other points.
-        new_dists = pairwise_distances(
-            X[farthest_idx], X, metric='cosine'
-        ).flatten()
+        new_dists = pairwise_distances(X[farthest_idx], X, metric="cosine").flatten()
 
         # Update the minimum distances.
         # For each point, is the new point closer than the previously selected ones?.
         min_dists = np.minimum(min_dists, new_dists)
 
-    return [ sequences[i] for i in selected_indices ]
+    return [sequences[i] for i in selected_indices]
 
 
 def sample_evo2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[str, Any]]:
@@ -219,29 +221,30 @@ def sample_evo2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[
     from proto_tools.tools.causal_models.evo2 import Evo2Model
 
     sep_sequence = "GGGGGGGG"  # Synthetic sequence that delimits generated CDSs.
-    model_checkpoint = 'evo2_7b'
+    model_checkpoint = "evo2_7b"
 
-    n_prompt_examples = [ 8, 16, 32 ]
+    n_prompt_examples = [8, 16, 32]
 
-    print('Benchmarking Evo 2...')
+    print("Benchmarking Evo 2...")
 
     evo2_model = Evo2Model(model_checkpoint)
 
     # Codon-optimize and only consider sequences within 10% of the wildtype sequence length.
-    wt_seq_len = len(uniprot_data['wt_seq'])
-    uniref_seqs_nt = human_codon_optimize([
-        seq for seq in uniprot_data['uniref_seqs']
-        if (0.9 * wt_seq_len) < len(seq) < (1.1 * wt_seq_len)
-    ])
+    wt_seq_len = len(uniprot_data["wt_seq"])
+    uniref_seqs_nt = human_codon_optimize(
+        [seq for seq in uniprot_data["uniref_seqs"] if (0.9 * wt_seq_len) < len(seq) < (1.1 * wt_seq_len)]
+    )
 
     data: list[dict[str, Any]] = []  # Metadata for sampled sequences.
 
     for n_prompt_example in n_prompt_examples:
-        print(f'\tTesting Evo 2 with {n_prompt_example} in-context examples...')
+        print(f"\tTesting Evo 2 with {n_prompt_example} in-context examples...")
 
         if n_prompt_example > len(uniref_seqs_nt):
-            print(f'\tSkipping because cluster size {len(uniprot_data["uniref_seqs"])} is smaller '
-                  f'than the number of in-context examples {n_prompt_example}...')
+            print(
+                f"\tSkipping because cluster size {len(uniprot_data['uniref_seqs'])} is smaller "
+                f"than the number of in-context examples {n_prompt_example}..."
+            )
             continue
 
         prompt_seqs = sample_diverse_subset(uniref_seqs_nt, n_prompt_example)
@@ -250,40 +253,44 @@ def sample_evo2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[
         batch_size = 10
         base_prompt = sep_sequence + sep_sequence.join(prompt_seqs) + sep_sequence
 
-        for temperature in [ 0.3, 0.6, 1. ]:
-            namespace = f'{model_checkpoint}:{n_prompt_example}:{temperature}'
+        for temperature in [0.3, 0.6, 1.0]:
+            namespace = f"{model_checkpoint}:{n_prompt_example}:{temperature}"
 
             for i in range(0, n_samples, batch_size):
                 current_batch_size = min(batch_size, n_samples - i)
-                batch_prompts = [ base_prompt ] * current_batch_size
+                batch_prompts = [base_prompt] * current_batch_size
 
                 output = evo2_model(
                     batch_prompts,
                     top_k=4,
                     temperature=temperature,
-                    device='cuda',
+                    device="cuda",
                     num_tokens=n_tokens,
                     force_prompt_threshold=1,
                     print_generation=False,
                 )
 
-                for j, nt_seq in enumerate(output['sequences']):
+                for j, nt_seq in enumerate(output["sequences"]):
                     try:
                         aa_seq = Seq(nt_seq.split(sep_sequence)[0]).translate()
                     except Bio.Data.CodonTable.TranslationError:
                         aa_seq = ""
-                    data.append({
-                        'model_namespace': namespace,
-                        'sample_idx': i + j,  # Global index calculation.
-                        'uniprot_id': uniprot_data['uniprot_id'],
-                        'sample_seq': aa_seq,
-                    })
+                    data.append(
+                        {
+                            "model_namespace": namespace,
+                            "sample_idx": i + j,  # Global index calculation.
+                            "uniprot_id": uniprot_data["uniprot_id"],
+                            "sample_seq": aa_seq,
+                        }
+                    )
 
     return data
 
 
 structure_cache: dict[str, str] = {}
 esmfold_model = None
+
+
 def cached_esmfold(seq: str) -> dict[str, str]:
     """Basic caching and lazy loading mechanism for ESMFold."""
     global structure_cache
@@ -293,20 +300,23 @@ def cached_esmfold(seq: str) -> dict[str, str]:
         from proto_tools.tools.structure_prediction.esmfold.inference import (
             ESMFoldModel,
         )
+
         esmfold_model = ESMFoldModel()
 
     if seq in structure_cache:
         results = structure_cache[seq]
     else:
         results = esmfold_model(
-            batch_data=[{
-                #"complex_idx": 0,
-                "chains": [ seq ],
-                "linked_seq": seq,
-                "seq_lengths": [ len(seq) ],
-                "total_residues": len(seq),
-                "num_chains": 1,
-            }],
+            batch_data=[
+                {
+                    # "complex_idx": 0,
+                    "chains": [seq],
+                    "linked_seq": seq,
+                    "seq_lengths": [len(seq)],
+                    "total_residues": len(seq),
+                    "num_chains": 1,
+                }
+            ],
             residue_idx_offset=0,
             chain_linker=None,
         )
@@ -322,13 +332,13 @@ def compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> dict[str, Any]:
     import pymol
     from pymol import cmd
 
-    pymol.finish_launching(['pymol', '-qc'])
+    pymol.finish_launching(["pymol", "-qc"])
     cmd.reinitialize()
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.pdb', delete=False) as f1:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pdb", delete=False) as f1:
         f1.write(pdb_text1)
         tmp1 = f1.name
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.pdb', delete=False) as f2:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pdb", delete=False) as f2:
         f2.write(pdb_text2)
         tmp2 = f2.name
 
@@ -339,9 +349,9 @@ def compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> dict[str, Any]:
         result = cmd.cealign("ref", "mobile")
 
         return {
-            'rmsd': result['RMSD'],
-            'aligned_length': result['alignment_length'],
-            'alignment_score': result.get('raw_score', None)
+            "rmsd": result["RMSD"],
+            "aligned_length": result["alignment_length"],
+            "alignment_score": result.get("raw_score", None),
         }
     finally:
         os.unlink(tmp1)
@@ -353,32 +363,32 @@ def score_esmfold(seq: str, wt_seq: str, plddt_threshold: float = 0.6) -> dict[s
     """ESMFold a sequence and optionally compare it to the wildtype structure."""
     if not isinstance(seq, str):
         return {
-            'avg_plddt': None,
-            'ptm': None,
-            'rmsd_to_wt': None,
+            "avg_plddt": None,
+            "ptm": None,
+            "rmsd_to_wt": None,
         }
 
-    seq = ''.join(c for c in seq.upper() if c in 'ACDEFGHIKLMNPQRSTVWY')
+    seq = "".join(c for c in seq.upper() if c in "ACDEFGHIKLMNPQRSTVWY")
 
     wt_folding_results = cached_esmfold(wt_seq)
 
-    if len(seq) > 20 and wt_folding_results['avg_plddt'] > plddt_threshold:
+    if len(seq) > 20 and wt_folding_results["avg_plddt"] > plddt_threshold:
         folding_results = cached_esmfold(seq)
         data = {
-            'avg_plddt': folding_results['avg_plddt'],
-            'ptm': folding_results['ptm'],
+            "avg_plddt": folding_results["avg_plddt"],
+            "ptm": folding_results["ptm"],
         }
         cealign_results = compute_ce_aligned_rmsd(
-            folding_results['pdb'],
-            wt_folding_results['pdb'],
+            folding_results["pdb"],
+            wt_folding_results["pdb"],
         )
-        data['rmsd_to_wt'] = cealign_results['rmsd']
+        data["rmsd_to_wt"] = cealign_results["rmsd"]
     else:
         # Do not attempt to fold or align if wildtype structure is low confidence.
         data = {
-            'avg_plddt': None,
-            'ptm': None,
-            'rmsd_to_wt': None,
+            "avg_plddt": None,
+            "ptm": None,
+            "rmsd_to_wt": None,
         }
 
     return data
@@ -387,14 +397,15 @@ def score_esmfold(seq: str, wt_seq: str, plddt_threshold: float = 0.6) -> dict[s
 @dataclass
 class SequenceMatch:
     """Result of an mmseqs sequence search."""
+
     query_id: str
     query_seq: str
     target_id: str
     target_seq: str | None
     evalue: float
     pident: float  # percent identity (0-100)
-    qcov: float    # query coverage (0-100)
-    score: float   # qcov * pident / 100
+    qcov: float  # query coverage (0-100)
+    score: float  # qcov * pident / 100
     alignment_length: int
 
 
@@ -447,51 +458,61 @@ def find_nearest_sequences(
 
         os.makedirs(tmp_folder, exist_ok=True)
 
-        with open(query_fasta, 'w') as f:
+        with open(query_fasta, "w") as f:
             f.writelines(f">query_{i}\n{seq}\n" for i, seq in enumerate(query_sequences))
 
         # Concatenate target FASTA files.
-        with open(target_fasta, 'w') as outf:
+        with open(target_fasta, "w") as outf:
             for fasta_path in fasta_files:
                 with open(fasta_path) as inf:
                     content = inf.read()
                     outf.write(content)
-                    if not content.endswith('\n'):
-                        outf.write('\n')
+                    if not content.endswith("\n"):
+                        outf.write("\n")
 
         # Create MMseqs2 databases.
         _run_mmseqs(mmseqs_path, ["createdb", query_fasta, query_db])
         _run_mmseqs(mmseqs_path, ["createdb", target_fasta, target_db])
 
         # Run search.
-        _run_mmseqs(mmseqs_path, [
-            "search",
-            query_db,
-            target_db,
-            result_db,
-            tmp_folder,
-            "-e", str(evalue_threshold),
-            "--threads", str(threads),
-            "-s", str(sensitivity),
-        ])
+        _run_mmseqs(
+            mmseqs_path,
+            [
+                "search",
+                query_db,
+                target_db,
+                result_db,
+                tmp_folder,
+                "-e",
+                str(evalue_threshold),
+                "--threads",
+                str(threads),
+                "-s",
+                str(sensitivity),
+            ],
+        )
 
         # Convert results to TSV with all relevant columns.
         # Format: query, target, pident, alnlen, mismatch, gapopen, qstart, qend, tstart, tend, evalue, bits, qcov, tcov.
-        _run_mmseqs(mmseqs_path, [
-            "convertalis",
-            query_db,
-            target_db,
-            result_db,
-            result_tsv,
-            "--format-output", "query,target,pident,alnlen,qstart,qend,qlen,tstart,tend,tlen,evalue,bits,qcov,tcov",
-        ])
+        _run_mmseqs(
+            mmseqs_path,
+            [
+                "convertalis",
+                query_db,
+                target_db,
+                result_db,
+                result_tsv,
+                "--format-output",
+                "query,target,pident,alnlen,qstart,qend,qlen,tstart,tend,tlen,evalue,bits,qcov,tcov",
+            ],
+        )
 
         results: dict[int, SequenceMatch | None] = dict.fromkeys(range(len(query_sequences)))
         best_scores: dict[int, float] = {}
 
         with open(result_tsv) as f:
             for line in f:
-                parts = line.strip().split('\t')
+                parts = line.strip().split("\t")
                 if len(parts) < 14:
                     continue
 
@@ -540,14 +561,14 @@ def sample_sequences(uniprot_ids: list[str], output_fname: str, n_samples_per_co
     """
     data = []
     for uniprot_id in uniprot_ids:
-        uniprot_data = collect_uniprot_data(uniprot_id, 'UniRef50')
+        uniprot_data = collect_uniprot_data(uniprot_id, "UniRef50")
 
         data += sample_progen2(uniprot_data, n_samples=n_samples_per_condition)
         data += sample_esm3(uniprot_data, n_samples=n_samples_per_condition)
         data += sample_evo2(uniprot_data, n_samples=n_samples_per_condition)
 
     df = pd.DataFrame(data)
-    df.to_csv(output_fname, index=False, sep='\t')
+    df.to_csv(output_fname, index=False, sep="\t")
 
 
 def score_sequences(
@@ -559,78 +580,74 @@ def score_sequences(
     """
     Score sequences with ESMFold (structure) and mmseqs (sequence novelty).
     """
-    designed_seqs = list(df['sample_seq'])
-    seq_to_scores: dict[str, dict[str, float]] = { seq: {} for seq in designed_seqs }
+    designed_seqs = list(df["sample_seq"])
+    seq_to_scores: dict[str, dict[str, float]] = {seq: {} for seq in designed_seqs}
 
     # Get all of the wildtype sequences.
     uniprot_id_to_seq = {}
-    for record in SeqIO.parse('examples/data/human_genes.fasta', 'fasta'):
-        uniprot_id = record.id.split('|')[1]
+    for record in SeqIO.parse("examples/data/human_genes.fasta", "fasta"):
+        uniprot_id = record.id.split("|")[1]
         uniprot_id_to_seq[uniprot_id] = str(record.seq)
 
     if run_esmfold_scoring:
-        print('Scoring sequences with ESMFold...')
+        print("Scoring sequences with ESMFold...")
 
         for _, row in tqdm(df.iterrows(), total=len(df)):
-            wt_seq = uniprot_id_to_seq[row['uniprot_id']]
-            designed_seq = row['sample_seq']
+            wt_seq = uniprot_id_to_seq[row["uniprot_id"]]
+            designed_seq = row["sample_seq"]
 
             esmfold_results = score_esmfold(designed_seq, wt_seq)
 
-            seq_to_scores[designed_seq]['avg_plddt'] = esmfold_results['avg_plddt']
-            seq_to_scores[designed_seq]['ptm'] = esmfold_results['ptm']
-            seq_to_scores[designed_seq]['rmsd_to_wt'] = esmfold_results['rmsd_to_wt']
+            seq_to_scores[designed_seq]["avg_plddt"] = esmfold_results["avg_plddt"]
+            seq_to_scores[designed_seq]["ptm"] = esmfold_results["ptm"]
+            seq_to_scores[designed_seq]["rmsd_to_wt"] = esmfold_results["rmsd_to_wt"]
 
-        for score_name in ['avg_plddt', 'ptm', 'rmsd_to_wt' ]:
-            df[score_name] = [
-                seq_to_scores[designed_seq][score_name] for designed_seq in designed_seqs
-            ]
+        for score_name in ["avg_plddt", "ptm", "rmsd_to_wt"]:
+            df[score_name] = [seq_to_scores[designed_seq][score_name] for designed_seq in designed_seqs]
 
     if run_mmseqs_scoring:
-        print('Scoring sequences with mmseqs...')
+        print("Scoring sequences with mmseqs...")
 
-        uniref_fastas = glob('examples/data/human_gene_uniref50/fasta/UniRef50_*.fasta')
+        uniref_fastas = glob("examples/data/human_gene_uniref50/fasta/UniRef50_*.fasta")
 
         nearest_results = find_nearest_sequences(designed_seqs, uniref_fastas)
 
         for i, designed_seq in enumerate(designed_seqs):
             if nearest_result := nearest_results.get(i):
-                seq_to_scores[designed_seq]['evalue'] = nearest_result.evalue
-                seq_to_scores[designed_seq]['identity'] = nearest_result.score
+                seq_to_scores[designed_seq]["evalue"] = nearest_result.evalue
+                seq_to_scores[designed_seq]["identity"] = nearest_result.score
             else:
-                seq_to_scores[designed_seq]['evalue'] = 0.
-                seq_to_scores[designed_seq]['identity'] = 0.
+                seq_to_scores[designed_seq]["evalue"] = 0.0
+                seq_to_scores[designed_seq]["identity"] = 0.0
 
-        for score_name in [ 'evalue', 'identity' ]:
-            df[score_name] = [
-                seq_to_scores[designed_seq][score_name] for designed_seq in designed_seqs
-            ]
+        for score_name in ["evalue", "identity"]:
+            df[score_name] = [seq_to_scores[designed_seq][score_name] for designed_seq in designed_seqs]
 
-    df.to_csv(output_fname, index=False, sep='\t')
+    df.to_csv(output_fname, index=False, sep="\t")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     random.seed(1337)
 
-    sampled_seq_fname = 'benchmark_human_protein_gen_seqs.tsv'
-    sampled_stats_fname = 'benchmark_human_protein_gen_stats.tsv'
+    sampled_seq_fname = "benchmark_human_protein_gen_seqs.tsv"
+    sampled_stats_fname = "benchmark_human_protein_gen_stats.tsv"
 
     n_samples_per_condition = 10
     uniprot_ids = [
-        'O75380',
-        'P01116',
-        'P12074',
-        'P18859',
-        'P37108',
-        'P39019',
-        'P62314',
-        'P62829',
-        'Q07812',
-        'Q9Y4Z0',
+        "O75380",
+        "P01116",
+        "P12074",
+        "P18859",
+        "P37108",
+        "P39019",
+        "P62314",
+        "P62829",
+        "Q07812",
+        "Q9Y4Z0",
     ]
 
     sample_sequences(uniprot_ids, sampled_seq_fname, n_samples_per_condition)
 
-    df = pd.read_csv(sampled_seq_fname, sep='\t')
+    df = pd.read_csv(sampled_seq_fname, sep="\t")
 
     score_sequences(df, sampled_stats_fname, run_esmfold_scoring=True)

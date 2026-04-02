@@ -16,7 +16,6 @@ Algorithm:
 Usage:
     python protein_hunter.py --length 100 --cycles 5 --proposals 2 --output-dir ./outputs
 """
-from __future__ import annotations
 
 import argparse
 import os
@@ -35,6 +34,7 @@ from proto_language.language.optimizer import CyclingOptimizer, CyclingOptimizer
 # =============================================================================
 # Logging & Setup Helpers
 # =============================================================================
+
 
 class LogCapture:
     """Capture logging output to both console and file."""
@@ -60,18 +60,13 @@ class LogCapture:
 def setup_output_dir(base_output_dir: str, length: int, cycles: int, tool: str) -> str:
     """Create timestamped output directory with parameter info."""
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = os.path.join(
-        base_output_dir,
-        f"protein_hunter_sweeps/{tool}_len{length}_cyc{cycles}/run_{run_timestamp}"
-    )
+    run_dir = os.path.join(base_output_dir, f"protein_hunter_sweeps/{tool}_len{length}_cyc{cycles}/run_{run_timestamp}")
     os.makedirs(run_dir, exist_ok=True)
     return run_dir
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Protein Hunter: De novo design via hallucination cycles."
-    )
+    parser = argparse.ArgumentParser(description="Protein Hunter: De novo design via hallucination cycles.")
     parser.add_argument(
         "--length",
         type=int,
@@ -109,6 +104,7 @@ def parse_args():
 # =============================================================================
 # Core Logic
 # =============================================================================
+
 
 def run_protein_hunter(
     design_length: int,
@@ -158,10 +154,7 @@ def run_protein_hunter(
             """
             Predict 3D structures and store PDBs in metadata for retrieval later.
             """
-            complexes = [
-                StructurePredictionComplex(chains=[seq.sequence])
-                for seq in sequences
-            ]
+            complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
 
             structures = predict_structures(complexes, structure_tool, {}).structures
 
@@ -240,6 +233,7 @@ def run_protein_hunter(
 # =============================================================================
 # Main Entry Point
 # =============================================================================
+
 
 def main():
     args = parse_args()

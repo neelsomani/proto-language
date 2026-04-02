@@ -1,6 +1,7 @@
 """
 Define a program for diversification of the U5 snRNA.
 """
+
 from collections.abc import Callable
 from itertools import islice
 
@@ -42,7 +43,7 @@ def _compute_rna_similarity(seq1: str, seq2: str) -> float:
         return 0.0
 
     aligner = Align.PairwiseAligner()
-    aligner.mode = 'global'
+    aligner.mode = "global"
     aligner.match_score = 1.0
     aligner.mismatch_score = -1.0  # Penalize mismatches
     aligner.gap_score = -1.0
@@ -66,14 +67,15 @@ class Evo2RNAConstraintConfig(BaseConfig):
         constraint_func (Callable): Constraint function to evaluate.
         constraint_config (BaseConfig): Constraint config to pass to constraint function.
     """
+
     constraint_func: Callable = ConfigField(
         title="Constraint Func",
         description="Constraint function to evaluate",
     )
     constraint_config: BaseConfig = ConfigField(
-        title="Constraint Config",
-        description="Constraint config to pass to constraint function"
+        title="Constraint Config", description="Constraint config to pass to constraint function"
     )
+
 
 @ConstraintRegistry.register(
     key="evo2_rna_constraint_wrapper",
@@ -99,11 +101,13 @@ def _evo2_rna_constraint_wrapper(
     # Process Evo 2 output into RNA.
     new_sequences = []
     for idx, sequence in enumerate(sequences):
-        new_seq = sequence.sequence.split(SEP_SEQUENCE)[0].upper().replace('T', 'U')
-        new_sequences.append(Sequence(
-            sequence=new_seq,
-            sequence_type='rna',
-        ))
+        new_seq = sequence.sequence.split(SEP_SEQUENCE)[0].upper().replace("T", "U")
+        new_sequences.append(
+            Sequence(
+                sequence=new_seq,
+                sequence_type="rna",
+            )
+        )
 
     # Actually evaluate the constraint.
     results = config.constraint_func(new_sequences, config.constraint_config)
@@ -114,6 +118,7 @@ def _evo2_rna_constraint_wrapper(
 
     return results
 
+
 class RNAPairwiseSimilarityConfig(BaseConfig):
     """
     Compare RNA sequences against a reference sequence.
@@ -122,10 +127,12 @@ class RNAPairwiseSimilarityConfig(BaseConfig):
         constraint_func (Callable): Constraint function to evaluate.
         constraint_config (BaseConfig): Constraint config to pass to constraint function.
     """
+
     reference_sequence: str = ConfigField(
         title="Reference Sequence",
         description="Compare RNA sequences to this sequence",
     )
+
 
 @ConstraintRegistry.register(
     key="rna_pairwise_similarity",
@@ -151,7 +158,7 @@ def rna_pairwise_similarity_constraint(
     for sequence in sequences:
         similarity = _compute_rna_similarity(sequence.sequence, config.reference_sequence)
         if similarity < 0.7:
-            results.append(float('inf'))
+            results.append(float("inf"))
         else:
             results.append(similarity)
     return results
@@ -182,9 +189,9 @@ def create_u5_snrna_program() -> Program:
 
     evo2_config = Evo2GeneratorConfig(
         prompts=[u5_icl_prompt] * N_SAMPLES,
-        model_checkpoint='evo2_7b',
+        model_checkpoint="evo2_7b",
         top_k=4,
-        top_p=1.,
+        top_p=1.0,
         temperature=0.5,
         force_prompt_threshold=1,
         stop_at_eos=False,
@@ -211,7 +218,7 @@ def create_u5_snrna_program() -> Program:
             "constraint_config": RNAPropertySimilarityConfig(reference_sequence=U5_SNRNA),
         },
         threshold=0.7,
-        label='rna_property_similarity_constraint_evo2',
+        label="rna_property_similarity_constraint_evo2",
     )
     constraints.append(constraint_property_similarity)
 
@@ -223,7 +230,7 @@ def create_u5_snrna_program() -> Program:
             "constraint_config": RNAMotifSimilarityConfig(reference_sequence=U5_SNRNA),
         },
         threshold=0.8,
-        label='rna_motif_similarity_constraint_evo2',
+        label="rna_motif_similarity_constraint_evo2",
     )
     constraints.append(constraint_motif_similarity)
 
@@ -235,7 +242,7 @@ def create_u5_snrna_program() -> Program:
             "constraint_config": RNAFeatureSimilarityConfig(reference_sequence=U5_SNRNA),
         },
         threshold=0.6,
-        label='rna_feature_similarity_constraint_evo2',
+        label="rna_feature_similarity_constraint_evo2",
     )
     constraints.append(constraint_feature_similarity)
 
@@ -247,7 +254,7 @@ def create_u5_snrna_program() -> Program:
             "constraint_config": RNABasePairSimilarityConfig(reference_sequence=U5_SNRNA),
         },
         threshold=0.3,
-        label='rna_basepair_similarity_constraint_evo2',
+        label="rna_basepair_similarity_constraint_evo2",
     )
     constraints.append(constraint_basepair_similarity)
 
@@ -259,7 +266,7 @@ def create_u5_snrna_program() -> Program:
             "constraint_config": RNAPairwiseSimilarityConfig(reference_sequence=U5_SNRNA),
         },
         weight=4,  # Equal weight as diversification constraints.
-        label='rna_pairwise_similarity_constraint_evo2',
+        label="rna_pairwise_similarity_constraint_evo2",
     )
     constraints.append(constraint_wt_similarity)
 
@@ -285,6 +292,6 @@ def create_u5_snrna_program() -> Program:
     return u5_snrna_program
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     program = create_u5_snrna_program()
     program.run()

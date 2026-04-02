@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
     Constraint,
@@ -34,14 +32,12 @@ gc_constraint = Constraint(
     function_config={"min_gc": 80, "max_gc": 90},
 )
 
+
 def custom_logging(step: int, outputs: tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].proposal_sequences[0]
     gc_content = output_sequence._metadata["constraints"]["gc_content_constraint"]["data"].get("gc_content", "N/A")
-    print(
-        f"Custom Log - Step {step} | "
-        f"sequence: {output_sequence.sequence}, "
-        f"gc_content: {gc_content}"
-    )
+    print(f"Custom Log - Step {step} | sequence: {output_sequence.sequence}, gc_content: {gc_content}")
+
 
 # Optimizer config
 optimizer_config = MCMCOptimizerConfig(

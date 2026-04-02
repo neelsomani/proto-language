@@ -30,8 +30,6 @@ Usage:
 Exit codes: 0 = pass, 1 = errors found.
 """
 
-from __future__ import annotations
-
 import argparse
 import ast
 import contextlib

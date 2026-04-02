@@ -13,6 +13,7 @@ To customize:
 - Add constraints in the `add_custom_constraints` function
 - Modify hyperparameters in the config or below
 """
+
 import os
 import sys
 
@@ -30,6 +31,7 @@ from proto_language.language.core import Constraint, Construct, Segment
 # =============================================================================
 # CUSTOMIZE HERE: Add row-specific constraints
 # =============================================================================
+
 
 def add_custom_constraints(
     gene_id_to_segment: dict[str, Segment],
@@ -76,12 +78,13 @@ def add_custom_constraints(
 # MAIN EXECUTION
 # =============================================================================
 
+
 def main():
     # Paths
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(script_dir)
-    config_path = os.path.join(project_dir, 'configs', 'i_genetic_info_processing__rna_processing__u5_snrnp.json')
-    output_dir = os.path.join(project_dir, 'outputs', 'i_genetic_info_processing__rna_processing__u5_snrnp')
+    config_path = os.path.join(project_dir, "configs", "i_genetic_info_processing__rna_processing__u5_snrnp.json")
+    output_dir = os.path.join(project_dir, "outputs", "i_genetic_info_processing__rna_processing__u5_snrnp")
 
     # Load configuration
     config = load_config(config_path)
@@ -97,8 +100,8 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     # Build and run program
-    gene_ids = config['all_gene_ids']
-    n_steps = config.get('n_steps_per_generator', 3)
+    gene_ids = config["all_gene_ids"]
+    n_steps = config.get("n_steps_per_generator", 3)
     n_steps = 3
 
     print(f"\nBuilding diversification program for {len(gene_ids)} genes...")
@@ -116,34 +119,30 @@ def main():
     u5_snrna_program.run()
 
     # Do program surgery to prepare U5 for AF3.
-    gene_ids.append('U5_snRNA')
-    config['complexes'][0]['gene_ids'].append('U5_snRNA')
-    config['complexes'][0]['stoichiometry']['U5_snRNA'] = 1
+    gene_ids.append("U5_snRNA")
+    config["complexes"][0]["gene_ids"].append("U5_snRNA")
+    config["complexes"][0]["stoichiometry"]["U5_snRNA"] = 1
     evo2_seq = str(u5_snrna_program.optimizers[0].constructs[0].segments[0].result_sequences[0])
-    rna_seq = evo2_seq.split(SEP_SEQUENCE)[0].replace('T', 'U')
-    program.constructs.append(
-        Construct([
-            Segment(sequence=rna_seq, sequence_type='rna')
-        ])
-    )
+    rna_seq = evo2_seq.split(SEP_SEQUENCE)[0].replace("T", "U")
+    program.constructs.append(Construct([Segment(sequence=rna_seq, sequence_type="rna")]))
 
     # Score complexes with AF3
     print(f"\nScoring {len(config['complexes'])} complexes with AlphaFold3...")
     results = score_complexes_in_program_with_af3(
         program=program,
         gene_ids=gene_ids,
-        complexes=config['complexes'],
+        complexes=config["complexes"],
         output_dir=output_dir,
     )
 
     print(f"\nDone! Results saved to: {output_dir}")
 
     # Return exit code based on success
-    if results['summary']['failed'] > 0:
+    if results["summary"]["failed"] > 0:
         print(f"WARNING: {results['summary']['failed']} complex(es) had errors")
         return 1
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

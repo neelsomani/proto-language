@@ -23,8 +23,6 @@ Usage:
     python evocas9_topk.py --n-samples 150 --batch-size 150
 """
 
-from __future__ import annotations
-
 import argparse
 import csv
 import gzip
@@ -97,9 +95,7 @@ def _get_training_fasta() -> Path:
         return TRAINING_FASTA_CACHE
 
     if not TRAINING_FASTA_DIR.exists():
-        raise FileNotFoundError(
-            f"Training FASTA directory not found: {TRAINING_FASTA_DIR}"
-        )
+        raise FileNotFoundError(f"Training FASTA directory not found: {TRAINING_FASTA_DIR}")
 
     fasta_files = sorted(TRAINING_FASTA_DIR.glob("*.fasta.gz"))
     if not fasta_files:
@@ -117,8 +113,7 @@ def _get_training_fasta() -> Path:
                 total_seqs += content.count(">")
 
     logger.info(
-        f"Built combined training FASTA ({total_seqs} sequences "
-        f"from {len(fasta_files)} files): {TRAINING_FASTA_CACHE}"
+        f"Built combined training FASTA ({total_seqs} sequences from {len(fasta_files)} files): {TRAINING_FASTA_CACHE}"
     )
     return TRAINING_FASTA_CACHE
 
@@ -209,10 +204,7 @@ def orf_filter(
         else:
             scores.append(1.0)
 
-    logger.info(
-        f"orf_filter: {sum(1 for s in scores if s == 0.0)}/{len(scores)} "
-        f"have ORFs >= {min_len} nt"
-    )
+    logger.info(f"orf_filter: {sum(1 for s in scores if s == 0.0)}/{len(scores)} have ORFs >= {min_len} nt")
     return scores
 
 
@@ -267,9 +259,7 @@ def cas9_phmm_filter(
         scores[original_idx] = 0.0
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(
-        f"cas9_phmm_filter: {n_pass}/{len(scores)} have Cas9 pHMM hit (E < {evalue})"
-    )
+    logger.info(f"cas9_phmm_filter: {n_pass}/{len(scores)} have Cas9 pHMM hit (E < {evalue})")
     return scores
 
 
@@ -299,9 +289,7 @@ def crispr_array_filter(
             res = minced_result.results[i]
             if res.has_crispr:
                 if res.crispr_arrays:
-                    CACHE[dna]["crispr_repeat"] = (
-                        res.crispr_arrays[0].repeats_and_spacers[0].repeat
-                    )
+                    CACHE[dna]["crispr_repeat"] = res.crispr_arrays[0].repeats_and_spacers[0].repeat
                 scores.append(0.0)
             else:
                 scores.append(1.0)
@@ -371,9 +359,7 @@ def identity_filter(
             scores.append(0.0)
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(
-        f"identity_filter: {n_pass}/{len(scores)} have identity < {threshold:.0%}"
-    )
+    logger.info(f"identity_filter: {n_pass}/{len(scores)} have identity < {threshold:.0%}")
     return scores
 
 
@@ -602,9 +588,7 @@ def structure_filter(
         proposal_dir = f"{af3_dir}/{af3_name}_{af3_idx}"
         try:
             af3_result = run_alphafold3(
-                AlphaFold3Input(
-                    complexes=[StructurePredictionComplex(chains=[protein])]
-                ),
+                AlphaFold3Input(complexes=[StructurePredictionComplex(chains=[protein])]),
                 AlphaFold3Config(
                     name=af3_name,
                     output_dir=proposal_dir,
@@ -629,9 +613,7 @@ def structure_filter(
             if pdb_files:
                 pdb_file = pdb_files[0]
             else:
-                logger.error(
-                    "  structure_filter: PDB not found for proposal"
-                )
+                logger.error("  structure_filter: PDB not found for proposal")
                 continue
 
         CACHE[dna]["pdb_path"] = str(pdb_file)
@@ -656,10 +638,7 @@ def structure_filter(
             # Combined filter
             plddt_ok = plddt is not None and plddt >= plddt_threshold
             rg_ok = m.gyration_radius is not None and m.gyration_radius < rg_threshold
-            alpha_ok = (
-                m.longest_alpha_helix is not None
-                and m.longest_alpha_helix < alpha_threshold
-            )
+            alpha_ok = m.longest_alpha_helix is not None and m.longest_alpha_helix < alpha_threshold
 
             if plddt_ok and rg_ok and alpha_ok:
                 scores[i] = 0.0
@@ -914,29 +893,15 @@ def save_results(
                     "temperature": r["temperature"],
                     "top_k": r["top_k"],
                     "score": (f"{r['score']:.4f}" if r["score"] is not None else ""),
-                    "identity": (
-                        f"{r['identity']:.4f}" if r["identity"] is not None else ""
-                    ),
-                    "gap_gini": (
-                        f"{r['gap_gini']:.4f}" if r["gap_gini"] is not None else ""
-                    ),
-                    "domains_found": (
-                        ",".join(r["domains_found"]) if r["domains_found"] else ""
-                    ),
+                    "identity": (f"{r['identity']:.4f}" if r["identity"] is not None else ""),
+                    "gap_gini": (f"{r['gap_gini']:.4f}" if r["gap_gini"] is not None else ""),
+                    "domains_found": (",".join(r["domains_found"]) if r["domains_found"] else ""),
                     "interaction_energy": (
-                        f"{r['interaction_energy']:.2f}"
-                        if r["interaction_energy"] is not None
-                        else ""
+                        f"{r['interaction_energy']:.2f}" if r["interaction_energy"] is not None else ""
                     ),
                     "plddt": (f"{r['plddt']:.1f}" if r["plddt"] is not None else ""),
-                    "gyration_radius": (
-                        f"{r['gyration_radius']:.1f}"
-                        if r["gyration_radius"] is not None
-                        else ""
-                    ),
-                    "longest_alpha_helix": (
-                        r["longest_alpha"] if r["longest_alpha"] is not None else ""
-                    ),
+                    "gyration_radius": (f"{r['gyration_radius']:.1f}" if r["gyration_radius"] is not None else ""),
+                    "longest_alpha_helix": (r["longest_alpha"] if r["longest_alpha"] is not None else ""),
                     "pdb_path": r["pdb_path"] or "",
                     "dna_sequence": r["dna_sequence"],
                     "crispr_repeat": r["crispr_repeat"] or "",
@@ -950,11 +915,7 @@ def save_results(
     with open(output_fasta, "w") as f:
         for r in results:
             plddt_str = f" plddt={r['plddt']:.1f}" if r["plddt"] is not None else ""
-            header = (
-                f">cas9_proposal_{r['proposal_idx']} "
-                f"temp={r['temperature']} top_k={r['top_k']}"
-                f"{plddt_str}"
-            )
+            header = f">cas9_proposal_{r['proposal_idx']} temp={r['temperature']} top_k={r['top_k']}{plddt_str}"
             f.write(f"{header}\n{r['dna_sequence']}\n")
 
     logger.info(f"FASTA written to: {output_fasta}")
@@ -966,9 +927,7 @@ def save_results(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Cas9 generation pipeline (TopK optimizer version)"
-    )
+    parser = argparse.ArgumentParser(description="Cas9 generation pipeline (TopK optimizer version)")
     parser.add_argument(
         "--n-samples",
         type=int,
@@ -1006,9 +965,7 @@ def main():
     logger.info("=" * 60)
     logger.info("Cas9 Generation Pipeline (TopK Optimizer)")
     logger.info("=" * 60)
-    logger.info(
-        f"Sweep: {len(TEMPERATURES)} temps x {len(TOP_KS)} top_k = {n_combos} combos"
-    )
+    logger.info(f"Sweep: {len(TEMPERATURES)} temps x {len(TOP_KS)} top_k = {n_combos} combos")
     logger.info(f"Samples per combo: {args.n_samples}")
     logger.info(f"Total sequences: {total_seqs}")
     logger.info(f"Batch size: {batch_size}")
@@ -1020,9 +977,7 @@ def main():
     for temp in TEMPERATURES:
         for top_k_val in TOP_KS:
             combo_idx += 1
-            logger.info(
-                f"\nCombo {combo_idx}/{n_combos}: temp={temp}, top_k={top_k_val}"
-            )
+            logger.info(f"\nCombo {combo_idx}/{n_combos}: temp={temp}, top_k={top_k_val}")
 
             CACHE.clear()
             structure_filter._next_idx = 0
@@ -1042,9 +997,7 @@ def main():
             results = collect_results(segment, CACHE, temp, top_k_val)
             all_results.extend(results)
 
-            logger.info(
-                f"Combo {combo_idx}: {len(results)} proposals passed all filters"
-            )
+            logger.info(f"Combo {combo_idx}: {len(results)} proposals passed all filters")
 
     logger.info("\n" + "=" * 60)
     logger.info("PIPELINE SUMMARY")

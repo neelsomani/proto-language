@@ -62,7 +62,7 @@ def run_beam_search(
     target_gc_min: float,
     target_gc_max: float,
     score_by: str = "mean",
-    verbose: bool = False
+    verbose: bool = False,
 ) -> tuple[float, list[str]]:
     """
     Run single-segment beam search optimization and return elapsed time and sequences.
@@ -218,7 +218,7 @@ def main():
     cached_std = np.std(cached_times)
     uncached_mean = np.mean(uncached_times)
     uncached_std = np.std(uncached_times)
-    speedup = uncached_mean / cached_mean if cached_mean > 0 else float('inf')
+    speedup = uncached_mean / cached_mean if cached_mean > 0 else float("inf")
 
     # Print results
     print()
@@ -235,7 +235,9 @@ def main():
     print(f"  All runs: {[f'{t:.2f}s' for t in uncached_times]}")
     print()
     print(f"SPEEDUP with KV caching: {speedup:.2f}x")
-    print(f"Time saved: {uncached_mean - cached_mean:.2f} seconds ({(1 - cached_mean/uncached_mean)*100:.1f}% reduction)")
+    print(
+        f"Time saved: {uncached_mean - cached_mean:.2f} seconds ({(1 - cached_mean / uncached_mean) * 100:.1f}% reduction)"
+    )
     print()
 
     # Print sequence info
@@ -244,7 +246,7 @@ def main():
     print("-" * 80)
     if cached_sequences:
         for i, seq in enumerate(cached_sequences):
-            gc_content = (seq.count('G') + seq.count('C')) / len(seq) * 100 if seq else 0
+            gc_content = (seq.count("G") + seq.count("C")) / len(seq) * 100 if seq else 0
             print(f"  Beam {i + 1}: length={len(seq)}, GC={gc_content:.1f}%")
             print(f"    First 50bp: {seq[:50]}...")
             print(f"    Last 50bp: ...{seq[-50:]}")

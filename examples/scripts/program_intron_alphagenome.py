@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 from pathlib import Path
 from typing import Literal
@@ -117,9 +115,7 @@ def _resolve_terms(
         # Allow directly passing ontology terms through --target_cell/--offtarget_cell.
         return [cell_name.strip()]
     if key:
-        raise ValueError(
-            f"Unsupported cell alias '{cell_name}'. Provide a known alias or explicit ontology term."
-        )
+        raise ValueError(f"Unsupported cell alias '{cell_name}'. Provide a known alias or explicit ontology term.")
     raise ValueError("Cell name/ontology term cannot be empty.")
 
 
@@ -129,9 +125,7 @@ def _read_context_sequence(path: str) -> str:
         raise ValueError(f"Context file is empty: {path}")
     invalid_chars = set(sequence) - set("ACGTN")
     if invalid_chars:
-        raise ValueError(
-            f"Context file contains invalid DNA characters {sorted(invalid_chars)}: {path}"
-        )
+        raise ValueError(f"Context file contains invalid DNA characters {sorted(invalid_chars)}: {path}")
     return sequence
 
 
@@ -143,10 +137,7 @@ if __name__ == "__main__":
     if args.mcmc_num_results < 1:
         raise ValueError(f"mcmc_num_results must be >= 1, got {args.mcmc_num_results}")
     if args.mcmc_candidates_per_result < 1:
-        raise ValueError(
-            "mcmc_candidates_per_result must be >= 1, "
-            f"got {args.mcmc_candidates_per_result}"
-        )
+        raise ValueError(f"mcmc_candidates_per_result must be >= 1, got {args.mcmc_candidates_per_result}")
     if args.alphagenome_brain_weight <= 0:
         raise ValueError("alphagenome_brain_weight must be > 0")
     if args.alphagenome_blood_weight <= 0:
@@ -168,9 +159,7 @@ if __name__ == "__main__":
     else:
         parsed_paths = _split_csv(args.genomic_context_paths)
         genomic_context_paths = [parsed_paths[0]] if parsed_paths else []
-    genomic_contexts = [
-        (Path(path).stem, path, _read_context_sequence(path)) for path in genomic_context_paths
-    ]
+    genomic_contexts = [(Path(path).stem, path, _read_context_sequence(path)) for path in genomic_context_paths]
 
     target_ontology_terms = _resolve_terms(
         args.target_cell,
@@ -386,9 +375,7 @@ if __name__ == "__main__":
 
         if args.enable_alphagenome:
             if not genomic_contexts:
-                raise ValueError(
-                    "AlphaGenome scoring enabled but no genomic context files were provided."
-                )
+                raise ValueError("AlphaGenome scoring enabled but no genomic context files were provided.")
 
             if not any(
                 token in args.specificity_type
@@ -556,28 +543,20 @@ if __name__ == "__main__":
         optimizer_instance = optimizer_for_logging["instance"]
         num_results = len(outputs[1].result_sequences)
         candidate_energies = (
-            list(getattr(optimizer_instance, "_candidate_energy_scores", []))
-            if optimizer_instance is not None
-            else []
+            list(getattr(optimizer_instance, "_candidate_energy_scores", [])) if optimizer_instance is not None else []
         )
         candidate_outcomes = (
-            list(getattr(optimizer_instance, "_candidate_outcomes", []))
-            if optimizer_instance is not None
-            else []
+            list(getattr(optimizer_instance, "_candidate_outcomes", [])) if optimizer_instance is not None else []
         )
         candidates_per_result = (
-            int(getattr(optimizer_instance, "_proposals_per_result", 1))
-            if optimizer_instance is not None
-            else 1
+            int(getattr(optimizer_instance, "_proposals_per_result", 1)) if optimizer_instance is not None else 1
         )
 
         for result_idx in range(num_results):
             left_flank_sequence = str(outputs[0].result_sequences[result_idx]._sequence)
             intron_core_sequence = str(outputs[1].result_sequences[result_idx]._sequence)
             right_flank_sequence = str(outputs[2].result_sequences[result_idx]._sequence)
-            intron_sequence = _format_intron_sequence(
-                left_flank_sequence, intron_core_sequence, right_flank_sequence
-            )
+            intron_sequence = _format_intron_sequence(left_flank_sequence, intron_core_sequence, right_flank_sequence)
 
             result_energy = float("nan")
             if optimizer_instance is not None and result_idx < len(optimizer_instance.energy_scores):
@@ -595,16 +574,11 @@ if __name__ == "__main__":
                 proposal_pool_start + candidates_per_result,
                 len(outputs[1].proposal_sequences),
             )
-            print(
-                f"\tresult[{result_idx}] candidate_pool_size: "
-                f"{proposal_pool_end - proposal_pool_start}"
-            )
+            print(f"\tresult[{result_idx}] candidate_pool_size: {proposal_pool_end - proposal_pool_start}")
             for candidate_idx in range(proposal_pool_start, proposal_pool_end):
                 local_idx = candidate_idx - proposal_pool_start
                 candidate_left = str(outputs[0].proposal_sequences[candidate_idx]._sequence)
-                candidate_intron_core = str(
-                    outputs[1].proposal_sequences[candidate_idx]._sequence
-                )
+                candidate_intron_core = str(outputs[1].proposal_sequences[candidate_idx]._sequence)
                 candidate_right = str(outputs[2].proposal_sequences[candidate_idx]._sequence)
                 candidate_intron = _format_intron_sequence(
                     candidate_left,
@@ -612,14 +586,10 @@ if __name__ == "__main__":
                     candidate_right,
                 )
                 candidate_energy = (
-                    candidate_energies[candidate_idx]
-                    if candidate_idx < len(candidate_energies)
-                    else float("nan")
+                    candidate_energies[candidate_idx] if candidate_idx < len(candidate_energies) else float("nan")
                 )
                 candidate_outcome = (
-                    candidate_outcomes[candidate_idx]
-                    if candidate_idx < len(candidate_outcomes)
-                    else "unknown"
+                    candidate_outcomes[candidate_idx] if candidate_idx < len(candidate_outcomes) else "unknown"
                 )
                 print(
                     f"\t\tcandidate[{result_idx}:{local_idx}] "
@@ -654,10 +624,7 @@ if __name__ == "__main__":
                         or metric_name.startswith("specificity_direction")
                         or metric_name.startswith("specificity_score")
                     ):
-                        print(
-                            f"\tresult[{result_idx}] {constraint_label}: "
-                            f"{metric_name}: {metric_value}"
-                        )
+                        print(f"\tresult[{result_idx}] {constraint_label}: {metric_name}: {metric_value}")
 
     if args.intron_generator == "evo2":
         optimizer_config = TopKOptimizerConfig(

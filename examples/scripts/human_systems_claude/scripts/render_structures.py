@@ -25,38 +25,38 @@ from pymol import cmd, stored
 
 # === FLAT PASTEL PALETTE (26 colors) ===
 FLAT_PALETTE = {
-    'flat_a': [0.95, 0.60, 0.55],  # coral
-    'flat_b': [0.65, 0.78, 0.65],  # sage
-    'flat_c': [0.60, 0.75, 0.88],  # sky
-    'flat_d': [0.92, 0.87, 0.75],  # sand
-    'flat_e': [0.85, 0.65, 0.80],  # mauve
-    'flat_f': [0.98, 0.82, 0.60],  # apricot
-    'flat_g': [0.70, 0.85, 0.82],  # seafoam
-    'flat_h': [0.78, 0.70, 0.85],  # lavender
-    'flat_i': [0.95, 0.75, 0.70],  # peach
-    'flat_j': [0.72, 0.82, 0.65],  # moss
-    'flat_k': [0.65, 0.70, 0.82],  # periwinkle
-    'flat_l': [0.88, 0.85, 0.65],  # straw
-    'flat_m': [0.82, 0.65, 0.70],  # dusty rose
-    'flat_n': [0.60, 0.80, 0.75],  # mint
-    'flat_o': [0.90, 0.72, 0.58],  # terracotta
-    'flat_p': [0.75, 0.78, 0.88],  # steel blue
-    'flat_q': [0.88, 0.80, 0.78],  # blush
-    'flat_r': [0.68, 0.82, 0.72],  # eucalyptus
-    'flat_s': [0.80, 0.75, 0.68],  # taupe
-    'flat_t': [0.72, 0.75, 0.80],  # slate
-    'flat_u': [0.95, 0.85, 0.70],  # cream
-    'flat_v': [0.70, 0.72, 0.78],  # graphite
-    'flat_w': [0.85, 0.78, 0.72],  # clay
-    'flat_x': [0.62, 0.78, 0.80],  # teal
-    'flat_y': [0.90, 0.78, 0.75],  # salmon
-    'flat_z': [0.75, 0.80, 0.70],  # lichen
+    "flat_a": [0.95, 0.60, 0.55],  # coral
+    "flat_b": [0.65, 0.78, 0.65],  # sage
+    "flat_c": [0.60, 0.75, 0.88],  # sky
+    "flat_d": [0.92, 0.87, 0.75],  # sand
+    "flat_e": [0.85, 0.65, 0.80],  # mauve
+    "flat_f": [0.98, 0.82, 0.60],  # apricot
+    "flat_g": [0.70, 0.85, 0.82],  # seafoam
+    "flat_h": [0.78, 0.70, 0.85],  # lavender
+    "flat_i": [0.95, 0.75, 0.70],  # peach
+    "flat_j": [0.72, 0.82, 0.65],  # moss
+    "flat_k": [0.65, 0.70, 0.82],  # periwinkle
+    "flat_l": [0.88, 0.85, 0.65],  # straw
+    "flat_m": [0.82, 0.65, 0.70],  # dusty rose
+    "flat_n": [0.60, 0.80, 0.75],  # mint
+    "flat_o": [0.90, 0.72, 0.58],  # terracotta
+    "flat_p": [0.75, 0.78, 0.88],  # steel blue
+    "flat_q": [0.88, 0.80, 0.78],  # blush
+    "flat_r": [0.68, 0.82, 0.72],  # eucalyptus
+    "flat_s": [0.80, 0.75, 0.68],  # taupe
+    "flat_t": [0.72, 0.75, 0.80],  # slate
+    "flat_u": [0.95, 0.85, 0.70],  # cream
+    "flat_v": [0.70, 0.72, 0.78],  # graphite
+    "flat_w": [0.85, 0.78, 0.72],  # clay
+    "flat_x": [0.62, 0.78, 0.80],  # teal
+    "flat_y": [0.90, 0.78, 0.75],  # salmon
+    "flat_z": [0.75, 0.80, 0.70],  # lichen
 }
 
 
 def setup_pymol():
     """Initialize PyMOL in headless mode."""
-    pymol.finish_launching(['pymol', '-cq'])  # -c = command line, -q = quiet
+    pymol.finish_launching(["pymol", "-cq"])  # -c = command line, -q = quiet
 
 
 def setup_flat_colors():
@@ -67,21 +67,21 @@ def setup_flat_colors():
 
 def setup_matte_lighting():
     """Configure matte, non-specular lighting."""
-    cmd.set('spec_reflect', 0)
-    cmd.set('specular', 0)
-    cmd.set('spec_power', 0)
-    cmd.set('ambient', 0.5)
-    cmd.set('direct', 0.5)
-    cmd.set('reflect', 0.2)
-    cmd.set('ray_shadow', 0)
-    cmd.bg_color('white')
-    cmd.set('antialias', 2)
-    cmd.set('surface_quality', 1)
+    cmd.set("spec_reflect", 0)
+    cmd.set("specular", 0)
+    cmd.set("spec_power", 0)
+    cmd.set("ambient", 0.5)
+    cmd.set("direct", 0.5)
+    cmd.set("reflect", 0.2)
+    cmd.set("ray_shadow", 0)
+    cmd.bg_color("white")
+    cmd.set("antialias", 2)
+    cmd.set("surface_quality", 1)
 
 
 def delete_low_plddt(
-    selection: str = 'all',
-    cutoff: float = 50.,
+    selection: str = "all",
+    cutoff: float = 50.0,
     min_fragment_size: int = 10,
 ) -> tuple[int, int]:
     """
@@ -95,20 +95,20 @@ def delete_low_plddt(
         min_fragment_size: minimum number of residues in a contiguous fragment to keep
     """
     # Select atoms with B-factor < cutoff
-    low_conf_sel = f'({selection}) and b < {cutoff}'
+    low_conf_sel = f"({selection}) and b < {cutoff}"
 
     # Get residues containing low-confidence atoms
-    cmd.select('low_conf_residues', f'byres ({low_conf_sel})')
+    cmd.select("low_conf_residues", f"byres ({low_conf_sel})")
 
     # Count before deletion
     n_atoms_before = cmd.count_atoms(selection)
-    n_low_conf = cmd.count_atoms('low_conf_residues')
+    n_low_conf = cmd.count_atoms("low_conf_residues")
 
     # Delete low-confidence residues
     if n_low_conf > 0:
-        cmd.remove('low_conf_residues')
+        cmd.remove("low_conf_residues")
 
-    cmd.delete('low_conf_residues')
+    cmd.delete("low_conf_residues")
 
     # Now remove small fragments
     # Get all objects in the selection
@@ -116,14 +116,14 @@ def delete_low_plddt(
 
     for obj in objects:
         # Get all chains in this object
-        chains = cmd.get_chains(f'{obj} and ({selection})')
+        chains = cmd.get_chains(f"{obj} and ({selection})")
 
         for chain in chains:
-            chain_sel = f'{obj} and chain {chain}' if chain else f'{obj} and chain ""'
+            chain_sel = f"{obj} and chain {chain}" if chain else f'{obj} and chain ""'
 
             # Get residue indices as a list
             stored.residues = []
-            cmd.iterate(f'{chain_sel} and name CA', 'stored.residues.append(resi)')
+            cmd.iterate(f"{chain_sel} and name CA", "stored.residues.append(resi)")
 
             if not stored.residues:
                 continue
@@ -139,7 +139,7 @@ def delete_low_plddt(
             current_fragment = [resi_list[0]]
 
             for i in range(1, len(resi_list)):
-                if resi_list[i] == resi_list[i-1] + 1:
+                if resi_list[i] == resi_list[i - 1] + 1:
                     current_fragment.append(resi_list[i])
                 else:
                     fragments.append(current_fragment)
@@ -149,15 +149,15 @@ def delete_low_plddt(
             # Remove fragments smaller than min_fragment_size
             for frag in fragments:
                 if len(frag) < min_fragment_size:
-                    resi_range = '+'.join(str(r) for r in frag)
-                    cmd.remove(f'{chain_sel} and resi {resi_range}')
+                    resi_range = "+".join(str(r) for r in frag)
+                    cmd.remove(f"{chain_sel} and resi {resi_range}")
 
     n_atoms_after = cmd.count_atoms(selection)
 
     return n_atoms_before, n_atoms_after
 
 
-def color_chains_flat(selection: str = 'all') -> dict[str, str]:
+def color_chains_flat(selection: str = "all") -> dict[str, str]:
     """Color each chain with a unique flat pastel color (randomized)."""
     chains = cmd.get_chains(selection)
     palette_keys = list(FLAT_PALETTE.keys())
@@ -169,7 +169,7 @@ def color_chains_flat(selection: str = 'all') -> dict[str, str]:
     chain_colors = {}
     for i, chain in enumerate(sorted(chains)):
         color = shuffled_palette[i % 26]
-        cmd.color(color, f'{selection} and chain {chain}')
+        cmd.color(color, f"{selection} and chain {chain}")
         chain_colors[chain] = color
 
     return chain_colors
@@ -193,11 +193,11 @@ def render_structure(
     setup_flat_colors()
 
     # Load structure
-    obj_name = 'structure'
+    obj_name = "structure"
     cmd.load(str(pdb_path), obj_name)
 
     # Delete low pLDDT regions
-    n_before, n_after = delete_low_plddt(obj_name, cutoff=50.)
+    n_before, n_after = delete_low_plddt(obj_name, cutoff=50.0)
 
     # Check if anything remains
     if n_after == 0:
@@ -208,8 +208,8 @@ def render_structure(
     chains = cmd.get_chains(obj_name)
 
     # Show as surface and color by chain
-    cmd.hide('everything', obj_name)
-    cmd.show('surface', obj_name)
+    cmd.hide("everything", obj_name)
+    cmd.show("surface", obj_name)
     chain_colors = color_chains_flat(obj_name)
 
     setup_matte_lighting()
@@ -221,7 +221,7 @@ def render_structure(
     cmd.zoom(obj_name, buffer=10)
 
     # Generate output filename using unique identifier
-    sanitized_id = complex_id.replace(':', '_')
+    sanitized_id = complex_id.replace(":", "_")
     output_path = Path(output_dir) / f"{sanitized_id}.png"
 
     # Ensure output directory exists
@@ -233,17 +233,17 @@ def render_structure(
 
     # Collect metadata
     metadata = {
-        'pdb_path': str(pdb_path),
-        'png_path': str(output_path.resolve()),
-        'atoms_before_filter': n_before,
-        'atoms_after_filter': n_after,
-        'chains': ','.join(sorted(chains)),
-        'chain_colors': ';'.join([f"{c}:{chain_colors.get(c, 'unknown')}" for c in sorted(chains)]),
-        'width_px': width,
-        'height_px': height,
-        'dpi': dpi,
-        'plddt_cutoff': 0.5,
-        'timestamp': datetime.now().isoformat(),
+        "pdb_path": str(pdb_path),
+        "png_path": str(output_path.resolve()),
+        "atoms_before_filter": n_before,
+        "atoms_after_filter": n_after,
+        "chains": ",".join(sorted(chains)),
+        "chain_colors": ";".join([f"{c}:{chain_colors.get(c, 'unknown')}" for c in sorted(chains)]),
+        "width_px": width,
+        "height_px": height,
+        "dpi": dpi,
+        "plddt_cutoff": 0.5,
+        "timestamp": datetime.now().isoformat(),
     }
 
     return metadata
@@ -252,19 +252,17 @@ def render_structure(
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description='Batch render protein structures as matte surface visualizations.',
+        description="Batch render protein structures as matte surface visualizations.",
     )
     parser.add_argument(
-        '-i', '--input-tsv',
-        type=str,
-        default='af3_analysis_summary.tsv',
-        help='TSV with PDB and namespace information'
+        "-i", "--input-tsv", type=str, default="af3_analysis_summary.tsv", help="TSV with PDB and namespace information"
     )
     parser.add_argument(
-        '-o', '--output-dir',
+        "-o",
+        "--output-dir",
         type=str,
-        default='rendered_structures',
-        help='Output directory for PNGs and metadata (default: rendered_structures)'
+        default="rendered_structures",
+        help="Output directory for PNGs and metadata (default: rendered_structures)",
     )
     return parser.parse_args()
 
@@ -273,9 +271,9 @@ def main():
     """Main entry point for batch rendering."""
     args = parse_args()
 
-    df = pd.read_csv(args.input_tsv, sep='\t')
-    pdb_files = list(df['af3_pdb_path'])
-    complex_ids = list(df['complex_id'])
+    df = pd.read_csv(args.input_tsv, sep="\t")
+    pdb_files = list(df["af3_pdb_path"])
+    complex_ids = list(df["complex_id"])
 
     if not pdb_files:
         print(f"No PDB files found in file {args.input_tsv}")
@@ -290,44 +288,54 @@ def main():
 
     all_metadata = []
     for i, (pdb_path, complex_id) in enumerate(zip(pdb_files, complex_ids)):
-        print(f"\n[{i+1}/{len(pdb_files)}] Processing {complex_id} at {pdb_path}")
+        print(f"\n[{i + 1}/{len(pdb_files)}] Processing {complex_id} at {pdb_path}")
         try:
             metadata = render_structure(pdb_path, complex_id, output_dir)
             if metadata:
                 all_metadata.append(metadata)
                 print(f"  Saved: {metadata['png_path']}")
-                print(f"  Atoms: {metadata['atoms_before_filter']} -> {metadata['atoms_after_filter']} (after pLDDT filter)")
+                print(
+                    f"  Atoms: {metadata['atoms_before_filter']} -> {metadata['atoms_after_filter']} (after pLDDT filter)"
+                )
         except Exception as e:
             print(f"  ERROR: {e}")
             import traceback
+
             traceback.print_exc()
         sys.stdout.flush()
 
     if all_metadata:
         # Write metadata TSV.
-        tsv_path = output_dir / 'rendering_metadata.tsv'
+        tsv_path = output_dir / "rendering_metadata.tsv"
         fieldnames = [
-            'pdb_path', 'png_path', 'atoms_before_filter', 'atoms_after_filter',
-            'chains', 'chain_colors', 'width_px', 'height_px', 'dpi',
-            'plddt_cutoff', 'timestamp'
+            "pdb_path",
+            "png_path",
+            "atoms_before_filter",
+            "atoms_after_filter",
+            "chains",
+            "chain_colors",
+            "width_px",
+            "height_px",
+            "dpi",
+            "plddt_cutoff",
+            "timestamp",
         ]
 
-        with open(tsv_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter='\t')
+        with open(tsv_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
             writer.writeheader()
             writer.writerows(all_metadata)
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Rendering complete!")
         print(f"  Images: {len(all_metadata)} PNGs in {output_dir}/")
         print(f"  Metadata: {tsv_path}")
     else:
         print("\nNo structures were successfully rendered.")
 
-
     # Cleanup PyMOL
     cmd.quit()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

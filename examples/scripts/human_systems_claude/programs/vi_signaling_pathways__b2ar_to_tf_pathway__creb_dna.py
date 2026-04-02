@@ -33,15 +33,15 @@ from proto_language.language.optimizer import TopKOptimizer, TopKOptimizerConfig
 # Other Borzoi constants.
 BORZOI_OUTPUT_RESOLUTION = 32
 BORZOI_FLANK = 163_840
-BORZOI_HUMAN_TARGETS = 'examples/data/borzoi_targets_human.txt'
+BORZOI_HUMAN_TARGETS = "examples/data/borzoi_targets_human.txt"
 BORZOI_N_HUMAN_TARGETS = 7_611
 
 # Design constants.
 N_SAMPLES = 300
 DESIGN_SEQ_LENGTH = 512
-PROMPT_FNAME = 'examples/data/creb_dna_design_prompt.fasta'
-LEFT_FLANK_FNAME = 'examples/data/creb_dna_design_left_flank.fasta'
-RIGHT_FLANK_FNAME = 'examples/data/creb_dna_design_right_flank.fasta'
+PROMPT_FNAME = "examples/data/creb_dna_design_prompt.fasta"
+LEFT_FLANK_FNAME = "examples/data/creb_dna_design_left_flank.fasta"
+RIGHT_FLANK_FNAME = "examples/data/creb_dna_design_right_flank.fasta"
 
 
 def _borzoi_input_to_output_mask(input_mask: np.ndarray[bool]) -> np.ndarray[bool]:
@@ -102,7 +102,7 @@ class BorzoiDNADesignConfig(BaseConfig):
     activity_threshold: float = ConfigField(
         title="Activity Threshold",
         description="Maximum activity threshold",
-        default=200.,
+        default=200.0,
     )
 
     verbose: bool = ConfigField(
@@ -140,7 +140,7 @@ def _borzoi_creb_dna_design(
     for comp in complexes:
         sequence = "".join(str(subseq) for subseq in comp)
 
-        sequence = sequence.replace('N', 'A')  # Hack as Borzoi does not accept Ns.
+        sequence = sequence.replace("N", "A")  # Hack as Borzoi does not accept Ns.
 
         borzoi_input = BorzoiInput(sequence=str(sequence))
 
@@ -151,8 +151,8 @@ def _borzoi_creb_dna_design(
         prediction = np.array(borzoi_output.prediction[0])
         activity_score = prediction[config.output_mask].mean()
 
-        assert activity_score >= 0.
-        score = 1. - (min(activity_score, config.activity_threshold) / config.activity_threshold)
+        assert activity_score >= 0.0
+        score = 1.0 - (min(activity_score, config.activity_threshold) / config.activity_threshold)
         scores.append(score)
 
     return scores
@@ -168,34 +168,34 @@ def create_creb_dna_program() -> Program:
     # =============================================================================
 
     # DNA prompts and contexts.
-    creb_dna_prompt = str(SeqIO.read(PROMPT_FNAME, 'fasta').seq)
+    creb_dna_prompt = str(SeqIO.read(PROMPT_FNAME, "fasta").seq)
 
-    left_flank_seq = str(SeqIO.read(LEFT_FLANK_FNAME, 'fasta').seq)
+    left_flank_seq = str(SeqIO.read(LEFT_FLANK_FNAME, "fasta").seq)
     assert len(left_flank_seq) >= BORZOI_CONTEXT // 2
 
-    right_flank_seq = str(SeqIO.read(RIGHT_FLANK_FNAME, 'fasta').seq)
+    right_flank_seq = str(SeqIO.read(RIGHT_FLANK_FNAME, "fasta").seq)
     assert len(right_flank_seq) >= BORZOI_CONTEXT // 2
 
     # Lengths and masks.
-    len_left_flank = math.ceil((BORZOI_CONTEXT - DESIGN_SEQ_LENGTH) / 2.)
-    len_right_flank = math.floor((BORZOI_CONTEXT - DESIGN_SEQ_LENGTH) / 2.)
+    len_left_flank = math.ceil((BORZOI_CONTEXT - DESIGN_SEQ_LENGTH) / 2.0)
+    len_right_flank = math.floor((BORZOI_CONTEXT - DESIGN_SEQ_LENGTH) / 2.0)
 
-    input_design_mask = np.concatenate([
-        np.zeros(len_left_flank),
-        np.ones(DESIGN_SEQ_LENGTH),
-        np.zeros(len_right_flank),
-    ]).astype(bool)
+    input_design_mask = np.concatenate(
+        [
+            np.zeros(len_left_flank),
+            np.ones(DESIGN_SEQ_LENGTH),
+            np.zeros(len_right_flank),
+        ]
+    ).astype(bool)
     assert len(input_design_mask) == BORZOI_CONTEXT
     output_design_mask = _borzoi_input_to_output_mask(input_design_mask)
 
     # Borzoi tracks.
-    chip_seq_track = 'CHIP:CREB1:HepG2'
-    borzoi_target_df = pd.read_csv(BORZOI_HUMAN_TARGETS, sep='\t')
+    chip_seq_track = "CHIP:CREB1:HepG2"
+    borzoi_target_df = pd.read_csv(BORZOI_HUMAN_TARGETS, sep="\t")
     assert len(borzoi_target_df) == BORZOI_N_HUMAN_TARGETS
-    all_tracks = list(borzoi_target_df['description'])
-    creb1_tracks = [
-        idx for idx, track in enumerate(all_tracks) if chip_seq_track in track
-    ]
+    all_tracks = list(borzoi_target_df["description"])
+    creb1_tracks = [idx for idx, track in enumerate(all_tracks) if chip_seq_track in track]
 
     # =============================================================================
     # Segments, Constructs, and Generators
@@ -214,17 +214,13 @@ def create_creb_dna_program() -> Program:
         sequence_type="dna",
     )
 
-    borzoi_input_construct = Construct([
-        left_flank_borzoi,
-        creb_dna,
-        right_flank_borzoi
-    ])
+    borzoi_input_construct = Construct([left_flank_borzoi, creb_dna, right_flank_borzoi])
 
     evo2_config = Evo2GeneratorConfig(
         prompts=[creb_dna_prompt] * N_SAMPLES,
-        model_checkpoint='evo2_7b',
+        model_checkpoint="evo2_7b",
         top_k=4,
-        top_p=1.,
+        top_p=1.0,
         temperature=0.5,
         force_prompt_threshold=1,
         stop_at_eos=False,
@@ -248,16 +244,16 @@ def create_creb_dna_program() -> Program:
             inputs=borzoi_input_construct.segments,
             function=_borzoi_creb_dna_design,
             function_config={
-                'borzoi_config': {
-                    'output_tracks': creb1_tracks,
-                    'species': 'human',
-                    'replicate': borzoi_replicate,
+                "borzoi_config": {
+                    "output_tracks": creb1_tracks,
+                    "species": "human",
+                    "replicate": borzoi_replicate,
                 },
-                'output_mask': output_design_mask,
-                'activity_threshold': 200.,
-                'verbose': True,
+                "output_mask": output_design_mask,
+                "activity_threshold": 200.0,
+                "verbose": True,
             },
-            label=f'borzoi_creb_dna_design_{i}',
+            label=f"borzoi_creb_dna_design_{i}",
         )
         constraints.append(constraint_borzoi_replicate)
 
@@ -294,7 +290,7 @@ def generate_creb_dna_sequence() -> str:
     return creb_dna
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     creb_dna = generate_creb_dna_sequence()
 
-    print('Generated CREB sequence:', creb_dna)
+    print("Generated CREB sequence:", creb_dna)

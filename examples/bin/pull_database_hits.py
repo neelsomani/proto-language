@@ -4,7 +4,6 @@ Usage: pull_database_hits.py input_fasta output_dir --database-path mmseqs_db
 Save all of the near-length sequences in an input UniProt FASTA retrieved from an
 mmseqs database.
 """
-from __future__ import annotations
 
 import argparse
 import os
@@ -31,7 +30,7 @@ def run_pipeline(sequences: list[str], uniprot_ids: list[str], output_dir: str) 
 
     for i, (seq, uniprot_id) in enumerate(zip(sequences, uniprot_ids)):
         query_id = uniprot_id
-        print(f"[{i+1}/{len(sequences)}] Processing {query_id} (Length: {len(seq)})...")
+        print(f"[{i + 1}/{len(sequences)}] Processing {query_id} (Length: {len(seq)})...")
 
         # 1. Create a temporary query FASTA for this single sequence.
         query_fasta = os.path.join(TMP_DIR, "query.fasta")
@@ -47,14 +46,18 @@ def run_pipeline(sequences: list[str], uniprot_ids: list[str], output_dir: str) 
         # -s 6.0 is a sensitivity setting (higher is slower/more sensitive, default is 5.7)
         # --max-seqs 2000 prevents massive files if the protein is common
         cmd = [
-            "mmseqs", "easy-search",
+            "mmseqs",
+            "easy-search",
             query_fasta,
             DB_PATH,
             mmseqs_out,
             TMP_DIR,
-            "--format-output", "query,target,qlen,tlen,tseq",
-            "-s", "6.0",
-            "-e", "1e-5"
+            "--format-output",
+            "query,target,qlen,tlen,tseq",
+            "-s",
+            "6.0",
+            "-e",
+            "1e-5",
         ]
 
         try:
@@ -104,9 +107,7 @@ def run_pipeline(sequences: list[str], uniprot_ids: list[str], output_dir: str) 
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Get database hits for a list of sequences"
-    )
+    parser = argparse.ArgumentParser(description="Get database hits for a list of sequences")
     parser.add_argument(
         "input_fasta",
         type=str,
@@ -132,8 +133,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     sequences, uniprot_ids = [], []
-    for record in SeqIO.parse(args.input_fasta, 'fasta'):
-        uniprot_id = record.id.split('|')[1]
+    for record in SeqIO.parse(args.input_fasta, "fasta"):
+        uniprot_id = record.id.split("|")[1]
         seq = str(record.seq)
         sequences.append(seq)
         uniprot_ids.append(uniprot_id)

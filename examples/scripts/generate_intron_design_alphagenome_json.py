@@ -8,7 +8,6 @@ Usage:
     python examples/scripts/generate_intron_design_alphagenome_json.py \
         --output examples/jsons/intron_design_alphagenome.json
 """
-from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -59,15 +58,19 @@ def _build_json() -> dict[str, Any]:
         gene_insertion_pos=GENE_INSERTION_POS,
     )
     (
-        _left_ctx, _right_ctx, target_seq,
-        _gene_start, _gene_end,
-        donor_start_pos, acceptor_end_pos,
+        _left_ctx,
+        _right_ctx,
+        target_seq,
+        _gene_start,
+        _gene_end,
+        donor_start_pos,
+        acceptor_end_pos,
     ) = process_splice_transformer_input(initial_intron, splice_args)
 
     # Segment boundaries within the 1kb target.
-    left_flank_seq = target_seq[:donor_start_pos + 2]
-    intron_core_seq = target_seq[donor_start_pos + 2:acceptor_end_pos - 1]
-    right_flank_seq = target_seq[acceptor_end_pos - 1:]
+    left_flank_seq = target_seq[: donor_start_pos + 2]
+    intron_core_seq = target_seq[donor_start_pos + 2 : acceptor_end_pos - 1]
+    right_flank_seq = target_seq[acceptor_end_pos - 1 :]
 
     # Splice evaluation positions (target-relative).
     donor_eval_pos = donor_start_pos - 1
@@ -99,40 +102,48 @@ def _build_json() -> dict[str, Any]:
             gene_insertion_pos=GENE_INSERTION_POS,
         )
         (
-            left_context, right_context, _target_seq,
-            _gene_start, _gene_end,
-            _donor_start, _acceptor_end,
+            left_context,
+            right_context,
+            _target_seq,
+            _gene_start,
+            _gene_end,
+            _donor_start,
+            _acceptor_end,
         ) = process_splice_transformer_input(initial_intron, splice_args)
 
         # SpliceTransformer boundary constraint.
-        constraints.append({
-            "id": f"splice_boundary_{plasmid_label}_{context_idx}",
-            "key": "splice-transformer-intron-boundary",
-            "label": f"splice_boundary__{plasmid_label}__{context_idx}",
-            "targets": ["left_flank", "intron", "right_flank"],
-            "config": {
-                "left_context": left_context,
-                "right_context": right_context,
-                "donor_pos": [donor_eval_pos],
-                "acceptor_pos": [acceptor_eval_pos],
-            },
-        })
-
-        # SpliceTransformer specificity constraints (brain max, blood min).
-        for tissue, direction in [("BRAIN", "max"), ("BLOOD", "min")]:
-            constraints.append({
-                "id": f"splice_specificity_{tissue.lower()}_{direction}_{plasmid_label}_{context_idx}",
-                "key": "splice-transformer-specificity",
-                "label": f"splice_specificity_{tissue.lower()}_{direction}__{plasmid_label}__{context_idx}",
+        constraints.append(
+            {
+                "id": f"splice_boundary_{plasmid_label}_{context_idx}",
+                "key": "splice-transformer-intron-boundary",
+                "label": f"splice_boundary__{plasmid_label}__{context_idx}",
                 "targets": ["left_flank", "intron", "right_flank"],
                 "config": {
                     "left_context": left_context,
                     "right_context": right_context,
-                    "splice_pos": splice_pos,
-                    "tissue": tissue,
-                    "direction": direction,
+                    "donor_pos": [donor_eval_pos],
+                    "acceptor_pos": [acceptor_eval_pos],
                 },
-            })
+            }
+        )
+
+        # SpliceTransformer specificity constraints (brain max, blood min).
+        for tissue, direction in [("BRAIN", "max"), ("BLOOD", "min")]:
+            constraints.append(
+                {
+                    "id": f"splice_specificity_{tissue.lower()}_{direction}_{plasmid_label}_{context_idx}",
+                    "key": "splice-transformer-specificity",
+                    "label": f"splice_specificity_{tissue.lower()}_{direction}__{plasmid_label}__{context_idx}",
+                    "targets": ["left_flank", "intron", "right_flank"],
+                    "config": {
+                        "left_context": left_context,
+                        "right_context": right_context,
+                        "splice_pos": splice_pos,
+                        "tissue": tissue,
+                        "direction": direction,
+                    },
+                }
+            )
 
         # AlphaGenome SSU constraints across genomic contexts.
         for genomic_idx, genomic_path in enumerate(GENOMIC_CONTEXT_PATHS):
@@ -143,27 +154,29 @@ def _build_json() -> dict[str, Any]:
                 ("brain", "CL:0002319", "max"),
                 ("blood", "EFO:0002067", "min"),
             ]:
-                constraints.append({
-                    "id": f"ag_ssu_{tissue_label}_{direction}_{plasmid_label}_{context_idx}_{genomic_label}_{genomic_idx}",
-                    "key": "alphagenome-splice-site-usage",
-                    "label": (
-                        f"alphagenome_ssu_{tissue_label}_{direction}__"
-                        f"{plasmid_label}__{genomic_label}__{context_idx}_{genomic_idx}"
-                    ),
-                    "targets": ["left_flank", "intron", "right_flank"],
-                    "weight": 1.0,
-                    "config": {
-                        "genomic_context": genomic_context,
-                        "cassette_left_context": left_context,
-                        "cassette_right_context": right_context,
-                        "ontology_terms": [ontology],
-                        "splice_pos": splice_pos,
-                        "direction": direction,
-                        "strand": "positive",
-                        "model_version": "all_folds",
-                        "organism": "human",
-                    },
-                })
+                constraints.append(
+                    {
+                        "id": f"ag_ssu_{tissue_label}_{direction}_{plasmid_label}_{context_idx}_{genomic_label}_{genomic_idx}",
+                        "key": "alphagenome-splice-site-usage",
+                        "label": (
+                            f"alphagenome_ssu_{tissue_label}_{direction}__"
+                            f"{plasmid_label}__{genomic_label}__{context_idx}_{genomic_idx}"
+                        ),
+                        "targets": ["left_flank", "intron", "right_flank"],
+                        "weight": 1.0,
+                        "config": {
+                            "genomic_context": genomic_context,
+                            "cassette_left_context": left_context,
+                            "cassette_right_context": right_context,
+                            "ontology_terms": [ontology],
+                            "splice_pos": splice_pos,
+                            "direction": direction,
+                            "strand": "positive",
+                            "model_version": "all_folds",
+                            "organism": "human",
+                        },
+                    }
+                )
 
     program = {
         "name": "intron_design_alphagenome",

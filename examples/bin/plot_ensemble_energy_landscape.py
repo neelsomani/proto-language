@@ -8,8 +8,6 @@ Example:
     python plot_ensemble_energy_landscape.py 1ake.pdb 4ake.pdb topology.pdb samples.xtc landscape.svg
 """
 
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
 
@@ -26,13 +24,13 @@ from proto_language.language.constraint.protein_structure.structure_ensemble_sim
     _extract_chain_from_pdb,
 )
 
-mpl.rcParams['font.family'] = 'Liberation Sans'
-mpl.rcParams['font.size'] = 6
-mpl.rcParams['axes.linewidth'] = 0.5
-mpl.rcParams['xtick.major.width'] = 0.5
-mpl.rcParams['ytick.major.width'] = 0.5
-mpl.rcParams['xtick.major.size'] = 2
-mpl.rcParams['ytick.major.size'] = 2
+mpl.rcParams["font.family"] = "Liberation Sans"
+mpl.rcParams["font.size"] = 6
+mpl.rcParams["axes.linewidth"] = 0.5
+mpl.rcParams["xtick.major.width"] = 0.5
+mpl.rcParams["ytick.major.width"] = 0.5
+mpl.rcParams["xtick.major.size"] = 2
+mpl.rcParams["ytick.major.size"] = 2
 
 
 def extract_pdb_id(filename: str) -> str:
@@ -50,7 +48,7 @@ def load_ensemble_frames(topology_path: str, trajectory_path: str) -> list[str]:
     frames = []
     for i in range(traj.n_frames):
         frame = traj[i]
-        with tempfile.NamedTemporaryFile(suffix='.pdb', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".pdb", delete=False) as tmp:
             frame.save_pdb(tmp.name)
             with open(tmp.name) as f:
                 frames.append(f.read())
@@ -102,8 +100,8 @@ def free_energy_landscape(
     x = np.asarray(x)
     y = np.asarray(y)
 
-    xmax = 25#max(np.max(x), 30)
-    ymax = 25#max(np.max(y), 30)
+    xmax = 25  # max(np.max(x), 30)
+    ymax = 25  # max(np.max(y), 30)
 
     # 2D histogram
     H, xedges, yedges = np.histogram2d(
@@ -126,15 +124,12 @@ def free_energy_landscape(
     X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
 
     # Pastel colormap
-    colors = [
-        '#4A90A4', '#7FB5C5', '#B5D8E0', '#F5F5DC',
-        '#F8D9C4', '#F4A582', '#D6604D'
-    ]
-    pastel_cmap = mpl.colors.LinearSegmentedColormap.from_list('pastel_energy', colors)
+    colors = ["#4A90A4", "#7FB5C5", "#B5D8E0", "#F5F5DC", "#F8D9C4", "#F4A582", "#D6604D"]
+    pastel_cmap = mpl.colors.LinearSegmentedColormap.from_list("pastel_energy", colors)
 
     levels = np.linspace(0, vmax, 20)
-    cf = ax.contourf(X, Y, F.T, levels=levels, cmap=pastel_cmap, extend='max')
-    ax.contour(X, Y, F.T, levels=levels[::4], colors='white', linewidths=0.3, alpha=0.6)
+    cf = ax.contourf(X, Y, F.T, levels=levels, cmap=pastel_cmap, extend="max")
+    ax.contour(X, Y, F.T, levels=levels[::4], colors="white", linewidths=0.3, alpha=0.6)
 
     # Colorbar
     cbar = fig.colorbar(cf, ax=ax, shrink=0.8, aspect=10, pad=0.02)
@@ -150,9 +145,9 @@ def free_energy_landscape(
     if output_path:
         fig.savefig(
             output_path,
-            format='svg',
+            format="svg",
             dpi=300,
-            bbox_inches='tight',
+            bbox_inches="tight",
             pad_inches=0.01,
             transparent=False,
         )
@@ -231,10 +226,7 @@ def main() -> None:
     # Extract chain from ensemble if specified
     if args.chain_ensemble:
         print(f"Extracting chain {args.chain_ensemble} from ensemble frames...")
-        ensemble_frames = [
-            _extract_chain_from_pdb(frame, args.chain_ensemble)
-            for frame in ensemble_frames
-        ]
+        ensemble_frames = [_extract_chain_from_pdb(frame, args.chain_ensemble) for frame in ensemble_frames]
 
     # Compute RMSDs to both references
     print(f"Computing RMSDs to {pdb1_id}...")

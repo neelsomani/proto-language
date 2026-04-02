@@ -66,9 +66,9 @@ def script_has_custom_modifications(script_path: str) -> bool:
 def sanitize_filename(s: str) -> str:
     """Convert a string to a valid filename component."""
     # Replace spaces and special chars with underscores
-    s = re.sub(r'[^\w\s-]', '', s)
-    s = re.sub(r'[\s-]+', '_', s)
-    s = s.strip('_').lower()
+    s = re.sub(r"[^\w\s-]", "", s)
+    s = re.sub(r"[\s-]+", "_", s)
+    s = s.strip("_").lower()
     return s
 
 
@@ -92,13 +92,13 @@ def parse_complex_string(complex_str: str) -> list[dict[str, Any]]:
     complexes = []
 
     # Split by semicolon (multiple complexes per cell)
-    for part in complex_str.split(';'):
+    for part in complex_str.split(";"):
         part = part.strip()
         if not part:
             continue
 
         # Parse TYPE::NAME::GENES format
-        tokens = part.split('::')
+        tokens = part.split("::")
         if len(tokens) < 3:
             print(f"WARNING: Could not parse complex string: {part}")
             continue
@@ -108,16 +108,18 @@ def parse_complex_string(complex_str: str) -> list[dict[str, Any]]:
         genes_str = tokens[2].strip()
 
         # Parse gene list
-        gene_ids = [g.strip() for g in genes_str.split(',') if g.strip()]
+        gene_ids = [g.strip() for g in genes_str.split(",") if g.strip()]
 
         complex_id = f"{complex_type}::{complex_name}"
 
-        complexes.append({
-            'complex_id': complex_id,
-            'complex_type': complex_type,
-            'complex_name': complex_name,
-            'gene_ids': gene_ids,
-        })
+        complexes.append(
+            {
+                "complex_id": complex_id,
+                "complex_type": complex_type,
+                "complex_name": complex_name,
+                "gene_ids": gene_ids,
+            }
+        )
 
     return complexes
 
@@ -137,17 +139,17 @@ def parse_pdb_string(pdb_str: str) -> list[str]:
     pdb_ids = []
 
     # Split by comma
-    for part in pdb_str.split(','):
+    for part in pdb_str.split(","):
         part = part.strip()
         if not part:
             continue
 
         # Remove annotations like "(RCSB PDB)"
-        part = re.sub(r'\s*\([^)]*\)\s*', '', part)
+        part = re.sub(r"\s*\([^)]*\)\s*", "", part)
         part = part.strip()
 
         # Validate PDB ID format (4 alphanumeric characters)
-        if re.match(r'^[A-Za-z0-9]{4}$', part):
+        if re.match(r"^[A-Za-z0-9]{4}$", part):
             pdb_ids.append(part.upper())
         else:
             print(f"WARNING: Invalid PDB ID format: {part}")
@@ -162,8 +164,8 @@ def build_pdb_mapping(df_pdb: pd.DataFrame) -> dict[str, list[str]]:
     mapping = {}
 
     for _, row in df_pdb.iterrows():
-        complex_label = row['Complex label (yours)']
-        pdb_str = row['Representative multimer PDB(s)']
+        complex_label = row["Complex label (yours)"]
+        pdb_str = row["Representative multimer PDB(s)"]
 
         if pd.isna(complex_label):
             continue
@@ -172,7 +174,7 @@ def build_pdb_mapping(df_pdb: pd.DataFrame) -> dict[str, list[str]]:
         complex_label = complex_label.strip()
 
         # Skip annotation rows (those starting with parentheses)
-        if complex_label.startswith('('):
+        if complex_label.startswith("("):
             continue
 
         pdb_ids = parse_pdb_string(pdb_str)
@@ -195,10 +197,10 @@ def generate_row_config(
         Tuple of (filename_base, config_dict)
     """
     # Extract row metadata
-    category = row['Category'] if pd.notna(row['Category']) else ''
-    pathway = row['Pathway / Complex'] if pd.notna(row['Pathway / Complex']) else ''
-    component = row['Component / Role'] if pd.notna(row['Component / Role']) else ''
-    complexes_str = row['Complexes'] if pd.notna(row['Complexes']) else ''
+    category = row["Category"] if pd.notna(row["Category"]) else ""
+    pathway = row["Pathway / Complex"] if pd.notna(row["Pathway / Complex"]) else ""
+    component = row["Component / Role"] if pd.notna(row["Component / Role"]) else ""
+    complexes_str = row["Complexes"] if pd.notna(row["Complexes"]) else ""
 
     # Build filename
     parts = []
@@ -209,7 +211,7 @@ def generate_row_config(
     if component:
         parts.append(sanitize_filename(component))
 
-    filename_base = '__'.join(parts) if parts else f'row_{row_idx:02d}'
+    filename_base = "__".join(parts) if parts else f"row_{row_idx:02d}"
 
     # Parse complexes
     complexes = parse_complex_string(complexes_str)
@@ -218,7 +220,7 @@ def generate_row_config(
     all_gene_ids = []
     seen_genes = set()
     for comp in complexes:
-        for gene in comp['gene_ids']:
+        for gene in comp["gene_ids"]:
             if gene not in seen_genes:
                 all_gene_ids.append(gene)
                 seen_genes.add(gene)
@@ -226,31 +228,31 @@ def generate_row_config(
     # Enrich each complex with stoichiometry and PDB IDs
     enriched_complexes = []
     for comp in complexes:
-        stoichiometry, inferred = get_stoichiometry(
-            comp['complex_id'], comp['gene_ids']
+        stoichiometry, inferred = get_stoichiometry(comp["complex_id"], comp["gene_ids"])
+
+        pdb_ids = pdb_mapping.get(comp["complex_id"], [])
+
+        enriched_complexes.append(
+            {
+                "complex_id": comp["complex_id"],
+                "complex_type": comp["complex_type"],
+                "complex_name": comp["complex_name"],
+                "gene_ids": comp["gene_ids"],
+                "stoichiometry": stoichiometry,
+                "stoichiometry_inferred": inferred,
+                "pdb_ids": pdb_ids,
+            }
         )
 
-        pdb_ids = pdb_mapping.get(comp['complex_id'], [])
-
-        enriched_complexes.append({
-            'complex_id': comp['complex_id'],
-            'complex_type': comp['complex_type'],
-            'complex_name': comp['complex_name'],
-            'gene_ids': comp['gene_ids'],
-            'stoichiometry': stoichiometry,
-            'stoichiometry_inferred': inferred,
-            'pdb_ids': pdb_ids,
-        })
-
     config = {
-        'row_index': row_idx,
-        'category': category,
-        'pathway': pathway,
-        'component': component,
-        'filename_base': filename_base,
-        'complexes': enriched_complexes,
-        'all_gene_ids': all_gene_ids,
-        'n_steps_per_generator': 3,
+        "row_index": row_idx,
+        "category": category,
+        "pathway": pathway,
+        "component": component,
+        "filename_base": filename_base,
+        "complexes": enriched_complexes,
+        "all_gene_ids": all_gene_ids,
+        "n_steps_per_generator": 3,
     }
 
     return filename_base, config
@@ -260,10 +262,10 @@ def generate_program_script(config: dict[str, Any]) -> str:
     """
     Generate Python script content for a row configuration.
     """
-    filename_base = config['filename_base']
-    category = config['category']
-    pathway = config['pathway']
-    component = config['component']
+    filename_base = config["filename_base"]
+    category = config["category"]
+    pathway = config["pathway"]
+    component = config["component"]
 
     script = f'''#!/usr/bin/env python3
 """
@@ -405,28 +407,16 @@ if __name__ == '__main__':
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Generate configs and programs for human complex diversification'
+    parser = argparse.ArgumentParser(description="Generate configs and programs for human complex diversification")
+    parser.add_argument("--excel", "-e", required=True, help="Path to the Excel spreadsheet")
+    parser.add_argument(
+        "--output-dir", "-o", default=".", help="Output directory for configs and programs (default: current directory)"
     )
     parser.add_argument(
-        '--excel', '-e',
-        required=True,
-        help='Path to the Excel spreadsheet'
+        "--dry-run", "-n", action="store_true", help="Print what would be generated without writing files"
     )
     parser.add_argument(
-        '--output-dir', '-o',
-        default='.',
-        help='Output directory for configs and programs (default: current directory)'
-    )
-    parser.add_argument(
-        '--dry-run', '-n',
-        action='store_true',
-        help='Print what would be generated without writing files'
-    )
-    parser.add_argument(
-        '--force', '-f',
-        action='store_true',
-        help='Overwrite program scripts even if they have custom modifications'
+        "--force", "-f", action="store_true", help="Overwrite program scripts even if they have custom modifications"
     )
 
     args = parser.parse_args()
@@ -435,8 +425,8 @@ def main():
     print(f"Reading Excel file: {args.excel}")
     xlsx = pd.ExcelFile(args.excel)
 
-    df_complexes = pd.read_excel(xlsx, sheet_name='Complexes')
-    df_pdb = pd.read_excel(xlsx, sheet_name='PDB IDs')
+    df_complexes = pd.read_excel(xlsx, sheet_name="Complexes")
+    df_pdb = pd.read_excel(xlsx, sheet_name="PDB IDs")
 
     print(f"Found {len(df_complexes)} rows in Complexes sheet")
     print(f"Found {len(df_pdb)} rows in PDB IDs sheet")
@@ -446,15 +436,15 @@ def main():
     print(f"Built PDB mapping for {len(pdb_mapping)} complexes")
 
     # Create output directories
-    configs_dir = os.path.join(args.output_dir, 'configs')
-    programs_dir = os.path.join(args.output_dir, 'programs')
+    configs_dir = os.path.join(args.output_dir, "configs")
+    programs_dir = os.path.join(args.output_dir, "programs")
 
     if not args.dry_run:
         os.makedirs(configs_dir, exist_ok=True)
         os.makedirs(programs_dir, exist_ok=True)
 
     # Forward-fill the Category column (it's merged in Excel)
-    df_complexes['Category'] = df_complexes['Category'].ffill()
+    df_complexes["Category"] = df_complexes["Category"].ffill()
 
     # Generate configs and programs for each row
     generated = []
@@ -462,19 +452,19 @@ def main():
 
     for row_idx, row in df_complexes.iterrows():
         # Skip rows without complexes
-        if pd.isna(row['Complexes']) or not row['Complexes'].strip():
+        if pd.isna(row["Complexes"]) or not row["Complexes"].strip():
             print(f"Skipping row {row_idx}: no complexes defined")
             continue
 
         filename_base, config = generate_row_config(row_idx, row, pdb_mapping)
 
         # Skip if no genes
-        if not config['all_gene_ids']:
+        if not config["all_gene_ids"]:
             print(f"Skipping row {row_idx} ({filename_base}): no genes parsed")
             continue
 
-        config_path = os.path.join(configs_dir, f'{filename_base}.json')
-        program_path = os.path.join(programs_dir, f'{filename_base}.py')
+        config_path = os.path.join(configs_dir, f"{filename_base}.json")
+        program_path = os.path.join(programs_dir, f"{filename_base}.py")
 
         # Check if program has been manually modified
         has_modifications = script_has_custom_modifications(program_path)
@@ -489,56 +479,64 @@ def main():
             print("  ⚠️  SKIPPING: Program has custom modifications (use --force to overwrite)")
             skipped_modified.append(filename_base)
             # Still add to generated list for manifest, but mark as skipped
-            generated.append({
-                'filename_base': filename_base,
-                'config_path': config_path,
-                'program_path': program_path,
-                'n_genes': len(config['all_gene_ids']),
-                'n_complexes': len(config['complexes']),
-                'has_custom_modifications': True,
-                'script_regenerated': False,
-            })
+            generated.append(
+                {
+                    "filename_base": filename_base,
+                    "config_path": config_path,
+                    "program_path": program_path,
+                    "n_genes": len(config["all_gene_ids"]),
+                    "n_complexes": len(config["complexes"]),
+                    "has_custom_modifications": True,
+                    "script_regenerated": False,
+                }
+            )
             # Still update the config (it's safe to overwrite)
             if not args.dry_run:
-                with open(config_path, 'w') as f:
+                with open(config_path, "w") as f:
                     json.dump(config, f, indent=2)
             continue
 
         if not args.dry_run:
             # Write config (always safe to update)
-            with open(config_path, 'w') as f:
+            with open(config_path, "w") as f:
                 json.dump(config, f, indent=2)
 
             # Write program
             script_content = generate_program_script(config)
-            with open(program_path, 'w') as f:
+            with open(program_path, "w") as f:
                 f.write(script_content)
             os.chmod(program_path, 0o755)
 
-        generated.append({
-            'filename_base': filename_base,
-            'config_path': config_path,
-            'program_path': program_path,
-            'n_genes': len(config['all_gene_ids']),
-            'n_complexes': len(config['complexes']),
-            'has_custom_modifications': False,
-            'script_regenerated': True,
-        })
+        generated.append(
+            {
+                "filename_base": filename_base,
+                "config_path": config_path,
+                "program_path": program_path,
+                "n_genes": len(config["all_gene_ids"]),
+                "n_complexes": len(config["complexes"]),
+                "has_custom_modifications": False,
+                "script_regenerated": True,
+            }
+        )
 
     # Write manifest
-    manifest_path = os.path.join(args.output_dir, 'manifest.json')
+    manifest_path = os.path.join(args.output_dir, "manifest.json")
     if not args.dry_run:
-        with open(manifest_path, 'w') as f:
-            json.dump({
-                'generated_at': pd.Timestamp.now().isoformat(),
-                'source_excel': os.path.abspath(args.excel),
-                'total_programs': len(generated),
-                'programs': generated,
-            }, f, indent=2)
+        with open(manifest_path, "w") as f:
+            json.dump(
+                {
+                    "generated_at": pd.Timestamp.now().isoformat(),
+                    "source_excel": os.path.abspath(args.excel),
+                    "total_programs": len(generated),
+                    "programs": generated,
+                },
+                f,
+                indent=2,
+            )
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("SUMMARY")
-    print('='*60)
+    print("=" * 60)
     print(f"Total programs: {len(generated)}")
     print(f"  - Regenerated: {sum(1 for g in generated if g.get('script_regenerated', True))}")
     print(f"  - Skipped (custom modifications): {len(skipped_modified)}")
@@ -557,5 +555,5 @@ def main():
         print("\n(dry run - no files written)")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -29,7 +29,7 @@ mutation_generator.assign(dna_segment)
 
 # Define GC content constraint
 gc_constraint = Constraint(
-inputs=[dna_segment],
+    inputs=[dna_segment],
     function=gc_content_constraint,
     function_config={"min_gc": 80, "max_gc": 100},
 )
@@ -43,6 +43,7 @@ def custom_logger(step, segments):
         # show metadata of each sequence in the segment
         for j, seq in enumerate(segment.result_sequences):
             print(seq._metadata)
+
 
 # Configure TopK optimizer (standard mode)
 topk_config = TopKOptimizerConfig(
@@ -58,8 +59,7 @@ optimizer = TopKOptimizer(
     generators=[mutation_generator],
     constraints=[gc_constraint],
     config=topk_config,
-    custom_logging=custom_logger
-
+    custom_logging=custom_logger,
 )
 
 # Run optimization
@@ -72,7 +72,7 @@ for i in range(optimizer.num_results):
     energy = optimizer.energy_scores[i]
 
     # Calculate actual GC content
-    gc_count = sequence.sequence.count('G') + sequence.sequence.count('C')
+    gc_count = sequence.sequence.count("G") + sequence.sequence.count("C")
     gc_percent = (gc_count / len(sequence.sequence)) * 100
 
-    print(f"  {i+1}. Energy: {energy:.6f}, GC: {gc_percent:.1f}%")
+    print(f"  {i + 1}. Energy: {energy:.6f}, GC: {gc_percent:.1f}%")

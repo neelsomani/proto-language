@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
     Constraint,
@@ -15,10 +13,10 @@ from proto_language.language.optimizer import TopKOptimizer, TopKOptimizerConfig
 # CONFIGURATION
 # ============================================================================
 BATCH_SIZE = 10
-PROMPTS = ["ATG"] * BATCH_SIZE # 200 prompts of 3 tokens each
-NUM_TOKENS: int = 1000 # Number of tokens to generate for each prompt
-MIN_GC: float = 80 # Minimum GC content
-MAX_GC: float = 90 # Maximum GC content
+PROMPTS = ["ATG"] * BATCH_SIZE  # 200 prompts of 3 tokens each
+NUM_TOKENS: int = 1000  # Number of tokens to generate for each prompt
+MIN_GC: float = 80  # Minimum GC content
+MAX_GC: float = 90  # Maximum GC content
 
 
 # Construct Segment

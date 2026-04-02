@@ -7,8 +7,6 @@ Usage: python pull_uniref_clusters.py input_ids.txt --cluster-type UniRef50 --do
 Input file should have one UniProt ID per line.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import time
@@ -219,7 +217,7 @@ def get_member_sequences_fasta(cluster_id: str, output_path: Path, members: list
 
     with open(output_path, "w") as f:
         for i in range(0, len(member_ids), chunk_size):
-            chunk = member_ids[i:i + chunk_size]
+            chunk = member_ids[i : i + chunk_size]
             # Build query using "id" field which matches entry names like ATP5E_HUMAN
             # and also matches accessions like P56381
             query = " OR ".join(f"id:{mid}" for mid in chunk)
@@ -235,7 +233,7 @@ def get_member_sequences_fasta(cluster_id: str, output_path: Path, members: list
                         if line.startswith(">"):
                             seq_count += 1
             except requests.HTTPError as e:
-                print(f"    Warning: Failed to fetch chunk {i//chunk_size + 1}: {e}")
+                print(f"    Warning: Failed to fetch chunk {i // chunk_size + 1}: {e}")
 
             if i + chunk_size < len(member_ids):
                 time.sleep(REQUEST_DELAY)
@@ -255,42 +253,26 @@ def load_uniprot_ids(input_path: Path) -> list[str]:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Map UniProt IDs to UniRef clusters and retrieve member sequences"
-    )
-    parser.add_argument(
-        "input_file",
-        type=Path,
-        help="File containing UniProt IDs, one per line"
-    )
+    parser = argparse.ArgumentParser(description="Map UniProt IDs to UniRef clusters and retrieve member sequences")
+    parser.add_argument("input_file", type=Path, help="File containing UniProt IDs, one per line")
     parser.add_argument(
         "--cluster-type",
         choices=["UniRef50", "UniRef90", "UniRef100"],
         default="UniRef50",
-        help="UniRef cluster type (default: UniRef50)"
+        help="UniRef cluster type (default: UniRef50)",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path("uniref_results"),
-        help="Output directory for results (default: uniref_results/)"
+        help="Output directory for results (default: uniref_results/)",
+    )
+    parser.add_argument("--download-sequences", action="store_true", help="Download FASTA sequences for each cluster")
+    parser.add_argument(
+        "--max-members", type=int, default=None, help="Maximum members to retrieve per cluster (for member info only)"
     )
     parser.add_argument(
-        "--download-sequences",
-        action="store_true",
-        help="Download FASTA sequences for each cluster"
-    )
-    parser.add_argument(
-        "--max-members",
-        type=int,
-        default=None,
-        help="Maximum members to retrieve per cluster (for member info only)"
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=500,
-        help="Number of IDs per batch for ID mapping (default: 500)"
+        "--batch-size", type=int, default=500, help="Number of IDs per batch for ID mapping (default: 500)"
     )
 
     args = parser.parse_args()
@@ -312,7 +294,7 @@ def main():
     all_mappings = {}
 
     for i in range(0, len(uniprot_ids), args.batch_size):
-        batch = uniprot_ids[i:i + args.batch_size]
+        batch = uniprot_ids[i : i + args.batch_size]
         batch_num = i // args.batch_size + 1
         total_batches = (len(uniprot_ids) + args.batch_size - 1) // args.batch_size
 
@@ -362,10 +344,7 @@ def main():
         try:
             # Get member metadata
             members = get_cluster_members(cluster_id, max_members=args.max_members)
-            cluster_info[cluster_id] = {
-                "member_count": len(members),
-                "members": members
-            }
+            cluster_info[cluster_id] = {"member_count": len(members), "members": members}
             print(f"    Retrieved {len(members)} members")
 
             # Optionally download sequences

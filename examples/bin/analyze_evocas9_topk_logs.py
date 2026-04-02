@@ -27,7 +27,6 @@ Usage:
     # Scan a directory:
     python examples/bin/analyze_evocas9_topk_logs.py --log-dir /path/to/logs/
 """
-from __future__ import annotations
 
 import argparse
 import glob
@@ -65,9 +64,7 @@ FILTER_DESCRIPTIONS = {
 }
 
 # Regex to match filter lines like "orf_filter: 38/150 have ORFs"
-FILTER_PATTERN = re.compile(
-    r"INFO:\s+(?:Filter \d+: )?(\w+?)(?:_filter)?:\s+(\d+)/(\d+)\s+"
-)
+FILTER_PATTERN = re.compile(r"INFO:\s+(?:Filter \d+: )?(\w+?)(?:_filter)?:\s+(\d+)/(\d+)\s+")
 
 
 def parse_log(log_path: Path) -> dict[str, dict[str, int]]:
@@ -114,9 +111,7 @@ def print_job_table(job_id: str, stats: dict[str, dict[str, int]]) -> None:
         print(f"{name:<16} {desc:<22} {s['passed']:>8} {s['total']:>8} {rate:>7.1f}%")
 
 
-def print_aggregate_table(
-    all_stats: dict[str, dict[str, int]], n_jobs: int, total_samples: int
-) -> None:
+def print_aggregate_table(all_stats: dict[str, dict[str, int]], n_jobs: int, total_samples: int) -> None:
     """Print a formatted aggregate table across all jobs."""
     print(f"\n{'=' * 70}")
     print(f"Aggregate across {n_jobs} jobs ({total_samples:,} total samples)")
@@ -139,8 +134,7 @@ def print_aggregate_table(
         total_out = all_stats[last_filter]["passed"]
         if total_in > 0:
             yield_pct = total_out / total_in * 100
-            print(f"\n{total_in:,} samples in -> {total_out} proposals out "
-                  f"({yield_pct:.3f}% end-to-end yield)")
+            print(f"\n{total_in:,} samples in -> {total_out} proposals out ({yield_pct:.3f}% end-to-end yield)")
 
 
 def discover_logs(log_dir: str) -> list[str]:
@@ -148,9 +142,7 @@ def discover_logs(log_dir: str) -> list[str]:
     pattern = str(Path(log_dir) / LOG_GLOB)
     paths = sorted(glob.glob(pattern))
     if not paths:
-        raise FileNotFoundError(
-            f"No logs matching '{LOG_GLOB}' found in {log_dir}"
-        )
+        raise FileNotFoundError(f"No logs matching '{LOG_GLOB}' found in {log_dir}")
     return paths
 
 

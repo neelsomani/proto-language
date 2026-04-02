@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import random
 from pathlib import Path
@@ -82,32 +80,32 @@ class ProgramIntronDesignArgs(Tap):
     intron_length: int = INTRON_LENGTH
     n_steps: int = N_STEPS
     step_size: int = 1
-    temperature: float = 1.
+    temperature: float = 1.0
     temperature_min: float = 0.001
-    plasmid_context_path: str = 'examples/data/intron_plasmid_context.txt'
-    gene_sequence_path: str = 'examples/data/mscarlet.txt'
-    gene_insertion_pos: int = 159*3  # Canonical mScarlet split complementation site.
-    initialization: str = 'random'
-    intron_generator: str = 'uniform'
+    plasmid_context_path: str = "examples/data/intron_plasmid_context.txt"
+    gene_sequence_path: str = "examples/data/mscarlet.txt"
+    gene_insertion_pos: int = 159 * 3  # Canonical mScarlet split complementation site.
+    initialization: str = "random"
+    intron_generator: str = "uniform"
     multicontext: bool = True
-    specificity_type: str = 'max_brain_min_blood'
+    specificity_type: str = "max_brain_min_blood"
 
 
 def get_initial_intron(args: ProgramIntronDesignArgs) -> str:
-    if args.initialization == 'random':
-        initial_intron = "GT" + "".join(random.choices('ACGT', k=(args.intron_length - 4))) + "AG"
-    elif args.initialization == 'poly_a':
+    if args.initialization == "random":
+        initial_intron = "GT" + "".join(random.choices("ACGT", k=(args.intron_length - 4))) + "AG"
+    elif args.initialization == "poly_a":
         initial_intron = "GT" + ("A" * (args.intron_length - 4)) + "AG"  # Keep for debugging.
-    elif args.initialization == 'hbb1':
+    elif args.initialization == "hbb1":
         # HBB intron 1:
         initial_intron = "GTTGGTATCAAGGTTACAAGACAGGTTTAAGGAGACCAATAGAAACTGGGCATGTGGAGACAGAGAAGACTCTTGGGTTTCTGATAGGCACTGACTCTCTCTGCCTATTGGTCTATTTTCCCACCCTTAG"
-    elif args.initialization == 'hbb2c':
+    elif args.initialization == "hbb2c":
         # HBB intron 2 chimeric:
         initial_intron = "GTAAGTACCGCCTATAGAGTCTATAGGCCCACAAAAAATGCTTTCTTCTTTTAATATACTTTTTTGTTTATCTTATTTCTAATACTTTCCCTAATCTCTTTCTTTCAGGGCAATAATGATACAATGTATCATGCCTCTTTGCACCATTCTAAAGAATAACAGTGATAATTTCTGGGTTAAGGCAATAGCAATATTTCTGCATATAAATATTTCTGCATATAAATTGTAACTGATGTAAGAGGTTTCATATTGCTAATAGCAGCTACAATCCAGCTACCATTCTGCTTTTATTTTATGGTTGGGATAAGGCTGGATTATTCTGAGTCCAAGCTAGGCCCTTTTGCTAATCATGTTCATACCTCTTATCTTCCTCCCACAG"
-    elif args.initialization == 'hbb2':
+    elif args.initialization == "hbb2":
         # HBB intron 2 wildtype:
         initial_intron = "GTGAGTCTATGGGACGCTTGATGTTTTCTTTCCCCTTCTTTTCTATGGTTAAGTTCATGTCATAGGAAGGGGATAAGTAACAGGGTACAGTTTAGAATGGGAAACAGACGAATGATTGCATCAGTGTGGAAGTCTCAGGATCGTTTTAGTTTCTTTTATTTGCTGTTCATAACAATTGTTTTCTTTTGTTTAATTCTTGCTTTCTTTTTTTTTCTTCTCCGCAATTTTTACTATTATACTTAATGCCTTAACATTGTGTATAACAAAAGGAAATATCTCTGAGATACATTAAGTAACTTAAAAAAAAACTTTACACAGTCTGCCTAGTACATTACTATTTGGAATATATGTGTGCTTATTTGCATATTCATAATCTCCCTACTTTATTTTCTTTTATTTTTAATTGATACATAATCATTATACATATTTATGGGTTAAAGTGTAATGTTTTAATATGTGTACACATATTGACCAAATCAGGGTAATTTTGCATTTGTAATTTTAAAAAATGCTTTCTTCTTTTAATATACTTTTTTGTTTATCTTATTTCTAATACTTTCCCTAATCTCTTTCTTTCAGGGCAATAATGATACAATGTATCATGCCTCTTTGCACCATTCTAAAGAATAACAGTGATAATTTCTGGGTTAAGGCAATAGCAATATCTCTGCATATAAATATTTCTGCATATAAATTGTAACTGATGTAAGAGGTTTCATATTGCTAATAGCAGCTACAATCCAGCTACCATTCTGCTTTTATTTTATGGTTGGGATAAGGCTGGATTATTCTGAGTCCAAGCTAGGCCCTTTTGCTAATCATGTTCATACCTCTTATCTTCCTCCCACAG"
-    elif args.initialization == 'config38':
+    elif args.initialization == "config38":
         # Current checkpoint seed from sweep_20260222_134501/config_38 (full intron, step 2366).
         initial_intron = "GTAATTAGAGCGGCCCCTTTCAGTAAAGGGCCCTATATGGTGGAAGGGGCGTGGAGCCCCGTGCCGATACTTGATTCCTAACAGAGTAATGGATCGCGATTTATAATTAAGAATCTAATAGGGACGGGGAGGGAGGTGTGGGGGGAGGGCGAAACAACCTAGCCGAATCTCGAACCTCAGATCAGTGTTGTTCTACGATTCTCGGTTCAACAGGACGGTTAGTACCTAGAGGATGTAAATAGGTAGTTGGGAACCAGGGCTACCATTATTTCCTGCATGGTCAGGGGGGGGGGCGGGACGTATACTCAGCACACCGAGTCCCGGTGTGAATGGTTAGCCAGCACTCCACCTCTAATTGGTACATTCTCTTTTCTCGTAG"
     else:
@@ -168,7 +166,7 @@ def process_splice_transformer_input(
         # Left exon is truncated
         len_left_pad = 0
         left_pad_seq = ""
-        left_exon_in_target = left_exon[-space_on_left:] # Take the end of the left exon.
+        left_exon_in_target = left_exon[-space_on_left:]  # Take the end of the left exon.
         left_exon_in_context = left_exon[:-space_on_left]
         gene_start_pos_in_target = 0
 
@@ -187,35 +185,34 @@ def process_splice_transformer_input(
         # Right exon is truncated
         len_right_pad = 0
         right_pad_seq = ""
-        right_exon_in_target = right_exon[:space_on_right] # Take the start of the right exon.
+        right_exon_in_target = right_exon[:space_on_right]  # Take the start of the right exon.
         right_exon_in_context = right_exon[space_on_right:]
         gene_end_pos_in_target = TARGET_LENGTH - 1
 
-    target_seq = (
-        left_pad_seq +
-        left_exon_in_target +
-        initial_intron +
-        right_exon_in_target +
-        right_pad_seq
+    target_seq = left_pad_seq + left_exon_in_target + initial_intron + right_exon_in_target + right_pad_seq
+
+    left_context = (
+        plasmid_context[
+            -len_left_pad - (CONTEXT_LENGTH - len(left_exon_in_context)) : -len_left_pad if len_left_pad > 0 else None
+        ]
+        + left_exon_in_context
+    )
+    right_context = (
+        right_exon_in_context
+        + plasmid_context[len_right_pad : len_right_pad + (CONTEXT_LENGTH - len(right_exon_in_context))]
     )
 
-    left_context = plasmid_context[
-        -len_left_pad - (CONTEXT_LENGTH - len(left_exon_in_context)) : -len_left_pad if len_left_pad > 0 else None
-    ] + left_exon_in_context
-    right_context = right_exon_in_context + plasmid_context[
-        len_right_pad : len_right_pad + (CONTEXT_LENGTH - len(right_exon_in_context))
-    ]
-
-    assert len(target_seq) == TARGET_LENGTH, \
-        f"Target seq length is {len(target_seq)}, expected {TARGET_LENGTH}"
-    assert len(left_context) == CONTEXT_LENGTH, \
-        f"Left context length is {len(left_context)}, expected {CONTEXT_LENGTH}"
-    assert len(right_context) == CONTEXT_LENGTH, \
+    assert len(target_seq) == TARGET_LENGTH, f"Target seq length is {len(target_seq)}, expected {TARGET_LENGTH}"
+    assert len(left_context) == CONTEXT_LENGTH, f"Left context length is {len(left_context)}, expected {CONTEXT_LENGTH}"
+    assert len(right_context) == CONTEXT_LENGTH, (
         f"Right context length is {len(right_context)}, expected {CONTEXT_LENGTH}"
-    assert target_seq[donor_start_pos_in_target : donor_start_pos_in_target + 2] == "GT", \
+    )
+    assert target_seq[donor_start_pos_in_target : donor_start_pos_in_target + 2] == "GT", (
         "Intron does not start with GT"
-    assert target_seq[acceptor_end_pos_in_target - 1 : acceptor_end_pos_in_target + 1] == "AG", \
+    )
+    assert target_seq[acceptor_end_pos_in_target - 1 : acceptor_end_pos_in_target + 1] == "AG", (
         "Intron does not end with AG"
+    )
 
     return (
         left_context,
@@ -228,7 +225,7 @@ def process_splice_transformer_input(
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = ProgramIntronDesignArgs(explicit_bool=True).parse_args()
     _enable_mcmc_energy_logging()
 
@@ -238,19 +235,18 @@ if __name__ == '__main__':
 
     if args.multicontext:
         plasmid_paths = [
-            'examples/data/intron_plasmid_context.txt',
-            'examples/data/plasmid_context_Ef1a.txt',
-            'examples/data/plasmid_context_sffv.txt',
+            "examples/data/intron_plasmid_context.txt",
+            "examples/data/plasmid_context_Ef1a.txt",
+            "examples/data/plasmid_context_sffv.txt",
         ]
     else:
-        plasmid_paths = [ 'examples/data/intron_plasmid_context.txt' ]
+        plasmid_paths = ["examples/data/intron_plasmid_context.txt"]
 
     intron = None
     intron_construct = None
     all_constraints = []
 
     for context_idx, plasmid_path in enumerate(plasmid_paths):
-
         args.plasmid_context_path = plasmid_path
 
         (
@@ -263,7 +259,7 @@ if __name__ == '__main__':
             acceptor_end_pos_in_target,
         ) = process_splice_transformer_input(initial_intron, args)
 
-        print('intron range (start, end):', (donor_start_pos_in_target, acceptor_end_pos_in_target + 1))
+        print("intron range (start, end):", (donor_start_pos_in_target, acceptor_end_pos_in_target + 1))
 
         #########################
         ## Sequence generation ##
@@ -272,9 +268,8 @@ if __name__ == '__main__':
         assert acceptor_end_pos_in_target - donor_start_pos_in_target + 1 == len(initial_intron)
 
         if intron is None:
-            intron = Segment(sequence=target_seq[
-                    donor_start_pos_in_target + 2 : acceptor_end_pos_in_target - 1
-                ],
+            intron = Segment(
+                sequence=target_seq[donor_start_pos_in_target + 2 : acceptor_end_pos_in_target - 1],
                 sequence_type="dna",
             )
 
@@ -287,12 +282,13 @@ if __name__ == '__main__':
 
             elif args.intron_generator == "evo2":
                 from Bio import SeqIO
+
                 record = SeqIO.read("examples/data/hbb_intron2_prompt.txt", "fasta")
                 hg38_prompt = str(record.seq)
                 intron_gen_config = Evo2GeneratorConfig(
                     prompts=[hg38_prompt],
                     top_k=4,
-                    temperature=1.,
+                    temperature=1.0,
                 )
                 intron_gen = Evo2Generator(intron_gen_config)
                 intron_gen.sequence_length = args.intron_length - 4
@@ -302,13 +298,18 @@ if __name__ == '__main__':
                 raise ValueError(f"Unsupported intron generator {args.intron_generator}")
 
         else:
-            assert target_seq[donor_start_pos_in_target + 2 : acceptor_end_pos_in_target - 1] == intron.original_sequence._sequence
+            assert (
+                target_seq[donor_start_pos_in_target + 2 : acceptor_end_pos_in_target - 1]
+                == intron.original_sequence._sequence
+            )
 
-        left_flank = Segment(sequence=target_seq[: donor_start_pos_in_target + 2],
+        left_flank = Segment(
+            sequence=target_seq[: donor_start_pos_in_target + 2],
             sequence_type="dna",
         )
 
-        right_flank = Segment(sequence=target_seq[acceptor_end_pos_in_target - 1 :],
+        right_flank = Segment(
+            sequence=target_seq[acceptor_end_pos_in_target - 1 :],
             sequence_type="dna",
         )
 
@@ -356,8 +357,8 @@ if __name__ == '__main__':
             },
             label=f"splice_boundary__{context_label}__{context_idx}",
         )
-        all_constraints += [ intron_boundary ]
-        if 'max_brain' in args.specificity_type:
+        all_constraints += [intron_boundary]
+        if "max_brain" in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
                 function=splice_transformer_specificity,
@@ -370,8 +371,8 @@ if __name__ == '__main__':
                 },
                 label=f"splice_specificity_brain_max__{context_label}__{context_idx}",
             )
-            all_constraints += [ intron_brain_specificity ]
-        if 'min_brain' in args.specificity_type:
+            all_constraints += [intron_brain_specificity]
+        if "min_brain" in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
                 function=splice_transformer_specificity,
@@ -384,8 +385,8 @@ if __name__ == '__main__':
                 },
                 label=f"splice_specificity_brain_min__{context_label}__{context_idx}",
             )
-            all_constraints += [ intron_brain_specificity ]
-        if 'max_blood' in args.specificity_type:
+            all_constraints += [intron_brain_specificity]
+        if "max_blood" in args.specificity_type:
             intron_brain_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
                 function=splice_transformer_specificity,
@@ -398,8 +399,8 @@ if __name__ == '__main__':
                 },
                 label=f"splice_specificity_blood_max__{context_label}__{context_idx}",
             )
-            all_constraints += [ intron_brain_specificity ]
-        if 'min_blood' in args.specificity_type:
+            all_constraints += [intron_brain_specificity]
+        if "min_blood" in args.specificity_type:
             intron_blood_specificity = Constraint(
                 inputs=[left_flank, intron, right_flank],
                 function=splice_transformer_specificity,
@@ -412,7 +413,7 @@ if __name__ == '__main__':
                 },
                 label=f"splice_specificity_blood_min__{context_label}__{context_idx}",
             )
-            all_constraints += [ intron_blood_specificity ]
+            all_constraints += [intron_blood_specificity]
 
     #############
     ## Program ##
@@ -424,9 +425,7 @@ if __name__ == '__main__':
         right_flank_sequence = str(outputs[2].result_sequences[0]._sequence)
 
         if len(left_flank_sequence) >= 2 and len(right_flank_sequence) >= 2:
-            intron_sequence = (
-                left_flank_sequence[-2:] + intron_core_sequence + right_flank_sequence[:2]
-            )
+            intron_sequence = left_flank_sequence[-2:] + intron_core_sequence + right_flank_sequence[:2]
         else:
             intron_sequence = intron_core_sequence
 
@@ -448,7 +447,6 @@ if __name__ == '__main__':
                     or metric_name.startswith("specificity_score")
                 ):
                     print(f"\t{constraint_label}: {metric_name}: {metric_value}")
-
 
     if intron_construct is None:
         raise RuntimeError("No intron construct was created.")

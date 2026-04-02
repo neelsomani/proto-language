@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from proto_tools.tools.masked_models.masking import MaskingStrategy
 
 from proto_language.language.constraint import gc_content_constraint
@@ -46,6 +44,7 @@ gc_constraint_1 = Constraint(
     function_config={"min_gc": 70, "max_gc": 100},
 )
 
+
 def topk_custom_logger(step, segments):
     print(f"After round {step}:")
     for i, segment in enumerate(segments):
@@ -53,6 +52,7 @@ def topk_custom_logger(step, segments):
         # show metadata of each sequence in the segment
         for j, seq in enumerate(segment.result_sequences):
             print(seq._metadata)
+
 
 # Optimizer 1: TopK optimizer (standard mode)
 topk_config = TopKOptimizerConfig(
@@ -67,8 +67,7 @@ optimizer_1 = TopKOptimizer(
     generators=[uniform_gen_1],
     constraints=[gc_constraint_1],
     config=topk_config,
-    custom_logging=topk_custom_logger
-
+    custom_logging=topk_custom_logger,
 )
 
 # OPTIMIZATION STAGE 2
@@ -89,6 +88,7 @@ gc_constraint_2 = Constraint(
     function_config={"min_gc": 80, "max_gc": 90},
 )
 
+
 def mcmc_custom_logger(step, segments):
     print(f"After round {step}:")
     for i, segment in enumerate(segments):
@@ -97,6 +97,7 @@ def mcmc_custom_logger(step, segments):
         for j, seq in enumerate(segment.result_sequences):
             print(seq._metadata)
 
+
 mcmc_config = MCMCOptimizerConfig(
     num_results=1,
     proposals_per_result=20,
@@ -104,22 +105,19 @@ mcmc_config = MCMCOptimizerConfig(
     max_temperature=2.0,
 )
 
+
 def mcmc_custom_logger(step: int, outputs: tuple[Segment]) -> None:
     output_sequence: Sequence = outputs[0].proposal_sequences[0]
     gc_content = output_sequence._metadata["constraints"]["gc_content_constraint"]["data"].get("gc_content", "N/A")
-    print(
-        f"Custom Log - Step {step} | "
-        f"sequence: {output_sequence.sequence}, "
-        f"gc_content: {gc_content}"
-    )
+    print(f"Custom Log - Step {step} | sequence: {output_sequence.sequence}, gc_content: {gc_content}")
+
 
 optimizer_2 = MCMCOptimizer(
     constructs=[construct],
     generators=[uniform_gen_2],
     constraints=[gc_constraint_2],
     config=mcmc_config,
-    custom_logging=mcmc_custom_logger
-
+    custom_logging=mcmc_custom_logger,
 )
 # ============================================================================
 # MODE 1: Run all stages at once (existing behavior)
@@ -167,7 +165,7 @@ optimizer_1_inc = TopKOptimizer(
     generators=[uniform_gen_1_inc],
     constraints=[gc_constraint_1_inc],
     config=topk_config,
-    custom_logging=topk_custom_logger
+    custom_logging=topk_custom_logger,
 )
 
 # Stage 2: MCMC
@@ -185,7 +183,7 @@ optimizer_2_inc = MCMCOptimizer(
     generators=[uniform_gen_2_inc],
     constraints=[gc_constraint_2_inc],
     config=mcmc_config,
-    custom_logging=mcmc_custom_logger
+    custom_logging=mcmc_custom_logger,
 )
 
 program_incremental = Program(

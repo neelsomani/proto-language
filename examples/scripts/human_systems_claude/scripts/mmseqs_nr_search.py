@@ -25,7 +25,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
@@ -87,40 +87,56 @@ def run_mmseqs_search(
     result_db = str(tmp_path / "resultDB")
 
     print("Creating query database...")
-    subprocess.run([
-        "mmseqs", "createdb", input_fasta, query_db
-    ], check=True, capture_output=True)
+    subprocess.run(["mmseqs", "createdb", input_fasta, query_db], check=True, capture_output=True)
 
     print(f"Running sensitive search (s={sensitivity}, iterations={iterations})...")
     cmd = [
-        "mmseqs", "search",
-        query_db, db_path, result_db, str(tmp_path),
-        #"-s", str(sensitivity),
-        #"--num-iterations", str(iterations),
-        "--max-seqs", "300",
-        "-e", str(evalue),
-        "--threads", str(threads),
-        "--split-memory-limit", split_memory_limit,
-        #"--db-load-mode", "2",
+        "mmseqs",
+        "search",
+        query_db,
+        db_path,
+        result_db,
+        str(tmp_path),
+        # "-s", str(sensitivity),
+        # "--num-iterations", str(iterations),
+        "--max-seqs",
+        "300",
+        "-e",
+        str(evalue),
+        "--threads",
+        str(threads),
+        "--split-memory-limit",
+        split_memory_limit,
+        # "--db-load-mode", "2",
     ]
     subprocess.run(cmd, check=True)
 
     print("Converting results to tabular format...")
-    subprocess.run([
-        "mmseqs", "convertalis",
-        query_db, db_path, result_db, output_file,
-        "--format-output", "query,target,pident,alnlen,qlen,tlen,evalue,bits"
-    ], check=True, capture_output=True)
+    subprocess.run(
+        [
+            "mmseqs",
+            "convertalis",
+            query_db,
+            db_path,
+            result_db,
+            output_file,
+            "--format-output",
+            "query,target,pident,alnlen,qlen,tlen,evalue,bits",
+        ],
+        check=True,
+        capture_output=True,
+    )
 
     # Parse results
     if Path(output_file).stat().st_size == 0:
-        return pd.DataFrame(columns=[
-            'query_id', 'target_id', 'pident', 'alnlen', 'qlen', 'tlen', 'evalue', 'bits'
-        ])
+        return pd.DataFrame(columns=["query_id", "target_id", "pident", "alnlen", "qlen", "tlen", "evalue", "bits"])
 
-    df = pd.read_csv(output_file, sep='\t', header=None, names=[
-        'query_id', 'target_id', 'pident', 'alnlen', 'qlen', 'tlen', 'evalue', 'bits'
-    ])
+    df = pd.read_csv(
+        output_file,
+        sep="\t",
+        header=None,
+        names=["query_id", "target_id", "pident", "alnlen", "qlen", "tlen", "evalue", "bits"],
+    )
 
     return df
 
@@ -134,20 +150,20 @@ def get_best_hit_per_query(df: pd.DataFrame) -> dict[str, MMseqsHit]:
     """
     best_hits = {}
 
-    for query_id, group in df.groupby('query_id'):
+    for query_id, group in df.groupby("query_id"):
         best_score = -1
         best_hit = None
 
         for _, row in group.iterrows():
             hit = MMseqsHit(
-                query_id=row['query_id'],
-                target_id=row['target_id'],
-                pident=row['pident'],
-                alnlen=row['alnlen'],
-                qlen=row['qlen'],
-                tlen=row['tlen'],
-                evalue=row['evalue'],
-                bits=row['bits']
+                query_id=row["query_id"],
+                target_id=row["target_id"],
+                pident=row["pident"],
+                alnlen=row["alnlen"],
+                qlen=row["qlen"],
+                tlen=row["tlen"],
+                evalue=row["evalue"],
+                bits=row["bits"],
             )
             if hit.score > best_score:
                 best_score = hit.score
@@ -189,7 +205,7 @@ def process_complexes(
         Tuple of (DataFrame with added score columns, DataFrame with all raw hits)
     """
     # Read input
-    df = pd.read_csv(input_tsv, sep='\t')
+    df = pd.read_csv(input_tsv, sep="\t")
     print(f"Loaded {len(df)} complexes")
 
     # Extract all unique sequences
@@ -197,7 +213,7 @@ def process_complexes(
     all_sequences = []
 
     for _, row in df.iterrows():
-        sequences = row['sequences'].split(';')
+        sequences = row["sequences"].split(";")
         for seq in sequences:
             seq = seq.strip()
             if seq and seq not in seq_to_id:
@@ -215,8 +231,7 @@ def process_complexes(
 
     # Write FASTA
     fasta_file = tmp_path / "all_sequences.fasta"
-    records = [SeqRecord(Seq(seq), id=seq_id, description="")
-               for seq_id, seq in all_sequences]
+    records = [SeqRecord(Seq(seq), id=seq_id, description="") for seq_id, seq in all_sequences]
     SeqIO.write(records, fasta_file, "fasta")
     print(f"Wrote {len(records)} sequences to {fasta_file}")
 
@@ -241,7 +256,7 @@ def process_complexes(
     weighted_scores = []
 
     for idx, row in df.iterrows():
-        sequences = [s.strip() for s in row['sequences'].split(';')]
+        sequences = [s.strip() for s in row["sequences"].split(";")]
         seq_lengths = [len(s) for s in sequences]
         total_length = sum(seq_lengths)
 
@@ -254,29 +269,26 @@ def process_complexes(
             else:
                 complex_scores.append(0.0)
 
-        scores_list.append(';'.join(f"{s:.4f}" for s in complex_scores))
+        scores_list.append(";".join(f"{s:.4f}" for s in complex_scores))
 
         # Weighted average by sequence length
         if total_length > 0:
-            weighted_score = sum(
-                score * length / total_length
-                for score, length in zip(complex_scores, seq_lengths)
-            )
+            weighted_score = sum(score * length / total_length for score, length in zip(complex_scores, seq_lengths))
         else:
             weighted_score = 0.0
         weighted_scores.append(weighted_score)
 
     # Add columns
-    df['mmseqs_scores'] = scores_list
-    df['mmseqs_weighted_score'] = weighted_scores
+    df["mmseqs_scores"] = scores_list
+    df["mmseqs_weighted_score"] = weighted_scores
 
     # Save output
-    df.to_csv(output_tsv, sep='\t', index=False)
+    df.to_csv(output_tsv, sep="\t", index=False)
     print(f"Saved results to {output_tsv}")
 
     # Also save raw hits for plotting
     raw_hits_file = Path(output_tsv).parent / f"{Path(output_tsv).stem}_raw_hits.tsv"
-    results_df.to_csv(raw_hits_file, sep='\t', index=False)
+    results_df.to_csv(raw_hits_file, sep="\t", index=False)
     print(f"Saved raw hits to {raw_hits_file}")
 
     return df, results_df
@@ -284,31 +296,31 @@ def process_complexes(
 
 def setup_plotting_style():
     """Configure matplotlib for publication-quality figures."""
-    for font in ['Arial', 'Liberation Sans', 'DejaVu Sans']:
+    for font in ["Arial", "Liberation Sans", "DejaVu Sans"]:
         try:
-            plt.rcParams['font.family'] = 'sans-serif'
-            plt.rcParams['font.sans-serif'] = [font]
+            plt.rcParams["font.family"] = "sans-serif"
+            plt.rcParams["font.sans-serif"] = [font]
             # Test if font works
             fig, ax = plt.subplots()
-            ax.set_title('test')
+            ax.set_title("test")
             plt.close()
             print(f"Using font: {font}")
             break
         except:
             continue
 
-    plt.rcParams['font.size'] = 7
-    plt.rcParams['axes.labelsize'] = 7
-    plt.rcParams['axes.titlesize'] = 8
-    plt.rcParams['xtick.labelsize'] = 6
-    plt.rcParams['ytick.labelsize'] = 6
-    plt.rcParams['legend.fontsize'] = 6
-    plt.rcParams['axes.linewidth'] = 0.5
-    plt.rcParams['xtick.major.width'] = 0.5
-    plt.rcParams['ytick.major.width'] = 0.5
-    plt.rcParams['xtick.major.size'] = 2
-    plt.rcParams['ytick.major.size'] = 2
-    plt.rcParams['svg.fonttype'] = 'none'  # Keep text as text in SVG
+    plt.rcParams["font.size"] = 7
+    plt.rcParams["axes.labelsize"] = 7
+    plt.rcParams["axes.titlesize"] = 8
+    plt.rcParams["xtick.labelsize"] = 6
+    plt.rcParams["ytick.labelsize"] = 6
+    plt.rcParams["legend.fontsize"] = 6
+    plt.rcParams["axes.linewidth"] = 0.5
+    plt.rcParams["xtick.major.width"] = 0.5
+    plt.rcParams["ytick.major.width"] = 0.5
+    plt.rcParams["xtick.major.size"] = 2
+    plt.rcParams["ytick.major.size"] = 2
+    plt.rcParams["svg.fonttype"] = "none"  # Keep text as text in SVG
 
 
 def mm_to_inches(mm: float) -> float:
@@ -316,11 +328,7 @@ def mm_to_inches(mm: float) -> float:
     return mm / 25.4
 
 
-def plot_mmseqs_novelty(
-    results_df: pd.DataFrame,
-    output_path: Path,
-    title: str = None
-):
+def plot_mmseqs_novelty(results_df: pd.DataFrame, output_path: Path, title: str = None):
     """
     Plot MMseqs2 results in the style of the reference figure:
     x = % Sequence identity, y = % Query coverage, color = log10(E-value)
@@ -336,11 +344,11 @@ def plot_mmseqs_novelty(
     fig_size = mm_to_inches(30)
     fig, ax = plt.subplots(figsize=(fig_size, fig_size))
 
-    x = results_df['pident'].values
-    y = results_df['qcov'].values * 100  # Convert to percentage
+    x = results_df["pident"].values
+    y = results_df["qcov"].values * 100  # Convert to percentage
 
     # E-value color scale (log10)
-    evalues = results_df['evalue'].values
+    evalues = results_df["evalue"].values
     evalues = np.clip(evalues, 1e-300, 1)  # Clip for log
     log_evalues = np.log10(evalues)
 
@@ -352,24 +360,25 @@ def plot_mmseqs_novelty(
 
     # Create scatter plot with e-value gradient
     scatter = ax.scatter(
-        x, y,
+        x,
+        y,
         c=log_evalues,
-        cmap='RdYlBu',  # Similar to reference: blue (low/good) to red (high/bad)
+        cmap="RdYlBu",  # Similar to reference: blue (low/good) to red (high/bad)
         s=8,
         alpha=0.7,
-        edgecolors='none',
+        edgecolors="none",
         vmin=-300,
         vmax=0,
-        rasterized=True
+        rasterized=True,
     )
 
     # Colorbar
     cbar = plt.colorbar(scatter, ax=ax, shrink=0.8, pad=0.02)
-    cbar.set_label('log₁₀(E-value)', fontsize=6)
+    cbar.set_label("log₁₀(E-value)", fontsize=6)
     cbar.ax.tick_params(labelsize=5)
 
-    ax.set_xlabel('% Sequence identity')
-    ax.set_ylabel('% Query coverage')
+    ax.set_xlabel("% Sequence identity")
+    ax.set_ylabel("% Query coverage")
 
     if title:
         ax.set_title(title, fontsize=7)
@@ -377,17 +386,35 @@ def plot_mmseqs_novelty(
     ax.set_xlim(0, 105)
     ax.set_ylim(0, 105)
 
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     # Add quadrant labels
-    ax.text(0.05, 0.95, 'High\nnovelty', transform=ax.transAxes,
-            fontsize=5, va='top', ha='left', style='italic', color='gray')
-    ax.text(0.95, 0.05, 'Low\nnovelty', transform=ax.transAxes,
-            fontsize=5, va='bottom', ha='right', style='italic', color='gray')
+    ax.text(
+        0.05,
+        0.95,
+        "High\nnovelty",
+        transform=ax.transAxes,
+        fontsize=5,
+        va="top",
+        ha="left",
+        style="italic",
+        color="gray",
+    )
+    ax.text(
+        0.95,
+        0.05,
+        "Low\nnovelty",
+        transform=ax.transAxes,
+        fontsize=5,
+        va="bottom",
+        ha="right",
+        style="italic",
+        color="gray",
+    )
 
     plt.tight_layout()
-    plt.savefig(output_path, format='svg', dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, format="svg", dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"Saved novelty plot to {output_path}")
@@ -407,20 +434,12 @@ def plot_correlations(df: pd.DataFrame, output_dir: str, all_hits_df: pd.DataFra
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
 
-    metrics = ['plddt', 'ptm', 'iptm', 'tm_score', 'rmsd']
-    metric_labels = {
-        'plddt': 'pLDDT',
-        'ptm': 'pTM',
-        'iptm': 'ipTM',
-        'tm_score': 'TM-score',
-        'rmsd': 'RMSD (Å)'
-    }
+    metrics = ["plddt", "ptm", "iptm", "tm_score", "rmsd"]
+    metric_labels = {"plddt": "pLDDT", "ptm": "pTM", "iptm": "ipTM", "tm_score": "TM-score", "rmsd": "RMSD (Å)"}
 
     # Filter to successful runs with valid scores
     plot_df = df[
-        (df['status'] == 'Success') &
-        (df['mmseqs_weighted_score'].notna()) &
-        (df['mmseqs_weighted_score'] > 0)
+        (df["status"] == "Success") & (df["mmseqs_weighted_score"].notna()) & (df["mmseqs_weighted_score"] > 0)
     ].copy()
 
     print(f"Plotting {len(plot_df)} complexes with valid scores")
@@ -439,7 +458,7 @@ def plot_correlations(df: pd.DataFrame, output_dir: str, all_hits_df: pd.DataFra
             print(f"Skipping {metric} - insufficient data")
             continue
 
-        x = valid['mmseqs_weighted_score'].values
+        x = valid["mmseqs_weighted_score"].values
         y = valid[metric].values
 
         # Compute correlation
@@ -448,25 +467,25 @@ def plot_correlations(df: pd.DataFrame, output_dir: str, all_hits_df: pd.DataFra
         # Create plot - 30x30mm
         fig, ax = plt.subplots(figsize=(fig_size, fig_size))
 
-        ax.scatter(x, y, alpha=0.6, edgecolors='none', s=6, color='#4C72B0')
+        ax.scatter(x, y, alpha=0.6, edgecolors="none", s=6, color="#4C72B0")
 
         # Add trend line
         z = np.polyfit(x, y, 1)
         p = np.poly1d(z)
         x_line = np.linspace(x.min(), x.max(), 100)
-        ax.plot(x_line, p(x_line), 'r--', alpha=0.7, linewidth=0.75)
+        ax.plot(x_line, p(x_line), "r--", alpha=0.7, linewidth=0.75)
 
-        ax.set_xlabel('Weighted score\n(coverage × identity)')
+        ax.set_xlabel("Weighted score\n(coverage × identity)")
         ax.set_ylabel(metric_labels.get(metric, metric))
-        ax.set_title(f'r = {corr:.2f}, n = {len(valid)}', fontsize=6)
+        ax.set_title(f"r = {corr:.2f}, n = {len(valid)}", fontsize=6)
 
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
         plt.tight_layout()
 
         output_file = output_path / f"mmseqs_vs_{metric}.svg"
-        plt.savefig(output_file, format='svg', dpi=300, bbox_inches='tight')
+        plt.savefig(output_file, format="svg", dpi=300, bbox_inches="tight")
         plt.close()
 
         print(f"Saved {output_file}")
@@ -484,23 +503,23 @@ def plot_correlations(df: pd.DataFrame, output_dir: str, all_hits_df: pd.DataFra
         if len(valid) < 2:
             continue
 
-        x = valid['mmseqs_weighted_score'].values
+        x = valid["mmseqs_weighted_score"].values
         y = valid[metric].values
         corr = np.corrcoef(x, y)[0, 1]
 
         ax = axes[i]
-        ax.scatter(x, y, alpha=0.6, edgecolors='none', s=6, color='#4C72B0')
+        ax.scatter(x, y, alpha=0.6, edgecolors="none", s=6, color="#4C72B0")
 
         z = np.polyfit(x, y, 1)
         p = np.poly1d(z)
         x_line = np.linspace(x.min(), x.max(), 100)
-        ax.plot(x_line, p(x_line), 'r--', alpha=0.7, linewidth=0.75)
+        ax.plot(x_line, p(x_line), "r--", alpha=0.7, linewidth=0.75)
 
-        ax.set_xlabel('Weighted score')
+        ax.set_xlabel("Weighted score")
         ax.set_ylabel(metric_labels.get(metric, metric))
-        ax.set_title(f'{metric_labels.get(metric, metric)} (r={corr:.2f})', fontsize=7)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.set_title(f"{metric_labels.get(metric, metric)} (r={corr:.2f})", fontsize=7)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
     # Hide unused subplot
     if len(metrics) < len(axes):
@@ -510,7 +529,7 @@ def plot_correlations(df: pd.DataFrame, output_dir: str, all_hits_df: pd.DataFra
     plt.tight_layout()
 
     combined_file = output_path / "mmseqs_vs_af3_combined.svg"
-    plt.savefig(combined_file, format='svg', dpi=300, bbox_inches='tight')
+    plt.savefig(combined_file, format="svg", dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"Saved combined plot to {combined_file}")
@@ -518,73 +537,52 @@ def plot_correlations(df: pd.DataFrame, output_dir: str, all_hits_df: pd.DataFra
     # Plot MMseqs2 novelty plot if we have the raw hits
     if all_hits_df is not None and len(all_hits_df) > 0:
         # Need to compute query coverage
-        if 'qcov' not in all_hits_df.columns:
-            all_hits_df['qcov'] = all_hits_df['alnlen'] / all_hits_df['qlen']
+        if "qcov" not in all_hits_df.columns:
+            all_hits_df["qcov"] = all_hits_df["alnlen"] / all_hits_df["qlen"]
 
         novelty_file = output_path / "mmseqs_novelty.svg"
         plot_mmseqs_novelty(all_hits_df, novelty_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Sensitive MMseqs2 search against nr for protein complexes",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument(
-        "input_tsv",
-        help="Input TSV file with 'sequences' column (semicolon-delimited)"
-    )
+    parser.add_argument("input_tsv", help="Input TSV file with 'sequences' column (semicolon-delimited)")
 
     parser.add_argument(
-        "--db", "-d",
+        "--db",
+        "-d",
         default="/large_storage/hielab/brianhie/datasets/blast/nr/blast_nr",
-        help="Path to MMseqs2 nr database"
+        help="Path to MMseqs2 nr database",
     )
 
-    parser.add_argument(
-        "--output", "-o",
-        default=None,
-        help="Output TSV file (default: input_with_scores.tsv)"
-    )
+    parser.add_argument("--output", "-o", default=None, help="Output TSV file (default: input_with_scores.tsv)")
 
     parser.add_argument(
-        "--plot-dir", "-p",
-        default=None,
-        help="Directory for output plots (default: same as output TSV)"
+        "--plot-dir", "-p", default=None, help="Directory for output plots (default: same as output TSV)"
     )
 
-    parser.add_argument(
-        "--threads", "-t",
-        type=int,
-        default=32,
-        help="Number of threads"
-    )
+    parser.add_argument("--threads", "-t", type=int, default=32, help="Number of threads")
 
     parser.add_argument(
-        "--sensitivity", "-s",
+        "--sensitivity",
+        "-s",
         type=float,
         default=7.5,
-        help="MMseqs2 sensitivity (7.5=BLAST-like, higher=more sensitive)"
+        help="MMseqs2 sensitivity (7.5=BLAST-like, higher=more sensitive)",
     )
 
     parser.add_argument(
-        "--iterations", "-i",
-        type=int,
-        default=3,
-        help="Number of profile search iterations (like PSI-BLAST)"
+        "--iterations", "-i", type=int, default=3, help="Number of profile search iterations (like PSI-BLAST)"
     )
 
-    parser.add_argument(
-        "--tmp-dir",
-        default=None,
-        help="Temporary directory for intermediate files"
-    )
+    parser.add_argument("--tmp-dir", default=None, help="Temporary directory for intermediate files")
 
     parser.add_argument(
-        "--skip-search",
-        action="store_true",
-        help="Skip search and only regenerate plots from existing output"
+        "--skip-search", action="store_true", help="Skip search and only regenerate plots from existing output"
     )
 
     args = parser.parse_args()
@@ -601,12 +599,12 @@ if __name__ == '__main__':
 
     if args.skip_search:
         print(f"Loading existing results from {args.output}")
-        df = pd.read_csv(args.output, sep='\t')
+        df = pd.read_csv(args.output, sep="\t")
 
         # Try to load raw hits if available
         raw_hits_file = Path(args.output).parent / f"{Path(args.output).stem}_raw_hits.tsv"
         if raw_hits_file.exists():
-            all_hits_df = pd.read_csv(raw_hits_file, sep='\t')
+            all_hits_df = pd.read_csv(raw_hits_file, sep="\t")
             print(f"Loaded {len(all_hits_df)} raw hits from {raw_hits_file}")
     else:
         # Run search

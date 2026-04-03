@@ -97,7 +97,7 @@ The `proto-tools/` submodule has its own CLAUDE.md with its own mappings.
 
 - `logging.getLogger(__name__)`, never `print()`
 - Ruff (line length 120, Google-convention pydocstyle — see `pyproject.toml [tool.ruff.lint]` for full config)
-- Mypy (strict mode with Pydantic plugin — see `pyproject.toml [tool.mypy]` for full config). Every `# type: ignore` must include the error code (e.g., `# type: ignore[union-attr]`). Prefer `assert` guards for type narrowing over `# type: ignore`.
+- Mypy strict mode with Pydantic plugin — all code must pass `mypy proto_language/` with zero errors. Every `# type: ignore` must include the error code (e.g. `# type: ignore[arg-type]`). Use only for genuinely unfixable external-lib issues. Prefer `assert` guards for type narrowing over `# type: ignore`.
 - Pydantic v2 for all configs: inherit `BaseConfig`, use `ConfigField` (not `Field`). Use `depends_on` for conditional field visibility (show/hide fields based on another field's value).
 - Registry keys: kebab-case. Config classes: `{Name}Config`. Files: `{name}_constraint.py` / `{name}_generator.py`
 - **When modifying existing code**: Thoroughly find and update ALL callsites, imports, docstrings, comments, tests, and documentation that reference the changed code. Use sub-agents to search the entire codebase in parallel. Leave no dangling references.

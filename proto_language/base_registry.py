@@ -1,7 +1,7 @@
 """Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry."""
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Generic, TypeVar, cast
+from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -111,7 +111,7 @@ class BaseRegistry(ABC, Generic[SpecType]):
             available = ", ".join(sorted(cls._registry.keys()))  # List all registered keys
             component_type = cls._component_type()  # Get the component type (e.g. "constraint", "generator", "tool")
             raise ValueError(f"Unknown {component_type}: '{key}'. Available {component_type}s: {available}")
-        return cast(SpecType, cls._registry[key])
+        return cls._registry[key]  # type: ignore[no-any-return]
 
     @classmethod
     def get_schema(cls, key: str) -> dict[str, Any]:

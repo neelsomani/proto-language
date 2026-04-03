@@ -1,7 +1,6 @@
 """Balanced amino acid constraint function."""
 
 from collections import Counter
-from typing import cast
 
 import numpy as np
 
@@ -193,4 +192,4 @@ def balanced_aa_constraint(input_sequences: list[tuple[Sequence, ...]], config: 
         input_sequence._metadata["min_aa_frequency_threshold"] = config.min_aa_frequency
 
     # Return penalty scores
-    return cast(list[float], penalties.tolist())
+    return penalties.tolist()  # type: ignore[no-any-return]

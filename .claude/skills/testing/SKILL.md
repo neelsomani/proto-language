@@ -64,7 +64,7 @@ tests/
 │   │   ├── test_rna_splicing/
 │   │   └── test_sequence_annotation/
 │   ├── generator_tests/
-│   │   ├── test_uniform_mutation_generator.py
+│   │   ├── test_random_nucleotide_generator.py
 │   │   └── test_{name}_generator.py
 │   ├── optimizer_tests/
 │   │   ├── test_base_optimizer.py

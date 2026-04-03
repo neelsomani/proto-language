@@ -22,7 +22,7 @@ allowed-tools:
 1. **Read the registry** to see all existing generators and naming conventions:
    - `proto_language/language/generator/__init__.py`
 2. **Find a similar implementation** by category:
-   - Mutation (CPU): `proto_language/language/generator/uniform_mutation_generator.py`
+   - Mutation (CPU): `proto_language/language/generator/random_nucleotide_generator.py`
    - Mutation (GPU tool): `proto_language/language/generator/esm2_generator.py`
    - Autoregressive: `proto_language/language/generator/evo2_generator.py`
    - Inverse folding: `proto_language/language/generator/proteinmpnn_generator.py`

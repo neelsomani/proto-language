@@ -209,7 +209,7 @@ For generators, export **both** the class and its config: `from .my_generator im
 | Tool registry key | `{tool}-{action}` kebab-case | `"esm2-sample"`, `"boltz2-prediction"`, `"blast-create-db"` |
 | Config class | `{Name}Config` | `GCContentConfig`, `MCMCOptimizerConfig` |
 | Constraint file | `{name}_constraint.py` | `gc_content_constraint.py` |
-| Generator file | `{name}_generator.py` | `uniform_mutation_generator.py` |
+| Generator file | `{name}_generator.py` | `random_nucleotide_generator.py` |
 | Optimizer file | `{name}_optimizer.py` | `mcmc_optimizer.py` |
 | Test file | `test_{name}.py` | `test_gc_content_constraint.py` |
 | Constraint function | `{name}_constraint` | `gc_content_constraint` |

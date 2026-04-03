@@ -84,7 +84,7 @@ def parse_complex_string(complex_str: str) -> list[dict[str, Any]]:
         - complex_id: str (e.g., "COMPLEX::ORC_core")
         - complex_type: str (e.g., "COMPLEX")
         - complex_name: str (e.g., "ORC_core")
-        - gene_ids: List[str]
+        - gene_ids: list[str]
     """
     if pd.isna(complex_str) or not complex_str.strip():
         return []
@@ -285,7 +285,6 @@ To customize:
 
 import os
 import sys
-from typing import Dict, List
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -303,8 +302,8 @@ from proto_language.language.core import Constraint, Segment
 # =============================================================================
 
 def add_custom_constraints(
-    gene_id_to_segment: Dict[str, Segment],
-) -> List[Constraint]:
+    gene_id_to_segment: dict[str, Segment],
+) -> list[Constraint]:
     """
     Add custom constraints for this specific system.
 

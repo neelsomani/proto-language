@@ -10,7 +10,7 @@ This module provides shared functionality for:
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 import pymol
@@ -51,13 +51,13 @@ DEFAULT_HUMAN_GENES_FASTA = 'examples/data/human_genes.fasta'
 DEFAULT_PDB_CACHE_DIR = 'examples/data/pdb_cache'
 
 
-def load_config(config_path: str) -> Dict[str, Any]:
+def load_config(config_path: str) -> dict[str, Any]:
     """Load a JSON configuration file."""
     with open(config_path, 'r') as f:
         return json.load(f)
 
 
-def save_results(output_dir: str, results: Dict[str, Any]) -> None:
+def save_results(output_dir: str, results: dict[str, Any]) -> None:
     """Save results to a JSON file."""
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, 'results.json')
@@ -67,10 +67,10 @@ def save_results(output_dir: str, results: Dict[str, Any]) -> None:
 
 
 def load_wildtype_seqs(
-    gene_ids: List[str],
+    gene_ids: list[str],
     genes_tsv: str = DEFAULT_HUMAN_GENES_TSV,
     genes_fasta: str = DEFAULT_HUMAN_GENES_FASTA,
-) -> List[str]:
+) -> list[str]:
     """
     Map gene IDs (HGNC symbols) to protein sequences.
 
@@ -95,7 +95,7 @@ def load_wildtype_seqs(
     uniprot_ids = [gene_id_to_uniprot_id[gene_id] for gene_id in gene_ids]
 
     # UniProt ID to sequence mapping
-    uniprot_id_to_seq: Dict[str, str] = {}
+    uniprot_id_to_seq: dict[str, str] = {}
     for record in SeqIO.parse(genes_fasta, 'fasta'):
         uniprot_id = record.id.split('|')[1]
         seq = str(record.seq)
@@ -161,12 +161,12 @@ def get_remote_pdb_contents(
 
 
 def gene_ids_to_program(
-    gene_ids: List[str],
+    gene_ids: list[str],
     n_steps_per_generator: int = 20,
     genes_tsv: str = DEFAULT_HUMAN_GENES_TSV,
     genes_fasta: str = DEFAULT_HUMAN_GENES_FASTA,
-    custom_constraints_fn: Optional[callable] = None,
-) -> Tuple[Program, Dict[str, Segment]]:
+    custom_constraints_fn: callable | None = None,
+) -> tuple[Program, dict[str, Segment]]:
     """
     Create a diversification program for a list of gene IDs.
 
@@ -178,18 +178,18 @@ def gene_ids_to_program(
         n_steps_per_generator: MCMC steps per generator
         genes_tsv: Path to gene ID mapping file
         genes_fasta: Path to sequence FASTA file
-        custom_constraints_fn: Optional function(segments_dict) -> List[Constraint]
+        custom_constraints_fn: Optional function(segments_dict) -> list[Constraint]
             to add custom constraints
 
     Returns:
         Tuple of:
         - Program: The assembled program (not yet run)
-        - Dict[str, Segment]: Mapping from gene_id to its Segment
+        - dict[str, Segment]: Mapping from gene_id to its Segment
     """
     sequences = load_wildtype_seqs(gene_ids, genes_tsv, genes_fasta)
 
     constructs, generators, constraints = [], [], []
-    gene_id_to_segment: Dict[str, Segment] = {}
+    gene_id_to_segment: dict[str, Segment] = {}
 
     for gene_id, seq in zip(gene_ids, sequences):
         print(f'Adding {gene_id} to the program (length={len(seq)})...')
@@ -313,7 +313,7 @@ def gene_ids_to_program(
         verbose=True,
     )
 
-    def _custom_logging(step: int, outputs: Tuple[Segment]) -> None:
+    def _custom_logging(step: int, outputs: tuple[Segment]) -> None:
         """Print intermediate sequences."""
         assert len(outputs) == len(gene_ids)
         for gene_id, output in zip(gene_ids, outputs):
@@ -334,11 +334,11 @@ def gene_ids_to_program(
 
 
 def score_single_complex_with_af3(
-    gene_id_to_segment: Dict[str, Segment],
-    complex_info: Dict[str, Any],
+    gene_id_to_segment: dict[str, Segment],
+    complex_info: dict[str, Any],
     af3_dir: str,
     pdb_cache_dir: str = DEFAULT_PDB_CACHE_DIR,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Score a single complex with AlphaFold3.
 
@@ -346,9 +346,9 @@ def score_single_complex_with_af3(
         gene_id_to_segment: Mapping from gene_id to final Segment
         complex_info: Dict with keys:
             - complex_id: str
-            - gene_ids: List[str]
-            - stoichiometry: Dict[str, int]
-            - pdb_ids: List[str] or None
+            - gene_ids: list[str]
+            - stoichiometry: dict[str, int]
+            - pdb_ids: list[str] or None
         af3_dir: Directory for AF3 outputs
         pdb_cache_dir: Directory for cached PDB files
 
@@ -515,12 +515,12 @@ def score_single_complex_with_af3(
 
 def score_complexes_in_program_with_af3(
     program: Program,
-    gene_ids: List[str],
-    complexes: List[Dict[str, Any]],
+    gene_ids: list[str],
+    complexes: list[dict[str, Any]],
     output_dir: str,
-    run_timestamp: Optional[str] = None,
+    run_timestamp: str | None = None,
     pdb_cache_dir: str = DEFAULT_PDB_CACHE_DIR,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Score all complexes in a program with AlphaFold3.
 
@@ -531,9 +531,9 @@ def score_complexes_in_program_with_af3(
         gene_ids: List of all gene IDs in the program
         complexes: List of complex info dicts, each with:
             - complex_id: str
-            - gene_ids: List[str]
-            - stoichiometry: Dict[str, int]
-            - pdb_ids: List[str] or None
+            - gene_ids: list[str]
+            - stoichiometry: dict[str, int]
+            - pdb_ids: list[str] or None
         output_dir: Base directory for outputs (a timestamped subdir will be created
             or read from an environment variable)
         run_timestamp: Optional timestamp for this run. If None, generates one.
@@ -543,7 +543,7 @@ def score_complexes_in_program_with_af3(
         Dict with all results and any errors
     """
     # Build mapping from gene_id to final segment
-    gene_id_to_final_segment: Dict[str, Segment] = {}
+    gene_id_to_final_segment: dict[str, Segment] = {}
 
     print('\nFinal sequences:')
     for gene_id, construct in zip(gene_ids, program.constructs):

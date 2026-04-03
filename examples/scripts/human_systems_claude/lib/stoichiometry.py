@@ -7,7 +7,6 @@ This module provides stoichiometry information based on:
 3. Default assumptions for unknown cases
 """
 
-from typing import Dict, List, Tuple
 import re
 
 
@@ -31,7 +30,7 @@ import re
 # Format: complex_id -> {gene: copy_number}
 # =============================================================================
 
-KNOWN_STOICHIOMETRIES: Dict[str, Dict[str, int]] = {
+KNOWN_STOICHIOMETRIES: dict[str, dict[str, int]] = {
 
     # =========================================================================
     # I. GENETIC INFORMATION PROCESSING
@@ -342,7 +341,7 @@ KNOWN_STOICHIOMETRIES: Dict[str, Dict[str, int]] = {
 }
 
 
-def _infer_stoichiometry_from_name(complex_id: str, gene_ids: List[str]) -> Dict[str, int]:
+def _infer_stoichiometry_from_name(complex_id: str, gene_ids: list[str]) -> dict[str, int]:
     """
     Infer stoichiometry from complex naming conventions.
 
@@ -412,7 +411,7 @@ def _infer_stoichiometry_from_name(complex_id: str, gene_ids: List[str]) -> Dict
     return stoichiometry
 
 
-def get_stoichiometry(complex_id: str, gene_ids: List[str]) -> Tuple[Dict[str, int], bool]:
+def get_stoichiometry(complex_id: str, gene_ids: list[str]) -> tuple[dict[str, int], bool]:
     """
     Get stoichiometry for a complex.
 
@@ -437,7 +436,7 @@ def get_stoichiometry(complex_id: str, gene_ids: List[str]) -> Tuple[Dict[str, i
     return inferred, True
 
 
-def expand_gene_ids_by_stoichiometry(gene_ids: List[str], stoichiometry: Dict[str, int]) -> List[str]:
+def expand_gene_ids_by_stoichiometry(gene_ids: list[str], stoichiometry: dict[str, int]) -> list[str]:
     """
     Expand gene IDs according to stoichiometry for AF3 scoring.
 

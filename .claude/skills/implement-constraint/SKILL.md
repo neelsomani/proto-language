@@ -3,7 +3,7 @@ name: implement-constraint
 description: >
   Implements, modifies, or debugs constraints in the proto-language DSL.
   Covers the full lifecycle: BaseConfig class with ConfigField, scoring function
-  returning List[float], @constraint decorator registration, 3-level export chain,
+  returning list[float], @constraint decorator registration, 3-level export chain,
   and pytest test coverage. Use when working with constraints, scoring functions,
   GC content, structure prediction scores (pLDDT, pTM, pAE), protein quality,
   sequence motifs, RNA structure, or splicing predictions.
@@ -36,7 +36,6 @@ File: `proto_language/language/constraint/{category}/{name}_constraint.py`
 
 ```python
 import logging
-from typing import List, Optional, Tuple
 
 from pydantic import field_validator, model_validator
 
@@ -117,9 +116,9 @@ class MyConstraintConfig(BaseConfig):
     num_input_sequences_per_tuple=1,              # 1 = single segment, None = any
 )
 def my_constraint(
-    input_sequences: List[Tuple[Sequence, ...]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: MyConstraintConfig,
-) -> List[float]:
+) -> list[float]:
     """Evaluate sequences against target value.
 
     Args:
@@ -167,9 +166,9 @@ def my_constraint(
 | `config` | `Type[BaseModel]` | Yes | Pydantic config class |
 | `description` | `str` | Yes | What this constraint evaluates |
 | `uses_gpu` | `bool` | No | Default `False`. Set `True` if calling GPU tools |
-| `tools_called` | `List[str]` | No | Default `[]`. Tool names this constraint invokes |
+| `tools_called` | `list[str]` | No | Default `[]`. Tool names this constraint invokes |
 | `category` | `str` | No | Must match the subdirectory name (e.g., `"sequence_composition"`) |
-| `supported_sequence_types` | `List[str]` | Yes | Non-empty list from: `"dna"`, `"rna"`, `"protein"`, `"ligand"` |
+| `supported_sequence_types` | `list[str]` | Yes | Non-empty list from: `"dna"`, `"rna"`, `"protein"`, `"ligand"` |
 | `num_input_sequences_per_tuple` | `int \| None` | No | `1` for single-segment, `2+` for multi-segment, `None` for any |
 
 ## Scoring Convention
@@ -337,7 +336,7 @@ Copy this and check off as you go:
 - [ ] Config class inherits `BaseConfig` with `ConfigField`
 - [ ] `@constraint` decorator with unique kebab-case key
 - [ ] `supported_sequence_types` is non-empty
-- [ ] Scoring function returns `List[float]` with scores in [0.0, 1.0]
+- [ ] Scoring function returns `list[float]` with scores in [0.0, 1.0]
 - [ ] Metadata stored on `seq._metadata` for downstream visibility
 - [ ] Edge cases handled (empty sequences, boundary values)
 - [ ] Export chain updated at all 3 levels (category `__init__`, constraint `__init__`, `__all__`)

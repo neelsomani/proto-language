@@ -9,17 +9,17 @@ class Optimizer(ABC):
     @abstractmethod
     def __init__(
         self,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         num_results: int | None,
         tracking_interval: int,
         track_proposals: bool,
         verbose: bool,
         proposals_per_result: int = 1,
         num_proposals: int | None = None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
-        custom_logging: Optional[Callable] = None,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
+        custom_logging: Callable | None = None,
     ) -> None:
         # Stores all parameters as instance attributes
         # Calls _validate_optimizer()
@@ -46,7 +46,7 @@ self.score_energy(operation="add")      # Additive scoring (default)
 self.score_energy(operation="multiply") # Multiplicative scoring
 
 # After calling, self.energy_scores is populated:
-# List[float] of length num_proposals
+# list[float] of length num_proposals
 ```
 
 ### `_initialize_sequence_pools()`
@@ -103,9 +103,9 @@ If your optimizer only works with one segment (like BeamSearch or Cycling):
 def __init__(
     self,
     target_segment: Segment,      # First parameter for single-segment optimizers
-    constructs: List[Construct],
-    generators: List[Generator],
-    constraints: List[Constraint],
+    constructs: list[Construct],
+    generators: list[Generator],
+    constraints: list[Constraint],
     config: MyOptimizerConfig,
     ...
 ) -> None:
@@ -120,7 +120,7 @@ File: `proto_language/language/optimizer/{name}_optimizer.py`
 ```python
 import copy
 import logging
-from typing import Callable, List, Optional, final
+from typing import Callable, final
 
 from pydantic import model_validator
 
@@ -146,7 +146,7 @@ class MyOptimizerConfig(BaseOptimizerConfig):
         description="Total optimization iterations",
     )
 
-    num_results: Optional[int] = ConfigField(
+    num_results: int | None = ConfigField(
         default=None,
         ge=1,
         title="Num Results",
@@ -187,12 +187,12 @@ class MyOptimizer(Optimizer):
 
     def __init__(
         self,
-        constructs: List[Construct],
-        generators: List[Generator],
-        constraints: List[Constraint],
+        constructs: list[Construct],
+        generators: list[Generator],
+        constraints: list[Constraint],
         config: MyOptimizerConfig,
-        custom_logging: Optional[Callable] = None,
-        clear_tool_cache: int | bool | List[str] = 100 * 1024 * 1024,
+        custom_logging: Callable | None = None,
+        clear_tool_cache: int | bool | list[str] = 100 * 1024 * 1024,
     ) -> None:
         self.config = config
 

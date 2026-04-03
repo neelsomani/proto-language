@@ -29,7 +29,7 @@ File: `proto_language/language/generator/{name}_generator.py`
 
 ```python
 import logging
-from typing import List, Optional, final
+from typing import final
 
 from pydantic import field_validator, model_validator
 
@@ -170,9 +170,9 @@ class MyAutoregressiveGenerator(Generator):
 
     def sample(
         self,
-        prompts: Optional[List[str]] = None,
-        prepend_prompt: Optional[bool] = None,
-        old_kv_cache: Optional[Dict] = None,
+        prompts: list[str] | None = None,
+        prepend_prompt: bool | None = None,
+        old_kv_cache: dict | None = None,
     ) -> None:
         self._validate_generator()
         # Use provided prompts or defaults
@@ -202,7 +202,7 @@ class MyInverseFoldingGenerator(Generator):
         self.config = config
         self.model_name = config.model_name
 
-    def sample(self, structure_inputs: Optional[List[...]] = None) -> None:
+    def sample(self, structure_inputs: list[...] | None = None) -> None:
         self._validate_generator()
         sampling_inputs = structure_inputs or self.structure_inputs
         if sampling_inputs is None:

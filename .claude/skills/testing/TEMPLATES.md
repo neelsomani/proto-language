@@ -169,8 +169,6 @@ class TestMyGeneratorValidation:
 
 ```python
 import copy
-from typing import Tuple
-
 import pytest
 from pydantic import BaseModel
 
@@ -185,7 +183,7 @@ def _setup_components(
     seq_length: int = 10,
     num_results: int = 5,
     num_steps: int = 10,
-    gc_range: Tuple[float, float] = (40.0, 60.0),
+    gc_range: tuple[float, float] = (40.0, 60.0),
 ):
     """Helper to create optimizer with standard test components."""
     segment = Segment(sequence="A" * seq_length, sequence_type="dna")

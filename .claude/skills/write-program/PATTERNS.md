@@ -120,9 +120,7 @@ results = program.get_stage_results(1)
 ## Custom Logging
 
 ```python
-from typing import Tuple
-
-def custom_logging(step: int, outputs: Tuple[Segment]) -> None:
+def custom_logging(step: int, outputs: tuple[Segment]) -> None:
     seq = outputs[0].proposal_sequences[0]
     gc = seq._metadata["constraints"]["gc_content_constraint"]["data"].get("gc_content", "N/A")
     print(f"Step {step} | seq: {seq.sequence[:30]}... | gc: {gc}")

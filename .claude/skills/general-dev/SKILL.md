@@ -39,10 +39,10 @@ Sequence          A string + type (dna/rna/protein/ligand). Has ._metadata dict.
     ↓
 Segment           Groups proposal sequences for one design region.
                   Has: .sequence_type, .sequence_length, .valid_chars,
-                       .proposal_sequences (List[Sequence]), .result_sequences (List[Sequence]),
+                       .proposal_sequences (list[Sequence]), .result_sequences (list[Sequence]),
                        .original_sequence (Sequence), .num_proposals, .num_results
     ↓
-Construct         Joins multiple Segments into a complete design. List[Segment].
+Construct         Joins multiple Segments into a complete design. list[Segment].
 ```
 
 Key: `Segment(sequence="ATCG", sequence_type="dna")` or `Segment(length=100, sequence_type="protein")`.
@@ -99,11 +99,11 @@ class MyConfig(BaseConfig):
 **`depends_on`** — conditionally show/hide a field based on another field's value:
 
 ```python
-from typing import List, TypedDict, Union
+from typing import TypedDict
 
 class DependsOn(TypedDict, total=False):
     field: str                                     # Required: sibling field key to watch
-    value: Union[str, int, float, bool, List]      # Show when field == value (or field in value if list)
+    value: str | int | float | bool | list      # Show when field == value (or field in value if list)
     not_null: bool                                 # Show when field is not None
 ```
 
@@ -153,7 +153,7 @@ class MyGenerator(Generator): ...
 class MyOptimizer(Optimizer): ...
 
 # Discovery
-Registry.list_all()          # → List[Spec] with all metadata
+Registry.list_all()          # → list[Spec] with all metadata
 Registry.get(key)            # → Spec for one component
 Registry.get_schema(key)     # → JSON schema for client
 

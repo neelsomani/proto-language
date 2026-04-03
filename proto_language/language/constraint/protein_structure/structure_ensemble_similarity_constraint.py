@@ -10,7 +10,7 @@ structure using PyMOL's align command.
 import os
 import tempfile
 from logging import getLogger
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import numpy as np
 from proto_tools import (
@@ -214,7 +214,7 @@ def _prepare_target_structure(
     if residue_range is not None:
         pdb_content = _extract_residue_range_from_pdb(pdb_content, residue_range[0], residue_range[1])
 
-    return cast(str, pdb_content)
+    return pdb_content  # type: ignore[no-any-return]
 
 
 def _extract_chain_from_pdb(pdb_text: str, chain_id: str) -> str:

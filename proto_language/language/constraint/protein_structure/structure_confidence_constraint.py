@@ -245,7 +245,7 @@ def structure_iptm_constraint(
         ...     function=structure_iptm_constraint,
         ...     function_config={
         ...         "structure_tool": "alphafold3",
-        ...         "tool_config": {"seeds": [0, 1], "use_msa": True},
+        ...         "alphafold3_config": {"seeds": [0, 1], "use_msa": True},
         ...     },
         ... )
 
@@ -259,7 +259,7 @@ def structure_iptm_constraint(
         ...     function=structure_iptm_constraint,
         ...     function_config={
         ...         "structure_tool": "boltz2",
-        ...         "tool_config": {"use_msa_server": True},
+        ...         "boltz2_config": {"use_msa_server": True},
         ...     },
         ... )
     """
@@ -312,7 +312,7 @@ def structure_pae_constraint(
         ...     function=structure_pae_constraint,
         ...     function_config={
         ...         "structure_tool": "alphafold3",
-        ...         "tool_config": {"seeds": [0, 1], "use_msa": True},
+        ...         "alphafold3_config": {"seeds": [0, 1], "use_msa": True},
         ...     },
         ... )
     """

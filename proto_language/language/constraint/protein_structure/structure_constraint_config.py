@@ -12,7 +12,6 @@ from proto_tools import (
     Chai1Config,
     ESMFoldConfig,
 )
-from proto_tools.tools.structure_prediction.dispatch import SP_TOOL_MAP
 from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
@@ -23,6 +22,8 @@ class StructureBasedConstraintConfig(BaseConfig):
 
     This base class standardizes how structure prediction tools and their
     configurations are specified across all structure-based constraints.
+    Each tool has its own dedicated config field gated by ``depends_on``,
+    so the client renders only the config form for the selected tool.
 
     Subclasses can optionally restrict which tools are supported by overriding
     the structure_tool field with a narrower Literal type.
@@ -35,22 +36,22 @@ class StructureBasedConstraintConfig(BaseConfig):
             - "chai1": Chai-1 (Chai Discovery)
             Default is "esmfold".
 
-        tool_config (dict[str, Any] | ESMFoldConfig | AlphaFold3Config | Boltz2Config | Chai1Config | None): Tool-specific configuration parameters. Can be provided as:
-            - A typed config object (ESMFoldConfig, AlphaFold3Config, etc.)
-            - A dictionary that will be automatically converted to the appropriate config type
-            Default is an empty dictionary.
+        esmfold_config (ESMFoldConfig): Configuration for ESMFold structure prediction.
+            Only visible when ``structure_tool == "esmfold"``.
+
+        alphafold3_config (AlphaFold3Config): Configuration for AlphaFold3 structure prediction.
+            Only visible when ``structure_tool == "alphafold3"``.
+
+        boltz2_config (Boltz2Config): Configuration for Boltz2 structure prediction.
+            Only visible when ``structure_tool == "boltz2"``.
+
+        chai1_config (Chai1Config): Configuration for Chai1 structure prediction.
+            Only visible when ``structure_tool == "chai1"``.
 
     Example:
-        >>> # Using dict (will be converted to ESMFoldConfig)
-        >>> config = MyConstraintConfig(structure_tool="esmfold", tool_config={"device": "cuda"})
+        >>> config = MyConstraintConfig(structure_tool="esmfold", esmfold_config=ESMFoldConfig(device="cuda"))
         >>>
-        >>> # Using typed config
-        >>> config = MyConstraintConfig(structure_tool="esmfold", tool_config=ESMFoldConfig(device="cuda"))
-
-    Note:
-        The tool_config is automatically validated to ensure it matches the
-        selected structure_tool. If a dict is provided, it will be converted
-        to the appropriate typed config class (with full Pydantic validation).
+        >>> config = MyConstraintConfig(structure_tool="alphafold3", alphafold3_config={"seeds": [0, 1]})
     """
 
     structure_tool: Literal["esmfold", "alphafold3", "boltz2", "chai1"] = ConfigField(
@@ -59,58 +60,53 @@ class StructureBasedConstraintConfig(BaseConfig):
         description="Tool to use for structure prediction.",
     )
 
-    tool_config: dict[str, Any] | ESMFoldConfig | AlphaFold3Config | Boltz2Config | Chai1Config | None = ConfigField(
-        title="Tool Configuration",
-        default=None,
-        description="Tool-specific configuration parameters. Can be a typed config, dict, or None (uses defaults).",
+    esmfold_config: ESMFoldConfig = ConfigField(
+        default_factory=ESMFoldConfig,
+        title="ESMFold Configuration",
+        description="Configuration for ESMFold structure prediction.",
         advanced=True,
+        depends_on={"field": "structure_tool", "value": "esmfold"},
     )
+    alphafold3_config: AlphaFold3Config = ConfigField(
+        default_factory=AlphaFold3Config,
+        title="AlphaFold3 Configuration",
+        description="Configuration for AlphaFold3 structure prediction.",
+        advanced=True,
+        depends_on={"field": "structure_tool", "value": "alphafold3"},
+    )
+    boltz2_config: Boltz2Config = ConfigField(
+        default_factory=Boltz2Config,
+        title="Boltz2 Configuration",
+        description="Configuration for Boltz2 structure prediction.",
+        advanced=True,
+        depends_on={"field": "structure_tool", "value": "boltz2"},
+    )
+    chai1_config: Chai1Config = ConfigField(
+        default_factory=Chai1Config,
+        title="Chai1 Configuration",
+        description="Configuration for Chai1 structure prediction.",
+        advanced=True,
+        depends_on={"field": "structure_tool", "value": "chai1"},
+    )
+
+    @property
+    def tool_config(self) -> ESMFoldConfig | AlphaFold3Config | Boltz2Config | Chai1Config:
+        """Return the active tool configuration based on structure_tool."""
+        configs = {
+            "esmfold": self.esmfold_config,
+            "alphafold3": self.alphafold3_config,
+            "boltz2": self.boltz2_config,
+            "chai1": self.chai1_config,
+        }
+        return configs[self.structure_tool]
 
     @model_validator(mode="before")
     @classmethod
-    def convert_and_validate_tool_config(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Converts dict/None to tool-specific config and validates type consistency.
-
-        Handles all possible input formats:
-        - tool_config=None → default config for structure_tool
-        - tool_config=dict → instantiate config for structure_tool
-        - tool_config=<typed config> → validate it matches structure_tool
-
-        Args:
-            values (dict[str, Any]): Dict of tool configuration parameters.
-
-        Returns:
-            dict[str, Any]: Dict of tool configuration parameters with tool_config converted.
-
-        Raises:
-            ValueError: If structure_tool is unknown or tool_config type doesn't match.
-        """
-        if not isinstance(values, dict):
-            return values  # type: ignore[unreachable]  # Pydantic mode="before" can pass model instances
-
-        structure_tool = values.get("structure_tool", "esmfold")
-        tool_config = values.get("tool_config")
-
-        # Validate structure_tool is known
-        if structure_tool not in SP_TOOL_MAP:
+    def _reject_legacy_tool_config(cls, values: Any) -> Any:
+        """Reject legacy tool_config kwarg with a helpful migration message."""
+        if isinstance(values, dict) and "tool_config" in values:
             raise ValueError(
-                f"Unknown structure prediction tool: '{structure_tool}'. "
-                f"Supported tools: {', '.join(SP_TOOL_MAP.keys())}"
+                "tool_config is no longer accepted. Use the per-tool config field instead: "
+                "esmfold_config, alphafold3_config, boltz2_config, or chai1_config."
             )
-
-        expected_type = SP_TOOL_MAP[structure_tool]["config"]
-
-        # Convert dict or None to appropriate config object
-        if tool_config is None:
-            values["tool_config"] = expected_type()
-        elif isinstance(tool_config, dict):
-            values["tool_config"] = expected_type(**tool_config)
-        # Validate that already-typed config matches the structure_tool
-        elif not isinstance(tool_config, expected_type):
-            raise ValueError(
-                f"tool_config type {type(tool_config).__name__} doesn't match "
-                f"structure_tool '{structure_tool}' (expected {expected_type.__name__})"
-            )
-        # else: tool_config is already the correct type, leave it as-is
-
         return values

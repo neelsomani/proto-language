@@ -547,7 +547,7 @@ class TestToolConfigPassthrough:
         proposals = [(protein_sequence,)]
         config = StructureBasedConstraintConfig(
             structure_tool="esmfold",
-            tool_config={
+            esmfold_config={
                 "verbose": True,
                 "residue_idx_offset": 256,
                 "chain_linker": "GGGGG",
@@ -576,7 +576,7 @@ class TestToolConfigPassthrough:
         proposals = [(protein_sequence,)]
         config = StructureBasedConstraintConfig(
             structure_tool="alphafold3",
-            tool_config={
+            alphafold3_config={
                 "seeds": [0, 1, 2],
                 "use_msa": False,
                 "verbose": True,
@@ -839,16 +839,15 @@ class TestConfigurationDefaults:
         config = StructureBasedConstraintConfig()
         assert config.structure_tool == "esmfold"
 
-    def test_default_tool_config_is_empty(self):
-        """Test that default tool_config creates a default ESMFoldConfig."""
+    def test_default_tool_config_is_esmfold(self):
+        """Test that default tool_config returns a default ESMFoldConfig."""
         config = StructureBasedConstraintConfig()
-        # New behavior: tool_config is automatically converted to typed config
         from proto_tools import ESMFoldConfig
 
         assert isinstance(config.tool_config, ESMFoldConfig)
-        # Verify it uses default values
-        assert config.tool_config.device == "cuda"
-        assert config.tool_config.verbose is False
+        assert isinstance(config.esmfold_config, ESMFoldConfig)
+        assert config.esmfold_config.device == "cuda"
+        assert config.esmfold_config.verbose is False
 
     def test_tool_name_strict(self, protein_sequence):
         """Test that tool names must be exact (case-sensitive, no whitespace)."""
@@ -877,7 +876,7 @@ class TestIntegrationScenarios:
         proposals = [(protein_sequence, protein_sequence_b)]
         config = StructureBasedConstraintConfig(
             structure_tool="alphafold3",
-            tool_config={"seeds": [0]},
+            alphafold3_config={"seeds": [0]},
         )
 
         with patch(
@@ -936,7 +935,7 @@ class TestIntegrationScenarios:
 
         config = StructureBasedConstraintConfig(
             structure_tool="chai1",
-            tool_config={"verbose": False},
+            chai1_config={"verbose": False},
         )
 
         with patch(

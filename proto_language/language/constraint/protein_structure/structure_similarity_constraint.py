@@ -128,49 +128,34 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     by providing an existing structure.
 
     The user should provide a target as **one** of:
-    - `target_chains`: Sequences to dynamically fold (tuple of strings or a
+    - ``target_chains``: Sequences to dynamically fold (tuple of strings or a
       StructurePredictionComplex).
-    - `target_structure`: A Structure object, a file path to a PDB/CIF file,
+    - ``target_structure``: A Structure object, a file path to a PDB/CIF file,
       or raw PDB/CIF content as a string.
 
-    Inherits tool selection and configuration from StructureBasedConstraintConfig:
-
-        structure_tool (Literal['esmfold', 'alphafold3', 'boltz2', 'chai1']):
-            The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the proposal sequences. Supported options:
-            - "esmfold": ESMFold (Meta AI)
-            - "alphafold3": AlphaFold 3 (Google DeepMind)
-            - "boltz2": Boltz2 (MIT)
-            - "chai1": Chai-1 (Chai Discovery)
-            Default is "esmfold".
-
-        tool_config (dict[str, Any] | ESMFoldConfig | AlphaFold3Config | Boltz2Config | Chai1Config | None):
-            A dictionary of configuration parameters to pass directly to the underlying
-            structure prediction tool runner. Can be a typed config object or a dictionary.
-            Automatically validated and converted to the appropriate config type based on
-            structure_tool. Defaults to an empty dictionary.
+    Inherits tool selection and per-tool configuration from
+    ``StructureBasedConstraintConfig`` (``structure_tool``, ``esmfold_config``,
+    ``alphafold3_config``, ``boltz2_config``, ``chai1_config``).
 
     Attributes:
         target_chains (tuple[str, ...] | StructurePredictionComplex | None):
             The sequences of the target chains. Accepts either a tuple of sequence
             strings (entity types are auto-detected) or a StructurePredictionComplex.
-            If provided, these will be folded using the specified `structure_tool`
+            If provided, these will be folded using the specified ``structure_tool``
             to generate the reference structure. Mutually exclusive with
-            `target_structure`.
+            ``target_structure``.
 
         target_structure (Structure | str | None):
             The target structure. Accepts a Structure object, a file path to a
             PDB/CIF file (identified by .pdb/.cif/.mmcif extension), or raw
-            PDB/CIF content as a string. Mutually exclusive with `target_chains`.
+            PDB/CIF content as a string. Mutually exclusive with ``target_chains``.
 
         min_target_plddt (float):
-            Only used if the target structure is provided via `target_chains`. This is
+            Only used if the target structure is provided via ``target_chains``. This is
             the minimum average pLDDT confidence score required for the folded target
             structure. If the target is provided as a sequence and its predicted
             structure has a confidence below this threshold, the constraint may return
             a default/penalty score or log a warning. Default is 0.6.
-        structure_tool (Literal['esmfold', 'alphafold3', 'boltz2', 'chai1']): Structure prediction tool key to use.
-        tool_config (dict[str, Any] | ESMFoldConfig | AlphaFold3Config | Boltz2Config | Chai1Config | None): Configuration dict passed to the structure prediction tool.
     """
 
     # Target specification (mutually exclusive):
@@ -205,11 +190,16 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
 class StructureRMSDConfig(StructureSimilarityConfig):
     """Configuration for RMSD-based structure similarity.
 
-    This configuration extends `StructureSimilarityConfig` with specific parameters
+    This configuration extends ``StructureSimilarityConfig`` with specific parameters
     for calculating the Root Mean Square Deviation (RMSD) between the target and
     proposal structures. The raw RMSD value is transformed into a 0-1 constraint
     score using a sigmoid function, where 0 represents a perfect match (low RMSD)
     and 1 represents a poor match (high RMSD).
+
+    Inherits target specification (``target_chains``, ``target_structure``,
+    ``min_target_plddt``) from ``StructureSimilarityConfig`` and tool selection
+    (``structure_tool``, ``esmfold_config``, ``alphafold3_config``,
+    ``boltz2_config``, ``chai1_config``) from ``StructureBasedConstraintConfig``.
 
     Attributes:
         inflection_point_angstroms (float):
@@ -222,39 +212,6 @@ class StructureRMSDConfig(StructureSimilarityConfig):
             The steepness of the sigmoid penalty curve. A higher slope results in a
             sharper transition from good to bad scores around the inflection point.
             Default is 3.0.
-
-        target_chains (tuple[str, ...] | StructurePredictionComplex | None):
-            The sequences of the target chains. Accepts a tuple of sequence strings
-            (entity types auto-detected) or a StructurePredictionComplex. If provided,
-            these will be folded using the specified `structure_tool` to generate the
-            reference structure. Mutually exclusive with `target_structure`.
-
-        target_structure (Structure | str | None):
-            The target structure. Accepts a Structure object, a file path to a
-            PDB/CIF file, or raw PDB/CIF content as a string. Mutually exclusive
-            with `target_chains`.
-
-        structure_tool:
-            The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the proposal sequences. Supported options:
-            - "esmfold": ESMFold (Meta AI)
-            - "alphafold3": AlphaFold 3 (Google DeepMind)
-            - "boltz2": Boltz2 (MIT)
-            - "chai1": Chai-1 (Chai Discovery)
-            Default is "esmfold".
-
-        tool_config:
-            A dictionary of configuration parameters to pass directly to the underlying
-            structure prediction tool runner. Can be a typed config object or a dictionary.
-            Automatically validated and converted to the appropriate config type based on
-            structure_tool. Defaults to an empty dictionary.
-
-        min_target_plddt (float):
-            Only used if the target structure is provided via `target_chains`. This is
-            the minimum average pLDDT confidence score required for the folded target
-            structure. If the target is provided as a sequence and its predicted
-            structure has a confidence below this threshold, the constraint may return
-            a default/penalty score or log a warning. Default is 0.6.
     """
 
     inflection_point_angstroms: float = ConfigField(
@@ -272,7 +229,7 @@ class StructureRMSDConfig(StructureSimilarityConfig):
 class StructureTMScoreConfig(StructureSimilarityConfig):
     """Configuration for TM-score based structure similarity.
 
-    This configuration extends `StructureSimilarityConfig` for calculating the
+    This configuration extends ``StructureSimilarityConfig`` for calculating the
     Template Modeling score (TM-score) between the target and proposal structures.
     TM-score is a metric for assessing the topological similarity of protein structures
     and is less sensitive to local variations than RMSD.
@@ -280,6 +237,11 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
     The constraint returns a score calculated as (1.0 - TM_score), where 0.0 indicates
     a perfect match (TM-score = 1.0) and values closer to 1.0 indicate poor structural
     similarity.
+
+    Inherits target specification (``target_chains``, ``target_structure``,
+    ``min_target_plddt``) from ``StructureSimilarityConfig`` and tool selection
+    (``structure_tool``, ``esmfold_config``, ``alphafold3_config``,
+    ``boltz2_config``, ``chai1_config``) from ``StructureBasedConstraintConfig``.
 
     Attributes:
         plddt_threshold (float | None):
@@ -296,39 +258,6 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
             - "min": Take the minimum of both TM-scores (most strict).
             - "mean": Take the arithmetic mean of both TM-scores (default).
             Default is "mean".
-
-        target_chains (tuple[str, ...] | StructurePredictionComplex | None):
-            The sequences of the target chains. Accepts a tuple of sequence strings
-            (entity types auto-detected) or a StructurePredictionComplex. If provided,
-            these will be folded using the specified `structure_tool` to generate the
-            reference structure. Mutually exclusive with `target_structure`.
-
-        target_structure (Structure | str | None):
-            The target structure. Accepts a Structure object, a file path to a
-            PDB/CIF file, or raw PDB/CIF content as a string. Mutually exclusive
-            with `target_chains`.
-
-        structure_tool:
-            The structure prediction tool to use for folding both the target (if provided
-            as a sequence) and the proposal sequences. Supported options:
-            - "esmfold": ESMFold (Meta AI)
-            - "alphafold3": AlphaFold 3 (Google DeepMind)
-            - "boltz2": Boltz2 (MIT)
-            - "chai1": Chai-1 (Chai Discovery)
-            Default is "esmfold".
-
-        tool_config:
-            A dictionary of configuration parameters to pass directly to the underlying
-            structure prediction tool runner. Can be a typed config object or a dictionary.
-            Automatically validated and converted to the appropriate config type based on
-            structure_tool. Defaults to an empty dictionary.
-
-        min_target_plddt (float):
-            Only used if the target structure is provided via `target_chains`. This is
-            the minimum average pLDDT confidence score required for the folded target
-            structure. If the target is provided as a sequence and its predicted
-            structure has a confidence below this threshold, the constraint may return
-            a default/penalty score or log a warning. Default is 0.6.
     """
 
     plddt_threshold: float | None = ConfigField(

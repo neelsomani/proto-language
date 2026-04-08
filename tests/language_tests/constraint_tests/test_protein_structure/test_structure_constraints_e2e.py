@@ -127,19 +127,19 @@ class TestStructureConstraintsProteinLigandComplex:
         if config_class == StructureBasedConstraintConfig:
             config = StructureBasedConstraintConfig(
                 structure_tool="boltz2",
-                tool_config=BOLTZ2_CONFIG,
+                boltz2_config=BOLTZ2_CONFIG,
             )
         elif config_class == StructureRMSDConfig:
             config = StructureRMSDConfig(
                 target_chains=(RUVB_PROTEIN, ADP_LIGAND),
                 structure_tool="boltz2",
-                tool_config=BOLTZ2_CONFIG,
+                boltz2_config=BOLTZ2_CONFIG,
             )
         elif config_class == StructureTMScoreConfig:
             config = StructureTMScoreConfig(
                 target_chains=(RUVB_PROTEIN, ADP_LIGAND),
                 structure_tool="boltz2",
-                tool_config=BOLTZ2_CONFIG,
+                boltz2_config=BOLTZ2_CONFIG,
             )
 
         # Run constraint
@@ -227,23 +227,20 @@ class TestESMFoldLigandRejection:
         """Test that ESMFold raises ValueError for ligand-containing complexes."""
         proposals = [(protein_sequence, ligand_sequence)]
 
-        # Create appropriate config with ESMFold
+        # Create appropriate config with ESMFold (defaults used for esmfold_config)
         if config_class == StructureBasedConstraintConfig:
             config = StructureBasedConstraintConfig(
                 structure_tool="esmfold",
-                tool_config={},
             )
         elif config_class == StructureRMSDConfig:
             config = StructureRMSDConfig(
                 target_chains=(RUVB_PROTEIN, ADP_LIGAND),
                 structure_tool="esmfold",
-                tool_config={},
             )
         elif config_class == StructureTMScoreConfig:
             config = StructureTMScoreConfig(
                 target_chains=(RUVB_PROTEIN, ADP_LIGAND),
                 structure_tool="esmfold",
-                tool_config={},
             )
 
         # Verify that the constraint raises a ValueError

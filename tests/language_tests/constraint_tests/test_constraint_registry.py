@@ -276,7 +276,6 @@ class TestFactoryMethod:
                 "min_similarity": 80.0,
                 "max_similarity": 100.0,
                 "mmseqs_db": str(dummy_db),
-                "mmseqs_config": {"results_dir": ""},
             },
         )
 

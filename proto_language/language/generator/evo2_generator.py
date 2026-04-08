@@ -309,8 +309,6 @@ class Evo2Generator(Generator):
             verbose=self.verbose,
             stop_at_eos=self.stop_at_eos,
             old_kv_cache=old_kv_cache,
-            keep_on_gpu=True,
-            batched=self.batched,
             batch_size=self.batch_size,
         )
 

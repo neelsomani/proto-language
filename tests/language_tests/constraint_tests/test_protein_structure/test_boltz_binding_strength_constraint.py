@@ -138,12 +138,10 @@ class TestBoltzBindingStrengthConstraint:
         """Test constraint with protein-protein-ligand complex."""
         protein1 = Segment(sequence="MKTAYIAKQRQISFVK", sequence_type="protein")
         protein2 = Segment(sequence="MVLSEGEWQLVLHVWAK", sequence_type="protein")
-        ligand_target = "N[C@@H](Cc1ccc(O)cc1)C(=O)O"
-        complex_list = [protein1, protein2]
+        ligand = Segment(sequence="N[C@@H](Cc1ccc(O)cc1)C(=O)O", sequence_type="ligand")
+        complex_list = [protein1, protein2, ligand]
 
-        constraint = ConstraintRegistry.create(
-            key="boltz2-binding-strength", segments=complex_list, config_dict={"ligands": ligand_target}
-        )
+        constraint = ConstraintRegistry.create(key="boltz2-binding-strength", segments=complex_list, config_dict={})
 
         with patch(
             "proto_language.language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",

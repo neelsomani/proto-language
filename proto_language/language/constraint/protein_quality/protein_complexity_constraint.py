@@ -129,7 +129,7 @@ def protein_complexity_constraint(
     """
     # Extract sequence strings from tuples
     segmasker_inputs = SegmaskerInput(sequences=[seq.sequence for (seq,) in input_sequences])
-    segmasker_config = SegmaskerConfig(segmasker_path=config.segmasker_path)
+    segmasker_config = SegmaskerConfig()
 
     result = run_segmasker(inputs=segmasker_inputs, config=segmasker_config)
 

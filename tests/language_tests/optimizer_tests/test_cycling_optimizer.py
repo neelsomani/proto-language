@@ -988,7 +988,7 @@ class TestCyclingOptimizerPipelineResolution:
 
         target_segment = Segment(sequence="A" * 20, sequence_type="protein")
         construct = Construct([target_segment])
-        generator = ESM2Generator(ESM2GeneratorConfig(mask_positions=[[0]]))
+        generator = ESM2Generator(ESM2GeneratorConfig())
 
         config = CyclingOptimizerConfig(
             num_steps=2,

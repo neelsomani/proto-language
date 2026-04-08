@@ -115,7 +115,7 @@ Evaluation rules (first matching rule wins):
 Only one of `value` or `not_null` should be specified. Omitting both means "show when truthy."
 
 **BaseConfig behavior** (from `ConfigDict`):
-- `extra='ignore'` — unknown fields silently ignored
+- `extra='forbid'` — unknown fields rejected with a validation error
 - `validate_assignment=True` — validates on field updates
 - `use_enum_values=True` — enums serialize as values
 - `validate_default=True` — default values are validated

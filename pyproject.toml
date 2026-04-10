@@ -31,6 +31,14 @@ dependencies = [
     "rdkit",
     "pymol-open-source",
 
+    # Notebooks & visualization
+    "jupyter",
+    "ipykernel",
+    "ipywidgets",
+    "ipymol",
+    "py3Dmol",
+    "matplotlib",
+
     # Utilities
     "tqdm",
     "openpyxl",
@@ -51,11 +59,6 @@ dev = [
     "mypy",
     "google-auth",              # mypy needs this installed to type-check storage/store.py
     "google-cloud-storage",     # mypy needs this installed to type-check storage/resolver.py
-    "jupyter",
-    "ipykernel",
-    "ipywidgets",
-    "ipymol",
-    "matplotlib",
     "docstring-parser",
 ]
 

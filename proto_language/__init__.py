@@ -72,6 +72,8 @@ from proto_language.language.generator import (
     MaskingStrategy,
     MSAGenerator,
     MSAGeneratorConfig,
+    PositionProbabilityGenerator,
+    PositionProbabilityGeneratorConfig,
     ProGen2Generator,
     ProGen2GeneratorConfig,
     ProteinMPNNGenerator,
@@ -177,6 +179,8 @@ __all__ = [
     "RandomProteinGeneratorConfig",
     "RandomNucleotideGenerator",
     "RandomNucleotideGeneratorConfig",
+    "PositionProbabilityGenerator",
+    "PositionProbabilityGeneratorConfig",
     "MSAGenerator",
     "MSAGeneratorConfig",
     # Language model generators

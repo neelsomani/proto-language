@@ -15,6 +15,10 @@ from proto_language.language.generator.evo2_generator import Evo2Generator, Evo2
 from proto_language.language.generator.generator_registry import GeneratorRegistry, GeneratorSpec, generator
 from proto_language.language.generator.ligandmpnn_generator import LigandMPNNGenerator, LigandMPNNGeneratorConfig
 from proto_language.language.generator.msa_generator import MSAGenerator, MSAGeneratorConfig
+from proto_language.language.generator.position_probability_generator import (
+    PositionProbabilityGenerator,
+    PositionProbabilityGeneratorConfig,
+)
 from proto_language.language.generator.progen2_generator import ProGen2Generator, ProGen2GeneratorConfig
 
 # Inverse folding generators
@@ -42,6 +46,8 @@ __all__ = [
     "RandomProteinGeneratorConfig",
     "RandomNucleotideGenerator",
     "RandomNucleotideGeneratorConfig",
+    "PositionProbabilityGenerator",
+    "PositionProbabilityGeneratorConfig",
     "MSAGenerator",
     "MSAGeneratorConfig",
     # Language model generators

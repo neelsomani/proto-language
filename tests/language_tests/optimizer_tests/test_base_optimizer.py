@@ -13,6 +13,8 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
+from proto_language.language.generator.generator_registry import GeneratorRegistry
+from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry, OptimizerSpec
 
 
 # Concrete implementation for testing the abstract base class
@@ -1106,3 +1108,25 @@ class TestOptimizerExport:
         fasta = self.optimizer.to_fasta()
         assert fasta.startswith(">")
         assert "\n" in fasta
+
+
+class TestOptimizerRegistry:
+    """Tests for OptimizerRegistry compatible_generators metadata."""
+
+    def test_all_specs_have_compatible_generators_field(self):
+        """Tests that all optimizer specs expose the compatible_generators field."""
+        for spec in OptimizerRegistry.list_all():
+            assert isinstance(spec, OptimizerSpec)
+            assert hasattr(spec, "compatible_generators")
+
+    def test_beam_search_compatible_generators_match_autoregressive(self):
+        """Tests that BeamSearchOptimizer lists exactly the autoregressive generators."""
+        spec = OptimizerRegistry.get("beam-search")
+        autoregressive_keys = sorted(s.key for s in GeneratorRegistry.list_all() if s.category == "autoregressive")
+        assert sorted(spec.compatible_generators) == autoregressive_keys
+
+    def test_general_optimizers_accept_all_generators(self):
+        """Tests that general-purpose optimizers default to None."""
+        for key in ("mcmc", "rejection-sampling", "cycling"):
+            spec = OptimizerRegistry.get(key)
+            assert spec.compatible_generators is None

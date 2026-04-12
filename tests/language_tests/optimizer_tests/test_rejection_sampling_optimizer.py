@@ -805,7 +805,7 @@ class TestRejectionSamplingCustomLogging:
             segment = Segment(sequence="ATCGATCG", sequence_type="dna")
             construct = Construct([segment])
             gen = RandomNucleotideGenerator(
-                RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
+                RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2), seed=seed)
             )
             gen.assign(segment)
             constraint = Constraint(
@@ -817,6 +817,7 @@ class TestRejectionSamplingCustomLogging:
                 num_samples=30,
                 num_results=5,
                 verbose=False,
+                seed=seed,
             )
             optimizer = RejectionSamplingOptimizer(
                 constructs=[construct],

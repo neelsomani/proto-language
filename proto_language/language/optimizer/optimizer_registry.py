@@ -24,12 +24,17 @@ class OptimizerSpec(BaseSpec):
         uses_gpu (bool): Whether this component requires GPU resources.
         config_model (type[BaseModel]): Pydantic model class for the component configuration.
         targets_single_segment (bool): Whether this optimizer operates on a single segment at a time.
+        compatible_generators (list[str] | None): Generator keys this optimizer accepts. None means all unclaimed generators.
         optimizer_class (type[Optimizer]): Optimizer subclass implementing the optimization logic.
     """
 
     targets_single_segment: bool = Field(
         default=False,
         description="Whether this optimizer requires a target_segment parameter",
+    )
+    compatible_generators: list[str] | None = Field(
+        default=None,
+        description="Generator keys this optimizer accepts. None means all unclaimed generators.",
     )
 
     # Private field - excluded from serialization
@@ -94,6 +99,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         description: str,
         uses_gpu: bool = False,
         targets_single_segment: bool = False,
+        compatible_generators: list[str] | None = None,
     ) -> Callable[[type[Optimizer]], type[Optimizer]]:
         """Decorator to register an optimizer class.
 
@@ -107,6 +113,8 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
             description (str): Readable description
             uses_gpu (bool): If True, optimizer requires GPU for computation
             targets_single_segment (bool): If True, optimizer operates on a single target segment
+            compatible_generators (list[str] | None): Generator keys this optimizer accepts.
+                None means all unclaimed generators.
 
         Returns:
             Callable[[type[Optimizer]], type[Optimizer]]: Decorator that registers the class and returns it unchanged
@@ -136,6 +144,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
                 optimizer_class=optimizer_class,
                 uses_gpu=uses_gpu,
                 targets_single_segment=targets_single_segment,
+                compatible_generators=compatible_generators,
             )
             return optimizer_class
 

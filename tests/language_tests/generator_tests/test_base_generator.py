@@ -23,6 +23,22 @@ class ConcreteGenerator(Generator):
         """Dummy sample implementation that does nothing."""
 
 
+def _mock_spec(category: str = "mutation", supported_types: list[str] | None = None) -> MagicMock:
+    """Create a mock GeneratorSpec with the given category."""
+    mock = MagicMock(spec=GeneratorSpec)
+    mock.supported_sequence_types = supported_types or []
+    mock.category = category
+    return mock
+
+
+def _patch_registry(mock_spec: MagicMock):
+    """Return a pair of patch objects for GeneratorRegistry.get and get_key."""
+    return (
+        patch.object(GeneratorRegistry, "get", return_value=mock_spec),
+        patch.object(GeneratorRegistry, "get_key", return_value="concrete-generator"),
+    )
+
+
 class TestGeneratorBase:
     """Tests for the base Generator class functionality."""
 
@@ -31,200 +47,99 @@ class TestGeneratorBase:
         with pytest.raises(TypeError, match="Can't instantiate abstract class"):
             Generator()
 
-    def test_concrete_implementation_initializes(self):
-        """Tests that a concrete implementation initializes correctly."""
+    def test_assign_sets_segment_and_allows_all_types_when_empty(self):
+        """Tests that assign sets segment and allows any type when supported_sequence_types is empty."""
         gen = ConcreteGenerator()
         assert gen._assigned_segment is None
 
-    def test_assign_sets_segment(self):
-        """Tests that assign correctly sets the assigned segment."""
-        gen = ConcreteGenerator()
-        segment = Segment(sequence="ATCG", sequence_type="dna")
-
-        # Mock the registry lookup to return a spec that allows DNA
-        mock_spec = MagicMock(spec=GeneratorSpec)
-        mock_spec.supported_sequence_types = []  # Empty means all types supported
-        mock_spec.category = "mutation"
-
-        with patch.object(GeneratorRegistry, "get", return_value=mock_spec):
-            with patch.object(GeneratorRegistry, "get_key", return_value="concrete-generator"):
+        p_get, p_key = _patch_registry(_mock_spec())
+        with p_get, p_key:
+            for seq, seq_type in [("ATCG", "dna"), ("ACGU", "rna"), ("MKKL", "protein")]:
+                segment = Segment(sequence=seq, sequence_type=seq_type)
                 gen.assign(segment)
+                assert gen._assigned_segment is segment
 
-        assert gen._assigned_segment is segment
-
-    def test_assign_rejects_ligand_segment(self):
-        """Tests that assign raises error for ligand segments."""
+    def test_assign_rejects_ligand_and_incompatible_type(self):
+        """Tests that assign rejects ligand segments and incompatible sequence types."""
         gen = ConcreteGenerator()
-        segment = Segment(sequence="CCC", sequence_type="ligand")
 
         with pytest.raises(ValueError, match="Cannot assign generator to ligand segment"):
-            gen.assign(segment)
+            gen.assign(Segment(sequence="CCC", sequence_type="ligand"))
 
-    def test_assign_validates_sequence_type(self):
-        """Tests that assign validates sequence type against supported types."""
-        gen = ConcreteGenerator()
-        segment = Segment(sequence="ATCG", sequence_type="dna")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            with pytest.raises(ValueError, match="does not support sequence type"):
+                gen.assign(Segment(sequence="ATCG", sequence_type="dna"))
 
-        # Mock the registry to return a spec that only supports protein
-        mock_spec = MagicMock(spec=GeneratorSpec)
-        mock_spec.supported_sequence_types = ["protein"]
-        mock_spec.category = "mutation"
-
-        with patch.object(GeneratorRegistry, "get", return_value=mock_spec):
-            with patch.object(GeneratorRegistry, "get_key", return_value="concrete-generator"):
-                with pytest.raises(ValueError, match="does not support sequence type"):
-                    gen.assign(segment)
-
-    def test_assign_allows_all_types_when_supported_empty(self):
-        """Tests that assign allows any sequence type when supported_sequence_types is empty."""
-        gen = ConcreteGenerator()
-
-        mock_spec = MagicMock(spec=GeneratorSpec)
-        mock_spec.supported_sequence_types = []  # Empty means all types supported
-        mock_spec.category = "mutation"
-
-        with patch.object(GeneratorRegistry, "get", return_value=mock_spec):
-            with patch.object(GeneratorRegistry, "get_key", return_value="concrete-generator"):
-                # Should work for DNA
-                segment_dna = Segment(sequence="ATCG", sequence_type="dna")
-                gen.assign(segment_dna)
-                assert gen._assigned_segment is segment_dna
-
-                # Should work for RNA
-                segment_rna = Segment(sequence="ACGU", sequence_type="rna")
-                gen.assign(segment_rna)
-                assert gen._assigned_segment is segment_rna
-
-                # Should work for protein
-                segment_protein = Segment(sequence="MKKL", sequence_type="protein")
-                gen.assign(segment_protein)
-                assert gen._assigned_segment is segment_protein
-
-    def test_mutation_generator_initializes_random_sequence_on_sample(self):
-        """Tests that mutation generators initialize a random sequence on first sample() if none provided."""
+    def test_mutation_generator_lazy_init_and_preserves_existing(self):
+        """Tests lazy random init for length-only segments and preservation of existing sequences."""
         from proto_tools.tools.masked_models.masking import MaskingStrategy
 
-        from proto_language.language.generator import (
-            RandomNucleotideGenerator,
-            RandomNucleotideGeneratorConfig,
-        )
+        from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 
-        config = RandomNucleotideGeneratorConfig(
-            masking_strategy=MaskingStrategy(num_mutations=1),
-        )
+        config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+
+        # Length-only segment: lazy random init on sample()
         gen = RandomNucleotideGenerator(config)
-        seq_len = 20
-        segment = Segment(length=seq_len, sequence_type="dna")
-
-        # Ensure segment starts with empty sequence
-        assert segment.original_sequence.sequence == ""
-        # Segment was created with length, not sequence
+        segment = Segment(length=20, sequence_type="dna")
         assert not segment.has_original_sequence
-
         gen.assign(segment)
-
-        # After assign, segment should still have empty sequence (lazy initialization)
         assert segment.original_sequence.sequence == ""
-
-        # Call sample() to trigger lazy initialization
         gen.sample()
-
-        # proposal_sequences should now have a random sequence of the correct length
-        assert len(segment.proposal_sequences[0].sequence) == seq_len
-        # All characters should be valid DNA nucleotides
+        assert len(segment.proposal_sequences[0].sequence) == 20
         assert all(c in "ACGT" for c in segment.proposal_sequences[0].sequence)
-        # has_sequence flag should still be False (segment was created with length)
-        # This ensures serialization outputs "length" not "sequence"
         assert not segment.has_original_sequence
 
-    def test_mutation_generator_preserves_existing_sequence(self):
-        """Tests that mutation generators preserve existing sequences."""
-        from proto_tools.tools.masked_models.masking import MaskingStrategy
-
-        from proto_language.language.generator import (
-            RandomNucleotideGenerator,
-            RandomNucleotideGeneratorConfig,
-        )
-
-        config = RandomNucleotideGeneratorConfig(
-            masking_strategy=MaskingStrategy(num_mutations=1),
-        )
-        gen = RandomNucleotideGenerator(config)
-        predefined_seq = "ATCGATCG"
-        segment = Segment(sequence=predefined_seq, sequence_type="dna")
-
-        gen.assign(segment)
-        gen.sample()
-
-        # Should preserve the original sequence (has_sequence is True)
-        assert segment.has_original_sequence
-        # The sequence may be mutated but should still have same length
-        assert len(segment.proposal_sequences[0].sequence) == len(predefined_seq)
+        # Predefined sequence: preserved after sample
+        gen2 = RandomNucleotideGenerator(config)
+        segment2 = Segment(sequence="ATCGATCG", sequence_type="dna")
+        gen2.assign(segment2)
+        gen2.sample()
+        assert segment2.has_original_sequence
+        assert len(segment2.proposal_sequences[0].sequence) == 8
 
     def test_mutation_proposals_get_unique_random_sequences(self):
-        """Regression: each proposal must get a unique random sequence (Bug 4)."""
+        """Regression: each proposal must get a unique random sequence."""
         import random
 
         from proto_tools.tools.masked_models.masking import MaskingStrategy
 
         from proto_language.language.core import Sequence
-        from proto_language.language.generator import (
-            RandomNucleotideGenerator,
-            RandomNucleotideGeneratorConfig,
-        )
+        from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 
         random.seed(123)
         segment = Segment(length=50, sequence_type="dna")
-        config = RandomNucleotideGeneratorConfig(
-            masking_strategy=MaskingStrategy(num_mutations=1),
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
-        gen = RandomNucleotideGenerator(config)
         gen.assign(segment)
-
-        # Set up multiple empty proposals
         segment.proposal_sequences = [Sequence(sequence="", sequence_type="dna") for _ in range(5)]
         gen._validate_generator()
 
         sequences = [s.sequence for s in segment.proposal_sequences]
         assert all(len(s) == 50 for s in sequences)
-        assert all(all(c in "ACGT" for c in s) for s in sequences)
-        assert len(set(sequences)) > 1, "All proposals got the same random sequence, diversity is wasted"
+        assert len(set(sequences)) > 1, "All proposals got the same random sequence"
 
-    def test_assign_autoregressive_generator_no_random_init(self):
+    def test_autoregressive_generator_no_random_init(self):
         """Tests that autoregressive generators don't initialize random sequences."""
         gen = ConcreteGenerator()
-        seq_len = 20
-        segment = Segment(length=seq_len, sequence_type="dna")
+        segment = Segment(length=20, sequence_type="dna")
 
-        # Ensure segment starts with empty sequence
-        assert segment.original_sequence.sequence == ""
-
-        mock_spec = MagicMock(spec=GeneratorSpec)
-        mock_spec.supported_sequence_types = []
-        mock_spec.category = "autoregressive"  # Autoregressive generators don't init random
-
-        with patch.object(GeneratorRegistry, "get", return_value=mock_spec):
-            with patch.object(GeneratorRegistry, "get_key", return_value="concrete-generator"):
-                gen.assign(segment)
-
-        # Should still have empty sequence (autoregressive generates from scratch)
+        p_get, p_key = _patch_registry(_mock_spec(category="autoregressive"))
+        with p_get, p_key:
+            gen.assign(segment)
         assert segment.original_sequence.sequence == ""
 
     def test_validate_generator_empty_proposal_pool_raises(self):
-        """Tests that _validate_generator raises on empty proposal_sequences (I7)."""
+        """Tests that _validate_generator raises on empty proposal_sequences."""
         from proto_tools.tools.masked_models.masking import MaskingStrategy
 
-        from proto_language.language.generator import (
-            RandomNucleotideGenerator,
-            RandomNucleotideGeneratorConfig,
-        )
+        from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 
-        config = RandomNucleotideGeneratorConfig(
-            masking_strategy=MaskingStrategy(num_mutations=1),
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
         )
-        gen = RandomNucleotideGenerator(config)
         segment = Segment(sequence="ATCG", sequence_type="dna")
-
         gen.assign(segment)
         segment.proposal_sequences = []
 
@@ -235,38 +150,19 @@ class TestGeneratorBase:
 class TestGeneratorRegistry:
     """Tests for GeneratorRegistry functionality."""
 
-    def test_registry_exists(self):
-        """Tests that the GeneratorRegistry is available."""
-        assert GeneratorRegistry is not None
-        assert hasattr(GeneratorRegistry, "_registry")
-
-    def test_registry_has_generators(self):
-        """Tests that some generators are registered."""
-        # After imports, registry should have generators
-        all_generators = GeneratorRegistry.list_all()
-        assert len(all_generators) > 0
-
-    def test_get_key_for_unknown_generator_raises(self):
-        """Tests that get_key raises for unregistered generators."""
-        gen = ConcreteGenerator()  # Not registered
-
+    def test_unknown_key_raises(self):
+        """Tests that get_key and create raise for unregistered generators."""
         with pytest.raises(ValueError, match="is not registered"):
-            GeneratorRegistry.get_key(gen)
-
-    def test_create_with_invalid_key_raises(self):
-        """Tests that create raises for invalid generator key."""
+            GeneratorRegistry.get_key(ConcreteGenerator())
         with pytest.raises(ValueError, match="Unknown generator"):
             GeneratorRegistry.create("nonexistent-generator", {})
 
-    def test_list_all_returns_specs(self):
-        """Tests that list_all returns GeneratorSpec instances."""
+    def test_list_all_returns_valid_specs(self):
+        """Tests that all specs have required fields."""
         all_specs = GeneratorRegistry.list_all()
+        assert len(all_specs) > 0
 
         for spec in all_specs:
             assert isinstance(spec, GeneratorSpec)
-            assert hasattr(spec, "key")
-            assert hasattr(spec, "label")
-            assert hasattr(spec, "description")
-            assert hasattr(spec, "category")
-            assert hasattr(spec, "uses_gpu")
-            assert hasattr(spec, "supported_sequence_types")
+            for attr in ("key", "label", "description", "category", "uses_gpu", "supported_sequence_types"):
+                assert hasattr(spec, attr)

@@ -157,6 +157,7 @@ class BeamSearchOptimizerConfig(BaseOptimizerConfig):
     config=BeamSearchOptimizerConfig,
     description="Beam search optimizer that generates a single segment with beam search at each boundary",
     targets_single_segment=True,
+    compatible_generators=["evo1", "evo2", "progen2"],
 )
 class BeamSearchOptimizer(Optimizer):
     """Beam search optimizer for sequence generation.

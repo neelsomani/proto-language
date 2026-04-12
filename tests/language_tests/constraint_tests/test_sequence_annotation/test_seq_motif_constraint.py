@@ -54,7 +54,7 @@ class TestSeqMotifConstraint:
         """Test scoring when no wanted/unwanted motifs specified."""
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         config = SeqMotifConfig(
-            motifs_path="/tmp/motifs.meme",  # noqa: S108 -- test fixture with deterministic path
+            motifs_path="/mock/motifs.meme",
             meme_bin_path="/usr/bin",
         )
 
@@ -69,7 +69,7 @@ class TestSeqMotifConstraint:
             ) as mock_temp,
         ):
             # Setup mock temp directory
-            mock_temp_dir = "/tmp/test_temp"  # noqa: S108 -- test fixture with deterministic path
+            mock_temp_dir = "/mock/test_temp"
             mock_temp_inst = Mock()
             mock_temp_inst.__enter__ = Mock(return_value=mock_temp_dir)
             mock_temp_inst.__exit__ = Mock(return_value=False)
@@ -93,7 +93,7 @@ class TestSeqMotifConstraint:
         """Test scoring when wanted motif is found."""
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         config = SeqMotifConfig(
-            motifs_path="/tmp/motifs.meme",  # noqa: S108 -- test fixture with deterministic path
+            motifs_path="/mock/motifs.meme",
             meme_bin_path="/usr/bin",
             wanted=["motif1"],
         )
@@ -110,7 +110,7 @@ class TestSeqMotifConstraint:
                 "proto_language.language.constraint.sequence_annotation.seq_motif_constraint.tempfile.TemporaryDirectory"
             ) as mock_temp,
         ):
-            mock_temp_dir = "/tmp/test_temp"  # noqa: S108 -- test fixture with deterministic path
+            mock_temp_dir = "/mock/test_temp"
             mock_temp_inst = Mock()
             mock_temp_inst.__enter__ = Mock(return_value=mock_temp_dir)
             mock_temp_inst.__exit__ = Mock(return_value=False)
@@ -135,7 +135,7 @@ class TestSeqMotifConstraint:
         """Test constraint-specific config options (wanted, exclusive, aggregation)."""
         # Test 'all' keyword for wanted motifs
         config_all = SeqMotifConfig(
-            motifs_path="/tmp/motifs.meme",  # noqa: S108 -- test fixture with deterministic path
+            motifs_path="/mock/motifs.meme",
             meme_bin_path="/usr/bin",
             wanted="all",
         )
@@ -143,7 +143,7 @@ class TestSeqMotifConstraint:
 
         # Test 'none' keyword for wanted motifs
         config_none = SeqMotifConfig(
-            motifs_path="/tmp/motifs.meme",  # noqa: S108 -- test fixture with deterministic path
+            motifs_path="/mock/motifs.meme",
             meme_bin_path="/usr/bin",
             wanted="none",
         )
@@ -151,7 +151,7 @@ class TestSeqMotifConstraint:
 
         # Test exclusive mode
         config_exclusive = SeqMotifConfig(
-            motifs_path="/tmp/motifs.meme",  # noqa: S108 -- test fixture with deterministic path
+            motifs_path="/mock/motifs.meme",
             meme_bin_path="/usr/bin",
             wanted=["motif1"],
             exclusive=True,
@@ -161,7 +161,7 @@ class TestSeqMotifConstraint:
         # Test different aggregation strategies
         for agg in ["smart", "average", "max", "percentile"]:
             config = SeqMotifConfig(
-                motifs_path="/tmp/motifs.meme",  # noqa: S108 -- test fixture with deterministic path
+                motifs_path="/mock/motifs.meme",
                 meme_bin_path="/usr/bin",
                 aggregation=agg,
             )

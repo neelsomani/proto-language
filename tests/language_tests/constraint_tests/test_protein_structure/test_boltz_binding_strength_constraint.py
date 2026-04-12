@@ -131,8 +131,8 @@ class TestBoltzBindingStrengthConstraint:
                 assert config.desired_higher[key] == 0.95
 
         # Ensures nested config is set correctly
-        assert config.boltz2_config.recycling_steps == 3  # pylint: disable=no-member
-        assert config.boltz2_config.diffusion_samples == 1  # pylint: disable=no-member
+        assert config.boltz2_config.recycling_steps == 3
+        assert config.boltz2_config.diffusion_samples == 1
 
     def test_with_protein_protein_ligand_complex(self):
         """Test constraint with protein-protein-ligand complex."""

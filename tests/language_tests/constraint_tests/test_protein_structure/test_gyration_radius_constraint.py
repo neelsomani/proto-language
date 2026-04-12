@@ -12,7 +12,7 @@ from proto_language.language.core import Sequence
 from proto_language.utils import MAX_ENERGY
 
 
-def _make_sequence(sequence="MKTAYIAK", pdb_path="/tmp/test.pdb"):  # noqa: S108 -- test fixture with deterministic path
+def _make_sequence(sequence="MKTAYIAK", pdb_path="/mock/test.pdb"):
     """Helper to create a Sequence with pdb_path metadata."""
     return Sequence(
         sequence=sequence,
@@ -29,7 +29,7 @@ def _mock_metrics_output(gyration_radius, longest_alpha_helix=5):
         success=True,
         metrics=[
             StructureMetrics(
-                pdb_path="/tmp/test.pdb",  # noqa: S108 -- test fixture with deterministic path
+                pdb_path="/mock/test.pdb",
                 gyration_radius=gyration_radius,
                 longest_alpha_helix=longest_alpha_helix,
             )
@@ -101,7 +101,7 @@ class TestGyrationRadiusConstraint:
         seq = _make_sequence(pdb_path=None)
         config = GyrationRadiusConfig(
             max_gyration_radius=50.0,
-            pdb_paths=["/tmp/explicit.pdb"],  # noqa: S108 -- test fixture with deterministic path
+            pdb_paths=["/mock/explicit.pdb"],
         )
 
         with patch(PATCH_TARGET) as mock_run:
@@ -112,7 +112,7 @@ class TestGyrationRadiusConstraint:
         assert scores[0] == 0.0
         # Verify the explicit path was used
         call_input = mock_run.call_args[0][0]
-        assert call_input.pdb_paths == ["/tmp/explicit.pdb"]  # noqa: S108 -- test fixture with deterministic path
+        assert call_input.pdb_paths == ["/mock/explicit.pdb"]
 
     def test_stores_metadata(self):
         """Constraint stores gyration_radius and longest_alpha_helix in metadata."""
@@ -128,8 +128,8 @@ class TestGyrationRadiusConstraint:
 
     def test_multiple_sequences(self):
         """Constraint handles multiple sequences correctly."""
-        seq1 = _make_sequence(pdb_path="/tmp/a.pdb")  # noqa: S108 -- test fixture with deterministic path
-        seq2 = _make_sequence(pdb_path="/tmp/b.pdb")  # noqa: S108 -- test fixture with deterministic path
+        seq1 = _make_sequence(pdb_path="/mock/a.pdb")
+        seq2 = _make_sequence(pdb_path="/mock/b.pdb")
         config = GyrationRadiusConfig(max_gyration_radius=40.0)
 
         with patch(PATCH_TARGET) as mock_run:
@@ -139,12 +139,12 @@ class TestGyrationRadiusConstraint:
                 success=True,
                 metrics=[
                     StructureMetrics(
-                        pdb_path="/tmp/a.pdb",  # noqa: S108 -- test fixture with deterministic path
+                        pdb_path="/mock/a.pdb",
                         gyration_radius=30.0,
                         longest_alpha_helix=5,
                     ),
                     StructureMetrics(
-                        pdb_path="/tmp/b.pdb",  # noqa: S108 -- test fixture with deterministic path
+                        pdb_path="/mock/b.pdb",
                         gyration_radius=50.0,
                         longest_alpha_helix=8,
                     ),

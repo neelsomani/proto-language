@@ -159,4 +159,4 @@ class TestConstructValidation:
         ]
 
         with pytest.raises(RuntimeError, match="mismatched result_sequences lengths"):
-            construct.joined_sequences  # noqa: B018
+            _ = construct.joined_sequences

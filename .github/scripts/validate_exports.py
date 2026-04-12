@@ -182,7 +182,8 @@ def discover_init_chain(root_dir: Path) -> list[Path]:
 class ValidationError:
     """A single validation error."""
 
-    def __init__(self, symbol: str, message: str, file: Path):  # noqa: D107
+    def __init__(self, symbol: str, message: str, file: Path):
+        """Initialize a validation error."""
         self.symbol = symbol
         self.message = message
         self.file = file

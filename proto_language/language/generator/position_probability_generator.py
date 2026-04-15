@@ -54,30 +54,26 @@ class PositionProbabilityGeneratorConfig(BaseConfig):
 )
 @final
 class PositionProbabilityGenerator(Generator):
-    """Convert position-specific logit distributions into discrete proposal sequences.
+    """Convert logit distributions into discrete proposal sequences.
 
-    The optimizer owns the continuous state and calls ``sample()`` with logits.
-    Logits are converted into probabilities via softmax internally. This
-    generator only handles deterministic argmax decoding or stochastic
-    categorical sampling.
+    Reads ``seq.logits`` from each proposal sequence, applies softmax, and
+    writes the decoded string back to ``seq.sequence``. Supports deterministic
+    argmax decoding or stochastic categorical sampling.
 
-    Note:
-        ``sample()`` requires ``logits`` and is not compatible with optimizers
-        that call ``sample()`` with no arguments (e.g., ``MCMCOptimizer``).
-        Designed for optimizers that own continuous state and pass logit
-        distributions at each iteration.
+    Designed for gradient-based optimizers that update ``seq.logits`` directly
+    and need discrete sequences for handoff or tracking.
 
     Attributes:
         config (PositionProbabilityGeneratorConfig): Generator configuration.
         sampling_mode (Literal["argmax", "categorical"]): Decoding strategy.
-        temperature (float): Default softmax temperature for logits.
+        temperature (float): Softmax temperature for logits.
 
     Example:
         >>> segment = Segment(sequence="ACGT", sequence_type="dna")
         >>> gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig(sampling_mode="argmax"))
         >>> gen.assign(segment)
-        >>> logits = np.array([[5, 0, 0, 0], [0, 4, 0, 0], [0, 0, 3, 0], [0, 0, 0, 2]])
-        >>> gen.sample(logits=logits)
+        >>> segment.proposal_sequences[0].logits = np.array([[5, 0, 0, 0], [0, 4, 0, 0], [0, 0, 3, 0], [0, 0, 0, 2]])
+        >>> gen.sample()
         >>> segment.proposal_sequences[0].sequence
         'ACGT'
     """
@@ -89,43 +85,30 @@ class PositionProbabilityGenerator(Generator):
         self.sampling_mode = config.sampling_mode
         self.temperature = config.temperature
 
-    def sample(
-        self,
-        logits: np.ndarray | None = None,
-        temperature: float | None = None,
-    ) -> None:
-        """Populate proposal_sequences from a position-specific logit matrix.
+    def sample(self) -> None:
+        """Decode discrete sequences from ``seq.logits`` on each proposal.
 
-        The matrix is expected to have shape ``(sequence_length, vocab_size)``
-        using the canonical vocab order for the assigned segment's sequence type.
-
-        Args:
-            logits (np.ndarray | None): Position-specific logit matrix. Softmax
-                is applied internally with the configured temperature.
-            temperature (float | None): Override for the config temperature.
+        Reads ``.logits`` from each proposal sequence, applies softmax at the
+        configured temperature, and writes the decoded string to ``.sequence``.
 
         Raises:
-            ValueError: If logits is not provided, or if the matrix shape or
-                contents are invalid, or if temperature is not positive.
-            RuntimeError: If called before ``assign()``.
+            RuntimeError: If called before ``assign()`` or if a proposal has no logits.
+            ValueError: If logits shape or contents are invalid.
         """
         self._validate_generator()
-
-        if logits is None:
-            raise ValueError("logits is required.")
-
         vocab = self._ordered_vocab()
-        matrix = self._prepare_matrix(logits=logits, temperature=temperature, vocab_size=len(vocab))
 
-        if self.sampling_mode == "argmax":
-            sequence = self._decode_argmax(matrix, vocab)
-            for proposal in self.segment.proposal_sequences:
-                proposal.sequence = sequence
-            return
+        rng = np.random.default_rng(self._next_seed()) if self.sampling_mode == "categorical" else None
 
-        rng = np.random.default_rng(self._next_seed())
         for proposal in self.segment.proposal_sequences:
-            proposal.sequence = self._decode_categorical(matrix, vocab, rng)
+            if proposal.logits is None:
+                raise RuntimeError(f"Proposal on segment '{self.segment.label}' has no logits.")
+            matrix = self._prepare_matrix(logits=proposal.logits, vocab_size=len(vocab))
+            if self.sampling_mode == "argmax":
+                proposal.sequence = self._decode_argmax(matrix, vocab)
+            else:
+                assert rng is not None  # noqa: S101 -- categorical branch always sets rng
+                proposal.sequence = self._decode_categorical(matrix, vocab, rng)
 
     def _ordered_vocab(self) -> list[str]:
         """Return a deterministic vocab order for the assigned segment."""
@@ -144,20 +127,11 @@ class PositionProbabilityGenerator(Generator):
             raise ValueError(f"Segment '{self.segment.label or 'unlabeled'}' has no valid characters for sampling.")
         return ordered_vocab
 
-    def _prepare_matrix(
-        self,
-        *,
-        logits: np.ndarray,
-        temperature: float | None,
-        vocab_size: int,
-    ) -> np.ndarray:
+    def _prepare_matrix(self, *, logits: np.ndarray, vocab_size: int) -> np.ndarray:
         """Validate logits and convert to a probability matrix via softmax."""
-        resolved_temperature = self.temperature if temperature is None else temperature
-        if resolved_temperature <= 0:
-            raise ValueError("temperature must be positive.")
         matrix = np.asarray(logits, dtype=float)
         self._validate_matrix_shape(matrix, vocab_size)
-        return self._softmax(matrix / resolved_temperature)
+        return self._softmax(matrix / self.temperature)
 
     def _validate_matrix_shape(self, matrix: np.ndarray, vocab_size: int) -> None:
         """Validate the logit matrix shape and numeric contents."""

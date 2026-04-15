@@ -107,7 +107,7 @@ class Constraint:
         (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
 
     Gradient computation uses a backward callable:
-        (inputs: tuple[Sequence, ...], temperature: float, *, config) -> GradientResult
+        (inputs: tuple[Sequence, ...], *, config, **kwargs) -> GradientResult
 
     Examples:
         Discrete-only constraint:
@@ -163,9 +163,10 @@ class Constraint:
                 evaluation via ``evaluate()``.
             function_config (BaseModel | dict[str, Any] | None): Configuration for the scoring function.
             backward (Callable[..., GradientResult] | None): Gradient computation callable with signature
-                ``(inputs: tuple[Sequence, ...], temperature: float, *, config: BaseModel) -> GradientResult``.
+                ``(inputs: tuple[Sequence, ...], *, config: BaseModel, **kwargs) -> GradientResult``.
                 Receives a tuple of Sequences from input segments (parallel with the scoring function).
                 Reads ``.logits`` from optimized segments, ``.sequence`` from context segments.
+                Additional kwargs (e.g., ``temperature``, ``soft``) are forwarded from ``compute_gradient()``.
             backward_config (BaseModel | dict[str, Any] | None): Configuration for the backward callable.
             label (str | None): Optional label for metadata tracking. Defaults to
                 ``function.__name__`` or ``backward.__name__``.
@@ -531,7 +532,7 @@ class Constraint:
                     f"(per input_labels), but {num_inputs} segment(s) were provided."
                 )
 
-    def compute_gradient(self, temperature: float) -> list[GradientResult]:
+    def compute_gradient(self, **kwargs: Any) -> list[GradientResult]:
         """Compute gradients for all proposals, parallel with ``evaluate()``.
 
         Iterates over all proposals in the input segments. For each proposal,
@@ -539,8 +540,13 @@ class Constraint:
         metrics to ``_constraints_metadata``. The backward reads ``.logits`` from
         optimized segments and ``.sequence`` from context segments.
 
+        All keyword arguments are forwarded to the backward callable. Each
+        backward declares what it accepts (e.g., ``temperature``, ``soft``).
+
         Args:
-            temperature (float): Softmax temperature for continuous relaxation.
+            **kwargs (Any): Forwarded to the backward callable. Common kwargs
+                include ``temperature`` (softmax temperature) and ``soft``
+                (AF2 logit/softmax blending).
 
         Returns:
             list[GradientResult]: One result per proposal. Raw gradient, loss, and
@@ -552,16 +558,13 @@ class Constraint:
             RuntimeError: If this constraint has no backward callable, or if any
                 proposal has no logits set.
             TypeError: If the backward callable does not return ``GradientResult``.
-            ValueError: If ``temperature`` is not positive, or a returned gradient
-                shape does not match the logits shape.
+            ValueError: If a returned gradient shape does not match the logits shape.
         """
         if self._backward_fn is None:
             raise RuntimeError(
                 f"Constraint '{self.label}' does not support gradient computation "
                 "(no backward callable provided). Use evaluate() for discrete scoring."
             )
-        if temperature <= 0:
-            raise ValueError(f"temperature must be positive, got {temperature}")
 
         num_proposals = self._inputs[0].num_proposals
         results: list[GradientResult] = []
@@ -577,7 +580,7 @@ class Constraint:
                     f"Segments: {labels}. Set seq.logits before calling compute_gradient()."
                 )
 
-            result = self._backward_fn(inputs, temperature, config=self._backward_config)
+            result = self._backward_fn(inputs, config=self._backward_config, **kwargs)
             if not isinstance(result, GradientResult):
                 raise TypeError(
                     f"backward callable for constraint '{self.label}' must return GradientResult, "

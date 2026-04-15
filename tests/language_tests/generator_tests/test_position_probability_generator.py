@@ -25,10 +25,11 @@ class TestPositionProbabilityGenerator:
     def test_argmax_decoding(self, sequence_type, logits, expected_sequence):
         """Argmax decoding maps columns to canonical vocab."""
         segment = Segment(sequence="AA", sequence_type=sequence_type)
+        segment.proposal_sequences[0].logits = logits
         generator = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig())
         generator.assign(segment)
 
-        generator.sample(logits=logits)
+        generator.sample()
 
         assert segment.proposal_sequences[0].sequence == expected_sequence
 
@@ -39,10 +40,12 @@ class TestPositionProbabilityGenerator:
         for _ in range(2):
             segment = Segment(sequence="AAA", sequence_type="dna")
             segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(3)]
+            for seq in segment.proposal_sequences:
+                seq.logits = logits.copy()
             gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig(sampling_mode="categorical"))
             gen._set_program_seed(7)
             gen.assign(segment)
-            gen.sample(logits=logits)
+            gen.sample()
             results.append([p.sequence for p in segment.proposal_sequences])
 
         assert results[0] == results[1]
@@ -54,15 +57,19 @@ class TestPositionProbabilityGenerator:
         logits = np.array([[1.0, 2.0, 0.5, 0.1], [0.3, 0.1, 3.0, 0.5]])
 
         argmax_seg = Segment(sequence="AA", sequence_type="dna")
+        argmax_seg.proposal_sequences[0].logits = logits
         argmax_gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig())
         argmax_gen.assign(argmax_seg)
-        argmax_gen.sample(logits=logits)
+        argmax_gen.sample()
 
         low_temp_seg = Segment(sequence="AA", sequence_type="dna")
-        low_temp_gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig(sampling_mode="categorical"))
+        low_temp_seg.proposal_sequences[0].logits = logits
+        low_temp_gen = PositionProbabilityGenerator(
+            PositionProbabilityGeneratorConfig(sampling_mode="categorical", temperature=0.01)
+        )
         low_temp_gen._set_program_seed(42)
         low_temp_gen.assign(low_temp_seg)
-        low_temp_gen.sample(logits=logits, temperature=0.01)
+        low_temp_gen.sample()
 
         assert argmax_seg.proposal_sequences[0].sequence == low_temp_seg.proposal_sequences[0].sequence
 
@@ -78,56 +85,67 @@ class TestPositionProbabilityGenerator:
         """Argmax is deterministic — all proposals receive the same sequence."""
         segment = Segment(sequence="ACG", sequence_type="dna")
         segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(5)]
+        logits = np.array([[5, 0, 0, 0], [0, 4, 0, 0], [0, 0, 3, 0]])
+        for seq in segment.proposal_sequences:
+            seq.logits = logits.copy()
         gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig())
         gen.assign(segment)
 
-        gen.sample(logits=np.array([[5, 0, 0, 0], [0, 4, 0, 0], [0, 0, 3, 0]]))
+        gen.sample()
 
         sequences = [p.sequence for p in segment.proposal_sequences]
         assert all(s == sequences[0] for s in sequences)
 
     @pytest.mark.parametrize(
-        ("sample_kwargs", "error_match"),
+        ("logits", "error_match"),
         [
-            ({"logits": np.ones((2, 2))}, "expected shape"),
-            ({"logits": np.ones((8,))}, "2D array"),
-            ({"logits": np.array([[1.0, np.inf, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])}, "finite values"),
-            ({"logits": np.array([[1.0, np.nan, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])}, "finite values"),
-            ({"logits": np.ones((2, 4)), "temperature": 0.0}, "positive"),
-            ({"logits": np.ones((2, 4)), "temperature": -1.0}, "positive"),
+            (np.ones((2, 2)), "expected shape"),
+            (np.ones((8,)), "2D array"),
+            (np.array([[1.0, np.inf, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]), "finite values"),
+            (np.array([[1.0, np.nan, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]), "finite values"),
         ],
     )
-    def test_sample_validation(self, sample_kwargs, error_match):
-        """Sampling fails fast on invalid inputs."""
+    def test_sample_validation(self, logits, error_match):
+        """Sampling fails fast on invalid logits."""
+        segment = Segment(sequence="AA", sequence_type="dna")
+        segment.proposal_sequences[0]._logits = logits  # bypass setter to test generator-level checks
         generator = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig())
-        generator.assign(Segment(sequence="AA", sequence_type="dna"))
+        generator.assign(segment)
 
         with pytest.raises(ValueError, match=error_match):
-            generator.sample(**sample_kwargs)
+            generator.sample()
+
+    def test_no_logits_raises(self):
+        """sample() raises when proposal has no logits."""
+        segment = Segment(sequence="AA", sequence_type="dna")
+        gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig())
+        gen.assign(segment)
+
+        with pytest.raises(RuntimeError, match="has no logits"):
+            gen.sample()
 
     def test_custom_valid_chars(self):
         """Custom valid_chars outside the canonical alphabet are included in vocab ordering."""
         segment = Segment(sequence="AX", sequence_type="dna", valid_chars={"A", "C", "G", "T", "X"})
+        segment.proposal_sequences[0].logits = np.array([[0, 0, 0, 0, 10.0], [0, 0, 0, 0, 10.0]])
         gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig())
         gen.assign(segment)
 
-        # Vocab should be [A, C, G, T, X] — canonical first, then extras sorted
-        # Column 4 (index 4) maps to "X"
-        logits = np.array([[0, 0, 0, 0, 10.0], [0, 0, 0, 0, 10.0]])
-        gen.sample(logits=logits)
+        gen.sample()
 
         assert segment.proposal_sequences[0].sequence == "XX"
 
     def test_program_seed_reproducibility(self):
         """_set_program_seed resets categorical sampling for reproducible re-runs."""
         logits = np.zeros((3, 4))  # uniform after softmax
-        results = []
-        gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig(sampling_mode="categorical"))
         segment = Segment(sequence="AAA", sequence_type="dna")
+        segment.proposal_sequences[0].logits = logits
+        gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig(sampling_mode="categorical"))
         gen.assign(segment)
+        results = []
         for _ in range(2):
             gen._set_program_seed(42)
-            gen.sample(logits=logits)
+            gen.sample()
             results.append(segment.proposal_sequences[0].sequence)
         assert results[0] == results[1]
 
@@ -135,4 +153,4 @@ class TestPositionProbabilityGenerator:
         """Calling sample() before assign() raises RuntimeError."""
         gen = PositionProbabilityGenerator(PositionProbabilityGeneratorConfig())
         with pytest.raises(RuntimeError):
-            gen.sample(logits=np.ones((2, 4)))
+            gen.sample()

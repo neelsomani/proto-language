@@ -1,12 +1,15 @@
 """Sequence class for the proto-language.
 
 Represents a single DNA, RNA, protein, or ligand sequence with validation and metadata.
+Optionally carries continuous logits for gradient-based optimization.
 """
 
 import copy
 import warnings
 from collections.abc import Iterable
 from typing import Any, Literal
+
+import numpy as np
 
 # Valid characters for different sequence types
 DNA_NUCLEOTIDES = "ACGT"
@@ -48,6 +51,7 @@ class Sequence:
         sequence_type: SequenceType = "dna",
         valid_chars: set[str] | frozenset[str] | None = None,
         metadata: dict[str, Any] | None = None,
+        logits: np.ndarray | None = None,
     ) -> None:
         """Initialize a Sequence with sequence data and metadata.
 
@@ -57,6 +61,9 @@ class Sequence:
             valid_chars (set[str] | frozenset[str] | None): Optional custom set of valid characters for sequence validation.
                 If provided, overrides the default character set for the sequence_type.
             metadata (dict[str, Any] | None): Additional data associated with this sequence.
+            logits (np.ndarray | None): Optional continuous relaxation as unnormalized
+                log-probabilities over the alphabet at each position. Shape
+                ``(L, vocab_size)``. Used by gradient-based optimizers.
         """
         self._sequence_type: SequenceType = sequence_type
         # Set up character validation based on sequence type or custom valid_chars
@@ -78,6 +85,9 @@ class Sequence:
         self._sequence: str = sequence
         self._metadata: dict[str, Any] = dict(metadata) if metadata else {}
         self._constraints_metadata: dict[str, Any] = {}
+
+        self._logits: np.ndarray | None = None
+        self.logits = logits  # validates via setter
 
         # Warn about reserved key collisions in user-provided metadata
         if self._metadata:
@@ -158,6 +168,21 @@ class Sequence:
         self._validate_sequence(new_sequence)
         self._sequence = new_sequence
 
+    @property
+    def logits(self) -> np.ndarray | None:
+        """Continuous relaxation as logits over the alphabet (read/write).
+
+        Returns:
+            np.ndarray | None: Shape ``(L, vocab_size)`` when set, ``None`` for discrete-only sequences.
+        """
+        return self._logits
+
+    @logits.setter
+    def logits(self, value: np.ndarray | None) -> None:
+        if value is not None and value.ndim != 2:
+            raise ValueError(f"logits must be 2D (L, vocab_size), got shape {value.shape}")
+        self._logits = value
+
     def __len__(self) -> int:
         """Get the length of the sequence.
 
@@ -190,6 +215,7 @@ class Sequence:
 
         - _valid_chars, _sequence_type, _sequence: Immutable, share reference
         - _metadata, _constraints: Mutable, must deep copy
+        - _logits: ndarray, copy if present
         """
         new_seq = object.__new__(Sequence)
         new_seq._sequence = self._sequence
@@ -197,18 +223,22 @@ class Sequence:
         new_seq._valid_chars = self._valid_chars
         new_seq._metadata = copy.deepcopy(self._metadata, memo)
         new_seq._constraints_metadata = copy.deepcopy(self._constraints_metadata, memo)
+        new_seq._logits = self._logits.copy() if self._logits is not None else None
         memo[id(self)] = new_seq
         return new_seq
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize Sequence to dictionary for cloud/API communication."""
-        return {
+        result = {
             "sequence": self._sequence,
             "sequence_type": self.sequence_type,
             "valid_chars": list(self._valid_chars) if self._valid_chars else None,
             "metadata": copy.deepcopy(self._metadata) if self._metadata else {},
             "constraints": copy.deepcopy(self._constraints_metadata) if self._constraints_metadata else {},
         }
+        if self._logits is not None:
+            result["logits"] = self._logits.tolist()
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Sequence":
@@ -225,11 +255,13 @@ class Sequence:
                 valid_chars = chars
         else:
             valid_chars = None
+        logits = np.array(data["logits"], dtype=np.float64) if data.get("logits") is not None else None
         seq = cls(
             sequence=data["sequence"],
             sequence_type=data["sequence_type"],
             valid_chars=valid_chars,
             metadata=data.get("metadata") or None,
+            logits=logits,
         )
         seq._constraints_metadata = data.get("constraints", {})
         return seq

@@ -37,7 +37,9 @@ def _make_segment_with_proposals(sequences: list[str], seq_type: str = "dna") ->
     return segment
 
 
-def _mock_backward(logits: np.ndarray, temperature: float, *, config: BaseModel) -> GradientResult:
+def _mock_backward(inputs: tuple, temperature: float, *, config: BaseModel) -> GradientResult:
+    """Mock backward that reads logits from the first input Sequence."""
+    logits = inputs[0].logits
     return GradientResult(
         gradient=-logits * temperature, loss=float(np.mean(logits**2)), metrics={"temperature": temperature}
     )
@@ -608,12 +610,14 @@ class TestConstraintGradientSupport:
 
     def test_weight_not_applied_to_gradient(self) -> None:
         """Weight is NOT applied in compute_gradient — optimizer handles weighting during merging."""
-        c = _make_gradient_constraint(weight=2.0)
+        segment = _make_segment_with_proposals(["ACTGACTG"])
         logits = np.ones((8, 4))
-        result = c.compute_gradient(logits, temperature=1.0)
-        raw = _mock_backward(logits, 1.0, config=MockConfig())
-        np.testing.assert_array_almost_equal(result.gradient, raw.gradient)
-        assert result.loss == pytest.approx(raw.loss)
+        segment.proposal_sequences[0].logits = logits
+        c = _make_gradient_constraint(segment=segment, weight=2.0)
+        results = c.compute_gradient(temperature=1.0)
+        raw = _mock_backward((segment.proposal_sequences[0],), 1.0, config=MockConfig())
+        np.testing.assert_array_almost_equal(results[0].gradient, raw.gradient)
+        assert results[0].loss == pytest.approx(raw.loss)
 
     def test_gradient_support_discovery(self) -> None:
         segment = _make_segment_with_proposals(["ACTGACTG"])
@@ -628,54 +632,74 @@ class TestConstraintGradientSupport:
         assert regular.supports_discrete
 
     def test_compute_gradient(self) -> None:
-        c = _make_gradient_constraint()
+        segment = _make_segment_with_proposals(["ACTGACTG"])
         logits = np.random.randn(8, 4)
-        result = c.compute_gradient(logits, temperature=1.0)
-        assert isinstance(result, GradientResult)
-        assert result.gradient.shape == (8, 4)
-        np.testing.assert_array_almost_equal(result.gradient, -logits)
+        segment.proposal_sequences[0].logits = logits
+        c = _make_gradient_constraint(segment=segment)
+        results = c.compute_gradient(temperature=1.0)
+        assert len(results) == 1
+        assert isinstance(results[0], GradientResult)
+        assert results[0].gradient.shape == (8, 4)
+        np.testing.assert_array_almost_equal(results[0].gradient, -logits)
+
+    def test_compute_gradient_propagates_metadata(self) -> None:
+        segment = _make_segment_with_proposals(["ACTGACTG"])
+        segment.proposal_sequences[0].logits = np.ones((8, 4))
+        c = _make_gradient_constraint(segment=segment, label="test_grad")
+        c.compute_gradient(temperature=1.0)
+
+        metadata = segment.proposal_sequences[0]._constraints_metadata["test_grad"]
+        assert metadata["score"] == pytest.approx(1.0)  # mean(ones**2) = 1.0
+        assert metadata["weight"] == 1.0
+        assert metadata["data"]["temperature"] == 1.0
 
     def test_temperature_affects_gradient(self) -> None:
-        c = _make_gradient_constraint()
+        segment = _make_segment_with_proposals(["ACTGACTG"])
         logits = np.ones((8, 4))
-        hot = c.compute_gradient(logits, temperature=2.0)
-        cold = c.compute_gradient(logits, temperature=0.5)
-        assert np.abs(hot.gradient).mean() > np.abs(cold.gradient).mean()
+        segment.proposal_sequences[0].logits = logits
+        c = _make_gradient_constraint(segment=segment)
+        hot = c.compute_gradient(temperature=2.0)
+        cold = c.compute_gradient(temperature=0.5)
+        assert np.abs(hot[0].gradient).mean() > np.abs(cold[0].gradient).mean()
 
     def test_backward_config_forwarded(self) -> None:
         received: list[BaseModel] = []
 
-        def capturing_backward(logits: np.ndarray, temperature: float, *, config: BaseModel) -> GradientResult:
+        def capturing_backward(inputs: tuple, temperature: float, *, config: BaseModel) -> GradientResult:
             received.append(config)
-            return GradientResult(gradient=np.zeros_like(logits), loss=0.0)
+            return GradientResult(gradient=np.zeros_like(inputs[0].logits), loss=0.0)
 
+        segment = _make_segment_with_proposals(["ACTGACTG"])
+        segment.proposal_sequences[0].logits = np.zeros((8, 4))
         bwd_config = MockBackwardConfig(loss_type="ptm")
-        c = _make_gradient_constraint(backward=capturing_backward, backward_config=bwd_config)
-        c.compute_gradient(np.zeros((8, 4)), temperature=1.0)
+        c = _make_gradient_constraint(segment=segment, backward=capturing_backward, backward_config=bwd_config)
+        c.compute_gradient(temperature=1.0)
         assert received == [bwd_config]
 
-    @pytest.mark.parametrize(
-        ("logits", "temperature", "match"),
-        [
-            (np.zeros(8), 1.0, r"logits must have shape"),
-            (np.zeros((8, 4)), 0.0, r"temperature must be positive"),
-        ],
-    )
-    def test_compute_gradient_validates_inputs(self, logits: np.ndarray, temperature: float, match: str) -> None:
-        c = _make_gradient_constraint()
-        with pytest.raises(ValueError, match=match):
-            c.compute_gradient(logits, temperature=temperature)
+    def test_compute_gradient_validates_temperature(self) -> None:
+        segment = _make_segment_with_proposals(["ACTGACTG"])
+        segment.proposal_sequences[0].logits = np.zeros((8, 4))
+        c = _make_gradient_constraint(segment=segment)
+        with pytest.raises(ValueError, match=r"temperature must be positive"):
+            c.compute_gradient(temperature=0.0)
+
+    def test_compute_gradient_raises_without_logits(self) -> None:
+        """compute_gradient raises when no segment has logits set."""
+        segment = _make_segment_with_proposals(["ACTGACTG"])
+        c = _make_gradient_constraint(segment=segment)
+        with pytest.raises(RuntimeError, match="no input segment has logits"):
+            c.compute_gradient(temperature=1.0)
 
     @pytest.mark.parametrize(
         ("backward", "expected_exception", "match"),
         [
             (
-                lambda logits, temperature, *, config: {"gradient": np.zeros_like(logits), "loss": 0.0},
+                lambda inputs, temperature, *, config: {"gradient": np.zeros_like(inputs[0].logits), "loss": 0.0},
                 TypeError,
                 r"must return GradientResult",
             ),
             (
-                lambda logits, temperature, *, config: GradientResult(gradient=np.zeros((4, 8)), loss=0.0),
+                lambda inputs, temperature, *, config: GradientResult(gradient=np.zeros((4, 8)), loss=0.0),
                 ValueError,
                 r"returned gradient with shape",
             ),
@@ -687,9 +711,11 @@ class TestConstraintGradientSupport:
         expected_exception: type[Exception],
         match: str,
     ) -> None:
-        c = _make_gradient_constraint(backward=backward)
+        segment = _make_segment_with_proposals(["ACTGACTG"])
+        segment.proposal_sequences[0].logits = np.zeros((8, 4))
+        c = _make_gradient_constraint(segment=segment, backward=backward)
         with pytest.raises(expected_exception, match=match):
-            c.compute_gradient(np.zeros((8, 4)), temperature=1.0)
+            c.compute_gradient(temperature=1.0)
 
 
 # =============================================================================
@@ -701,23 +727,26 @@ class TestConstraintCallableRequirements:
     def test_backward_only(self) -> None:
         """Backward-only constraint: can compute gradients, evaluate raises."""
         segment = _make_segment_with_proposals(["ACTGACTG"])
+        segment.proposal_sequences[0].logits = np.ones((8, 4))
         c = Constraint(inputs=[segment], backward=_mock_backward, backward_config=MockConfig())
         assert c.supports_gradient
         assert not c.supports_discrete
         assert c.label == "_mock_backward"
 
-        result = c.compute_gradient(np.ones((8, 4)), temperature=1.0)
-        assert isinstance(result, GradientResult)
-        assert result.gradient.shape == (8, 4)
+        results = c.compute_gradient(temperature=1.0)
+        assert len(results) == 1
+        assert isinstance(results[0], GradientResult)
+        assert results[0].gradient.shape == (8, 4)
 
         with pytest.raises(RuntimeError, match="does not support discrete evaluation"):
             c.evaluate()
 
     def test_function_only_gradient_raises(self) -> None:
         segment = _make_segment_with_proposals(["ACTGACTG"])
+        segment.proposal_sequences[0].logits = np.zeros((8, 4))
         c = Constraint(inputs=[segment], function=mock_single_input_scoring_function, function_config=MockConfig())
         with pytest.raises(RuntimeError, match="does not support gradient computation"):
-            c.compute_gradient(np.zeros((8, 4)), temperature=1.0)
+            c.compute_gradient(temperature=1.0)
 
     def test_neither_callable_raises(self) -> None:
         segment = _make_segment_with_proposals(["ACTGACTG"])

@@ -3,6 +3,7 @@
 import copy
 import warnings
 
+import numpy as np
 import pytest
 
 from proto_language.language.core import Sequence
@@ -233,3 +234,78 @@ class TestSequenceSerialization:
         assert restored.sequence == original.sequence
         assert restored.sequence_type == original.sequence_type
         assert restored._metadata["custom"] == "value"
+
+
+class TestSequenceLogits:
+    """Tests for the optional logits field on Sequence."""
+
+    def test_logits_default_none(self):
+        """Logits default to None for discrete-only sequences."""
+        seq = Sequence("EVQLV", "protein")
+        assert seq.logits is None
+
+    def test_logits_set_at_construction(self):
+        """Logits can be provided at construction time."""
+        logits = np.random.randn(5, 20)
+        seq = Sequence("EVQLV", "protein", logits=logits)
+        assert seq.logits is not None
+        np.testing.assert_array_equal(seq.logits, logits)
+
+    def test_logits_setter(self):
+        """Logits can be set and cleared after construction."""
+        seq = Sequence("EVQLV", "protein")
+        logits = np.ones((5, 20))
+        seq.logits = logits
+        np.testing.assert_array_equal(seq.logits, logits)
+
+        seq.logits = None
+        assert seq.logits is None
+
+    def test_logits_validates_2d(self):
+        """1D logits raise ValueError at construction and via setter."""
+        with pytest.raises(ValueError, match="logits must be 2D"):
+            Sequence("EVQLV", "protein", logits=np.zeros(10))
+
+        seq = Sequence("EVQLV", "protein")
+        with pytest.raises(ValueError, match="logits must be 2D"):
+            seq.logits = np.zeros(10)
+
+    def test_logits_deepcopy(self):
+        """Deepcopy creates an independent copy of logits."""
+        logits = np.ones((5, 20))
+        seq = Sequence("EVQLV", "protein", logits=logits)
+        seq_copy = copy.deepcopy(seq)
+
+        # Values match
+        np.testing.assert_array_equal(seq_copy.logits, logits)
+
+        # Independent: modifying copy doesn't affect original
+        seq_copy.logits[0, 0] = 999.0
+        assert seq.logits[0, 0] == 1.0
+
+    def test_logits_deepcopy_none(self):
+        """Deepcopy with logits=None preserves None."""
+        seq = Sequence("EVQLV", "protein")
+        seq_copy = copy.deepcopy(seq)
+        assert seq_copy.logits is None
+
+    def test_logits_serialization_roundtrip(self):
+        """to_dict/from_dict preserves logits."""
+        logits = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        seq = Sequence("AT", "dna", logits=logits)
+
+        serialized = seq.to_dict()
+        assert "logits" in serialized
+        assert serialized["logits"] == logits.tolist()
+
+        restored = Sequence.from_dict(serialized)
+        np.testing.assert_array_almost_equal(restored.logits, logits)
+
+    def test_logits_serialization_none(self):
+        """to_dict omits logits when None; from_dict restores None."""
+        seq = Sequence("AT", "dna")
+        serialized = seq.to_dict()
+        assert "logits" not in serialized
+
+        restored = Sequence.from_dict(serialized)
+        assert restored.logits is None

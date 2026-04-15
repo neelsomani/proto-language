@@ -107,7 +107,7 @@ class Constraint:
         (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
 
     Gradient computation uses a backward callable:
-        (logits: np.ndarray, temperature: float, *, config) -> GradientResult
+        (inputs: tuple[Sequence, ...], temperature: float, *, config) -> GradientResult
 
     Examples:
         Discrete-only constraint:
@@ -119,8 +119,8 @@ class Constraint:
         Gradient-only constraint:
 
         >>> constraint = Constraint(inputs=[segment], backward=my_backward, backward_config=config)
-        >>> result = constraint.compute_gradient(logits, temperature=1.0)
-        >>> result.gradient.shape  # (L, vocab_size)
+        >>> results = constraint.compute_gradient(temperature=1.0)
+        >>> results[0].gradient.shape  # (L, vocab_size)
 
         Both modes (discrete + gradient):
 
@@ -163,8 +163,9 @@ class Constraint:
                 evaluation via ``evaluate()``.
             function_config (BaseModel | dict[str, Any] | None): Configuration for the scoring function.
             backward (Callable[..., GradientResult] | None): Gradient computation callable with signature
-                ``(logits: np.ndarray, temperature: float, *, config: BaseModel) -> GradientResult``.
-                Required for gradient computation via ``compute_gradient()``.
+                ``(inputs: tuple[Sequence, ...], temperature: float, *, config: BaseModel) -> GradientResult``.
+                Receives a tuple of Sequences from input segments (parallel with the scoring function).
+                Reads ``.logits`` from optimized segments, ``.sequence`` from context segments.
             backward_config (BaseModel | dict[str, Any] | None): Configuration for the backward callable.
             label (str | None): Optional label for metadata tracking. Defaults to
                 ``function.__name__`` or ``backward.__name__``.
@@ -390,7 +391,7 @@ class Constraint:
             original = seg.proposal_sequences[sequence_idx]
             # Create clean Sequence with only essential properties
             dummy_seq = Sequence(
-                sequence=original.sequence, sequence_type=original.sequence_type, valid_chars=original._valid_chars
+                sequence=original.sequence, sequence_type=original.sequence_type, valid_chars=original.valid_chars
             )
             dummy_sequences.append(dummy_seq)
         return tuple(dummy_sequences)
@@ -529,48 +530,75 @@ class Constraint:
                     f"Constraint '{self.label}' requires exactly {num_input_sequences_per_tuple} input sequence(s) per tuple, but {num_inputs} segment(s) were provided."
                 )
 
-    def compute_gradient(self, logits: np.ndarray, temperature: float) -> GradientResult:
-        """Compute gradient of this constraint's objective with respect to input logits.
+    def compute_gradient(self, temperature: float) -> list[GradientResult]:
+        """Compute gradients for all proposals, parallel with ``evaluate()``.
 
-        Calls the ``backward`` callable to perform a forward and backward pass
-        through the underlying differentiable model. The gradient flows from
-        the scalar objective through the model back to the input logits.
+        Iterates over all proposals in the input segments. For each proposal,
+        passes a ``tuple[Sequence, ...]`` to the backward callable and propagates
+        metrics to ``_constraints_metadata``. The backward reads ``.logits`` from
+        optimized segments and ``.sequence`` from context segments.
 
         Args:
-            logits (np.ndarray): Input logits for the relaxed sequence state.
             temperature (float): Softmax temperature for continuous relaxation.
 
         Returns:
-            GradientResult: Raw gradient, loss, and metrics from the backward pass.
-                Weight is NOT applied — the optimizer reads ``constraint.weight``
-                and handles weighting during gradient merging (norm-matching,
-                scheduling, PCGrad).
+            list[GradientResult]: One result per proposal. Raw gradient, loss, and
+                metrics from each backward pass. Weight is NOT applied — the
+                optimizer reads ``constraint.weight`` and handles weighting during
+                gradient merging.
 
         Raises:
-            RuntimeError: If this constraint has no backward callable.
+            RuntimeError: If this constraint has no backward callable, or if any
+                proposal has no logits set.
             TypeError: If the backward callable does not return ``GradientResult``.
-            ValueError: If ``logits`` is not 2D, ``temperature`` is not positive,
-                or the returned gradient shape does not match ``logits.shape``.
+            ValueError: If ``temperature`` is not positive, or a returned gradient
+                shape does not match the logits shape.
         """
         if self._backward_fn is None:
             raise RuntimeError(
                 f"Constraint '{self.label}' does not support gradient computation "
                 "(no backward callable provided). Use evaluate() for discrete scoring."
             )
-        if logits.ndim != 2:
-            raise ValueError(f"logits must have shape (L, vocab_size), got array with shape {logits.shape}")
         if temperature <= 0:
             raise ValueError(f"temperature must be positive, got {temperature}")
 
-        result = self._backward_fn(logits, temperature, config=self._backward_config)
-        if not isinstance(result, GradientResult):
-            raise TypeError(
-                f"backward callable for constraint '{self.label}' must return GradientResult, "
-                f"got {type(result).__name__}"
+        num_proposals = self._inputs[0].num_proposals
+        results: list[GradientResult] = []
+
+        for idx in range(num_proposals):
+            inputs = tuple(seg.proposal_sequences[idx] for seg in self._inputs)
+
+            logits_seq = next((seq for seq in inputs if seq.logits is not None), None)
+            if logits_seq is None:
+                labels = [seg.label for seg in self._inputs]
+                raise RuntimeError(
+                    f"Constraint '{self.label}': no input segment has logits set on proposal {idx}. "
+                    f"Segments: {labels}. Set seq.logits before calling compute_gradient()."
+                )
+
+            result = self._backward_fn(inputs, temperature, config=self._backward_config)
+            if not isinstance(result, GradientResult):
+                raise TypeError(
+                    f"backward callable for constraint '{self.label}' must return GradientResult, "
+                    f"got {type(result).__name__}"
+                )
+            assert logits_seq.logits is not None  # noqa: S101 -- guaranteed by next() filter above
+            if result.gradient.shape != logits_seq.logits.shape:
+                raise ValueError(
+                    f"backward callable for constraint '{self.label}' returned gradient with shape "
+                    f"{result.gradient.shape}, expected {logits_seq.logits.shape}"
+                )
+
+            scored_tuple = tuple(
+                Sequence(
+                    sequence=seq.sequence,
+                    sequence_type=seq.sequence_type,
+                    valid_chars=seq.valid_chars,
+                    metadata=result.metrics,
+                )
+                for seq in inputs
             )
-        if result.gradient.shape != logits.shape:
-            raise ValueError(
-                f"backward callable for constraint '{self.label}' returned gradient with shape "
-                f"{result.gradient.shape}, expected {logits.shape}"
-            )
-        return result
+            self._propagate_metadata_to_sequence(idx, scored_tuple, result.loss)
+            results.append(result)
+
+        return results

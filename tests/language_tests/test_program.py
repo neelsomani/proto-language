@@ -93,7 +93,7 @@ class TestProgramRestart:
         _initial_state captured during the first run.
         """
         original_seq = "ATGCATGCATGCATGCATGC"
-        program = _create_simple_program(num_stages=2, sequence=original_seq)
+        program = _create_simple_program(num_stages=2, sequence=original_seq, seed=42)
         segment = program.constructs[0].segments[0]
 
         # First run through both stages
@@ -270,7 +270,7 @@ class TestRunStageRestart:
     def test_run_stage_rerun_previous_stage(self):
         """Test that re-running a previous stage resets the pipeline."""
         original_seq = "ATGCATGCATGCATGCATGC"
-        program = _create_simple_program(num_stages=2, sequence=original_seq)
+        program = _create_simple_program(num_stages=2, sequence=original_seq, seed=42)
 
         # Run both stages
         program.run_stage(0)
@@ -707,7 +707,7 @@ class TestSerializeRestoreState:
     def test_restore_state_restores_sequences(self):
         """Test that restore_state correctly restores result_sequences."""
         original_seq = "ATGCATGCATGCATGCATGC"
-        program = _create_simple_program(num_stages=2, sequence=original_seq)
+        program = _create_simple_program(num_stages=2, sequence=original_seq, seed=42)
 
         # Run stage 0 and serialize
         program.run_stage(0)
@@ -715,7 +715,7 @@ class TestSerializeRestoreState:
         stage0_sequences = [seq.sequence for seq in program.constructs[0].segments[0].result_sequences]
 
         # Create fresh program and restore
-        fresh_program = _create_simple_program(num_stages=2, sequence=original_seq)
+        fresh_program = _create_simple_program(num_stages=2, sequence=original_seq, seed=42)
         fresh_program.restore_state(state)
 
         # Verify sequences were restored
@@ -740,13 +740,13 @@ class TestSerializeRestoreState:
         original_seq = "ATGCATGCATGCATGCATGC"
 
         # Run stage 0
-        program1 = _create_simple_program(num_stages=2, sequence=original_seq)
+        program1 = _create_simple_program(num_stages=2, sequence=original_seq, seed=42)
         program1.run_stage(0)
         state = program1.serialize_state()
         stage0_sequences = [seq.sequence for seq in program1.constructs[0].segments[0].result_sequences]
 
         # Restore and run stage 1
-        program2 = _create_simple_program(num_stages=2, sequence=original_seq)
+        program2 = _create_simple_program(num_stages=2, sequence=original_seq, seed=42)
         program2.restore_state(state)
         program2.current_stage = 1  # API tracks this in DB, not in serialized state
 

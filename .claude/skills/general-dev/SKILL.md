@@ -35,7 +35,8 @@ Never use `print()`. Always use `logger.info()` / `logger.debug()` / `logger.war
 ## Data Model (`proto_language/language/core/`)
 
 ```
-Sequence          A string + type (dna/rna/protein/ligand). Has ._metadata dict.
+Sequence          A string + type (dna/rna/protein/ligand) + optional logits + optional structure.
+                  Has ._metadata dict, .logits (np.ndarray | None), .structure (Structure | None).
     ↓
 Segment           Groups proposal sequences for one design region.
                   Has: .sequence_type, .sequence_length, .valid_chars,

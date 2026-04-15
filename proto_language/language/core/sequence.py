@@ -1,7 +1,7 @@
 """Sequence class for the proto-language.
 
 Represents a single DNA, RNA, protein, or ligand sequence with validation and metadata.
-Optionally carries continuous logits for gradient-based optimization.
+Optionally carries continuous logits for gradient-based optimization and 3D structure.
 """
 
 import copy
@@ -10,6 +10,7 @@ from collections.abc import Iterable
 from typing import Any, Literal
 
 import numpy as np
+from proto_tools.entities.structures import Structure
 
 # Valid characters for different sequence types
 DNA_NUCLEOTIDES = "ACGT"
@@ -26,8 +27,9 @@ _DEFAULT_PROTEIN_CHARS: frozenset[str] = frozenset(PROTEIN_AMINO_ACIDS)
 SequenceType = Literal["dna", "rna", "protein", "ligand"]
 
 # Reserved keys in the computed .metadata property — user-provided metadata
-# should not use these keys as they will be overwritten by identity fields.
-_RESERVED_METADATA_KEYS = frozenset({"sequence", "sequence_length", "constraints"})
+# should not use these keys as they will be overwritten by identity fields
+# or collide with first-class Sequence attributes.
+_RESERVED_METADATA_KEYS = frozenset({"sequence", "sequence_length", "constraints", "logits", "structure"})
 
 
 class Sequence:
@@ -52,6 +54,7 @@ class Sequence:
         valid_chars: set[str] | frozenset[str] | None = None,
         metadata: dict[str, Any] | None = None,
         logits: np.ndarray | None = None,
+        structure: Structure | None = None,
     ) -> None:
         """Initialize a Sequence with sequence data and metadata.
 
@@ -64,6 +67,8 @@ class Sequence:
             logits (np.ndarray | None): Optional continuous relaxation as unnormalized
                 log-probabilities over the alphabet at each position. Shape
                 ``(L, vocab_size)``. Used by gradient-based optimizers.
+            structure (Structure | None): Optional predicted 3D structure (PDB/CIF coordinates)
+                associated with this sequence. Used by structure-conditioned workflows.
         """
         self._sequence_type: SequenceType = sequence_type
         # Set up character validation based on sequence type or custom valid_chars
@@ -88,6 +93,7 @@ class Sequence:
 
         self._logits: np.ndarray | None = None
         self.logits = logits  # validates via setter
+        self.structure: Structure | None = structure
 
         # Warn about reserved key collisions in user-provided metadata
         if self._metadata:
@@ -216,6 +222,7 @@ class Sequence:
         - _valid_chars, _sequence_type, _sequence: Immutable, share reference
         - _metadata, _constraints: Mutable, must deep copy
         - _logits: ndarray, copy if present
+        - structure: Pydantic BaseModel, treated as immutable by convention — do not mutate after construction
         """
         new_seq = object.__new__(Sequence)
         new_seq._sequence = self._sequence
@@ -224,6 +231,7 @@ class Sequence:
         new_seq._metadata = copy.deepcopy(self._metadata, memo)
         new_seq._constraints_metadata = copy.deepcopy(self._constraints_metadata, memo)
         new_seq._logits = self._logits.copy() if self._logits is not None else None
+        new_seq.structure = self.structure
         memo[id(self)] = new_seq
         return new_seq
 
@@ -238,6 +246,8 @@ class Sequence:
         }
         if self._logits is not None:
             result["logits"] = self._logits.tolist()
+        if self.structure is not None:
+            result["structure"] = self.structure.model_dump()
         return result
 
     @classmethod
@@ -256,12 +266,15 @@ class Sequence:
         else:
             valid_chars = None
         logits = np.array(data["logits"], dtype=np.float64) if data.get("logits") is not None else None
+        structure_data = data.get("structure")
+        structure = Structure(**structure_data) if structure_data is not None else None
         seq = cls(
             sequence=data["sequence"],
             sequence_type=data["sequence_type"],
             valid_chars=valid_chars,
             metadata=data.get("metadata") or None,
             logits=logits,
+            structure=structure,
         )
         seq._constraints_metadata = data.get("constraints", {})
         return seq

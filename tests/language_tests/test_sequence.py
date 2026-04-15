@@ -8,6 +8,7 @@ import pytest
 
 from proto_language.language.core import Sequence
 from proto_language.language.core.sequence import validate_smiles
+from tests.helpers.mock_structure import MockStructure
 
 
 class TestSequence:
@@ -309,3 +310,50 @@ class TestSequenceLogits:
 
         restored = Sequence.from_dict(serialized)
         assert restored.logits is None
+
+
+class TestSequenceStructure:
+    """Tests for the optional structure field on Sequence."""
+
+    def test_structure_get_set(self):
+        """Structure can be set via constructor, assignment, and cleared."""
+        # Default
+        seq = Sequence("EVQLV", "protein")
+        assert seq.structure is None
+
+        # Constructor
+        struct = MockStructure()
+        seq = Sequence("EVQLV", "protein", structure=struct)
+        assert seq.structure is struct
+
+        # Assignment and clear
+        seq.structure = None
+        assert seq.structure is None
+
+    def test_structure_deepcopy_shares_reference(self):
+        """Deepcopy shares the Structure reference (treated as immutable by convention)."""
+        struct = MockStructure()
+        seq = Sequence("EVQLV", "protein", structure=struct)
+        seq_copy = copy.deepcopy(seq)
+        assert seq_copy.structure is struct
+
+        # None case
+        seq2 = Sequence("EVQLV", "protein")
+        assert copy.deepcopy(seq2).structure is None
+
+    def test_structure_serialization_roundtrip(self):
+        """to_dict/from_dict preserves structure; omits when None."""
+        struct = MockStructure(metrics={"avg_plddt": 85.0})
+        seq = Sequence("EVQLV", "protein", structure=struct)
+
+        serialized = seq.to_dict()
+        assert "structure" in serialized
+        restored = Sequence.from_dict(serialized)
+        assert restored.structure is not None
+        assert restored.structure.metrics["avg_plddt"] == 85.0
+
+        # None case: omitted from dict
+        seq_none = Sequence("EVQLV", "protein")
+        serialized_none = seq_none.to_dict()
+        assert "structure" not in serialized_none
+        assert Sequence.from_dict(serialized_none).structure is None

@@ -328,3 +328,11 @@ class ProteinMPNNGenerator(Generator):
                     "proteinmpnn_sequence_identity": identity,
                 }
             )
+
+        # Write the generating structure onto each proposal sequence
+        if len(sampling_structure_inputs) == 1:
+            for proposal in self.segment.proposal_sequences:
+                proposal.structure = sampling_structure_inputs[0].structure
+        else:
+            for proposal, struct_input in zip(self.segment.proposal_sequences, sampling_structure_inputs, strict=True):
+                proposal.structure = struct_input.structure

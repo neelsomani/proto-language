@@ -445,7 +445,9 @@ def boltz_binding_strength_constraint(
                 1.0,
             )
 
-        # Store metadata for all Sequences in complex
+        # Attach structure to first sequence and store metadata for all Sequences in complex
+        if seq_obj_tuple:
+            seq_obj_tuple[0].structure = structure
         for seq_obj in seq_obj_tuple:
             seq_obj._metadata.setdefault("boltz2_binding", []).append(
                 {

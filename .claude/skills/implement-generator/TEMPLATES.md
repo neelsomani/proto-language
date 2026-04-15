@@ -207,7 +207,10 @@ class MyInverseFoldingGenerator(Generator):
         sampling_inputs = structure_inputs or self.structure_inputs
         if sampling_inputs is None:
             raise ValueError("No structure_inputs provided")
-        ...
+        # ... generate sequences ...
+        # Write generating structure onto proposals
+        for proposal, struct_input in zip(self.segment.proposal_sequences, sampling_inputs):
+            proposal.structure = struct_input.structure
 ```
 
 ## Full Tool Integration Pattern

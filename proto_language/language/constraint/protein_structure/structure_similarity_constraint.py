@@ -363,8 +363,9 @@ def structure_rmsd_constraint(input_sequences: list[tuple[Sequence, ...]], confi
 
         score = sigmoid_score(rmsd_val, config.inflection_point_angstroms, config.sigmoid_slope)
 
-        # Metadata storage (attach to the first sequence in the tuple to ensure visibility)
+        # Attach structure and metadata to the first sequence in the tuple for visibility.
         if proposal_tuple:
+            proposal_tuple[0].structure = proposal_structure
             proposal_tuple[0]._metadata.update(
                 {
                     "rmsd_val": rmsd_val,
@@ -502,6 +503,7 @@ def structure_tmscore_constraint(
         score = 1.0 - tm_val
 
         if proposal_tuple:
+            proposal_tuple[0].structure = proposal_structure
             proposal_tuple[0]._metadata.update(
                 {
                     "tm_score_raw": tm_val,

@@ -88,8 +88,9 @@ def _structure_confidence(
             raw_metrics.append(None)
             continue
 
-        # Attach metadata to first sequence in tuple for visibility.
+        # Attach structure and metadata to first sequence in tuple for visibility.
         if proposal_tuple:
+            proposal_tuple[0].structure = structure
             proposal_tuple[0]._metadata.update(
                 {
                     target_metric: metric_value,

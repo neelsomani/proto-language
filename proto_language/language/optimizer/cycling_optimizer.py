@@ -63,7 +63,10 @@ def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> 
 
     def conditioning_fn(sequences: list[Sequence]) -> list[Any]:
         complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
-        return predict_structures(complexes, structure_tool, {}).structures  # type: ignore[no-any-return]
+        structures = predict_structures(complexes, structure_tool, {}).structures
+        for seq, structure in zip(sequences, structures, strict=True):
+            seq.structure = structure
+        return structures  # type: ignore[no-any-return]
 
     return conditioning_fn
 

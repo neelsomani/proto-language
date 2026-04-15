@@ -41,6 +41,8 @@ def make_mock_conditioning_fn(num_proposals: int):
     structures = [make_mock_structure() for _ in range(num_proposals)]
 
     def conditioning_fn(sequences: list[Sequence]) -> list[Structure]:
+        for seq, struct in zip(sequences, structures, strict=True):
+            seq.structure = struct
         return structures
 
     return conditioning_fn, structures
@@ -681,6 +683,57 @@ class TestAcceptPatternBehavior:
         # Step 2 rejected → result retains step 1's accepted sequence
         for result_seq in target_segment.result_sequences:
             assert result_seq.sequence == step1_seq
+
+
+# =============================================================================
+# Structure-on-Sequence Tests
+# =============================================================================
+
+
+class TestStructureOnSequence:
+    """Tests for structure data flowing through Sequence objects."""
+
+    def test_structure_preserved_through_accept_cycle(self):
+        """Structure set on proposals survives the accept→deepcopy→result cycle."""
+        target_segment = Segment(sequence="A" * 20, sequence_type="protein")
+        construct = Construct([target_segment])
+
+        mock_struct = make_mock_structure()
+        generator = ProteinMPNNGenerator(
+            ProteinMPNNGeneratorConfig(structure_inputs=InverseFoldingStructureInput(structure=mock_struct))
+        )
+        generator.assign(target_segment)
+
+        conditioning_fn, _ = make_mock_conditioning_fn(2)
+
+        def mock_sample_with_structure(structure_inputs=None):
+            for c in target_segment.proposal_sequences:
+                c.sequence = "MKTAYIAKQRQISFVKSHFS"
+                c.structure = mock_struct
+
+        generator.sample = mock_sample_with_structure
+
+        config = CyclingOptimizerConfig(
+            num_steps=1,
+            num_results=2,
+            conditioning_param_name="structure_inputs",
+        )
+
+        optimizer = CyclingOptimizer(
+            target_segment=target_segment,
+            constructs=[construct],
+            generators=[generator],
+            constraints=[],
+            config=config,
+            conditioning_fn=conditioning_fn,
+        )
+
+        optimizer.run()
+
+        # No constraints → all proposals accepted → deepcopied to result_sequences
+        # Structure should survive the deepcopy (shared reference)
+        for result_seq in target_segment.result_sequences:
+            assert result_seq.structure is mock_struct
 
 
 # =============================================================================

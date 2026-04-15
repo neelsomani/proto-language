@@ -251,7 +251,10 @@ file store instead of storing it inline. This prevents bloating `seq._metadata` 
 import json
 from proto_language.storage import store_file, FileType
 
-# Large file content (PDB, CIF, etc.) — store directly:
+# Write Structure onto first sequence for in-memory data flow (optimizer/generator reads this):
+proposal_tuple[0].structure = structure
+
+# Large file content (PDB, CIF, etc.) — store for export pipeline:
 seq._metadata["pdb_output"] = store_file(structure.structure_pdb, FileType.PDB)
 
 # Large JSON data (hit lists, ORF annotations, etc.) — serialize then store:

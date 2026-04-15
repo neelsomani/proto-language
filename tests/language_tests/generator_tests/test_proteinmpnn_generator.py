@@ -175,3 +175,16 @@ class TestProteinMPNNGeneratorValidation:
         assert len(generator.structure_inputs) == 2
         assert generator.structure_inputs[0].fixed_positions == {"A": [1, 2]}
         assert generator.structure_inputs[1].fixed_positions is None
+
+
+class TestProteinMPNNStructureFallback:
+    """Unit tests for structure fallback in ProteinMPNN (no GPU required)."""
+
+    def test_no_structure_anywhere_raises(self):
+        """sample() raises when no structure available from any source."""
+        generator = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig())
+        segment = Segment(sequence="AGSVL", sequence_type="protein")
+        generator.assign(segment)
+
+        with pytest.raises(ValueError, match="No structure_inputs"):
+            generator.sample()

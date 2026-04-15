@@ -24,6 +24,9 @@ dependencies:
   - zlib
   - hdf5
 
+  # PyMOL visualizations
+  - pymol-open-source
+
   # Python package manager
   - pip
 

@@ -438,7 +438,6 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
     tools_called=["bioemu-sample", "pymol"],
     category="protein_structure",
     supported_sequence_types=["protein"],
-    num_input_sequences_per_tuple=1,
 )
 def structure_ensemble_rmsd_constraint(
     input_sequences: list[tuple[Sequence, ...]],

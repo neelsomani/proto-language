@@ -95,7 +95,6 @@ class SequenceLengthConfig(BaseConfig):
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
-    num_input_sequences_per_tuple=1,
 )
 def sequence_length_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: SequenceLengthConfig

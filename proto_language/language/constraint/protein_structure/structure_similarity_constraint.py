@@ -328,7 +328,7 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> str | None:
     tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction", "pymol"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
-    num_input_sequences_per_tuple=None,
+    input_labels=None,
 )
 def structure_rmsd_constraint(input_sequences: list[tuple[Sequence, ...]], config: StructureRMSDConfig) -> list[float]:
     """Predicts structure of input proposals and compares RMSD against a target.
@@ -404,7 +404,7 @@ def _count_pdb_chains(pdb_text: str) -> int:
     ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
-    num_input_sequences_per_tuple=None,
+    input_labels=None,
 )
 def structure_tmscore_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureTMScoreConfig

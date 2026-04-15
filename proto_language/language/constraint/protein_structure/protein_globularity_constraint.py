@@ -90,7 +90,6 @@ class ProteinGlobularityConfig(BaseConfig):
     tools_called=["esmfold-prediction", "prodigal-prediction"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],
-    num_input_sequences_per_tuple=1,
 )
 def protein_globularity_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinGlobularityConfig

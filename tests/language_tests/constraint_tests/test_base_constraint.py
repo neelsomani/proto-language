@@ -491,7 +491,6 @@ class TestConstraintEdgeCases:
             return scores
 
         collision_scoring_function._constraint_supported_sequence_types = {"dna"}
-        collision_scoring_function._constraint_num_input_sequences_per_tuple = 1
 
         segment = _make_segment_with_proposals(["ATCG"], "dna")
         constraint = Constraint(
@@ -547,7 +546,6 @@ class TestConstraintEdgeCases:
             return scores
 
         safe_scoring_function._constraint_supported_sequence_types = {"dna"}
-        safe_scoring_function._constraint_num_input_sequences_per_tuple = 1
 
         segment = _make_segment_with_proposals(["ATCG"], "dna")
         constraint = Constraint(

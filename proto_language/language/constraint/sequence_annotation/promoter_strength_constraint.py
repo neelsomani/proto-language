@@ -113,7 +113,6 @@ class PromoterStrengthConfig(BaseConfig):
     tools_called=["promoter_calculator"],
     category="sequence annotation",
     supported_sequence_types=["dna"],
-    num_input_sequences_per_tuple=1,
 )
 def promoter_strength_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: PromoterStrengthConfig

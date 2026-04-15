@@ -246,7 +246,7 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
     tools_called=["alphagenome-predict-sequences"],
     category="rna splicing",
     supported_sequence_types=["dna"],
-    num_input_sequences_per_tuple=3,
+    input_labels=["Left Flank", "Intron Core", "Right Flank"],
 )
 def alphagenome_splice_site_usage(
     input_sequences: list[tuple[Sequence, ...]],

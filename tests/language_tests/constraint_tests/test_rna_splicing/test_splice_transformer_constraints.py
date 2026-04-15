@@ -29,13 +29,13 @@ from proto_language.language.core import Segment, Sequence
 
 def test_boundary_registered():
     spec = ConstraintRegistry.get("splice-transformer-intron-boundary")
-    assert spec.num_input_sequences_per_tuple == 3
+    assert spec.input_labels == ["Left Flank", "Intron Core", "Right Flank"]
     assert spec.key == "splice-transformer-intron-boundary"
 
 
 def test_specificity_registered():
     spec = ConstraintRegistry.get("splice-transformer-specificity")
-    assert spec.num_input_sequences_per_tuple == 3
+    assert spec.input_labels == ["Left Flank", "Intron Core", "Right Flank"]
     assert spec.key == "splice-transformer-specificity"
 
 

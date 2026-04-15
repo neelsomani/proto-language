@@ -63,7 +63,6 @@ class BalancedAaConfig(BaseConfig):
     tools_called=[],
     category="protein quality",
     supported_sequence_types=["protein"],
-    num_input_sequences_per_tuple=1,
 )
 def balanced_aa_constraint(input_sequences: list[tuple[Sequence, ...]], config: BalancedAaConfig) -> list[float]:
     """Evaluate the presence of underrepresented amino acids in protein sequences.

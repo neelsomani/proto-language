@@ -205,7 +205,6 @@ def _extract_track_matrix(
     tools_called=["alphagenome-predict-sequences"],
     category="sequence annotation",
     supported_sequence_types=["dna"],
-    num_input_sequences_per_tuple=1,
 )
 def alphagenome_interval_track_constraint(
     input_sequences: list[tuple[Sequence, ...]],

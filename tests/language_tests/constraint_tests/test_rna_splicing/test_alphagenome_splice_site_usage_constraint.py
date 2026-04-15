@@ -98,7 +98,7 @@ def _make_3part_sequences():
 
 def test_ag_ssu_registered_with_three_part():
     spec = ConstraintRegistry.get("alphagenome-splice-site-usage")
-    assert spec.num_input_sequences_per_tuple == 3
+    assert spec.input_labels == ["Left Flank", "Intron Core", "Right Flank"]
     assert spec.function == alphagenome_splice_site_usage
 
 

@@ -485,7 +485,7 @@ class Constraint:
             2. Consistent proposals: All segments must have the same number of proposals.
             3. Supported types: Constraint callable must declare supported sequence types.
             4. Type compatibility: Each segment's sequence type must be supported by the constraint.
-            5. Input count: Number of input segments must match num_input_sequences_per_tuple if specified.
+            5. Input count: Number of input segments must match input_labels length if specified.
 
         Raises:
             ValueError: If any validation check fails.
@@ -516,18 +516,19 @@ class Constraint:
                         f"Supported types: [{', '.join(supported_types)}]"
                     )
 
-        # Check number of input sequences per tuple matches requirement
-        num_input_sequences_per_tuple = getattr(source_fn, "_constraint_num_input_sequences_per_tuple", None)
-        if num_input_sequences_per_tuple is None:
+        # Check number of input segments matches input_labels length
+        expected_inputs = getattr(source_fn, "_constraint_num_input_sequences_per_tuple", None)
+        if expected_inputs is None:
             warnings.warn(
-                f"Constraint '{self.label}' does not specify required number of input sequences per tuple. Using {len(self._inputs)} input segment(s).",
+                f"Constraint '{self.label}' does not specify input_labels. Using {len(self._inputs)} input segment(s).",
                 stacklevel=2,
             )
         else:
             num_inputs = len(self._inputs)
-            if num_inputs != num_input_sequences_per_tuple:
+            if num_inputs != expected_inputs:
                 raise ValueError(
-                    f"Constraint '{self.label}' requires exactly {num_input_sequences_per_tuple} input sequence(s) per tuple, but {num_inputs} segment(s) were provided."
+                    f"Constraint '{self.label}' requires exactly {expected_inputs} input segment(s) "
+                    f"(per input_labels), but {num_inputs} segment(s) were provided."
                 )
 
     def compute_gradient(self, temperature: float) -> list[GradientResult]:

@@ -165,7 +165,7 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
     tools_called=["splice-transformer-prediction"],
     category="rna splicing",
     supported_sequence_types=["dna"],
-    num_input_sequences_per_tuple=3,
+    input_labels=["Left Flank", "Intron Core", "Right Flank"],
 )
 def splice_transformer_specificity(
     input_sequences: list[tuple[Sequence, ...]],

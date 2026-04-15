@@ -113,7 +113,6 @@ class MyConstraintConfig(BaseConfig):
     tools_called=[],                              # e.g. ["esmfold", "segmasker"]
     category="sequence_composition",              # Must match directory name
     supported_sequence_types=["dna", "rna"],      # MUST be non-empty
-    num_input_sequences_per_tuple=1,              # 1 = single segment, None = any
 )
 def my_constraint(
     input_sequences: list[tuple[Sequence, ...]],
@@ -123,7 +122,7 @@ def my_constraint(
 
     Args:
         input_sequences: List of sequence tuples. Each tuple has one Sequence
-            when num_input_sequences_per_tuple=1.
+            per input label (default: single segment).
         config: Validated configuration object.
 
     Returns:
@@ -169,7 +168,7 @@ def my_constraint(
 | `tools_called` | `list[str]` | No | Default `[]`. Tool names this constraint invokes |
 | `category` | `str` | No | Must match the subdirectory name (e.g., `"sequence_composition"`) |
 | `supported_sequence_types` | `list[str]` | Yes | Non-empty list from: `"dna"`, `"rna"`, `"protein"`, `"ligand"` |
-| `num_input_sequences_per_tuple` | `int \| None` | No | `1` for single-segment, `2+` for multi-segment, `None` for any |
+| `input_labels` | `list[str] \| None` | No | Default `["Sequence"]`. Named input slots (e.g., `["Query", "Reference"]`). Use `None` for any number of interchangeable inputs |
 | `backward` | `Callable \| None` | No | Gradient callable: `(logits, temperature, *, config) -> GradientResult` |
 
 ## Gradient-Only Constraints
@@ -342,14 +341,12 @@ For constraints that evaluate relationships between segments (e.g., binding affi
 
 ```python
 @constraint(
-    num_input_sequences_per_tuple=2,  # or None for variable
+    input_labels=["Protein", "Ligand"],
     supported_sequence_types=["protein", "ligand"],
     ...
 )
 def binding_constraint(input_sequences, config):
-    for seq_tuple in input_sequences:
-        protein_seq = seq_tuple[0]
-        ligand_seq = seq_tuple[1]
+    for protein_seq, ligand_seq in input_sequences:
         # Evaluate relationship between the two
         ...
 ```

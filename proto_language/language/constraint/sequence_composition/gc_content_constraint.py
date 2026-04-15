@@ -57,7 +57,6 @@ class GCContentConfig(BaseConfig):
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna"],
-    num_input_sequences_per_tuple=1,
 )
 def gc_content_constraint(input_sequences: list[tuple[Sequence, ...]], config: GCContentConfig) -> list[float]:
     """Enforce GC content within specified range.

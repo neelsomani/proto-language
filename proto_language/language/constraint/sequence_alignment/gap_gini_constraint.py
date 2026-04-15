@@ -186,7 +186,7 @@ class GapGiniConfig(BaseConfig):
     tools_called=["mafft-align"],
     category="sequence_alignment",
     supported_sequence_types=["protein"],
-    num_input_sequences_per_tuple=2,
+    input_labels=["Query Sequence", "Reference Sequence"],
 )
 def gap_gini_constraint(
     input_sequences: list[tuple[Sequence, ...]],

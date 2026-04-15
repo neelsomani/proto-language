@@ -370,7 +370,6 @@ class OverallProteinQualityConfig(BaseConfig):
     tools_called=["prodigal-prediction", "segmasker-score"],
     category="protein quality",
     supported_sequence_types=["dna", "protein"],
-    num_input_sequences_per_tuple=1,
 )
 def overall_protein_quality_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: OverallProteinQualityConfig

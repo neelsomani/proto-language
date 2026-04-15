@@ -115,7 +115,6 @@ class ProteinDomainConfig(BaseConfig):
     tools_called=["pyhmmer-hmmsearch", "prodigal-prediction"],
     category="protein quality",
     supported_sequence_types=["dna", "protein"],
-    num_input_sequences_per_tuple=1,
 )
 def protein_domain_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinDomainConfig) -> list[float]:
     """Evaluate whether sequences contain protein domains matching specified keywords.

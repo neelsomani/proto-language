@@ -92,7 +92,6 @@ def _count_overlapping(seq_str: str, kmer: str) -> int:
     tools_called=[],
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
-    num_input_sequences_per_tuple=1,
 )
 def specific_kmer_constraint(input_sequences: list[tuple[Sequence, ...]], config: SpecificKmerConfig) -> list[float]:
     """Evaluate frequency or usage deviation of a specific k-mer.

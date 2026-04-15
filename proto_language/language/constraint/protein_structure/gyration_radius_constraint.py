@@ -50,7 +50,6 @@ class GyrationRadiusConfig(BaseConfig):
     tools_called=["structure_metrics"],
     category="protein_structure",
     supported_sequence_types=["protein", "dna"],
-    num_input_sequences_per_tuple=1,
 )
 def gyration_radius_constraint(
     input_sequences: list[tuple[Sequence, ...]],

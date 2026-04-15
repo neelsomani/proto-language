@@ -352,7 +352,6 @@ class RNABasePairSimilarityConfig(RNAStructureConstraintBaseConfig):
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],
-    num_input_sequences_per_tuple=1,
 )
 def rna_property_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
@@ -432,7 +431,6 @@ def rna_property_similarity_constraint(
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],
-    num_input_sequences_per_tuple=1,
 )
 def rna_motif_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
@@ -506,7 +504,6 @@ def rna_motif_similarity_constraint(
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],
-    num_input_sequences_per_tuple=1,
 )
 def rna_feature_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
@@ -578,7 +575,6 @@ def rna_feature_similarity_constraint(
     tools_called=["viennarna-prediction"],
     category="rna_secondary_structure",
     supported_sequence_types=["dna", "rna"],
-    num_input_sequences_per_tuple=1,
 )
 def rna_basepair_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],

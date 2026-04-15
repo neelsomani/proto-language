@@ -66,7 +66,6 @@ class ProteinComplexityConfig(BaseConfig):
     tools_called=["segmasker-score"],
     category="protein quality",
     supported_sequence_types=["protein"],
-    num_input_sequences_per_tuple=1,
 )
 def protein_complexity_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinComplexityConfig

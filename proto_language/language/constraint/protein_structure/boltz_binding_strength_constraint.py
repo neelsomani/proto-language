@@ -219,7 +219,7 @@ class BoltzBindingStrengthConfig(BaseConfig):
     tools_called=["boltz2-prediction"],
     category="protein_structure",
     supported_sequence_types=["dna", "rna", "protein", "ligand"],
-    num_input_sequences_per_tuple=None,
+    input_labels=None,
 )
 def boltz_binding_strength_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: BoltzBindingStrengthConfig

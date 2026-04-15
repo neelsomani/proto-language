@@ -14,6 +14,8 @@ from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Constraint, Segment
 from proto_language.language.core.constraint import GradientResult
 
+_SINGLE_SEGMENT: list[str] = ["Sequence"]
+
 
 class ConstraintSpec(BaseSpec):
     """Specification for a registered constraint."""
@@ -28,9 +30,10 @@ class ConstraintSpec(BaseSpec):
     supported_sequence_types: list[str] = Field(
         description="List of supported sequence types (e.g., ['dna', 'protein']). Must be non-empty."
     )
-    num_input_sequences_per_tuple: int | None = Field(
-        default=None,
-        description="Number of Sequence objects required in each tuple of input_sequences. If None, any number is allowed.",
+    input_labels: list[str] | None = Field(
+        default_factory=lambda: ["Sequence"],
+        description="Labels for each input segment slot (e.g., ['Heavy Chain', 'Light Chain']). "
+        "Set to None for constraints that accept any number of interchangeable inputs (e.g., multi-chain complexes).",
     )
 
     # Private fields - excluded from serialization
@@ -99,7 +102,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         tools_called: list[str] | None = None,
         category: str | None = None,
         supported_sequence_types: list[str] | None = None,
-        num_input_sequences_per_tuple: int | None = None,
+        input_labels: list[str] | None = _SINGLE_SEGMENT,
         backward: Callable[..., Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorator to register a constraint function or backward callable.
@@ -117,7 +120,9 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             tools_called (list[str] | None): Tool keys this constraint calls.
             category (str | None): Optional category for organization.
             supported_sequence_types (list[str] | None): Supported sequence types (e.g., ``["dna", "protein"]``).
-            num_input_sequences_per_tuple (int | None): Sequence objects required per tuple.
+            input_labels (list[str] | None): Labels for each input segment slot. Defaults
+                to ``["Sequence"]`` (single segment). Use ``None`` for constraints that
+                accept any number of interchangeable inputs (e.g., multi-chain complexes).
             backward (Callable[..., Any] | None): Explicit backward callable to pair with
                 a scoring function. Cannot be used when the decorated function itself
                 returns ``GradientResult``.
@@ -130,17 +135,22 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 ``backward`` is also provided.
 
         Examples:
-            Scoring function (auto-detected):
+            Scoring function (single segment, default label):
 
             >>> @constraint(key="gc-content", ...)
             ... def gc_content(input_sequences, config) -> list[float]: ...
 
-            Backward-only (auto-detected from return type):
+            Multi-segment with labeled slots:
+
+            >>> @constraint(key="gap-gini", input_labels=["Query", "Reference"], ...)
+            ... def gap_gini(input_sequences, config) -> list[float]: ...
+
+            Gradient constraint (auto-detected from return type):
 
             >>> @constraint(key="af2-binder-gradient", ...)
             ... def af2_backward(inputs, temperature, *, config) -> GradientResult: ...
 
-            Both (scoring function + explicit backward kwarg):
+            Scoring function with explicit backward callable:
 
             >>> @constraint(key="ablang", backward=ablang_backward, ...)
             ... def ablang_score(input_sequences, config) -> list[float]: ...
@@ -168,7 +178,8 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             # Store metadata as function attributes for Constraint class to use
             func._constraint_config_class = config  # type: ignore[attr-defined]
             func._constraint_supported_sequence_types = supported_sequence_types  # type: ignore[attr-defined]
-            func._constraint_num_input_sequences_per_tuple = num_input_sequences_per_tuple  # type: ignore[attr-defined]
+            # Derive count from labels: len(labels) for fixed, None for variable
+            func._constraint_num_input_sequences_per_tuple = len(input_labels) if input_labels is not None else None  # type: ignore[attr-defined]
 
             cls._registry[key] = ConstraintSpec(
                 key=key,
@@ -181,7 +192,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 tools_called=tools_called,
                 category=category,
                 supported_sequence_types=supported_sequence_types,
-                num_input_sequences_per_tuple=num_input_sequences_per_tuple,
+                input_labels=input_labels,
             )
             return func
 

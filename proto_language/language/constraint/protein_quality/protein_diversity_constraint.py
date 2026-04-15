@@ -48,7 +48,6 @@ class ProteinDiversityConfig(BaseConfig):
     tools_called=[],
     category="protein quality",
     supported_sequence_types=["protein"],
-    num_input_sequences_per_tuple=1,
 )
 def protein_diversity_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinDiversityConfig

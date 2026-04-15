@@ -112,7 +112,7 @@ def _structure_confidence(
     tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
-    num_input_sequences_per_tuple=None,
+    input_labels=None,
 )
 def structure_plddt_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
@@ -168,7 +168,7 @@ def structure_plddt_constraint(
     tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
-    num_input_sequences_per_tuple=None,
+    input_labels=None,
 )
 def structure_ptm_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
@@ -213,7 +213,7 @@ def structure_ptm_constraint(
     tools_called=["alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
-    num_input_sequences_per_tuple=None,
+    input_labels=None,
 )
 def structure_iptm_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
@@ -277,7 +277,7 @@ def structure_iptm_constraint(
     tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
-    num_input_sequences_per_tuple=None,
+    input_labels=None,
 )
 def structure_pae_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig

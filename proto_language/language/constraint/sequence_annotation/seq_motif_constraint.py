@@ -161,7 +161,6 @@ class SeqMotifConfig(BaseConfig):
     tools_called=["meme"],
     category="sequence annotation",
     supported_sequence_types=["dna"],
-    num_input_sequences_per_tuple=1,
 )
 def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: SeqMotifConfig) -> list[float]:
     """Score DNA sequences against sequence motifs using MEME.

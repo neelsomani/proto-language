@@ -153,7 +153,6 @@ class MMseqsSimilarityConfig(BaseConfig):
     tools_called=["mmseqs-search-proteins", "prodigal-prediction", "orfipy-prediction"],
     category="sequence annotation",
     supported_sequence_types=["dna", "protein"],
-    num_input_sequences_per_tuple=1,
 )
 def mmseqs_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: MMseqsSimilarityConfig

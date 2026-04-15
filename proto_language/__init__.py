@@ -5,6 +5,7 @@ from proto_language.language.constraint import (
     ConstraintSpec,
     ablang_scfv_gradient_backward,
     ablang_vhh_gradient_backward,
+    af2_binder_backward,
     alphagenome_interval_track_constraint,
     alphagenome_splice_site_usage,
     balanced_aa_constraint,
@@ -146,6 +147,7 @@ __all__ = [
     # Differentiable constraints
     "ablang_vhh_gradient_backward",
     "ablang_scfv_gradient_backward",
+    "af2_binder_backward",
     # Protein quality constraints
     "protein_length_constraint",
     "protein_complexity_constraint",

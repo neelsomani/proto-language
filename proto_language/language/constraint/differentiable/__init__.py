@@ -4,8 +4,12 @@ from proto_language.language.constraint.differentiable.ablang_naturalness_gradie
     ablang_scfv_gradient_backward,
     ablang_vhh_gradient_backward,
 )
+from proto_language.language.constraint.differentiable.af2_binder_gradient_constraint import (
+    af2_binder_backward,
+)
 
 __all__ = [
     "ablang_vhh_gradient_backward",
     "ablang_scfv_gradient_backward",
+    "af2_binder_backward",
 ]

@@ -7,6 +7,7 @@ from proto_language.language.constraint.constraint_registry import ConstraintReg
 from proto_language.language.constraint.differentiable import (
     ablang_scfv_gradient_backward,
     ablang_vhh_gradient_backward,
+    af2_binder_backward,
 )
 
 # Protein quality constraints
@@ -79,6 +80,7 @@ __all__ = [
     # Differentiable
     "ablang_vhh_gradient_backward",
     "ablang_scfv_gradient_backward",
+    "af2_binder_backward",
     # Sequence composition
     "sequence_length_constraint",
     "gc_content_constraint",

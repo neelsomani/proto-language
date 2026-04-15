@@ -150,13 +150,21 @@ class Segment:
         """Index into result sequences (user-facing results)."""
         return self.result_sequences[index]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, include_logits: bool = False, include_structure: bool = False) -> dict[str, Any]:
         """Serialize Segment to dictionary for cloud/API communication."""
         return {
-            "original_sequence": self.original_sequence.to_dict(),
+            "original_sequence": self.original_sequence.to_dict(
+                include_logits=include_logits, include_structure=include_structure
+            ),
             "sequence_length": self.sequence_length,
-            "proposal_sequences": [seq.to_dict() for seq in self.proposal_sequences],
-            "result_sequences": [seq.to_dict() for seq in self.result_sequences],
+            "proposal_sequences": [
+                seq.to_dict(include_logits=include_logits, include_structure=include_structure)
+                for seq in self.proposal_sequences
+            ],
+            "result_sequences": [
+                seq.to_dict(include_logits=include_logits, include_structure=include_structure)
+                for seq in self.result_sequences
+            ],
             "sequence_type": self.sequence_type,
             "valid_chars": list(self.valid_chars) if self.valid_chars else None,
             "label": self.label,

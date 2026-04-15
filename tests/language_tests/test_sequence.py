@@ -290,26 +290,27 @@ class TestSequenceLogits:
         seq_copy = copy.deepcopy(seq)
         assert seq_copy.logits is None
 
-    def test_logits_serialization_roundtrip(self):
-        """to_dict/from_dict preserves logits."""
+    def test_logits_serialization_omitted_by_default(self):
+        """to_dict omits logits by default even when present."""
+        logits = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        seq = Sequence("AT", "dna", logits=logits)
+        assert "logits" not in seq.to_dict()
+
+    def test_logits_serialization_roundtrip_opt_in(self):
+        """to_dict(include_logits=True) preserves logits through round-trip."""
         logits = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
         seq = Sequence("AT", "dna", logits=logits)
 
-        serialized = seq.to_dict()
-        assert "logits" in serialized
+        serialized = seq.to_dict(include_logits=True)
         assert serialized["logits"] == logits.tolist()
 
         restored = Sequence.from_dict(serialized)
         np.testing.assert_array_almost_equal(restored.logits, logits)
 
-    def test_logits_serialization_none(self):
-        """to_dict omits logits when None; from_dict restores None."""
+    def test_logits_serialization_none_with_flag(self):
+        """to_dict omits logits when None even with include_logits=True."""
         seq = Sequence("AT", "dna")
-        serialized = seq.to_dict()
-        assert "logits" not in serialized
-
-        restored = Sequence.from_dict(serialized)
-        assert restored.logits is None
+        assert "logits" not in seq.to_dict(include_logits=True)
 
 
 class TestSequenceStructure:
@@ -341,19 +342,23 @@ class TestSequenceStructure:
         seq2 = Sequence("EVQLV", "protein")
         assert copy.deepcopy(seq2).structure is None
 
-    def test_structure_serialization_roundtrip(self):
-        """to_dict/from_dict preserves structure; omits when None."""
+    def test_structure_serialization_omitted_by_default(self):
+        """to_dict omits structure by default even when present."""
+        struct = MockStructure(metrics={"avg_plddt": 85.0})
+        seq = Sequence("EVQLV", "protein", structure=struct)
+        assert "structure" not in seq.to_dict()
+
+    def test_structure_serialization_roundtrip_opt_in(self):
+        """to_dict(include_structure=True) preserves structure through round-trip."""
         struct = MockStructure(metrics={"avg_plddt": 85.0})
         seq = Sequence("EVQLV", "protein", structure=struct)
 
-        serialized = seq.to_dict()
-        assert "structure" in serialized
+        serialized = seq.to_dict(include_structure=True)
         restored = Sequence.from_dict(serialized)
         assert restored.structure is not None
         assert restored.structure.metrics["avg_plddt"] == 85.0
 
-        # None case: omitted from dict
-        seq_none = Sequence("EVQLV", "protein")
-        serialized_none = seq_none.to_dict()
-        assert "structure" not in serialized_none
-        assert Sequence.from_dict(serialized_none).structure is None
+    def test_structure_serialization_none_with_flag(self):
+        """to_dict omits structure when None even with include_structure=True."""
+        seq = Sequence("EVQLV", "protein")
+        assert "structure" not in seq.to_dict(include_structure=True)

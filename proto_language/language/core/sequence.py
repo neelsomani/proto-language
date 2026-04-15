@@ -235,7 +235,7 @@ class Sequence:
         memo[id(self)] = new_seq
         return new_seq
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, include_logits: bool = False, include_structure: bool = False) -> dict[str, Any]:
         """Serialize Sequence to dictionary for cloud/API communication."""
         result = {
             "sequence": self._sequence,
@@ -244,9 +244,9 @@ class Sequence:
             "metadata": copy.deepcopy(self._metadata) if self._metadata else {},
             "constraints": copy.deepcopy(self._constraints_metadata) if self._constraints_metadata else {},
         }
-        if self._logits is not None:
+        if include_logits and self._logits is not None:
             result["logits"] = self._logits.tolist()
-        if self.structure is not None:
+        if include_structure and self.structure is not None:
             result["structure"] = self.structure.model_dump()
         return result
 

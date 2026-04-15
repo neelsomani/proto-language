@@ -111,10 +111,13 @@ class Construct:
             duplicates = [label for label in segment_labels if segment_labels.count(label) > 1]
             raise ValueError(f"Segment labels must be unique within a construct. Duplicates: {set(duplicates)}")
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, include_logits: bool = False, include_structure: bool = False) -> dict[str, Any]:
         """Serialize Construct to a dictionary."""
         return {
-            "segments": [segment.to_dict() for segment in self.segments],
+            "segments": [
+                segment.to_dict(include_logits=include_logits, include_structure=include_structure)
+                for segment in self.segments
+            ],
             "sequence_type": self.sequence_type,
             "valid_chars": list(self.valid_chars) if self.valid_chars else None,
             "label": self.label,

@@ -6,16 +6,62 @@ from collections.abc import Callable
 from typing import Any, Literal, final
 
 import numpy as np
+from pydantic import model_validator
 
-from proto_language.base_config import BaseOptimizerConfig, ConfigField
+from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import Constraint, Construct, Generator, Optimizer, Segment
 from proto_language.language.core.constraint import GradientResult
 from proto_language.language.generator import PositionWeightGenerator
 from proto_language.language.optimizer.optimizer_registry import optimizer
 from proto_language.utils.gradients import MERGERS, GradientMergerName, adam_step, align_norms, normalize_gradient
-from proto_language.utils.scheduling import SCHEDULES, ScheduleName
+from proto_language.utils.scheduling import SCHEDULES, Schedule, ScheduleName
 
 logger = logging.getLogger(__name__)
+
+
+class ConstraintWeightSchedule(BaseConfig):
+    """Per-step weight schedule keyed by ``Constraint.label``; overrides the static weight.
+
+    Note:
+        ``schedule="exponential"`` requires both ``start_weight`` and ``end_weight`` to be ``> 0``.
+        ``schedule="constant"`` uses ``start_weight`` only — ``end_weight`` is ignored.
+        Ramps use ``progress = step / num_steps`` with ``step`` starting at 1, so step 1 evaluates
+        to ``start + (end - start) / num_steps`` (not exactly ``start``); step ``num_steps`` is
+        exactly ``end``.
+
+    Attributes:
+        constraint_label (str): Label of the target constraint.
+        start_weight (float): Weight at step 1.
+        end_weight (float): Weight at final step (ignored when ``schedule="constant"``).
+        schedule (ScheduleName): Interpolation between start and end.
+    """
+
+    constraint_label: str = ConfigField(
+        min_length=1,
+        title="Constraint Label",
+        description="Label of the constraint whose weight this schedule overrides.",
+    )
+    start_weight: float = ConfigField(
+        title="Start Weight",
+        ge=0.0,
+        description="Weight at the first step.",
+    )
+    end_weight: float = ConfigField(
+        title="End Weight",
+        ge=0.0,
+        description="Weight at the final step.",
+    )
+    schedule: ScheduleName = ConfigField(
+        default="linear",
+        title="Schedule",
+        description="Interpolation schedule between start_weight and end_weight.",
+    )
+
+    @model_validator(mode="after")
+    def _check_exponential_endpoints(self) -> "ConstraintWeightSchedule":
+        if self.schedule == "exponential" and min(self.start_weight, self.end_weight) <= 0.0:
+            raise ValueError("schedule='exponential' requires start_weight > 0 and end_weight > 0.")
+        return self
 
 
 class GradientOptimizerConfig(BaseOptimizerConfig):
@@ -49,6 +95,10 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         min_lr_scale (float): Floor for effective LR scale.
         tracking_interval (int): Steps between progress snapshots.
         track_proposals (bool): Record per-proposal results in history.
+        constraint_weight_schedules (list[ConstraintWeightSchedule] | None): Per-label
+            weight schedules that override ``Constraint.weight`` each step.
+        gumbel_logit_init (bool): If True, add Gumbel(0,1) noise per position on top of
+            the bias — gives parallel trajectories stochastic starts.
 
     Note:
         Ramps use ``progress = step / num_steps`` with ``step`` starting at 1,
@@ -157,7 +207,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     fixed_positions: list[int] | None = ConfigField(
         default=None,
         title="Fixed Positions",
-        description="Sequence positions to freeze during optimization.",
+        description="Sequence positions to freeze. Pair with initial_logit_bias > 0 to anchor them.",
         advanced=True,
     )
     scale_lr_by_temperature: bool = ConfigField(
@@ -173,12 +223,25 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         description="Floor for effective LR scale when temperature scaling is enabled.",
         advanced=True,
     )
+    constraint_weight_schedules: list[ConstraintWeightSchedule] | None = ConfigField(
+        default=None,
+        title="Constraint Weight Schedules",
+        description="Per-label weight schedules that override Constraint.weight each step.",
+        advanced=True,
+    )
+    gumbel_logit_init: bool = ConfigField(
+        default=False,
+        title="Gumbel Logit Init",
+        description="Add Gumbel(0,1) noise per position on top of the bias at init.",
+        advanced=True,
+    )
 
     @classmethod
     def germinal_logit_preset(cls) -> "GradientOptimizerConfig":
-        """Germinal VHH logit phase (Phase 1): soft ramps 0→1, temp fixed.
+        """Germinal VHH Phase 1 (logit phase): ``design_logits(iters=65, soft=0, e_soft=1)``.
 
-        Source: ``germinal/design/design.py`` — ``design_logits(iters=65, soft=0, e_soft=1)``.
+        Ramps naturalness weight 0.0→0.2 linearly — constraint must be labeled ``"ablang"``.
+        Initial logits get Gumbel(0,1) noise so parallel trajectories diverge.
         """
         return cls(
             num_steps=65,
@@ -193,13 +256,17 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
             merger="pcgrad",
             norm_alignment="match_first",
             normalize_mode="sqrt_length",
+            constraint_weight_schedules=[
+                ConstraintWeightSchedule(constraint_label="ablang", start_weight=0.0, end_weight=0.2, schedule="linear")
+            ],
+            gumbel_logit_init=True,
         )
 
     @classmethod
     def germinal_softmax_preset(cls) -> "GradientOptimizerConfig":
-        """Germinal VHH softmax phase (Phase 2): soft=1, temp anneals 1→0.01.
+        """Germinal VHH Phase 2 (softmax phase): ``design_soft(iters=35, e_temp=1e-2)``.
 
-        Source: ``germinal/design/design.py`` — ``design_soft(iters=35, e_temp=1e-2)``.
+        Naturalness weight is constant 0.4 — set ``Constraint(weight=0.4)`` directly.
         """
         return cls(
             num_steps=35,
@@ -323,6 +390,15 @@ class GradientOptimizer(Optimizer):
         self._merger = MERGERS[config.merger]()
         self._temperature_schedule = SCHEDULES[config.schedule](config.temperature_start, config.temperature_end)
 
+        # Missing labels warn (not error) so presets remain portable across constraint sets.
+        known = {c.label for c in self._gradient_constraints if c.label}
+        self._weight_schedules: dict[str, Schedule] = {}
+        for e in config.constraint_weight_schedules or []:
+            if e.constraint_label in known:
+                self._weight_schedules[e.constraint_label] = SCHEDULES[e.schedule](e.start_weight, e.end_weight)
+            else:
+                logger.warning(f"Unknown weight-schedule label '{e.constraint_label}'; ignored.")
+
         # Adam state (initialized in run)
         self._adam_m: list[np.ndarray] = []
         self._adam_v: list[np.ndarray] = []
@@ -344,21 +420,27 @@ class GradientOptimizer(Optimizer):
         assert self.num_proposals is not None  # noqa: S101 -- mypy type narrowing
         target = self._generator.segment
 
-        # Skip if logits carried from a previous stage.
         vocab = target.ordered_vocab()
+        init_rng = np.random.default_rng(self.config.seed) if self.config.gumbel_logit_init else None
         for seq in target.proposal_sequences:
             if seq.logits is None:
-                seq.logits = _init_logits(target.sequence_length, seq.sequence, self.config.initial_logit_bias, vocab)
+                seq.logits = _init_logits(
+                    target.sequence_length,
+                    seq.sequence,
+                    self.config.initial_logit_bias,
+                    vocab,
+                    rng=init_rng,
+                    fixed_positions=self.config.fixed_positions,
+                )
 
-        # Initialize Adam state
         self._adam_m = [np.zeros_like(seq.logits) for seq in target.proposal_sequences]
         self._adam_v = [np.zeros_like(seq.logits) for seq in target.proposal_sequences]
         self._adam_t = [0] * self.num_results
 
-        # Discretize initial state and snapshot.
         self._generator.sample()
         self._proposal_outcomes = ["accepted"] * self.num_proposals
         self._proposal_energy_scores = list(self.energy_scores)
+        self._sync_target_proposals_to_results(target)
         self._save_progress_snapshot(time_step=0)
 
         if self.verbose:
@@ -377,18 +459,24 @@ class GradientOptimizer(Optimizer):
             lr = self._effective_lr(temp, soft)
 
             # 2. Compute gradients from all gradient-capable constraints
-            all_results = []
-            for constraint in self._gradient_constraints:
-                results = constraint.compute_gradient(temperature=temp, soft=soft)
-                all_results.append(results)
+            all_results = [c.compute_gradient(temperature=temp, soft=soft) for c in self._gradient_constraints]
+            for i, constraint in enumerate(self._gradient_constraints):
+                for k, r in enumerate(all_results[i]):
+                    if not np.isfinite(r.gradient[self._gradient_indices[i]]).all():
+                        raise ValueError(
+                            f"Non-finite gradient from '{constraint.label}' at step {step} (proposal {k})."
+                        )
 
             # 3-5. Merge gradients and update logits for each trajectory
             for k in range(self.num_results):
-                self._update_trajectory(k, all_results, lr, target)
+                self._update_trajectory(k, all_results, lr, target, step)
 
             # Report the same weighted objective that gradient descent is actually minimizing.
             self.energy_scores = [
-                sum(c.weight * all_results[i][k].loss for i, c in enumerate(self._gradient_constraints))
+                sum(
+                    self._effective_weight(c, step) * all_results[i][k].loss
+                    for i, c in enumerate(self._gradient_constraints)
+                )
                 for k in range(self.num_results)
             ]
             self._proposal_outcomes = ["accepted"] * self.num_proposals
@@ -397,8 +485,7 @@ class GradientOptimizer(Optimizer):
             # 6. At tracked steps: discretize, sync proposals→results, snapshot
             if step % self.tracking_interval == 0 or step == self.config.num_steps:
                 self._generator.sample()
-                for k in range(self.num_results):
-                    target.result_sequences[k] = copy.deepcopy(target.proposal_sequences[k])
+                self._sync_target_proposals_to_results(target)
                 self._save_progress_snapshot(time_step=step)
                 self._log_progress(step, temp, lr)
 
@@ -421,11 +508,14 @@ class GradientOptimizer(Optimizer):
         if self.custom_logging:
             self.custom_logging(step, self.segments)
 
-    def _update_trajectory(self, k: int, all_results: list[list[GradientResult]], lr: float, target: Segment) -> None:
+    def _update_trajectory(
+        self, k: int, all_results: list[list[GradientResult]], lr: float, target: Segment, step: int
+    ) -> None:
         """Align, merge, normalize, and apply one gradient step for trajectory *k*."""
-        grads = [all_results[c][k].gradient[self._gradient_indices[c]] for c in range(len(self._gradient_constraints))]
-        weights = [c.weight for c in self._gradient_constraints]
+        grads = [all_results[i][k].gradient[self._gradient_indices[i]] for i in range(len(self._gradient_constraints))]
+        weights = [self._effective_weight(c, step) for c in self._gradient_constraints]
 
+        # Align norms first so ``match_first`` doesn't wash out weights.
         grads = align_norms(grads, self.config.norm_alignment)
         grads = [g * w for g, w in zip(grads, weights, strict=True)]
         merged = self._merger.merge(grads)
@@ -476,15 +566,36 @@ class GradientOptimizer(Optimizer):
             lr *= lr_scale
         return lr
 
+    def _effective_weight(self, constraint: Constraint, step: int) -> float:
+        """Return the weight for *constraint* at *step*, using any configured schedule."""
+        schedule = self._weight_schedules.get(constraint.label or "")
+        return schedule(step, self.config.num_steps) if schedule else constraint.weight
 
-def _init_logits(num_positions: int, sequence: str, bias: float, vocab: list[str]) -> np.ndarray:
-    """Return ``(num_positions, len(vocab))`` logits; ``sequence`` may be empty and only drives the bias."""
-    if sequence and len(sequence) != num_positions:
-        logger.warning(f"Sequence length {len(sequence)} != segment length {num_positions}; bias applied to overlap.")
-    char_to_idx = {c: i for i, c in enumerate(vocab)}
-    logits = np.zeros((num_positions, len(vocab)), dtype=np.float64)
+    def _sync_target_proposals_to_results(self, target: Segment) -> None:
+        """Copy current proposals into ``result_sequences`` so snapshots aren't stale."""
+        assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
+        for k in range(self.num_results):
+            target.result_sequences[k] = copy.deepcopy(target.proposal_sequences[k])
+
+
+def _init_logits(
+    num_positions: int,
+    sequence: str,
+    bias: float,
+    vocab: list[str],
+    *,
+    rng: np.random.Generator | None = None,
+    fixed_positions: list[int] | None = None,
+) -> np.ndarray:
+    """Return ``(num_positions, len(vocab))`` logits; ``sequence`` may be empty and only drives the bias.
+
+    When ``rng`` is provided, Gumbel(0,1) noise is added per position so parallel trajectories diverge.
+    Noise is skipped at ``fixed_positions`` so anchors stay deterministic.
+    """
+    shape = (num_positions, len(vocab))
+    logits = rng.gumbel(size=shape) if rng is not None else np.zeros(shape, dtype=np.float64)
+    if fixed_positions:
+        logits[fixed_positions] = 0.0
     for pos, char in enumerate(sequence[:num_positions]):
-        idx = char_to_idx.get(char)
-        if idx is not None:
-            logits[pos, idx] = bias
+        logits[pos, vocab.index(char)] += bias
     return logits

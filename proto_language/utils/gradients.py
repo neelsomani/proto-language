@@ -1,4 +1,8 @@
-"""Gradient math utilities: mergers, norm alignment, normalization, and Adam/SGD steps."""
+"""Gradient math utilities: mergers, norm alignment, normalization, Adam/SGD steps.
+
+Mergers expect pre-weighted gradients — the optimizer multiplies by ``Constraint.weight``
+before calling ``merge()``.
+"""
 
 from abc import ABC, abstractmethod
 from typing import Literal
@@ -9,21 +13,15 @@ GradientMergerName = Literal["weighted_sum", "pcgrad", "mgda"]
 
 
 class GradientMerger(ABC):
-    """Abstract base class for gradient merging strategies."""
+    """Merge pre-weighted gradients into a single update direction."""
 
     @abstractmethod
-    def merge(self, gradients: list[np.ndarray], weights: list[float] | np.ndarray | None = None) -> np.ndarray:
-        """Merge multiple gradients into a single update direction.
-
-        ``weights`` is for standalone use; ``GradientOptimizer`` pre-weights the
-        gradients (so PCGrad/MGDA project on weighted vectors) and passes ``None``.
-        """
+    def merge(self, gradients: list[np.ndarray]) -> np.ndarray:
+        """Merge multiple gradients into a single update direction."""
 
     @staticmethod
-    def _prepare_inputs(
-        gradients: list[np.ndarray], weights: list[float] | np.ndarray | None
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Validate and normalize merger inputs."""
+    def _prepare_inputs(gradients: list[np.ndarray]) -> np.ndarray:
+        """Validate and stack merger inputs."""
         if not gradients:
             raise ValueError("gradients must contain at least one array")
 
@@ -32,53 +30,30 @@ class GradientMerger(ABC):
         except ValueError as exc:
             raise ValueError("all gradients must have the same shape") from exc
 
-        if not np.isfinite(stacked).all():
-            raise ValueError("all gradients must contain only finite values")
-
-        normalized_weights = (
-            np.ones(stacked.shape[0], dtype=float) if weights is None else np.asarray(weights, dtype=float)
-        )
-        if normalized_weights.shape != (stacked.shape[0],):
-            raise ValueError("weights must have the same length as gradients")
-        if not np.isfinite(normalized_weights).all():
-            raise ValueError("weights must contain only finite values")
-
-        return stacked, normalized_weights
+        return stacked
 
     @classmethod
-    def _flatten_inputs(
-        cls, gradients: list[np.ndarray], weights: list[float] | np.ndarray | None
-    ) -> tuple[tuple[int, ...], np.ndarray]:
-        """Return weighted, flattened gradients plus the original gradient shape.
-
-        Weights are applied before flattening so conflict resolution (PCGrad, MGDA)
-        operates on weighted vectors — a deliberate weight-then-project design.
-        """
-        stacked, normalized_weights = cls._prepare_inputs(gradients, weights)
-        return stacked.shape[1:], stacked.reshape(stacked.shape[0], -1) * normalized_weights[:, None]
+    def _flatten_inputs(cls, gradients: list[np.ndarray]) -> tuple[tuple[int, ...], np.ndarray]:
+        """Return flattened gradients plus the original gradient shape."""
+        stacked = cls._prepare_inputs(gradients)
+        return stacked.shape[1:], stacked.reshape(stacked.shape[0], -1)
 
 
 class WeightedSumMerger(GradientMerger):
-    """Simple weighted-sum merger."""
+    """Simple sum merger (gradients should be pre-weighted by the caller)."""
 
-    def merge(self, gradients: list[np.ndarray], weights: list[float] | np.ndarray | None = None) -> np.ndarray:
-        """Merge gradients via weighted summation."""
-        stacked, normalized_weights = self._prepare_inputs(gradients, weights)
-        return np.asarray(np.tensordot(normalized_weights, stacked, axes=1), dtype=float)
+    def merge(self, gradients: list[np.ndarray]) -> np.ndarray:
+        """Merge gradients via element-wise summation."""
+        stacked = self._prepare_inputs(gradients)
+        return np.asarray(stacked.sum(axis=0), dtype=float)
 
 
 class PCGradMerger(GradientMerger):
-    """Pairwise-conflict merger using deterministic projection order.
+    """Pairwise-conflict merger using deterministic projection order."""
 
-    Each gradient is projected against every other **original** gradient (not
-    against already-projected ones). This differs from Yu et al. 2020, which
-    shuffles task order and projects iteratively against the running result.
-    Both variants are reasonable; this one is deterministic across runs.
-    """
-
-    def merge(self, gradients: list[np.ndarray], weights: list[float] | np.ndarray | None = None) -> np.ndarray:
+    def merge(self, gradients: list[np.ndarray]) -> np.ndarray:
         """Merge gradients via pairwise conflict projection."""
-        shape, flattened = self._flatten_inputs(gradients, weights)
+        shape, flattened = self._flatten_inputs(gradients)
         projected = []
 
         for index, gradient in enumerate(flattened):
@@ -100,16 +75,12 @@ class MGDAMerger(GradientMerger):
 
     def __init__(self, max_iter: int = 250, tolerance: float = 1e-8) -> None:
         """Initialize with Frank-Wolfe iteration limits."""
-        if max_iter <= 0:
-            raise ValueError(f"max_iter must be > 0, got {max_iter}")
-        if tolerance <= 0:
-            raise ValueError(f"tolerance must be > 0, got {tolerance}")
         self.max_iter = max_iter
         self.tolerance = tolerance
 
-    def merge(self, gradients: list[np.ndarray], weights: list[float] | np.ndarray | None = None) -> np.ndarray:
+    def merge(self, gradients: list[np.ndarray]) -> np.ndarray:
         """Merge gradients via Pareto-optimal convex combination."""
-        shape, flattened = self._flatten_inputs(gradients, weights)
+        shape, flattened = self._flatten_inputs(gradients)
         if flattened.shape[0] == 1:
             return np.asarray(flattened[0].reshape(shape), dtype=float)
 
@@ -207,11 +178,7 @@ def adam_step(
     beta2: float,
     eps: float = 1e-8,
 ) -> np.ndarray:
-    """Apply one Adam (or SGD) update step and return updated logits.
-
-    Mutates ``adam_m[idx]``, ``adam_v[idx]``, and ``adam_t[idx]`` in place — the
-    lists are the state container, not inputs to be preserved.
-    """
+    """Apply one Adam update and return new logits. Short-circuits to SGD when ``beta1==beta2==0``."""
     adam_t[idx] += 1
 
     if beta1 == 0.0 and beta2 == 0.0:

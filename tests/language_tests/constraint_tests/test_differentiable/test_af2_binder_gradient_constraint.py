@@ -1,6 +1,5 @@
 """Tests for the AF2 binder-design gradient constraint."""
 
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -14,9 +13,9 @@ from proto_language.language.constraint.differentiable.af2_binder_gradient_const
     af2_binder_backward,
 )
 from proto_language.language.core import Segment, Sequence
+from tests.helpers.mock_structure import PDL1_PDB
 
 _TOOL_MODULE = "proto_language.language.constraint.differentiable.af2_binder_gradient_constraint"
-_PDL1_PDB = str(Path(__file__).resolve().parents[4] / "proto-tools" / "tests" / "dummy_data" / "pdl1.pdb")
 
 
 def _binder_with_logits(logits: np.ndarray) -> Sequence:
@@ -25,10 +24,9 @@ def _binder_with_logits(logits: np.ndarray) -> Sequence:
     return seq
 
 
-def _target_with_structure(pdb_path: str) -> Sequence:
+def _target_with_structure() -> Sequence:
     seq = Sequence("A" * 10, "protein")
-    pdb_content = Path(pdb_path).read_text()
-    seq.structure = Structure(structure=pdb_content, structure_format="pdb")
+    seq.structure = Structure(structure=PDL1_PDB.read_text(), structure_format="pdb")
     return seq
 
 
@@ -51,7 +49,7 @@ class TestBackward:
     def test_reads_structure_from_target_segment(self, mock_run: object) -> None:
         mock_run.return_value = SimpleNamespace(gradient=[[0.1] * 20] * 5, loss=0.5, metrics={"plddt": 0.8})
         binder = _binder_with_logits(np.ones((5, 20)) / 20.0)
-        target = _target_with_structure(_PDL1_PDB)
+        target = _target_with_structure()
 
         result = af2_binder_backward((binder, target), temperature=1.0, config=AF2BinderGradientConfig())
 
@@ -67,7 +65,7 @@ class TestBackward:
     def test_forwards_config_to_tool(self, mock_run: object) -> None:
         mock_run.return_value = SimpleNamespace(gradient=[[0.1] * 20] * 5, loss=0.5, metrics={})
         binder = _binder_with_logits(np.ones((5, 20)) / 20.0)
-        target = _target_with_structure(_PDL1_PDB)
+        target = _target_with_structure()
         config = AF2BinderGradientConfig(
             binder_chain="L", loss_weights={"plddt": 2.0}, bias_redesign=5.0, backend="germinal"
         )
@@ -84,7 +82,7 @@ class TestBackward:
     def test_soft_kwarg_defaults_to_one(self, mock_run: object) -> None:
         mock_run.return_value = SimpleNamespace(gradient=[[0.0] * 20] * 3, loss=0.0, metrics={})
         binder = _binder_with_logits(np.zeros((3, 20)))
-        target = _target_with_structure(_PDL1_PDB)
+        target = _target_with_structure()
         config = AF2BinderGradientConfig()
 
         af2_binder_backward((binder, target), temperature=1.0, config=config, soft=0.5)
@@ -114,7 +112,7 @@ class TestGPU:
         config = AF2BinderGradientConfig(
             target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
         )
-        target = _target_with_structure(_PDL1_PDB)
+        target = _target_with_structure()
         uniform = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
         biased = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
         biased.logits[:, 0] = 5.0
@@ -126,7 +124,7 @@ class TestGPU:
         assert r1.loss != r2.loss
 
     def test_loss_weights_change_gradient(self) -> None:
-        target = _target_with_structure(_PDL1_PDB)
+        target = _target_with_structure()
         binder = _binder_with_logits(np.random.RandomState(42).randn(10, 20).astype(np.float64))
         base = {"target_chain": "A", "binder_chain": "B", "num_recycles": 1}
 
@@ -143,7 +141,7 @@ class TestGPU:
         config = AF2BinderGradientConfig(
             target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
         )
-        target = _target_with_structure(_PDL1_PDB)
+        target = _target_with_structure()
         binder = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
 
         result = af2_binder_backward((binder, target), temperature=1.0, config=config)

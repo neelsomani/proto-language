@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from proto_tools import Structure
 
-from proto_language.language.core import Segment
+from proto_language.language.core import PROTEIN_AMINO_ACIDS, Segment
 from proto_language.language.generator import (
     GeneratorRegistry,
     SemigreedyMutationGenerator,
@@ -243,3 +243,42 @@ class TestSemigreedyMutationGenerator:
         """Invalid frozen_positions configurations raise at construction."""
         with pytest.raises(Exception, match=match):
             SemigreedyMutationGeneratorConfig(frozen_positions=frozen)
+
+    def test_clear_logits_uses_bias_not_proposal_logits(self):
+        """clear_logits=True overrides a sharply peaked proposal.logits preference with logit_bias."""
+        vocab = list(PROTEIN_AMINO_ACIDS)
+        # Without clear_logits, the L peak in proposal.logits would dominate.
+        proposal_logits = np.full((1, VOCAB_SIZE), -100.0)
+        proposal_logits[:, vocab.index("L")] = 100.0
+        bias = np.full((1, VOCAB_SIZE), -100.0)
+        bias[:, vocab.index("Y")] = 100.0
+
+        segment = Segment(sequence="A", sequence_type="protein")
+        segment.proposal_sequences[0].logits = proposal_logits
+        gen = SemigreedyMutationGenerator(
+            SemigreedyMutationGeneratorConfig(logit_bias=bias.tolist(), clear_logits=True)
+        )
+        gen._set_program_seed(0)
+        gen.assign(segment)
+        gen.sample()
+        assert segment.proposal_sequences[0].sequence == "Y"
+
+    def test_clear_logits_without_bias_samples_uniformly(self):
+        """clear_logits=True samples uniformly without requiring proposal.logits to be set."""
+        config = SemigreedyMutationGeneratorConfig(clear_logits=True)
+        sampled: set[str] = set()
+        for seed in range(30):
+            # No logits set — clear_logits=True must not require them.
+            segment = Segment(sequence="A", sequence_type="protein")
+            gen = SemigreedyMutationGenerator(config)
+            gen._set_program_seed(seed)
+            gen.assign(segment)
+            gen.sample()
+            sampled.add(segment.proposal_sequences[0].sequence)
+        assert "A" not in sampled  # current AA always excluded
+        assert len(sampled) >= 8  # uniform over 19 non-current → ~14 expected distinct in 30 trials
+
+    def test_clear_logits_rejects_entropy_weighting(self):
+        """Config rejects the incoherent combination of clear_logits=True and entropy weighting."""
+        with pytest.raises(Exception, match="incompatible with position_weighting='entropy'"):
+            SemigreedyMutationGeneratorConfig(clear_logits=True, position_weighting="entropy")

@@ -3,7 +3,7 @@
 from typing import Any, Literal, final
 
 import numpy as np
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import (
@@ -39,6 +39,9 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
         logit_bias (list[list[float]] | None): Additive bias matrix of shape
             ``(L, 20)`` added to ``proposal.logits`` before AA sampling. Position
             weighting still uses ``proposal.logits`` alone.
+        clear_logits (bool): If True, ignore ``proposal.logits`` when sampling the
+            replacement amino acid; sample from ``logit_bias`` only (or uniform if
+            ``logit_bias`` is None). Incompatible with ``position_weighting="entropy"``.
         frozen_positions (list[int] | None): Zero-indexed positions excluded from
             mutation; the residue at each listed index is preserved from the
             proposal sequence. E.g., disulfide or epitope preservation via
@@ -69,6 +72,12 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
         description="Additive bias matrix (L x 20) added to logits before AA sampling.",
         advanced=True,
         hidden=True,
+    )
+    clear_logits: bool = ConfigField(
+        default=False,
+        title="Clear Logits",
+        description="Sample replacement AAs from logit_bias only (or uniform), ignoring proposal.logits.",
+        advanced=True,
     )
     frozen_positions: list[int] | None = ConfigField(
         default=None,
@@ -101,6 +110,15 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
         if any(p < 0 for p in v):
             raise ValueError(f"frozen_positions must all be non-negative, got {v}.")
         return v
+
+    @model_validator(mode="after")
+    def _check_clear_logits_with_entropy(self) -> "SemigreedyMutationGeneratorConfig":
+        """Reject the incoherent combination of clear_logits and entropy weighting."""
+        if self.clear_logits and self.position_weighting == "entropy":
+            raise ValueError(
+                "clear_logits=True is incompatible with position_weighting='entropy'; use 'uniform' or 'plddt'."
+            )
+        return self
 
 
 @generator(
@@ -142,6 +160,8 @@ class SemigreedyMutationGenerator(Generator):
             selection strategy.
         temperature (float): Softmax temperature for PSSM construction.
         exclude_current (bool): Whether to exclude the current AA when sampling.
+        clear_logits (bool): If True, sample replacement AAs from ``logit_bias``
+            only (or uniform), ignoring ``proposal.logits``.
 
     Example:
         >>> from proto_language.language.core import Segment
@@ -166,6 +186,7 @@ class SemigreedyMutationGenerator(Generator):
         self.position_weighting = config.position_weighting
         self.temperature = config.temperature
         self.exclude_current = config.exclude_current
+        self.clear_logits = config.clear_logits
 
     def assign(self, assigned_segment: Segment) -> None:
         """Assign a segment and validate length-dependent config against it."""
@@ -188,24 +209,32 @@ class SemigreedyMutationGenerator(Generator):
         1. Read ``proposal.logits`` and convert to a PSSM via softmax at the
            configured temperature.
         2. Select a position using the configured ``position_weighting`` strategy.
-        3. Sample a replacement amino acid from ``proposal.logits + logit_bias``
-           at that position (optionally excluding current residue via logit penalty).
+        3. Sample a replacement amino acid at that position. By default, sample
+           from ``proposal.logits + logit_bias``. If ``clear_logits=True``, sample
+           from ``logit_bias`` alone (or uniform if no bias). Optionally exclude
+           the current residue via a logit penalty.
         4. Write the mutated sequence back to ``proposal.sequence``.
 
         Raises:
-            RuntimeError: If called before ``assign()`` or if a proposal has no logits.
+            RuntimeError: If called before ``assign()`` or if a proposal has no logits when
+                ``clear_logits=False``.
             ValueError: If logits have the wrong shape or ``plddt`` weighting is
                 requested but the proposal has no per-residue pLDDT on its structure.
         """
         self._validate_generator()
         vocab = list(PROTEIN_AMINO_ACIDS)
         vocab_size = len(vocab)
+        seq_len = self.segment.sequence_length
         rng = np.random.default_rng(self._next_seed())
 
         for proposal in self.segment.proposal_sequences:
-            if proposal.logits is None:
-                raise RuntimeError(f"Proposal on segment '{self.segment.label}' has no logits.")
-            pssm = self._build_pssm(proposal.logits, vocab_size)
+            # When clear_logits=True the entropy weighting is rejected by the validator and
+            # AA sampling reads only logit_bias, so proposal.logits is unused — skip building it.
+            pssm: np.ndarray | None = None
+            if not self.clear_logits:
+                if proposal.logits is None:
+                    raise RuntimeError(f"Proposal on segment '{self.segment.label}' has no logits.")
+                pssm = self._build_pssm(proposal.logits, vocab_size)
             position_weights = self._compute_position_weights(pssm, proposal)
             if self._frozen_positions is not None:
                 for pos in self._frozen_positions:
@@ -216,11 +245,19 @@ class SemigreedyMutationGenerator(Generator):
                         f"All non-frozen positions have zero weight under position_weighting={self.position_weighting!r}."
                     )
                 position_weights = position_weights / total
-            position = rng.choice(len(pssm), p=position_weights)
+            position = rng.choice(seq_len, p=position_weights)
 
-            aa_logits = proposal.logits[position].copy()
-            if self._logit_bias is not None:
-                aa_logits = aa_logits + self._logit_bias[position]
+            if self.clear_logits:
+                aa_logits = (
+                    self._logit_bias[position].copy()
+                    if self._logit_bias is not None
+                    else np.zeros(vocab_size, dtype=float)
+                )
+            else:
+                assert proposal.logits is not None  # noqa: S101 -- guarded above when clear_logits=False
+                aa_logits = proposal.logits[position].copy()
+                if self._logit_bias is not None:
+                    aa_logits = aa_logits + self._logit_bias[position]
             aa_logits = aa_logits / self.temperature
             if self.exclude_current:
                 aa_logits[vocab.index(proposal.sequence[position])] -= 1e8
@@ -243,15 +280,16 @@ class SemigreedyMutationGenerator(Generator):
             raise ValueError("Logit matrix must contain only finite values.")
         return softmax(matrix / self.temperature)
 
-    def _compute_position_weights(self, pssm: np.ndarray, proposal: Sequence) -> np.ndarray:
+    def _compute_position_weights(self, pssm: np.ndarray | None, proposal: Sequence) -> np.ndarray:
         """Compute normalized position selection weights for the configured strategy."""
-        seq_len = pssm.shape[0]
+        seq_len = self.segment.sequence_length
         uniform = np.full(seq_len, 1.0 / seq_len)
 
         if self.position_weighting == "uniform":
             return uniform
 
         if self.position_weighting == "entropy":
+            assert pssm is not None  # noqa: S101 -- validator rejects entropy + clear_logits
             safe_pssm = np.where(pssm > 0, pssm, 1.0)  # avoid log(0)
             entropy = -np.sum(pssm * np.log(safe_pssm), axis=1)
             total = entropy.sum()

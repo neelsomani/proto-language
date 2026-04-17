@@ -399,7 +399,7 @@ class GradientOptimizer(Optimizer):
         self._temperature_schedule = SCHEDULES[config.schedule](config.temperature_start, config.temperature_end)
 
         # Missing labels warn (not error) so presets remain portable across constraint sets.
-        known = {c.label for c in self._gradient_constraints if c.label}
+        known = {c.label for c in self._gradient_constraints}
         self._weight_schedules: dict[str, Schedule] = {}
         for e in config.constraint_weight_schedules or []:
             if e.constraint_label in known:
@@ -577,7 +577,7 @@ class GradientOptimizer(Optimizer):
 
     def _effective_weight(self, constraint: Constraint, step: int) -> float:
         """Return the weight for *constraint* at *step*, using any configured schedule."""
-        schedule = self._weight_schedules.get(constraint.label or "")
+        schedule = self._weight_schedules.get(constraint.label)
         return schedule(step, self.config.num_steps) if schedule else constraint.weight
 
     def _sync_target_proposals_to_results(self, target: Segment) -> None:

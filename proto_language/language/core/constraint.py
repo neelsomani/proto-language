@@ -143,7 +143,13 @@ class Constraint:
         >>> constraint = ConstraintRegistry.create(
         ...     key="gc-content", segments=[dna_segment], config_dict={"min_gc": 40, "max_gc": 60}
         ... )
+
+    Attributes:
+        label (str): Metadata label — explicit arg, else ``function.__name__``
+            or ``backward.__name__``. Mutable; optimizers may rename to disambiguate duplicates.
     """
+
+    label: str
 
     def __init__(
         self,

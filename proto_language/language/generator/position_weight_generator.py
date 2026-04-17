@@ -5,12 +5,7 @@ from typing import Literal, final
 import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import (
-    DNA_NUCLEOTIDES,
-    PROTEIN_AMINO_ACIDS,
-    RNA_NUCLEOTIDES,
-    Generator,
-)
+from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
 from proto_language.utils import softmax
 
@@ -97,7 +92,7 @@ class PositionWeightGenerator(Generator):
             ValueError: If logits shape or contents are invalid.
         """
         self._validate_generator()
-        vocab = self._ordered_vocab()
+        vocab = self.segment.ordered_vocab()
 
         rng = np.random.default_rng(self._next_seed()) if self.sampling_mode == "categorical" else None
 
@@ -110,23 +105,6 @@ class PositionWeightGenerator(Generator):
             else:
                 assert rng is not None  # noqa: S101 -- categorical branch always sets rng
                 proposal.sequence = self._decode_categorical(matrix, vocab, rng)
-
-    def _ordered_vocab(self) -> list[str]:
-        """Return a deterministic vocab order for the assigned segment."""
-        canonical_vocab = {
-            "dna": DNA_NUCLEOTIDES,
-            "rna": RNA_NUCLEOTIDES,
-            "protein": PROTEIN_AMINO_ACIDS,
-        }[self.segment.sequence_type]
-
-        assert self.segment.valid_chars is not None  # noqa: S101 -- validated by Segment for non-ligands
-        valid_chars = set(self.segment.valid_chars)
-        ordered_vocab = [char for char in canonical_vocab if char in valid_chars]
-        ordered_vocab.extend(sorted(valid_chars - set(ordered_vocab)))  # defensive: custom valid_chars
-
-        if not ordered_vocab:
-            raise ValueError(f"Segment '{self.segment.label or 'unlabeled'}' has no valid characters for sampling.")
-        return ordered_vocab
 
     def _prepare_matrix(self, *, logits: np.ndarray, vocab_size: int) -> np.ndarray:
         """Validate logits and convert to a probability matrix via softmax."""

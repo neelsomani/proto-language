@@ -345,7 +345,7 @@ class GradientOptimizer(Optimizer):
         target = self._generator.segment
 
         # Skip if logits carried from a previous stage.
-        vocab = self._generator._ordered_vocab()
+        vocab = target.ordered_vocab()
         for seq in target.proposal_sequences:
             if seq.logits is None:
                 seq.logits = _init_logits(target.sequence_length, seq.sequence, self.config.initial_logit_bias, vocab)

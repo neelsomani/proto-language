@@ -5,7 +5,13 @@ import logging
 from collections.abc import Iterator
 from typing import Any
 
-from proto_language.language.core.sequence import Sequence, SequenceType
+from proto_language.language.core.sequence import (
+    DNA_NUCLEOTIDES,
+    PROTEIN_AMINO_ACIDS,
+    RNA_NUCLEOTIDES,
+    Sequence,
+    SequenceType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +147,18 @@ class Segment:
     def is_ligand(self) -> bool:
         """Whether this segment is a ligand (ligands cannot be mutated by generators)."""
         return self.sequence_type == "ligand"
+
+    def ordered_vocab(self) -> list[str]:
+        """Canonical alphabet for the segment's type, intersected with ``valid_chars``.
+
+        Canonical order is preserved; any custom ``valid_chars`` outside the canonical
+        alphabet are appended alphabetically. Raises ``ValueError`` for ligands.
+        """
+        if self.is_ligand:
+            raise ValueError(f"Segment '{self.label or 'unlabeled'}' is a ligand; no fixed vocab.")
+        canonical = {"dna": DNA_NUCLEOTIDES, "rna": RNA_NUCLEOTIDES, "protein": PROTEIN_AMINO_ACIDS}[self.sequence_type]
+        valid = set(self.valid_chars or ())
+        return [c for c in canonical if c in valid] + sorted(valid - set(canonical))
 
     def __iter__(self) -> Iterator[Sequence]:
         """Iterate over result sequences (user-facing results)."""

@@ -104,3 +104,16 @@ class TestSegment:
         # Ligand segment
         ligand_segment = Segment(sequence="CCC", sequence_type="ligand")
         assert ligand_segment.is_ligand is True
+
+    def test_ordered_vocab(self):
+        """Canonical alphabets, intersection with valid_chars, and ligand rejection."""
+        assert Segment(sequence="A", sequence_type="dna").ordered_vocab() == list("ACGT")
+        assert Segment(sequence="A", sequence_type="rna").ordered_vocab() == list("ACGU")
+        assert Segment(sequence="A", sequence_type="protein").ordered_vocab() == list("ACDEFGHIKLMNPQRSTVWY")
+
+        # valid_chars restriction preserves canonical order; custom chars appended alphabetically
+        restricted = Segment(sequence="A", sequence_type="dna", valid_chars={"G", "A", "Z", "N"})
+        assert restricted.ordered_vocab() == ["A", "G", "N", "Z"]
+
+        with pytest.raises(ValueError, match="ligand"):
+            Segment(sequence="CCC", sequence_type="ligand").ordered_vocab()

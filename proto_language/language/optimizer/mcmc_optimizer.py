@@ -429,9 +429,9 @@ class MCMCOptimizer(Optimizer):
 
             # Format output based on num_results
             if self.num_results == 1:
-                logger.debug(f"Iteration {step:4d} | energy: {best_energy:.6f}, T: {current_temp:.4f}")
+                logger.info(f"Iteration {step:4d} | energy: {best_energy:.6f}, T: {current_temp:.4f}")
             else:
-                logger.debug(
+                logger.info(
                     f"Iteration {step:4d} | "
                     f"best: {best_energy:.6f}, "
                     f"mean: {mean_energy:.6f}, "

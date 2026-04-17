@@ -1,7 +1,5 @@
-"""Shared utilities for constraint scoring, validation, and export."""
+"""Shared utilities for constraint scoring, validation, export, gradient math, and scheduling."""
 
-# Helper utilities (constraint scoring, and tools)
-# Export utilities
 from proto_language.utils.export import (
     build_results,
     flatten_constraints,
@@ -14,6 +12,17 @@ from proto_language.utils.export import (
     to_xlsx,
     to_xlsx_workbook,
     write_export,
+)
+from proto_language.utils.gradients import (
+    MERGERS,
+    GradientMerger,
+    GradientMergerName,
+    MGDAMerger,
+    PCGradMerger,
+    WeightedSumMerger,
+    adam_step,
+    align_norms,
+    normalize_gradient,
 )
 from proto_language.utils.helpers import (
     LOG_BASE,
@@ -35,6 +44,17 @@ from proto_language.utils.helpers import (
     sigmoid_score,
     softmax,
     validate_range,
+)
+from proto_language.utils.scheduling import (
+    SCHEDULES,
+    Schedule,
+    ScheduleName,
+    constant_schedule,
+    cosine_anneal,
+    exponential_decay,
+    linear_decay,
+    progress,
+    quadratic_decay,
 )
 
 __all__ = [
@@ -71,4 +91,24 @@ __all__ = [
     "to_xlsx",
     "to_xlsx_workbook",
     "write_export",
+    # Gradient utilities
+    "GradientMerger",
+    "GradientMergerName",
+    "WeightedSumMerger",
+    "PCGradMerger",
+    "MGDAMerger",
+    "MERGERS",
+    "align_norms",
+    "normalize_gradient",
+    "adam_step",
+    # Scheduling utilities
+    "Schedule",
+    "ScheduleName",
+    "SCHEDULES",
+    "progress",
+    "constant_schedule",
+    "linear_decay",
+    "cosine_anneal",
+    "exponential_decay",
+    "quadratic_decay",
 ]

@@ -1,20 +1,24 @@
-"""Tests for all 16 optimizer transition permutations.
+"""Tests for optimizer transition permutations.
 
-Transition Matrix:
-    From / To             | RS   | MCMC | BeamSearch | CyclingOptimizer
-    ----------------------|------|------|------------|------------------
-    RejectionSampling     |  1   |  2   |     3      |        4
-    MCMC             |  5   |  6   |     7      |        8
-    BeamSearch       |  9   |  10  |    11      |       12
-    CyclingOptimizer | 13   |  14  |    15      |       16
+Transition Matrix (original 16 + 5 gradient transitions):
+    From / To             | RS   | MCMC | BeamSearch | Cycling | Gradient
+    ----------------------|------|------|------------|---------|----------
+    RejectionSampling     |  1   |  2   |     3      |    4    |   20
+    MCMC                  |  5   |  6   |     7      |    8    |   21
+    BeamSearch            |  9   |  10  |    11      |   12    |
+    CyclingOptimizer      | 13   |  14  |    15      |   16    |
+    Gradient              | 19   |  18  |            |         |   17
 
 Note: BeamSearch ignores previous state by design (always starts from prompt).
+Note: Gradient tests use protein segments (PositionWeightGenerator is protein-only).
 """
 
 import random
 from unittest.mock import Mock
 
+import numpy as np
 from proto_tools.tools.masked_models.masking import MaskingStrategy
+from pydantic import BaseModel
 
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
@@ -25,15 +29,22 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
+from proto_language.language.core.constraint import GradientResult
 from proto_language.language.generator import (
+    PositionWeightGenerator,
+    PositionWeightGeneratorConfig,
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
+    RandomProteinGenerator,
+    RandomProteinGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     CyclingOptimizer,
     CyclingOptimizerConfig,
+    GradientOptimizer,
+    GradientOptimizerConfig,
     MCMCOptimizer,
     MCMCOptimizerConfig,
     RejectionSamplingOptimizer,
@@ -556,3 +567,173 @@ class TestCyclingContent:
         assert initialized[2] == source_seqs[0]
         assert initialized[3] == source_seqs[1]
         assert initialized[4] == source_seqs[0]
+
+
+# =============================================================================
+# Gradient Optimizer Transitions (protein segments)
+# =============================================================================
+
+
+class _GradCfg(BaseModel):
+    """Empty config for gradient mock backward."""
+
+
+def _grad_backward(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientResult:
+    """Mock backward that pushes logits toward alanine."""
+    logits = inputs[0].logits
+    target = np.zeros_like(logits)
+    target[:, 0] = 1.0
+    grad = logits - target
+    return GradientResult(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
+
+
+def _protein_scorer(input_sequences: list[tuple], config: BaseModel) -> list[float]:
+    """Mock scorer: fraction of non-A residues (lower is better for A-seeking)."""
+    return [sum(c != "A" for c in seq.sequence) / max(len(seq.sequence), 1) for (seq,) in input_sequences]
+
+
+_protein_scorer._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
+_protein_scorer._constraint_num_input_sequences_per_tuple = 1  # type: ignore[attr-defined]
+
+
+def create_gradient_optimizer(construct, segment, num_results=3, num_steps=5):
+    """Create a GradientOptimizer with mock backward on a protein segment."""
+    gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+    gen.assign(segment)
+    constraint = Constraint(
+        inputs=[segment],
+        backward=_grad_backward,
+        backward_config=_GradCfg(),
+        function=_protein_scorer,
+        function_config=_GradCfg(),
+        label="mock_grad",
+    )
+    return GradientOptimizer(
+        constructs=[construct],
+        generators=[gen],
+        constraints=[constraint],
+        config=GradientOptimizerConfig(
+            num_results=num_results,
+            num_steps=num_steps,
+            lr=0.1,
+            beta1=0.0,
+            beta2=0.0,
+        ),
+    )
+
+
+def create_protein_mcmc_optimizer(construct, segment, num_results=3, num_steps=10):
+    """Create an MCMCOptimizer on a protein segment."""
+    gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
+    gen.assign(segment)
+    constraint = Constraint(
+        inputs=[segment],
+        function=_protein_scorer,
+        function_config=_GradCfg(),
+        label="mock_mcmc",
+    )
+    return MCMCOptimizer(
+        constructs=[construct],
+        generators=[gen],
+        constraints=[constraint],
+        config=MCMCOptimizerConfig(num_results=num_results, num_steps=num_steps),
+    )
+
+
+def create_protein_rs_optimizer(construct, segment, num_samples=20, num_results=3):
+    """Create a RejectionSamplingOptimizer on a protein segment."""
+    gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
+    gen.assign(segment)
+    constraint = Constraint(
+        inputs=[segment],
+        function=_protein_scorer,
+        function_config=_GradCfg(),
+        label="mock_rs",
+    )
+    return RejectionSamplingOptimizer(
+        constructs=[construct],
+        generators=[gen],
+        constraints=[constraint],
+        config=RejectionSamplingOptimizerConfig(num_samples=num_samples, num_results=num_results),
+    )
+
+
+class TestGradientTransitions:
+    """Tests 17-21: Transitions involving GradientOptimizer."""
+
+    def test_17_gradient_to_gradient(self):
+        """Gradient → Gradient: logit phase → softmax phase (Germinal core)."""
+        segment = Segment(sequence="EVQLV", sequence_type="protein")
+        construct = Construct([segment])
+
+        opt1 = create_gradient_optimizer(construct, segment, num_results=2, num_steps=5)
+        opt2 = create_gradient_optimizer(construct, segment, num_results=1, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2], num_results=2)
+        program.run_stage(0)
+        assert len(segment.result_sequences) == 2
+        # Logits should survive from stage 1
+        assert segment.result_sequences[0].logits is not None
+
+        program.run_stage(1)
+        assert len(segment.result_sequences) == 1
+
+    def test_18_gradient_to_mcmc(self):
+        """Gradient → MCMC: discrete refinement after gradient hallucination."""
+        segment = Segment(sequence="EVQLV", sequence_type="protein")
+        construct = Construct([segment])
+
+        opt1 = create_gradient_optimizer(construct, segment, num_results=2, num_steps=5)
+        opt2 = create_protein_mcmc_optimizer(construct, segment, num_results=1, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2], num_results=2)
+        program.run_stage(0)
+        assert len(segment.result_sequences) == 2
+
+        program.run_stage(1)
+        assert len(segment.result_sequences) == 1
+
+    def test_19_gradient_to_rs(self):
+        """Gradient → RS: rejection sampling refines gradient results."""
+        segment = Segment(sequence="EVQLV", sequence_type="protein")
+        construct = Construct([segment])
+
+        opt1 = create_gradient_optimizer(construct, segment, num_results=2, num_steps=5)
+        opt2 = create_protein_rs_optimizer(construct, segment, num_samples=10, num_results=1)
+
+        program = Program(optimizers=[opt1, opt2], num_results=2)
+        program.run_stage(0)
+        assert len(segment.result_sequences) == 2
+
+        program.run_stage(1)
+        assert len(segment.result_sequences) == 1
+
+    def test_20_rs_to_gradient(self):
+        """RS → Gradient: seed from RS, then gradient refinement."""
+        segment = Segment(sequence="EVQLV", sequence_type="protein")
+        construct = Construct([segment])
+
+        opt1 = create_protein_rs_optimizer(construct, segment, num_samples=10, num_results=2)
+        opt2 = create_gradient_optimizer(construct, segment, num_results=1, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2], num_results=2)
+        program.run_stage(0)
+        assert len(segment.result_sequences) == 2
+
+        program.run_stage(1)
+        assert len(segment.result_sequences) == 1
+
+    def test_21_mcmc_to_gradient(self):
+        """MCMC → Gradient: gradient refines MCMC results."""
+        segment = Segment(sequence="EVQLV", sequence_type="protein")
+        construct = Construct([segment])
+
+        opt1 = create_protein_mcmc_optimizer(construct, segment, num_results=2, num_steps=5)
+        opt2 = create_gradient_optimizer(construct, segment, num_results=1, num_steps=5)
+
+        program = Program(optimizers=[opt1, opt2], num_results=2)
+        program.run_stage(0)
+        assert len(segment.result_sequences) == 2
+
+        program.run_stage(1)
+        assert len(segment.result_sequences) == 1

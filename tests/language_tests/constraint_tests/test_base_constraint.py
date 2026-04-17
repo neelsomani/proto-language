@@ -672,7 +672,7 @@ class TestConstraintGradientSupport:
     def test_backward_config_forwarded(self) -> None:
         received: list[BaseModel] = []
 
-        def capturing_backward(inputs: tuple, *, config: BaseModel, **_kwargs: Any) -> GradientResult:
+        def capturing_backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientResult:
             received.append(config)
             return GradientResult(gradient=(np.zeros_like(inputs[0].logits),), loss=0.0)
 
@@ -694,17 +694,17 @@ class TestConstraintGradientSupport:
         ("backward", "expected_exception", "match"),
         [
             (
-                lambda inputs, *, config, **_kw: {"gradient": np.zeros_like(inputs[0].logits), "loss": 0.0},
+                lambda inputs, *, config, **kwargs: {"gradient": np.zeros_like(inputs[0].logits), "loss": 0.0},
                 TypeError,
                 r"must return GradientResult",
             ),
             (
-                lambda inputs, *, config, **_kw: GradientResult(gradient=(np.zeros((4, 8)),), loss=0.0),
+                lambda inputs, *, config, **kwargs: GradientResult(gradient=(np.zeros((4, 8)),), loss=0.0),
                 ValueError,
                 r"gradient 0 shape",
             ),
             (
-                lambda inputs, *, config, **_kw: GradientResult(
+                lambda inputs, *, config, **kwargs: GradientResult(
                     gradient=(np.zeros((8, 4)), np.zeros((8, 4))), loss=0.0
                 ),
                 ValueError,

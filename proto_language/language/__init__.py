@@ -48,6 +48,8 @@ from proto_language.language.optimizer import (
     BeamState,
     CyclingOptimizer,
     CyclingOptimizerConfig,
+    GradientOptimizer,
+    GradientOptimizerConfig,
     MCMCOptimizer,
     MCMCOptimizerConfig,
     OptimizerRegistry,
@@ -118,4 +120,7 @@ __all__ = [
     "RejectionSamplingOptimizerConfig",
     "CyclingOptimizer",
     "CyclingOptimizerConfig",
+    # Gradient Optimizer
+    "GradientOptimizer",
+    "GradientOptimizerConfig",
 ]

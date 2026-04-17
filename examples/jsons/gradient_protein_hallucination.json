@@ -1,0 +1,91 @@
+{
+  "name": "gradient_protein_hallucination",
+  "description": "Two-stage gradient protein hallucination: logit phase then softmax refinement. Uses AbLang VHH naturalness gradient; replace with af2-binder-gradient + target structure for true binder design. Requires GPU.",
+  "version": "1.0",
+  "num_results": 1,
+  "constructs": [
+    {
+      "id": "protein_construct",
+      "type": "protein",
+      "segments": [
+        {
+          "id": "binder",
+          "label": "designed_binder",
+          "sequence": "EVQLVESGGGLVQPGGSLRLSCAASGFTFSSYAMSWVRQAPGKGLEWVSAISGSGGSTYYADSVKGRFTISRDNSKNTLY"
+        }
+      ]
+    }
+  ],
+  "optimization_stages": [
+    {
+      "optimizer": {
+        "method": "gradient",
+        "config": {
+          "num_steps": 65,
+          "lr": 0.1,
+          "beta1": 0.0,
+          "beta2": 0.0,
+          "soft_start": 0.0,
+          "soft_end": 1.0,
+          "temperature_start": 1.0,
+          "temperature_end": 1.0,
+          "schedule": "constant",
+          "merger": "pcgrad",
+          "norm_alignment": "match_first",
+          "normalize_mode": "sqrt_length"
+        }
+      },
+      "generators": [
+        {
+          "key": "position-weight",
+          "target": "binder",
+          "config": {}
+        }
+      ],
+      "constraints": [
+        {
+          "key": "ablang-vhh-gradient",
+          "targets": ["binder"],
+          "config": { "temperature": 0.6, "use_ste": true },
+          "label": "naturalness"
+        }
+      ]
+    },
+    {
+      "optimizer": {
+        "method": "gradient",
+        "config": {
+          "num_steps": 35,
+          "lr": 0.1,
+          "beta1": 0.0,
+          "beta2": 0.0,
+          "soft_start": 1.0,
+          "soft_end": 1.0,
+          "temperature_start": 1.0,
+          "temperature_end": 0.01,
+          "schedule": "quadratic",
+          "merger": "pcgrad",
+          "norm_alignment": "match_first",
+          "normalize_mode": "sqrt_length",
+          "scale_lr_by_temperature": true,
+          "min_lr_scale": 0.01
+        }
+      },
+      "generators": [
+        {
+          "key": "position-weight",
+          "target": "binder",
+          "config": {}
+        }
+      ],
+      "constraints": [
+        {
+          "key": "ablang-vhh-gradient",
+          "targets": ["binder"],
+          "config": { "temperature": 0.6, "use_ste": true },
+          "label": "naturalness"
+        }
+      ]
+    }
+  ]
+}

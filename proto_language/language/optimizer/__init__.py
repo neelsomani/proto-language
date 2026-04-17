@@ -8,6 +8,7 @@ from proto_language.language.optimizer.beam_search_optimizer import (
     BeamState,
 )
 from proto_language.language.optimizer.cycling_optimizer import CyclingOptimizer, CyclingOptimizerConfig
+from proto_language.language.optimizer.gradient_optimizer import GradientOptimizer, GradientOptimizerConfig
 
 # Optimizers
 from proto_language.language.optimizer.mcmc_optimizer import MCMCOptimizer, MCMCOptimizerConfig
@@ -36,4 +37,7 @@ __all__ = [
     # Cycling Optimizer
     "CyclingOptimizer",
     "CyclingOptimizerConfig",
+    # Gradient Optimizer
+    "GradientOptimizer",
+    "GradientOptimizerConfig",
 ]

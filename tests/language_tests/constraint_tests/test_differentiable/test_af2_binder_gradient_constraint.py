@@ -16,7 +16,7 @@ from proto_language.language.constraint.differentiable.af2_binder_gradient_const
 from proto_language.language.core import Segment, Sequence
 
 _TOOL_MODULE = "proto_language.language.constraint.differentiable.af2_binder_gradient_constraint"
-_PDL1_PDB = str(Path(__file__).resolve().parents[4] / "proto-tools/tests/dummy_data/pdl1.pdb")
+_PDL1_PDB = str(Path(__file__).resolve().parents[4] / "proto-tools" / "tests" / "dummy_data" / "pdl1.pdb")
 
 
 def _binder_with_logits(logits: np.ndarray) -> Sequence:

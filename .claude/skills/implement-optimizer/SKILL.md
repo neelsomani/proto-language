@@ -26,6 +26,7 @@ allowed-tools:
    - Batch (greedy): `proto_language/language/optimizer/rejection_sampling_optimizer.py`
    - Autoregressive (beam): `proto_language/language/optimizer/beam_search_optimizer.py`
    - Cycling: `proto_language/language/optimizer/cycling_optimizer.py`
+   - Gradient-based: `proto_language/language/optimizer/gradient_optimizer.py`
 3. **Read the base class**: `proto_language/language/core/optimizer.py`
 4. **Read the decorator/registry**: `proto_language/language/optimizer/optimizer_registry.py`
 

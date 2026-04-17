@@ -200,3 +200,58 @@ python3 examples/scripts/program_symmetric_proteins.py \
 # Run from JSON via parser
 python3 examples/scripts/run_program.py
 ```
+
+## Gradient-Based Optimization
+
+Uses `GradientOptimizer` with differentiable constraints (`supports_gradient=True`) and `PositionWeightGenerator` for discretization.
+
+```python
+from proto_language import (
+    Constraint, Construct, GradientOptimizer, GradientOptimizerConfig,
+    Program, Segment,
+)
+from proto_language.language.constraint.differentiable import af2_binder_backward, ablang_vhh_gradient_backward
+from proto_language.language.constraint.differentiable.af2_binder_gradient_constraint import AF2BinderGradientConfig
+from proto_language.language.constraint.differentiable.ablang_naturalness_gradient_constraint import AbLangGradientConstraintConfig
+from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
+
+# Segments
+binder = Segment(length=130, sequence_type="protein", label="binder")
+target = Segment(sequence="MKFL...", sequence_type="protein", label="target")
+target.proposal_sequences[0].structure = target_structure  # Structure from PDB
+construct = Construct([binder, target])
+
+# Generator (discretizes logits → sequences at end)
+gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+gen.assign(binder)
+
+# Germinal pipeline: two gradient stages (logit → softmax)
+# Each stage needs its own constraint instances
+af2_stage1 = Constraint(inputs=[binder, target], backward=af2_binder_backward,
+    backward_config=AF2BinderGradientConfig.germinal_vhh_preset(), label="af2")
+ablang_stage1 = Constraint(inputs=[binder], backward=ablang_vhh_gradient_backward,
+    backward_config=AbLangGradientConstraintConfig(), label="ablang", weight=0.2)
+
+af2_stage2 = Constraint(inputs=[binder, target], backward=af2_binder_backward,
+    backward_config=AF2BinderGradientConfig.germinal_vhh_preset(), label="af2")
+ablang_stage2 = Constraint(inputs=[binder], backward=ablang_vhh_gradient_backward,
+    backward_config=AbLangGradientConstraintConfig(), label="ablang", weight=0.4)
+
+gen1 = PositionWeightGenerator(PositionWeightGeneratorConfig())
+gen1.assign(binder)
+gen2 = PositionWeightGenerator(PositionWeightGeneratorConfig())
+gen2.assign(binder)
+
+stage1 = GradientOptimizer(
+    constructs=[construct], generators=[gen1],
+    constraints=[af2_stage1, ablang_stage1],
+    config=GradientOptimizerConfig.germinal_logit_preset(),
+)
+stage2 = GradientOptimizer(
+    constructs=[construct], generators=[gen2],
+    constraints=[af2_stage2, ablang_stage2],
+    config=GradientOptimizerConfig.germinal_softmax_preset(),
+)
+program = Program(optimizers=[stage1, stage2], num_results=1)
+program.run()
+```

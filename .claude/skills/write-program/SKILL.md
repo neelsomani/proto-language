@@ -159,14 +159,16 @@ Read the source file to see the config class and its `ConfigField` parameters:
 
 Constraints: `sequence_composition/` (GC content, homopolymers, k-mers, length), `protein_structure/` (pLDDT, pTM, RMSD, TM-score, symmetry, globularity, binding), `protein_quality/` (complexity, repetitiveness, diversity, balanced amino acids), `rna_secondary_structure/` (property/motif/feature/basepair similarity), `rna_splicing/` (intron boundary, tissue specificity), `sequence_annotation/` (sequence similarity, promoter strength, motifs), `sequence_alignment/` (sequence alignment similarity scoring)
 
-Generators: **mutation** (RandomNucleotide, RandomProtein, ESM2, MSA), **autoregressive** (Evo2, ProGen2), **inverse_folding** (ProteinMPNN, LigandMPNN)
+Generators: **mutation** (RandomNucleotide, RandomProtein, ESM2, MSA, PositionWeight), **autoregressive** (Evo2, ProGen2), **inverse_folding** (ProteinMPNN, LigandMPNN)
+
+Constraints: **differentiable** (AF2 binder gradient, AbLang VHH/scFv gradient) — these support `compute_gradient()` for gradient-based optimization
 
 ## Common Patterns
 
 For detailed examples of common patterns, use the `Read` tool to load:
 - **Patterns reference**: `.claude/skills/write-program/PATTERNS.md`
 
-Covers: multi-stage (Rejection Sampling -> MCMC), program-level num_results, multi-segment (fixed flanks + variable region), multi-constraint protein design, incremental execution, custom logging, export results, and accessing results.
+Covers: multi-stage (Rejection Sampling -> MCMC), program-level num_results, multi-segment (fixed flanks + variable region), multi-constraint protein design, gradient-based optimization (GradientOptimizer), incremental execution, custom logging, export results, and accessing results.
 
 ## Validation Checklist
 

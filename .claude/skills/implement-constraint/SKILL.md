@@ -196,34 +196,34 @@ c.supports_gradient    # True if backward callable is set
 
 ### Gradient-Only Constraints
 
-For constraints that only compute gradients (no discrete scoring path) — e.g., gradient-only
-naturalness terms that wrap a model's backward pass. The `@constraint` decorator auto-detects
-the role from the return type annotation: `-> GradientResult` registers the function as the
-backward callable and sets `mode="gradient"`.
+For constraints that only compute gradients (no discrete scoring path). The `@constraint`
+decorator auto-detects the role from the return type annotation: `-> GradientResult`
+registers the function as the backward callable and sets `mode="gradient"`.
 
 ```python
 from proto_language.language.core.constraint import GradientResult
 
 @constraint(
-    key="ablang-vhh-gradient",
-    label="AbLang VHH Naturalness Gradient",
-    config=AbLangGradientConstraintConfig,
-    description="Antibody naturalness gradient for VHH redesign",
+    key="my-gradient-only",
+    label="My Gradient-Only Constraint",
+    config=MyConfig,
+    description="Gradient-only scorer; no meaningful forward mode",
     uses_gpu=True,
     supported_sequence_types=["protein"],
 )
-def ablang_vhh_gradient_backward(
-    inputs: tuple[Sequence, ...], *, config, temperature: float, **kwargs: Any,
+def my_backward(
+    inputs: tuple[Sequence, ...], *, config, **kwargs: Any,
 ) -> GradientResult:
-    """Compute gradient of naturalness w.r.t. relaxed logits."""
-    grad, loss = run_ablang_gradient(inputs[0].logits, temperature, config)
+    """Compute gradient; no discrete scoring path exists."""
+    grad, loss = run_tool(inputs[0].logits, config)
     return GradientResult(gradient=(grad,), loss=loss)
 ```
 
-This constraint is invisible to MCMC / BeamSearch / RejSamp (they skip it with a warning
-from GradientOptimizer-style filters; evaluate() would raise). Use `"gradient"`-only when
-the operation **cannot** be scored discretely — e.g., the backward is the only meaningful
-output, and attempting a forward-only mode makes no semantic sense.
+This constraint is invisible to MCMC / BeamSearch / RejSamp — `evaluate()` raises because
+`spec.function is None`. Use `"gradient"`-only when the operation **cannot** be scored
+discretely — e.g., the backward is the only meaningful output, and attempting a forward-only
+mode makes no semantic sense. For constraints that CAN be scored both ways (most AF2/AbLang
+setups), use the dual-mode pattern below instead.
 
 ### Dual-Mode Constraints (Canonical for Multi-Stage Pipelines)
 

@@ -10,7 +10,9 @@ from proto_language.language.constraint.constraint_registry import (
 
 # Differentiable constraints
 from proto_language.language.constraint.differentiable import (
+    ablang_scfv_forward,
     ablang_scfv_gradient_backward,
+    ablang_vhh_forward,
     ablang_vhh_gradient_backward,
     af2_binder_backward,
     af2_binder_forward,
@@ -85,7 +87,9 @@ __all__ = [
     "InputSlot",
     "constraint",
     # Differentiable
+    "ablang_vhh_forward",
     "ablang_vhh_gradient_backward",
+    "ablang_scfv_forward",
     "ablang_scfv_gradient_backward",
     "af2_binder_backward",
     "af2_binder_forward",

@@ -474,14 +474,14 @@ class TestExport:
 
 def _ablang_constraint(seg: Segment, label: str = "ablang") -> Constraint:
     from proto_language.language.constraint.differentiable import ablang_vhh_gradient_backward
-    from proto_language.language.constraint.differentiable.ablang_naturalness_gradient_constraint import (
-        AbLangGradientConstraintConfig,
+    from proto_language.language.constraint.differentiable.ablang_naturalness_constraint import (
+        AbLangConstraintConfig,
     )
 
     return Constraint(
         inputs=[seg],
         backward=ablang_vhh_gradient_backward,
-        backward_config=AbLangGradientConstraintConfig(),
+        backward_config=AbLangConstraintConfig(),
         label=label,
     )
 

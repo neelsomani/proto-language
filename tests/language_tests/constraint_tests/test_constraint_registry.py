@@ -639,12 +639,12 @@ class TestModeAndBackwardConfig:
         for spec in ConstraintRegistry.list_all():
             assert spec.mode in ("discrete", "gradient", "dual"), f"{spec.key}: invalid mode {spec.mode}"
 
-    def test_ablang_gradient_constraints(self):
-        """Real gradient constraints have mode='gradient' with no scoring function."""
-        for key in ["ablang-vhh-gradient", "ablang-scfv-gradient"]:
+    def test_ablang_dual_mode_constraints(self):
+        """AbLang constraints are dual-mode (function + backward both set)."""
+        for key in ["ablang-vhh", "ablang-scfv"]:
             spec = ConstraintRegistry.get(key)
-            assert spec.mode == "gradient"
-            assert spec.function is None and spec.backward is not None
+            assert spec.mode == "dual"
+            assert spec.function is not None and spec.backward is not None
 
     def test_backward_config_without_backward_raises(self):
         """backward_config= on a discrete-only constraint raises ValueError."""

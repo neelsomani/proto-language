@@ -44,7 +44,7 @@
       ],
       "constraints": [
         {
-          "key": "ablang-vhh-gradient",
+          "key": "ablang-vhh",
           "targets": ["binder"],
           "config": { "temperature": 0.6, "use_ste": true },
           "label": "naturalness"
@@ -80,7 +80,7 @@
       ],
       "constraints": [
         {
-          "key": "ablang-vhh-gradient",
+          "key": "ablang-vhh",
           "targets": ["binder"],
           "config": { "temperature": 0.6, "use_ste": true },
           "label": "naturalness"

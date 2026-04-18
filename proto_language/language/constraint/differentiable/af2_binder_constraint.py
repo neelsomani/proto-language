@@ -14,9 +14,7 @@ from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
 from proto_language.language.core import PROTEIN_AMINO_ACIDS, Sequence
 from proto_language.language.core.constraint import GradientResult
-
-_AA_INDEX = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
-_ONE_HOT_LOGIT = 20.0
+from proto_language.utils import one_hot_protein_logits
 
 
 class AF2BinderConfig(BaseConfig):
@@ -164,17 +162,6 @@ AF2BinderForwardConfig = AF2BinderConfig
 AF2BinderBackwardConfig = AF2BinderConfig
 
 
-def _one_hot_logits(sequence: str) -> list[list[float]]:
-    """One-hot-encode a discrete AA sequence into sharp logits for AF2 input."""
-    n = len(PROTEIN_AMINO_ACIDS)
-    rows: list[list[float]] = []
-    for aa in sequence:
-        row = [0.0] * n
-        row[_AA_INDEX[aa]] = _ONE_HOT_LOGIT
-        rows.append(row)
-    return rows
-
-
 def af2_binder_backward(
     inputs: tuple[Sequence, ...],
     *,
@@ -263,7 +250,7 @@ def af2_binder_forward(
 
         output = run_alphafold2_binder(
             AlphaFold2BinderInput(
-                logits=_one_hot_logits(binder_seq.sequence),
+                logits=one_hot_protein_logits(binder_seq.sequence),
                 target_pdb=target_seq.structure.structure_pdb,
                 target_chain=config.target_chain,
                 target_hotspot=config.target_hotspot,

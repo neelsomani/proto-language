@@ -9,6 +9,10 @@ import subprocess
 
 import numpy as np
 
+from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
+
+_PROTEIN_AA_INDEX = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
+
 # =============================================================================
 # CONSTRAINT SCORING UTILITIES
 # =============================================================================
@@ -115,6 +119,28 @@ def calculate_normalized_deviation(actual: float, target: float) -> float:
             and higher values indicate greater deviation from target.
     """
     return min(MAX_ENERGY, abs(actual - target) / max(target, 1))
+
+
+def one_hot_protein_logits(sequence: str, *, sharpness: float = 20.0) -> list[list[float]]:
+    """One-hot encode a protein sequence as logits (L x 20) in ``PROTEIN_AMINO_ACIDS`` order.
+
+    Default ``sharpness=20.0`` saturates a downstream softmax to ≈ one-hot; use a milder
+    value (e.g. ``2.0``) for a biased-but-not-saturated seed.
+
+    Args:
+        sequence (str): Protein sequence; each character must be in ``PROTEIN_AMINO_ACIDS``.
+        sharpness (float): Value placed on the one-hot column; all other columns are 0.
+
+    Returns:
+        list[list[float]]: Logits matrix with shape ``(len(sequence), 20)``.
+    """
+    n = len(PROTEIN_AMINO_ACIDS)
+    rows: list[list[float]] = []
+    for aa in sequence:
+        row = [0.0] * n
+        row[_PROTEIN_AA_INDEX[aa]] = sharpness
+        rows.append(row)
+    return rows
 
 
 def softmax(matrix: np.ndarray) -> np.ndarray:

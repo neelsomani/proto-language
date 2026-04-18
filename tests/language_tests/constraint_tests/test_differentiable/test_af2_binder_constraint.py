@@ -25,10 +25,12 @@ def _binder_with_logits(logits: np.ndarray) -> Sequence:
     return seq
 
 
-def _target_with_structure() -> Sequence:
-    seq = Sequence("A" * 10, "protein")
-    seq.structure = Structure(structure=PDL1_PDB.read_text(), structure_format="pdb")
-    return seq
+def _target_sequence() -> Sequence:
+    """Target template Sequence — structure is now on config.target_pdb, not on the segment."""
+    return Sequence("A" * 10, "protein")
+
+
+_PDL1_PDB_TEXT = PDL1_PDB.read_text()
 
 
 _DEFAULT_METRICS = {"avg_plddt": 0.8, "ptm": 0.7, "iptm": 0.6, "avg_pae": 2.0, "i_pae": 1.5}
@@ -57,13 +59,18 @@ def _mock_tool_output(
 
 class TestConfig:
     def test_defaults(self) -> None:
-        config = AF2BinderConstraintConfig()
+        config = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT)
         assert config.target_chain == "A"
         assert config.binder_chain == "H"
         assert config.backend == "base"
 
+    def test_empty_target_pdb_rejected(self) -> None:
+        """Fail fast at config-time; AF2 can't run on an empty template."""
+        with pytest.raises(ValueError, match="non-empty PDB"):
+            AF2BinderConstraintConfig()
+
     def test_germinal_vhh_preset(self) -> None:
-        config = AF2BinderConstraintConfig.germinal_vhh_preset()
+        config = AF2BinderConstraintConfig.germinal_vhh_preset(target_pdb=_PDL1_PDB_TEXT)
         assert config.backend == "germinal"
         assert config.bias_redesign == 10.0
         assert config.loss_weights["i_plddt"] == 1.0
@@ -75,65 +82,75 @@ class TestBackward:
     def test_dispatches_with_config_and_returns_sized_gradients(self, mock_run: object) -> None:
         mock_run.return_value = _mock_tool_output(gradient=[[0.1] * 20] * 5, loss=0.5)
         binder = _binder_with_logits(np.ones((5, 20)) / 20.0)
-        target = _target_with_structure()
+        target = _target_sequence()
         config = AF2BinderConstraintConfig(
-            binder_chain="B", loss_weights={"plddt": 2.0}, bias_redesign=5.0, backend="germinal"
+            target_pdb=_PDL1_PDB_TEXT,
+            binder_chain="B",
+            loss_weights={"plddt": 2.0},
+            bias_redesign=5.0,
+            backend="germinal",
         )
 
         result = af2_binder_backward((binder, target), temperature=1.0, config=config)
 
         tool_input, tool_config = mock_run.call_args[0]
         assert tool_input.binder_chain == "B"
-        assert "\n" in tool_input.target_pdb  # PDB string content, not file path
+        assert tool_input.target_pdb == _PDL1_PDB_TEXT  # PDB comes from config, not segment slot.
         assert tool_config.bias_redesign == 5.0
         assert tool_config.backend == "germinal"
         assert tool_config.compute_gradient is True
         assert result.gradient[0].shape == (5, 20)
         assert result.gradient[1].shape == (10, 20) and np.all(result.gradient[1] == 0.0)
+        # Each segment slot holds its own chain (both sliced from the same AF2 output).
+        assert result.structures[0].get_chain_ids() == ["B"]
+        assert result.structures[1].get_chain_ids() == ["A"]
 
     @patch(f"{_TOOL_MODULE}.run_alphafold2_binder")
     def test_soft_kwarg_override_and_default(self, mock_run: object) -> None:
         mock_run.return_value = _mock_tool_output(gradient=[[0.0] * 20] * 3, loss=0.0)
         binder = _binder_with_logits(np.zeros((3, 20)))
-        target = _target_with_structure()
+        target = _target_sequence()
 
-        af2_binder_backward(
-            (binder, target), temperature=1.0, config=AF2BinderConstraintConfig(binder_chain="B"), soft=0.5
-        )
+        cfg = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B")
+        af2_binder_backward((binder, target), temperature=1.0, config=cfg, soft=0.5)
         assert mock_run.call_args[0][1].soft == 0.5
 
-        af2_binder_backward((binder, target), temperature=1.0, config=AF2BinderConstraintConfig(binder_chain="B"))
+        af2_binder_backward((binder, target), temperature=1.0, config=cfg)
         assert mock_run.call_args[0][1].soft == 1.0
 
 
 class TestForward:
     @patch(f"{_TOOL_MODULE}.run_alphafold2_binder")
     def test_returns_monotone_increasing_energy(self, mock_run: object) -> None:
+        cfg = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B")
+
         def score_for(loss: float) -> float:
             mock_run.return_value = _mock_tool_output(gradient=None, loss=loss)
-            return af2_binder_forward(
-                [(Sequence("EVQLV", "protein"), _target_with_structure())],
-                config=AF2BinderConstraintConfig(binder_chain="B"),
-            )[0]
+            return af2_binder_forward([(Sequence("EVQLV", "protein"), _target_sequence())], config=cfg)[0]
 
         assert score_for(0.0) == pytest.approx(0.5)
         assert score_for(-2.0) < score_for(-1.0) < score_for(0.0) < score_for(1.0) < score_for(2.0)
 
     @patch(f"{_TOOL_MODULE}.run_alphafold2_binder")
-    def test_writes_sliced_structure_and_metadata(self, mock_run: object) -> None:
+    def test_writes_per_chain_structures_and_metadata(self, mock_run: object) -> None:
         mock_run.return_value = _mock_tool_output(
             gradient=None,
             loss=0.75,
             metrics={"avg_plddt": 0.82, "ptm": 0.65, "iptm": 0.55, "avg_pae": 2.1, "i_pae": 1.3},
         )
         binder = Sequence("EV", "protein")
-        af2_binder_forward([(binder, _target_with_structure())], config=AF2BinderConstraintConfig(binder_chain="B"))
+        target = _target_sequence()
+        af2_binder_forward(
+            [(binder, target)], config=AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B")
+        )
 
         assert mock_run.call_args[0][1].compute_gradient is False
-        plddt = binder.structure.per_residue_plddt
-        # Chain-B values in _mock_tool_output are 70.0/65.0, normalized to [0, 1].
-        assert plddt == pytest.approx([0.70, 0.65])
-        assert len(plddt) == len(binder.sequence)  # (binder_len,) invariant
+        # Binder slot: single-chain structure with (binder_len,) pLDDT — SemigreedyMutationGenerator invariant.
+        assert binder.structure.get_chain_ids() == ["B"]
+        assert binder.structure.per_residue_plddt == pytest.approx([0.70, 0.65])  # Chain-B bfactors 70/65 → [0,1].
+        assert len(binder.structure.per_residue_plddt) == len(binder.sequence)
+        # Target slot: the predicted target chain only (complex-building is a consumer concern via concat).
+        assert target.structure.get_chain_ids() == ["A"]
         assert binder._metadata["avg_plddt"] == 0.82
         assert binder._metadata["i_pae"] == 1.3
         assert binder._metadata["loss"] == 0.75
@@ -147,13 +164,13 @@ class TestRegistry:
         assert spec.backward is af2_binder_backward
         assert spec.input_labels == [
             InputSlot(label="Binder Chain", requires_logits=True),
-            InputSlot(label="Target Structure", requires_structure=True),
+            InputSlot(label="Target"),
         ]
 
     def test_factory_builds_dual_capable_constraint(self) -> None:
         binder_seg = Segment(sequence="EVQLVESG", sequence_type="protein")
         target_seg = Segment(sequence="MKTAYIAK", sequence_type="protein")
-        c = ConstraintRegistry.create("af2-binder", [binder_seg, target_seg], {})
+        c = ConstraintRegistry.create("af2-binder", [binder_seg, target_seg], {"target_pdb": _PDL1_PDB_TEXT})
         assert c.supports_gradient and c.supports_discrete
 
 
@@ -162,9 +179,9 @@ class TestRegistry:
 class TestGPU:
     def test_different_inputs_produce_different_gradients(self) -> None:
         config = AF2BinderConstraintConfig(
-            target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
+            target_pdb=_PDL1_PDB_TEXT, target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
         )
-        target = _target_with_structure()
+        target = _target_sequence()
         uniform = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
         biased = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
         biased.logits[:, 0] = 5.0
@@ -176,9 +193,9 @@ class TestGPU:
         assert r1.loss != r2.loss
 
     def test_loss_weights_change_gradient(self) -> None:
-        target = _target_with_structure()
+        target = _target_sequence()
         binder = _binder_with_logits(np.random.RandomState(42).randn(10, 20).astype(np.float64))
-        base = {"target_chain": "A", "binder_chain": "B", "num_recycles": 1}
+        base = {"target_pdb": _PDL1_PDB_TEXT, "target_chain": "A", "binder_chain": "B", "num_recycles": 1}
 
         r_plddt = af2_binder_backward(
             (binder, target), temperature=1.0, config=AF2BinderConstraintConfig(**base, loss_weights={"plddt": 1.0})
@@ -190,10 +207,10 @@ class TestGPU:
 
     def test_metrics_populated(self) -> None:
         config = AF2BinderConstraintConfig(
-            target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
+            target_pdb=_PDL1_PDB_TEXT, target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
         )
         result = af2_binder_backward(
-            (_binder_with_logits(np.zeros((10, 20), dtype=np.float64)), _target_with_structure()),
+            (_binder_with_logits(np.zeros((10, 20), dtype=np.float64)), _target_sequence()),
             temperature=1.0,
             config=config,
         )

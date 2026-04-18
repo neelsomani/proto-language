@@ -206,6 +206,8 @@ python3 examples/scripts/run_program.py
 Uses `GradientOptimizer` with differentiable constraints (`supports_gradient=True`) and `PositionWeightGenerator` for discretization.
 
 ```python
+from pathlib import Path
+
 from proto_language import (
     Constraint, Construct, GradientOptimizer, GradientOptimizerConfig,
     Program, Segment,
@@ -215,25 +217,30 @@ from proto_language.language.constraint.differentiable.af2_binder_constraint imp
 from proto_language.language.constraint.differentiable.ablang_naturalness_constraint import AbLangConstraintConfig
 from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
 
+# Target template lives on the AF2 config (not on the target Segment's .structure slot).
+# After each AF2 call, binder.structure and target.structure hold each segment's own
+# predicted chain — both sliced from the same AF2 output, sharing a coordinate frame
+# (rejoin via Structure.concat for downstream clash / interface checks).
+target_pdb = Path("target.pdb").read_text()
+
 # Segments
 binder = Segment(length=130, sequence_type="protein", label="binder")
 target = Segment(sequence="MKFL...", sequence_type="protein", label="target")
-target.proposal_sequences[0].structure = target_structure  # Structure from PDB
 construct = Construct([binder, target])
 
 # Generator (discretizes logits → sequences at end)
 gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
 gen.assign(binder)
 
-# Germinal pipeline: two gradient stages (logit → softmax)
-# Each stage needs its own constraint instances
+# Germinal pipeline: two gradient stages (logit → softmax).
+# Each stage needs its own constraint instances; each config gets the target PDB.
 af2_stage1 = Constraint(inputs=[binder, target], backward=af2_binder_backward,
-    backward_config=AF2BinderConstraintConfig.germinal_vhh_preset(), label="af2")
+    backward_config=AF2BinderConstraintConfig.germinal_vhh_preset(target_pdb=target_pdb), label="af2")
 ablang_stage1 = Constraint(inputs=[binder], backward=ablang_vhh_gradient_backward,
     backward_config=AbLangConstraintConfig(), label="ablang", weight=0.2)
 
 af2_stage2 = Constraint(inputs=[binder, target], backward=af2_binder_backward,
-    backward_config=AF2BinderConstraintConfig.germinal_vhh_preset(), label="af2")
+    backward_config=AF2BinderConstraintConfig.germinal_vhh_preset(target_pdb=target_pdb), label="af2")
 ablang_stage2 = Constraint(inputs=[binder], backward=ablang_vhh_gradient_backward,
     backward_config=AbLangConstraintConfig(), label="ablang", weight=0.4)
 

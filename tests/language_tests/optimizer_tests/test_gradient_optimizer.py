@@ -491,27 +491,25 @@ def _af2_constraint(binder: Segment, target: Segment, label: str = "af2") -> Con
         AF2BinderConstraintConfig,
         af2_binder_backward,
     )
+    from tests.helpers.mock_structure import PDL1_PDB
 
     return Constraint(
         inputs=[binder, target],
         backward=af2_binder_backward,
         backward_config=AF2BinderConstraintConfig(
-            target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
+            target_pdb=PDL1_PDB.read_text(),
+            target_chain="A",
+            binder_chain="B",
+            num_recycles=1,
+            loss_weights={"plddt": 1.0},
         ),
         label=label,
     )
 
 
-def _target_with_pdl1() -> Segment:
-    from proto_tools.entities.structures import Structure
-
-    from tests.helpers.mock_structure import PDL1_PDB
-
-    seg = Segment(sequence="A" * 10, sequence_type="protein", label="target")
-    structure = Structure(structure=PDL1_PDB.read_text(), structure_format="pdb")
-    seg.result_sequences[0].structure = structure
-    seg.proposal_sequences[0].structure = structure
-    return seg
+def _target_segment() -> Segment:
+    """Target Segment for AF2 binder design — slot is pure output, no pre-population needed."""
+    return Segment(sequence="A" * 10, sequence_type="protein", label="target")
 
 
 @pytest.mark.uses_gpu
@@ -540,7 +538,7 @@ class TestGradientOptimizerGPU:
     def test_af2_binder_gradient_descent(self) -> None:
         """AF2 binder gradient produces finite logit updates over 3 steps against a target."""
         binder = Segment(length=10, sequence_type="protein", label="binder")
-        target = _target_with_pdl1()
+        target = _target_segment()
         construct = Construct([binder, target])
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
         gen.assign(binder)
@@ -559,7 +557,7 @@ class TestGradientOptimizerGPU:
     def test_af2_plus_ablang_pcgrad(self) -> None:
         """AF2 + AbLang merged via PCGrad — both real gradients, finite logits, both losses recorded."""
         binder = Segment(sequence="EVQLVESGGG", sequence_type="protein", label="binder")
-        target = _target_with_pdl1()
+        target = _target_segment()
         construct = Construct([binder, target])
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
         gen.assign(binder)

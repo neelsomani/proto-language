@@ -9,6 +9,7 @@ from proto_tools.tools.structure_prediction.alphafold2 import (
     AlphaFold2BinderInput,
     run_alphafold2_binder,
 )
+from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
@@ -20,9 +21,13 @@ from proto_language.utils import one_hot_protein_logits
 class AF2BinderConstraintConfig(BaseConfig):
     """Configuration for the AlphaFold2 binder-design constraint.
 
-    Target structure is read from the second input segment's ``Sequence.structure``.
+    Target template is config-owned; each segment's ``.structure`` slot holds its own
+    predicted chain after each call. Use ``Structure.concat`` to rejoin the complex
+    for downstream clash / interface checks.
 
     Attributes:
+        target_pdb (str): PDB content of the frozen target template (the "receptor"
+            side of the binder-design task). Set once at construction.
         target_chain (str): Chain ID(s) of the frozen target in the PDB.
         binder_chain (str): Binder chain ID for template-based binder redesign.
         target_hotspot (str | None): Comma-separated target residue indices for interface contacts.
@@ -42,6 +47,11 @@ class AF2BinderConstraintConfig(BaseConfig):
             backend only; length must match the binder segment.
     """
 
+    target_pdb: str = ConfigField(
+        title="Target PDB",
+        default="",
+        description="PDB content of the frozen target template.",
+    )
     target_chain: str = ConfigField(
         title="Target Chain",
         default="A",
@@ -133,10 +143,23 @@ class AF2BinderConstraintConfig(BaseConfig):
         advanced=True,
     )
 
+    @model_validator(mode="after")
+    def _require_target_pdb(self) -> "AF2BinderConstraintConfig":
+        """Fail fast at config-time if target_pdb is empty; AF2 can't run without a template."""
+        if not self.target_pdb:
+            raise ValueError("AF2BinderConstraintConfig.target_pdb must be a non-empty PDB string or file path.")
+        return self
+
     @classmethod
-    def germinal_vhh_preset(cls, binder_chain: str = "H") -> "AF2BinderConstraintConfig":
-        """Germinal VHH preset matching vhh.yaml defaults."""
+    def germinal_vhh_preset(cls, target_pdb: str, binder_chain: str = "H") -> "AF2BinderConstraintConfig":
+        """Germinal VHH preset matching vhh.yaml defaults.
+
+        Args:
+            target_pdb (str): PDB content (or file path) of the frozen target template.
+            binder_chain (str): Binder chain ID in the template PDB. Defaults to 'H'.
+        """
         return cls(
+            target_pdb=target_pdb,
             binder_chain=binder_chain,
             loss_weights={
                 "plddt": 1.0,
@@ -173,13 +196,13 @@ def af2_binder_backward(
     """Compute AlphaFold2 binder-design gradient w.r.t. binder logits."""
     binder_seq, target_seq = inputs[0], inputs[1]
     logits = binder_seq.logits
-    assert logits is not None and target_seq.structure is not None  # noqa: S101 -- input_labels slot checks guarantee both
+    assert logits is not None  # noqa: S101 -- input_labels slot check guarantees logits on the binder
 
     output = run_alphafold2_binder(
         AlphaFold2BinderInput(
             logits=logits.tolist(),
             temperature=temperature,
-            target_pdb=target_seq.structure.structure_pdb,
+            target_pdb=config.target_pdb,
             target_chain=config.target_chain,
             target_hotspot=config.target_hotspot,
             binder_chain=config.binder_chain,
@@ -206,11 +229,15 @@ def af2_binder_backward(
         raise RuntimeError("compute_gradient=True must populate output.gradient")
     binder_gradient = np.array(output.gradient, dtype=np.float64)
     target_gradient = np.zeros((len(target_seq.sequence), len(PROTEIN_AMINO_ACIDS)), dtype=np.float64)
+    # Each slot gets its own predicted chain — rejoin via Structure.concat (shared AF2 frame).
     return GradientResult(
         gradient=(binder_gradient, target_gradient),
         loss=output.loss,
         metrics=output.metrics,
-        structures=(output.structure.select_chain(config.binder_chain), None),
+        structures=(
+            output.structure.select_chain(config.binder_chain),
+            output.structure.select_chain(config.target_chain),
+        ),
     )
 
 
@@ -225,7 +252,7 @@ def af2_binder_backward(
     supported_sequence_types=["protein"],
     input_labels=[
         InputSlot(label="Binder Chain", requires_logits=True),
-        InputSlot(label="Target Structure", requires_structure=True),
+        InputSlot(label="Target"),  # Template lives on config.target_pdb; slot holds the predicted target chain.
     ],
     backward=af2_binder_backward,
     backward_config=AF2BinderBackwardConstraintConfig,
@@ -246,12 +273,10 @@ def af2_binder_forward(
     """
     scores: list[float] = []
     for binder_seq, target_seq in input_sequences:
-        assert target_seq.structure is not None  # noqa: S101 -- input_labels slot check guarantees structure
-
         output = run_alphafold2_binder(
             AlphaFold2BinderInput(
                 logits=one_hot_protein_logits(binder_seq.sequence),
-                target_pdb=target_seq.structure.structure_pdb,
+                target_pdb=config.target_pdb,
                 target_chain=config.target_chain,
                 target_hotspot=config.target_hotspot,
                 binder_chain=config.binder_chain,
@@ -276,6 +301,7 @@ def af2_binder_forward(
         )
 
         binder_seq.structure = output.structure.select_chain(config.binder_chain)
+        target_seq.structure = output.structure.select_chain(config.target_chain)
         binder_seq._metadata.update(output.metrics)
         binder_seq._metadata["loss"] = output.loss
         scores.append(1.0 / (1.0 + math.exp(-output.loss)))

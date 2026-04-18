@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from proto_tools.entities.structures import Structure
 
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry, InputSlot
 from proto_language.language.constraint.differentiable.af2_binder_gradient_constraint import (
     AF2BinderGradientConfig,
     af2_binder_backward,
@@ -116,7 +116,10 @@ class TestRegistry:
     def test_registers_as_gradient_only(self) -> None:
         spec = ConstraintRegistry.get("af2-binder-gradient")
         assert spec.function is None and spec.backward is af2_binder_backward
-        assert spec.input_labels == ["Binder Chain", "Target Structure"]
+        assert spec.input_labels == [
+            InputSlot(label="Binder Chain", requires_logits=True),
+            InputSlot(label="Target Structure", requires_structure=True),
+        ]
 
     def test_create(self) -> None:
         binder_seg = Segment(sequence="EVQLVESG", sequence_type="protein")

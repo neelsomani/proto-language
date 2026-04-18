@@ -14,6 +14,7 @@ from constraint_tests.utils import (
     mock_multi_input_scoring_function_disjoint,
     mock_single_input_scoring_function,
 )
+from proto_language.language.constraint.constraint_registry import InputSlot
 from proto_language.language.core import Constraint, Segment, Sequence
 from proto_language.language.core.constraint import GradientResult
 from tests.helpers.mock_structure import MockStructure
@@ -658,7 +659,55 @@ class TestConstraintGradientSupport:
         """compute_gradient raises when no segment has logits set."""
         segment = _make_segment_with_proposals(["ACTGACTG"])
         c = _make_gradient_constraint(segment=segment)
-        with pytest.raises(RuntimeError, match="no input segment has logits"):
+        with pytest.raises(RuntimeError, match="no input has logits"):
+            c.compute_gradient(temperature=1.0)
+
+    @pytest.mark.parametrize(
+        ("slots", "prep_binder_logits", "prep_target_structure", "match"),
+        [
+            (
+                [
+                    InputSlot(label="Binder Chain", requires_logits=True),
+                    InputSlot(label="Target", requires_structure=True),
+                ],
+                False,
+                True,
+                r"Constraint '.*' slot 0 'Binder Chain' requires logits.*swap",
+            ),
+            (
+                [
+                    InputSlot(label="Binder Chain", requires_logits=True),
+                    InputSlot(label="Target", requires_structure=True),
+                ],
+                True,
+                False,
+                r"Constraint '.*' slot 1 'Target' requires a structure.*swap",
+            ),
+        ],
+    )
+    def test_slot_requirements_raise_on_swap(
+        self, slots: list[InputSlot], prep_binder_logits: bool, prep_target_structure: bool, match: str
+    ) -> None:
+        """Slot ``requires_logits`` / ``requires_structure`` fire a swap-detection error when unmet."""
+
+        def backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientResult:
+            return GradientResult(gradient=(np.zeros((3, 20)), np.zeros((3, 20))), loss=0.0)
+
+        binder = _make_segment_with_proposals(["ACD"], seq_type="protein")
+        target = _make_segment_with_proposals(["GHI"], seq_type="protein")
+        if prep_binder_logits:
+            binder.proposal_sequences[0].logits = np.zeros((3, 20))
+        if prep_target_structure:
+            target.proposal_sequences[0].structure = MockStructure.with_plddt([0.5] * 3)
+        c = Constraint(
+            inputs=[binder, target],
+            function=mock_multi_input_scoring_function,
+            function_config=MockConfig(),
+            backward=backward,
+            backward_config=MockConfig(),
+            input_slots=slots,
+        )
+        with pytest.raises(RuntimeError, match=match):
             c.compute_gradient(temperature=1.0)
 
     @pytest.mark.parametrize(

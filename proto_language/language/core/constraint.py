@@ -26,7 +26,7 @@ from typing import Any, Protocol
 
 import numpy as np
 from proto_tools.entities.structures import Structure
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from proto_language.language.core.segment import Segment
 from proto_language.language.core.sequence import Sequence
@@ -72,6 +72,22 @@ class ConstraintFunction(Protocol):
     def __call__(self, input_sequences: list[tuple[Sequence, ...]], config: BaseModel) -> list[float]:
         """Evaluate sequences and return scores between 0.0 and 1.0."""
         ...
+
+
+class InputSlot(BaseModel):
+    """Per-slot declaration used by ``@constraint(input_labels=[...])`` for swap-detection.
+
+    Attributes:
+        label (str): Slot name, surfaced to the client and in error messages.
+        requires_logits (bool): Proposal Sequence in this slot must have ``.logits``.
+        requires_structure (bool): Proposal Sequence in this slot must have ``.structure``.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    label: str
+    requires_logits: bool = False
+    requires_structure: bool = False
 
 
 @dataclass(frozen=True)
@@ -161,6 +177,7 @@ class Constraint:
         label: str | None = None,
         threshold: float | None = None,
         weight: float | None = None,
+        input_slots: list[InputSlot] | None = None,
     ):
         """Initialize a constraint.
 
@@ -188,6 +205,8 @@ class Constraint:
             weight (float | None): Optional weight to multiply the raw constraint score by. Defaults to 1.0 if not provided.
                 Only meaningful for scoring constraints (when threshold is None).
                 Mutually exclusive with ``threshold`` (setting both raises a ValueError).
+            input_slots (list[InputSlot] | None): Per-slot requirements enforced in
+                ``compute_gradient``. Normally plumbed by ``ConstraintRegistry.create()``.
 
         Raises:
             ValueError: If neither ``function`` nor ``backward`` is provided.
@@ -198,6 +217,7 @@ class Constraint:
         self._inputs = inputs
         self._function = function
         self._backward_fn = backward
+        self._input_slots = input_slots or []
 
         # Label: prefer explicit, then function name, then backward name
         if label is not None:
@@ -579,8 +599,9 @@ class Constraint:
                 gradient merging.
 
         Raises:
-            RuntimeError: If this constraint has no backward callable, or if any
-                proposal has no logits set.
+            RuntimeError: If this constraint has no backward callable, any declared slot's
+                ``requires_logits`` / ``requires_structure`` is unmet, or (fallback) no input
+                has logits on a proposal.
             TypeError: If the backward callable does not return ``GradientResult``.
             ValueError: If a returned gradient shape does not match the logits shape.
         """
@@ -593,16 +614,20 @@ class Constraint:
         num_proposals = self._inputs[0].num_proposals
         results: list[GradientResult] = []
 
+        has_declared_logits_slot = any(s.requires_logits for s in self._input_slots)
+
         for idx in range(num_proposals):
             inputs = tuple(seg.proposal_sequences[idx] for seg in self._inputs)
 
-            logits_seq = next((seq for seq in inputs if seq.logits is not None), None)
-            if logits_seq is None:
+            if self._input_slots:
+                for slot_idx, (slot, seq) in enumerate(zip(self._input_slots, inputs, strict=True)):
+                    if slot.requires_logits and seq.logits is None:
+                        raise RuntimeError(f"Constraint '{self.label}' slot {slot_idx} '{slot.label}' requires logits (proposal {idx}); did you swap inputs?")  # fmt: skip
+                    if slot.requires_structure and seq.structure is None:
+                        raise RuntimeError(f"Constraint '{self.label}' slot {slot_idx} '{slot.label}' requires a structure (proposal {idx}); did you swap inputs?")  # fmt: skip
+            if not has_declared_logits_slot and all(seq.logits is None for seq in inputs):
                 labels = [seg.label for seg in self._inputs]
-                raise RuntimeError(
-                    f"Constraint '{self.label}': no input segment has logits set on proposal {idx}. "
-                    f"Segments: {labels}. Set seq.logits before calling compute_gradient()."
-                )
+                raise RuntimeError(f"Constraint '{self.label}': no input has logits on proposal {idx} (segments: {labels}); set seq.logits before compute_gradient()")  # fmt: skip
 
             result = self._backward_fn(inputs, config=self._backward_config, **kwargs)
             if not isinstance(result, GradientResult):

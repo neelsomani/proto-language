@@ -12,9 +12,9 @@ from pydantic.json_schema import SkipJsonSchema
 
 from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Constraint, Segment
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core.constraint import GradientResult, InputSlot
 
-_SINGLE_SEGMENT: list[str] = ["Sequence"]
+__all__ = ["ConstraintRegistry", "ConstraintSpec", "InputSlot", "constraint"]
 
 
 class ConstraintSpec(BaseSpec):
@@ -30,10 +30,10 @@ class ConstraintSpec(BaseSpec):
     supported_sequence_types: list[str] = Field(
         description="List of supported sequence types (e.g., ['dna', 'protein']). Must be non-empty."
     )
-    input_labels: list[str] | None = Field(
+    input_labels: list[str | InputSlot] | None = Field(  # type: ignore[assignment]
         default_factory=lambda: ["Sequence"],
-        description="Labels for each input segment slot (e.g., ['Heavy Chain', 'Light Chain']). "
-        "Set to None for constraints that accept any number of interchangeable inputs (e.g., multi-chain complexes).",
+        description="Per-slot labels; strings for plain labels, InputSlot for swap-detection. "
+        "None means any number of interchangeable inputs.",
     )
 
     # Constraint mode — set during registration, exposed in API
@@ -121,7 +121,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         tools_called: list[str] | None = None,
         category: str | None = None,
         supported_sequence_types: list[str] | None = None,
-        input_labels: list[str] | None = _SINGLE_SEGMENT,
+        input_labels: list[str | InputSlot] | None = ("Sequence",),  # type: ignore[assignment]
         backward: Callable[..., Any] | None = None,
         backward_config: type[BaseModel] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -140,9 +140,10 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             tools_called (list[str] | None): Tool keys this constraint calls.
             category (str | None): Optional category for organization.
             supported_sequence_types (list[str] | None): Supported sequence types (e.g., ``["dna", "protein"]``).
-            input_labels (list[str] | None): Labels for each input segment slot. Defaults
-                to ``["Sequence"]`` (single segment). Use ``None`` for constraints that
-                accept any number of interchangeable inputs (e.g., multi-chain complexes).
+            input_labels (list[str | InputSlot] | None): Per-slot labels; strings become plain
+                ``InputSlot(label=s)``. Use ``InputSlot(..., requires_logits=True)`` /
+                ``requires_structure=True`` to enable swap-detection. ``None`` means any number
+                of interchangeable inputs.
             backward (Callable[..., Any] | None): Explicit backward callable to pair with
                 a scoring function. Cannot be used when the decorated function itself
                 returns ``GradientResult``.
@@ -189,6 +190,8 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         if tools_called is None:
             tools_called = []
 
+        slot_count = len(input_labels) if input_labels is not None else None
+
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, func.__name__)
@@ -209,8 +212,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             # Store metadata as function attributes for Constraint class to use
             func._constraint_config_class = config  # type: ignore[attr-defined]
             func._constraint_supported_sequence_types = supported_sequence_types  # type: ignore[attr-defined]
-            # Derive count from labels: len(labels) for fixed, None for variable
-            func._constraint_num_input_sequences_per_tuple = len(input_labels) if input_labels is not None else None  # type: ignore[attr-defined]
+            func._constraint_num_input_sequences_per_tuple = slot_count  # type: ignore[attr-defined]
 
             is_gradient = is_backward_fn or backward is not None
 
@@ -318,6 +320,9 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             label=label,
             threshold=threshold,
             weight=weight,
+            input_slots=None
+            if spec.input_labels is None
+            else [s if isinstance(s, InputSlot) else InputSlot(label=s) for s in spec.input_labels],
         )
 
     @classmethod

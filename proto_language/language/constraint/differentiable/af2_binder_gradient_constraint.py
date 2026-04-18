@@ -10,7 +10,7 @@ from proto_tools.tools.structure_prediction.alphafold2 import (
 )
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import constraint
+from proto_language.language.constraint.constraint_registry import InputSlot, constraint
 from proto_language.language.core import PROTEIN_AMINO_ACIDS, Sequence
 from proto_language.language.core.constraint import GradientResult
 
@@ -169,7 +169,10 @@ class AF2BinderGradientConfig(BaseConfig):
     uses_gpu=True,
     category="differentiable",
     supported_sequence_types=["protein"],
-    input_labels=["Binder Chain", "Target Structure"],
+    input_labels=[
+        InputSlot(label="Binder Chain", requires_logits=True),
+        InputSlot(label="Target Structure", requires_structure=True),
+    ],
 )
 def af2_binder_backward(
     inputs: tuple[Sequence, ...],
@@ -182,10 +185,7 @@ def af2_binder_backward(
     """Compute AlphaFold2 binder-design gradient through ColabDesign."""
     binder_seq, target_seq = inputs[0], inputs[1]
     logits = binder_seq.logits
-    if logits is None:
-        raise RuntimeError("Binder segment has no logits set")
-    if target_seq.structure is None:
-        raise RuntimeError("Target segment has no structure set")
+    assert logits is not None and target_seq.structure is not None  # noqa: S101 -- input_labels slot checks guarantee both
 
     target_pdb = target_seq.structure.structure_pdb
 

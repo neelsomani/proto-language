@@ -17,7 +17,7 @@ from proto_tools.tools.masked_models.ablang import (
 )
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import constraint
+from proto_language.language.constraint.constraint_registry import InputSlot, constraint
 from proto_language.language.core import Sequence
 from proto_language.language.core.constraint import GradientResult
 
@@ -55,6 +55,7 @@ class AbLangGradientConstraintConfig(BaseConfig):
     uses_gpu=True,
     category="differentiable",
     supported_sequence_types=["protein"],
+    input_labels=[InputSlot(label="VHH Chain", requires_logits=True)],
 )
 def ablang_vhh_gradient_backward(
     inputs: tuple[Sequence, ...],
@@ -64,8 +65,7 @@ def ablang_vhh_gradient_backward(
 ) -> GradientResult:
     """Compute AbLang naturalness gradient for a single-domain antibody (VHH/nanobody)."""
     logits = inputs[0].logits
-    if logits is None:
-        raise RuntimeError("Input sequence has no logits set")
+    assert logits is not None  # noqa: S101 -- input_labels slot check guarantees it
     output = run_ablang_gradient(
         AbLangGradientInput(antibody=AntibodyLogits(heavy_chain=logits.tolist()), temperature=config.temperature),
         AbLangGradientConfig(use_ste=config.use_ste),
@@ -83,7 +83,10 @@ def ablang_vhh_gradient_backward(
     uses_gpu=True,
     category="differentiable",
     supported_sequence_types=["protein"],
-    input_labels=["Heavy Chain (VH)", "Light Chain (VL)"],
+    input_labels=[
+        InputSlot(label="Heavy Chain (VH)", requires_logits=True),
+        InputSlot(label="Light Chain (VL)", requires_logits=True),
+    ],
 )
 def ablang_scfv_gradient_backward(
     inputs: tuple[Sequence, ...],
@@ -93,8 +96,7 @@ def ablang_scfv_gradient_backward(
 ) -> GradientResult:
     """Compute AbLang naturalness gradient for scFv (paired VH + VL chains)."""
     vh, vl = inputs[0].logits, inputs[1].logits
-    if vh is None or vl is None:
-        raise RuntimeError("Both input segments must have logits set")
+    assert vh is not None and vl is not None  # noqa: S101 -- input_labels slot checks guarantee both
     output = run_ablang_gradient(
         AbLangGradientInput(
             antibody=AntibodyLogits(heavy_chain=vh.tolist(), light_chain=vl.tolist()),

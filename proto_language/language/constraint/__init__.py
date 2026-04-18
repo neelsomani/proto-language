@@ -1,7 +1,12 @@
 """Constraint registry and all registered constraint functions."""
 
 # Base infrastructure
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry, ConstraintSpec, constraint
+from proto_language.language.constraint.constraint_registry import (
+    ConstraintRegistry,
+    ConstraintSpec,
+    InputSlot,
+    constraint,
+)
 
 # Differentiable constraints
 from proto_language.language.constraint.differentiable import (
@@ -76,6 +81,7 @@ __all__ = [
     # Base infrastructure
     "ConstraintRegistry",
     "ConstraintSpec",
+    "InputSlot",
     "constraint",
     # Differentiable
     "ablang_vhh_gradient_backward",

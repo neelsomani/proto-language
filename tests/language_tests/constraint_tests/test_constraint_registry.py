@@ -127,6 +127,40 @@ class TestRegistration:
         # Cleanup
         del ConstraintRegistry._registry["test-duplicate-check"]
 
+    def test_external_backward_still_enforces_slot_requirements(self):
+        """@constraint(backward=separate_fn) path must still run slot validation in compute_gradient."""
+        import numpy as np
+
+        from proto_language.language.constraint import InputSlot
+        from proto_language.language.core.constraint import GradientResult
+
+        class TestConfig(BaseModel):
+            pass
+
+        def external_backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientResult:
+            return GradientResult(gradient=(np.zeros((3, 20)),), loss=0.0)
+
+        @constraint(
+            key="test-external-backward",
+            label="Test External Backward",
+            config=TestConfig,
+            description="Scoring + explicit external backward",
+            supported_sequence_types=["protein"],
+            input_labels=[InputSlot(label="Chain", requires_logits=True)],
+            backward=external_backward,
+        )
+        def scoring_fn(input_sequences, config):
+            return [0.0] * len(input_sequences)
+
+        try:
+            seg = Segment(sequence="ACD", sequence_type="protein")
+            c = ConstraintRegistry.create("test-external-backward", [seg], {})
+            # No logits set → slot check must fire from compute_gradient.
+            with pytest.raises(RuntimeError, match=r"slot 0 'Chain' requires logits"):
+                c.compute_gradient(temperature=1.0)
+        finally:
+            del ConstraintRegistry._registry["test-external-backward"]
+
 
 # ============================================================================
 # Unit Tests: Discovery Methods

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry, InputSlot
 from proto_language.language.constraint.differentiable.ablang_naturalness_gradient_constraint import (
     AbLangGradientConstraintConfig,
     ablang_scfv_gradient_backward,
@@ -51,7 +51,7 @@ class TestVHH:
     def test_registry(self) -> None:
         spec = ConstraintRegistry.get("ablang-vhh-gradient")
         assert spec.function is None and spec.backward is ablang_vhh_gradient_backward
-        assert spec.input_labels == ["Sequence"]
+        assert spec.input_labels == [InputSlot(label="VHH Chain", requires_logits=True)]
 
 
 class TestScFv:
@@ -72,7 +72,10 @@ class TestScFv:
     def test_registry_and_create(self) -> None:
         spec = ConstraintRegistry.get("ablang-scfv-gradient")
         assert spec.function is None and spec.backward is ablang_scfv_gradient_backward
-        assert spec.input_labels == ["Heavy Chain (VH)", "Light Chain (VL)"]
+        assert spec.input_labels == [
+            InputSlot(label="Heavy Chain (VH)", requires_logits=True),
+            InputSlot(label="Light Chain (VL)", requires_logits=True),
+        ]
 
         from proto_language.language.core import Segment
 

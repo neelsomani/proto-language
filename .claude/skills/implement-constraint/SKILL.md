@@ -168,7 +168,7 @@ def my_constraint(
 | `tools_called` | `list[str]` | No | Default `[]`. Tool names this constraint invokes |
 | `category` | `str` | No | Must match the subdirectory name (e.g., `"sequence_composition"`) |
 | `supported_sequence_types` | `list[str]` | Yes | Non-empty list from: `"dna"`, `"rna"`, `"protein"`, `"ligand"` |
-| `input_labels` | `list[str] \| None` | No | Default `["Sequence"]`. Named input slots (e.g., `["Query", "Reference"]`). Use `None` for any number of interchangeable inputs |
+| `input_labels` | `list[str \| InputSlot] \| None` | No | Default `["Sequence"]`. Named input slots — plain strings for simple labels, or `InputSlot(label=..., requires_logits=True, requires_structure=True)` to enable per-slot swap-detection on gradient constraints. Use `None` for any number of interchangeable inputs |
 | `backward` | `Callable \| None` | No | Gradient callable: `(inputs, *, config, **kwargs) -> GradientResult` |
 | `backward_config` | `Type[BaseModel] \| None` | No | Separate config class for backward callable. If `None`, uses `config` |
 

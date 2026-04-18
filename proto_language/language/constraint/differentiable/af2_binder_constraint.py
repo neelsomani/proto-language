@@ -17,7 +17,7 @@ from proto_language.language.core.constraint import GradientResult
 from proto_language.utils import one_hot_protein_logits
 
 
-class AF2BinderConfig(BaseConfig):
+class AF2BinderConstraintConfig(BaseConfig):
     """Configuration for the AlphaFold2 binder-design constraint.
 
     Target structure is read from the second input segment's ``Sequence.structure``.
@@ -134,7 +134,7 @@ class AF2BinderConfig(BaseConfig):
     )
 
     @classmethod
-    def germinal_vhh_preset(cls, binder_chain: str = "H") -> "AF2BinderConfig":
+    def germinal_vhh_preset(cls, binder_chain: str = "H") -> "AF2BinderConstraintConfig":
         """Germinal VHH preset matching vhh.yaml defaults."""
         return cls(
             binder_chain=binder_chain,
@@ -158,14 +158,14 @@ class AF2BinderConfig(BaseConfig):
         )
 
 
-AF2BinderForwardConfig = AF2BinderConfig
-AF2BinderBackwardConfig = AF2BinderConfig
+AF2BinderForwardConstraintConfig = AF2BinderConstraintConfig
+AF2BinderBackwardConstraintConfig = AF2BinderConstraintConfig
 
 
 def af2_binder_backward(
     inputs: tuple[Sequence, ...],
     *,
-    config: AF2BinderBackwardConfig,
+    config: AF2BinderBackwardConstraintConfig,
     temperature: float,
     soft: float | None = None,
     **kwargs: Any,  # noqa: ARG001
@@ -217,7 +217,7 @@ def af2_binder_backward(
 @constraint(
     key="af2-binder",
     label="AF2 Binder Design",
-    config=AF2BinderForwardConfig,
+    config=AF2BinderForwardConstraintConfig,
     description="AF2 binder design against a fixed target: scores binder sequences (discrete) or computes gradients w.r.t. logits (differentiable).",
     tools_called=["alphafold2-binder"],
     uses_gpu=True,
@@ -228,18 +228,18 @@ def af2_binder_backward(
         InputSlot(label="Target Structure", requires_structure=True),
     ],
     backward=af2_binder_backward,
-    backward_config=AF2BinderBackwardConfig,
+    backward_config=AF2BinderBackwardConstraintConfig,
 )
 def af2_binder_forward(
     input_sequences: list[tuple[Sequence, ...]],
     *,
-    config: AF2BinderForwardConfig,
+    config: AF2BinderForwardConstraintConfig,
 ) -> list[float]:
     """Forward AF2 binder scoring for discrete optimizers.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal ``(binder_seq, target_seq)``.
-        config (AF2BinderForwardConfig): Binder-design config.
+        config (AF2BinderForwardConstraintConfig): Binder-design config.
 
     Returns:
         list[float]: Per-proposal energy ``sigmoid(loss)`` in ``(0, 1)``; lower is better.

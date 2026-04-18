@@ -9,7 +9,7 @@ from proto_tools.entities.structures import BFactorType, Structure
 
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry, InputSlot
 from proto_language.language.constraint.differentiable.af2_binder_constraint import (
-    AF2BinderConfig,
+    AF2BinderConstraintConfig,
     af2_binder_backward,
     af2_binder_forward,
 )
@@ -57,13 +57,13 @@ def _mock_tool_output(
 
 class TestConfig:
     def test_defaults(self) -> None:
-        config = AF2BinderConfig()
+        config = AF2BinderConstraintConfig()
         assert config.target_chain == "A"
         assert config.binder_chain == "H"
         assert config.backend == "base"
 
     def test_germinal_vhh_preset(self) -> None:
-        config = AF2BinderConfig.germinal_vhh_preset()
+        config = AF2BinderConstraintConfig.germinal_vhh_preset()
         assert config.backend == "germinal"
         assert config.bias_redesign == 10.0
         assert config.loss_weights["i_plddt"] == 1.0
@@ -76,7 +76,9 @@ class TestBackward:
         mock_run.return_value = _mock_tool_output(gradient=[[0.1] * 20] * 5, loss=0.5)
         binder = _binder_with_logits(np.ones((5, 20)) / 20.0)
         target = _target_with_structure()
-        config = AF2BinderConfig(binder_chain="B", loss_weights={"plddt": 2.0}, bias_redesign=5.0, backend="germinal")
+        config = AF2BinderConstraintConfig(
+            binder_chain="B", loss_weights={"plddt": 2.0}, bias_redesign=5.0, backend="germinal"
+        )
 
         result = af2_binder_backward((binder, target), temperature=1.0, config=config)
 
@@ -95,10 +97,12 @@ class TestBackward:
         binder = _binder_with_logits(np.zeros((3, 20)))
         target = _target_with_structure()
 
-        af2_binder_backward((binder, target), temperature=1.0, config=AF2BinderConfig(binder_chain="B"), soft=0.5)
+        af2_binder_backward(
+            (binder, target), temperature=1.0, config=AF2BinderConstraintConfig(binder_chain="B"), soft=0.5
+        )
         assert mock_run.call_args[0][1].soft == 0.5
 
-        af2_binder_backward((binder, target), temperature=1.0, config=AF2BinderConfig(binder_chain="B"))
+        af2_binder_backward((binder, target), temperature=1.0, config=AF2BinderConstraintConfig(binder_chain="B"))
         assert mock_run.call_args[0][1].soft == 1.0
 
 
@@ -109,7 +113,7 @@ class TestForward:
             mock_run.return_value = _mock_tool_output(gradient=None, loss=loss)
             return af2_binder_forward(
                 [(Sequence("EVQLV", "protein"), _target_with_structure())],
-                config=AF2BinderConfig(binder_chain="B"),
+                config=AF2BinderConstraintConfig(binder_chain="B"),
             )[0]
 
         assert score_for(0.0) == pytest.approx(0.5)
@@ -123,7 +127,7 @@ class TestForward:
             metrics={"avg_plddt": 0.82, "ptm": 0.65, "iptm": 0.55, "avg_pae": 2.1, "i_pae": 1.3},
         )
         binder = Sequence("EV", "protein")
-        af2_binder_forward([(binder, _target_with_structure())], config=AF2BinderConfig(binder_chain="B"))
+        af2_binder_forward([(binder, _target_with_structure())], config=AF2BinderConstraintConfig(binder_chain="B"))
 
         assert mock_run.call_args[0][1].compute_gradient is False
         plddt = binder.structure.per_residue_plddt
@@ -157,7 +161,9 @@ class TestRegistry:
 @pytest.mark.slow
 class TestGPU:
     def test_different_inputs_produce_different_gradients(self) -> None:
-        config = AF2BinderConfig(target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0})
+        config = AF2BinderConstraintConfig(
+            target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
+        )
         target = _target_with_structure()
         uniform = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
         biased = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
@@ -175,15 +181,17 @@ class TestGPU:
         base = {"target_chain": "A", "binder_chain": "B", "num_recycles": 1}
 
         r_plddt = af2_binder_backward(
-            (binder, target), temperature=1.0, config=AF2BinderConfig(**base, loss_weights={"plddt": 1.0})
+            (binder, target), temperature=1.0, config=AF2BinderConstraintConfig(**base, loss_weights={"plddt": 1.0})
         )
         r_con = af2_binder_backward(
-            (binder, target), temperature=1.0, config=AF2BinderConfig(**base, loss_weights={"con": 1.0})
+            (binder, target), temperature=1.0, config=AF2BinderConstraintConfig(**base, loss_weights={"con": 1.0})
         )
         assert not np.allclose(r_plddt.gradient[0], r_con.gradient[0])
 
     def test_metrics_populated(self) -> None:
-        config = AF2BinderConfig(target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0})
+        config = AF2BinderConstraintConfig(
+            target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
+        )
         result = af2_binder_backward(
             (_binder_with_logits(np.zeros((10, 20), dtype=np.float64)), _target_with_structure()),
             temperature=1.0,

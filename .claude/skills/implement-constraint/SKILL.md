@@ -277,7 +277,7 @@ identity depend on how it's used — backwards. Dual-mode:
 **Canonical in-tree example.** `af2-binder`
 (`proto_language/language/constraint/differentiable/af2_binder_constraint.py`)
 registers `af2_binder_forward` as the forward callable, pairs with `af2_binder_backward`,
-and both paths construct the same `AlphaFold2BinderConfig` from shared `AF2BinderConfig`
+and both paths construct the same `AlphaFold2BinderConfig` from shared `AF2BinderConstraintConfig`
 fields — only `soft` and `compute_gradient` differ between modes.
 
 **Rule of thumb:** if your constraint's underlying computation supports both forward and

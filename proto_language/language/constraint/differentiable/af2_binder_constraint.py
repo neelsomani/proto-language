@@ -15,7 +15,7 @@ from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
 from proto_language.language.core import PROTEIN_AMINO_ACIDS, Sequence
 from proto_language.language.core.constraint import GradientResult
-from proto_language.utils import one_hot_protein_logits
+from proto_language.utils import one_hot_protein_matrix
 
 
 class AF2BinderConstraintConfig(BaseConfig):
@@ -190,7 +190,7 @@ def af2_binder_backward(
     *,
     config: AF2BinderBackwardConstraintConfig,
     temperature: float,
-    soft: float | None = None,
+    soft: float,
     **kwargs: Any,  # noqa: ARG001
 ) -> GradientResult:
     """Compute AlphaFold2 binder-design gradient w.r.t. binder logits."""
@@ -221,7 +221,7 @@ def af2_binder_backward(
             sample_models=config.sample_models,
             backend=config.backend,
             starting_binder_seq=config.starting_binder_seq,
-            soft=soft if soft is not None else 1.0,
+            soft=soft,
             compute_gradient=True,
         ),
     )
@@ -273,9 +273,11 @@ def af2_binder_forward(
     """
     scores: list[float] = []
     for binder_seq, target_seq in input_sequences:
+        # Forward-only scoring evaluates AF2 on the exact discrete proposal. Pass a true one-hot
+        # matrix and force ColabDesign's STE (hard=1) so the argmax gets through unchanged.
         output = run_alphafold2_binder(
             AlphaFold2BinderInput(
-                logits=one_hot_protein_logits(binder_seq.sequence),
+                logits=one_hot_protein_matrix(binder_seq.sequence),
                 target_pdb=config.target_pdb,
                 target_chain=config.target_chain,
                 target_hotspot=config.target_hotspot,
@@ -295,14 +297,17 @@ def af2_binder_forward(
                 sample_models=config.sample_models,
                 backend=config.backend,
                 starting_binder_seq=config.starting_binder_seq,
-                soft=1.0,
+                soft=0.0,
+                hard=1.0,
                 compute_gradient=False,
             ),
         )
 
         binder_seq.structure = output.structure.select_chain(config.binder_chain)
         target_seq.structure = output.structure.select_chain(config.target_chain)
+        # Metrics first so our explicit keys below win on collision.
         binder_seq._metadata.update(output.metrics)
+        binder_seq._metadata["complex_pdb"] = output.structure.structure_pdb
         binder_seq._metadata["loss"] = output.loss
         scores.append(1.0 / (1.0 + math.exp(-output.loss)))
 

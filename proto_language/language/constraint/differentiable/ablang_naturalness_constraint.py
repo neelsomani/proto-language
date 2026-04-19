@@ -21,7 +21,7 @@ from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
 from proto_language.language.core import Sequence
 from proto_language.language.core.constraint import GradientResult
-from proto_language.utils import one_hot_protein_logits
+from proto_language.utils import one_hot_protein_matrix
 
 
 class AbLangConstraintConfig(BaseConfig):
@@ -32,6 +32,7 @@ class AbLangConstraintConfig(BaseConfig):
             regardless of the AF2 optimizer's temperature schedule.
         use_ste (bool): Use Straight-Through Estimator (hard one-hot forward pass with
             gradients through soft probabilities). Germinal always uses STE.
+        device (str): Execution device for AbLang, for example ``"cuda"`` or ``"cpu"``.
     """
 
     temperature: float = ConfigField(
@@ -44,6 +45,12 @@ class AbLangConstraintConfig(BaseConfig):
         title="Straight-Through Estimator",
         default=True,
         description="Hard one-hot forward pass with soft-probability gradients. Matches Germinal's default.",
+    )
+    device: str = ConfigField(
+        title="Device",
+        default="cuda",
+        description="Execution device for AbLang, for example 'cuda' or 'cpu'.",
+        hidden=True,
     )
 
 
@@ -62,7 +69,7 @@ def ablang_vhh_gradient_backward(
     assert logits is not None  # noqa: S101 -- input_labels slot check guarantees it
     output = run_ablang_gradient(
         AbLangGradientInput(antibody=AntibodyLogits(heavy_chain=logits.tolist()), temperature=config.temperature),
-        AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True),
+        AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
     )
     assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
     gradient = np.array(output.gradient, dtype=np.float64)
@@ -83,7 +90,7 @@ def ablang_scfv_gradient_backward(
             antibody=AntibodyLogits(heavy_chain=vh.tolist(), light_chain=vl.tolist()),
             temperature=config.temperature,
         ),
-        AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True),
+        AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
     )
     assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
     gradient = np.array(output.gradient, dtype=np.float64)
@@ -122,10 +129,10 @@ def ablang_vhh_forward(
     for (binder_seq,) in input_sequences:
         output = run_ablang_gradient(
             AbLangGradientInput(
-                antibody=AntibodyLogits(heavy_chain=one_hot_protein_logits(binder_seq.sequence)),
+                antibody=AntibodyLogits(heavy_chain=one_hot_protein_matrix(binder_seq.sequence)),
                 temperature=config.temperature,
             ),
-            AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=False),
+            AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=False, device=config.device),
         )
         binder_seq._metadata["ablang_log_likelihood"] = output.metrics["log_likelihood"]
         binder_seq._metadata["ablang_loss"] = output.loss
@@ -168,12 +175,12 @@ def ablang_scfv_forward(
         output = run_ablang_gradient(
             AbLangGradientInput(
                 antibody=AntibodyLogits(
-                    heavy_chain=one_hot_protein_logits(vh_seq.sequence),
-                    light_chain=one_hot_protein_logits(vl_seq.sequence),
+                    heavy_chain=one_hot_protein_matrix(vh_seq.sequence),
+                    light_chain=one_hot_protein_matrix(vl_seq.sequence),
                 ),
                 temperature=config.temperature,
             ),
-            AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=False),
+            AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=False, device=config.device),
         )
         # Joint VH+VL log-likelihood; write to both chains so either is a valid read site.
         for seq in (vh_seq, vl_seq):

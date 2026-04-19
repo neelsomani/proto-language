@@ -121,24 +121,24 @@ def calculate_normalized_deviation(actual: float, target: float) -> float:
     return min(MAX_ENERGY, abs(actual - target) / max(target, 1))
 
 
-def one_hot_protein_logits(sequence: str, *, sharpness: float = 20.0) -> list[list[float]]:
-    """One-hot encode a protein sequence as logits (L x 20) in ``PROTEIN_AMINO_ACIDS`` order.
+def one_hot_protein_matrix(sequence: str) -> list[list[float]]:
+    """Return an exact (1.0, 0.0) one-hot matrix in ``PROTEIN_AMINO_ACIDS`` order.
 
-    Default ``sharpness=20.0`` saturates a downstream softmax to ≈ one-hot; use a milder
-    value (e.g. ``2.0``) for a biased-but-not-saturated seed.
+    Each row has ``1.0`` at the target amino acid and ``0.0`` everywhere else.
+    Use this when encoding a discrete protein sequence for a tool that expects a
+    probability matrix or one-hot input.
 
     Args:
         sequence (str): Protein sequence; each character must be in ``PROTEIN_AMINO_ACIDS``.
-        sharpness (float): Value placed on the one-hot column; all other columns are 0.
 
     Returns:
-        list[list[float]]: Logits matrix with shape ``(len(sequence), 20)``.
+        list[list[float]]: One-hot matrix with shape ``(len(sequence), 20)``.
     """
     n = len(PROTEIN_AMINO_ACIDS)
     rows: list[list[float]] = []
     for aa in sequence:
         row = [0.0] * n
-        row[_PROTEIN_AA_INDEX[aa]] = sharpness
+        row[_PROTEIN_AA_INDEX[aa]] = 1.0
         rows.append(row)
     return rows
 

@@ -91,7 +91,7 @@ class TestBackward:
             backend="germinal",
         )
 
-        result = af2_binder_backward((binder, target), temperature=1.0, config=config)
+        result = af2_binder_backward((binder, target), temperature=1.0, soft=1.0, config=config)
 
         tool_input, tool_config = mock_run.call_args[0]
         assert tool_input.binder_chain == "B"
@@ -106,17 +106,14 @@ class TestBackward:
         assert result.structures[1].get_chain_ids() == ["A"]
 
     @patch(f"{_TOOL_MODULE}.run_alphafold2_binder")
-    def test_soft_kwarg_override_and_default(self, mock_run: object) -> None:
+    def test_soft_kwarg_forwards_to_tool_config(self, mock_run: object) -> None:
         mock_run.return_value = _mock_tool_output(gradient=[[0.0] * 20] * 3, loss=0.0)
         binder = _binder_with_logits(np.zeros((3, 20)))
         target = _target_sequence()
-
         cfg = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B")
+
         af2_binder_backward((binder, target), temperature=1.0, config=cfg, soft=0.5)
         assert mock_run.call_args[0][1].soft == 0.5
-
-        af2_binder_backward((binder, target), temperature=1.0, config=cfg)
-        assert mock_run.call_args[0][1].soft == 1.0
 
 
 class TestForward:
@@ -151,9 +148,26 @@ class TestForward:
         assert len(binder.structure.per_residue_plddt) == len(binder.sequence)
         # Target slot: the predicted target chain only (complex-building is a consumer concern via concat).
         assert target.structure.get_chain_ids() == ["A"]
+        assert binder._metadata["complex_pdb"] == mock_run.return_value.structure.structure_pdb
         assert binder._metadata["avg_plddt"] == 0.82
         assert binder._metadata["i_pae"] == 1.3
         assert binder._metadata["loss"] == 0.75
+
+    @patch(f"{_TOOL_MODULE}.run_alphafold2_binder")
+    def test_forward_sends_true_one_hot_with_hard_ste(self, mock_run: object) -> None:
+        """Forward scoring always sends a true one-hot matrix with ColabDesign ``hard=1, soft=0``."""
+        mock_run.return_value = _mock_tool_output(gradient=None, loss=0.5)
+        af2_binder_forward(
+            [(Sequence("EVQ", "protein"), _target_sequence())],
+            config=AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B"),
+        )
+        tool_input, tool_config = mock_run.call_args[0]
+        assert tool_config.hard == 1.0
+        assert tool_config.soft == 0.0
+        # Exact one-hot: every row has a single 1.0 and all other entries 0.0.
+        for row in tool_input.logits:
+            assert sum(row) == 1.0
+            assert max(row) == 1.0
 
 
 class TestRegistry:
@@ -186,8 +200,8 @@ class TestGPU:
         biased = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
         biased.logits[:, 0] = 5.0
 
-        r1 = af2_binder_backward((uniform, target), temperature=1.0, config=config)
-        r2 = af2_binder_backward((biased, target), temperature=1.0, config=config)
+        r1 = af2_binder_backward((uniform, target), temperature=1.0, soft=1.0, config=config)
+        r2 = af2_binder_backward((biased, target), temperature=1.0, soft=1.0, config=config)
 
         assert np.isfinite(r1.gradient[0]).all() and np.isfinite(r2.gradient[0]).all()
         assert r1.loss != r2.loss
@@ -198,10 +212,16 @@ class TestGPU:
         base = {"target_pdb": _PDL1_PDB_TEXT, "target_chain": "A", "binder_chain": "B", "num_recycles": 1}
 
         r_plddt = af2_binder_backward(
-            (binder, target), temperature=1.0, config=AF2BinderConstraintConfig(**base, loss_weights={"plddt": 1.0})
+            (binder, target),
+            temperature=1.0,
+            soft=1.0,
+            config=AF2BinderConstraintConfig(**base, loss_weights={"plddt": 1.0}),
         )
         r_con = af2_binder_backward(
-            (binder, target), temperature=1.0, config=AF2BinderConstraintConfig(**base, loss_weights={"con": 1.0})
+            (binder, target),
+            temperature=1.0,
+            soft=1.0,
+            config=AF2BinderConstraintConfig(**base, loss_weights={"con": 1.0}),
         )
         assert not np.allclose(r_plddt.gradient[0], r_con.gradient[0])
 
@@ -212,6 +232,7 @@ class TestGPU:
         result = af2_binder_backward(
             (_binder_with_logits(np.zeros((10, 20), dtype=np.float64)), _target_sequence()),
             temperature=1.0,
+            soft=1.0,
             config=config,
         )
         assert np.isfinite(result.loss) and result.loss != 0.0

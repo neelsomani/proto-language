@@ -38,7 +38,7 @@ class TestBackward:
     def test_vhh_dispatches_with_config_and_returns_1_tuple(self, mock_run: object) -> None:
         mock_run.return_value = _mock_tool_output(gradient=[[0.1] * 20] * 5, loss=0.5)
         binder = _seq_with_logits(np.ones((5, 20)) / 20.0)
-        config = AbLangConstraintConfig(temperature=0.8, use_ste=False)
+        config = AbLangConstraintConfig(temperature=0.8, use_ste=False, device="cpu")
 
         result = ablang_vhh_gradient_backward((binder,), config=config)
 
@@ -47,6 +47,7 @@ class TestBackward:
         assert tool_input.temperature == 0.8
         assert tool_config.use_ste is False
         assert tool_config.compute_gradient is True
+        assert tool_config.device == "cpu"
         assert len(result.gradient) == 1
         assert result.gradient[0].shape == (5, 20)
         assert result.loss == 0.5
@@ -57,12 +58,13 @@ class TestBackward:
         vh = _seq_with_logits(np.ones((4, 20)) / 20.0)
         vl = _seq_with_logits(np.ones((3, 20)) / 20.0)
 
-        result = ablang_scfv_gradient_backward((vh, vl), config=AbLangConstraintConfig())
+        result = ablang_scfv_gradient_backward((vh, vl), config=AbLangConstraintConfig(device="cpu"))
 
         assert result.gradient[0].shape == (4, 20)
         assert result.gradient[1].shape == (3, 20)
         ab = mock_run.call_args[0][0].antibody
         assert len(ab.heavy_chain) == 4 and len(ab.light_chain) == 3
+        assert mock_run.call_args[0][1].device == "cpu"
 
 
 class TestForward:
@@ -80,9 +82,10 @@ class TestForward:
         mock_run.return_value = _mock_tool_output(gradient=None, loss=2.0, log_likelihood=-2.0)
         binder = Sequence("EVQLV", "protein")
 
-        ablang_vhh_forward([(binder,)], config=AbLangConstraintConfig())
+        ablang_vhh_forward([(binder,)], config=AbLangConstraintConfig(device="cpu"))
 
         assert mock_run.call_args[0][1].compute_gradient is False
+        assert mock_run.call_args[0][1].device == "cpu"
         assert binder._metadata["ablang_log_likelihood"] == -2.0
         assert binder._metadata["ablang_loss"] == 2.0
 
@@ -90,12 +93,14 @@ class TestForward:
     def test_scfv_one_hot_encodes_both_chains(self, mock_run: object) -> None:
         mock_run.return_value = _mock_tool_output(gradient=None, loss=1.0)
         ablang_scfv_forward(
-            [(Sequence("EVQL", "protein"), Sequence("DIQ", "protein"))], config=AbLangConstraintConfig()
+            [(Sequence("EVQL", "protein"), Sequence("DIQ", "protein"))],
+            config=AbLangConstraintConfig(device="cpu"),
         )
 
         ab = mock_run.call_args[0][0].antibody
         assert len(ab.heavy_chain) == 4 and len(ab.light_chain) == 3
         assert mock_run.call_args[0][1].compute_gradient is False
+        assert mock_run.call_args[0][1].device == "cpu"
 
 
 class TestRegistry:
@@ -148,13 +153,13 @@ class TestGPU:
         assert not np.allclose(r1.gradient[0], r2.gradient[0])
 
     def test_forward_matches_backward_loss_on_discrete_sequence(self) -> None:
-        """Forward path one-hots a discrete sequence → same effective logits → same loss as backward."""
+        """Forward path one-hots a discrete sequence → same argmax as backward input → same loss."""
         config = AbLangConstraintConfig()
         sequence = "EVQLVESGGGLVQPGGSLRL"
         aa_order = "ACDEFGHIKLMNPQRSTVWY"
         logits = np.zeros((len(sequence), 20), dtype=np.float64)
         for i, aa in enumerate(sequence):
-            logits[i, aa_order.index(aa)] = 20.0  # proto_language.utils.one_hot_protein_logits sharpness
+            logits[i, aa_order.index(aa)] = 1.0  # proto_language.utils.one_hot_protein_matrix
 
         backward = ablang_vhh_gradient_backward((_seq_with_logits(logits),), config=config)
         forward_score = ablang_vhh_forward([(Sequence(sequence, "protein"),)], config=config)[0]

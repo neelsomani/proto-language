@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from proto_language.language.core import Constraint, Construct, Program, Segment
 from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
 from proto_language.language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
@@ -21,6 +22,12 @@ from proto_language.language.optimizer import (
     MCMCOptimizer,
     MCMCOptimizerConfig,
 )
+
+
+def _anchor_bias(seed: str, bias: float) -> list[list[float]]:
+    """Matrix with ``bias`` at each position's WT AA; matches old scalar bias semantics."""
+    aa_idx = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
+    return [[bias if j == aa_idx[aa] else 0.0 for j in range(len(PROTEIN_AMINO_ACIDS))] for aa in seed]
 
 
 class _Cfg(BaseModel):
@@ -63,14 +70,13 @@ def _make(num_steps: int = 5, num_results: int = 1, seed: int = 42, **kw: object
     seg = Segment(sequence="EVQLV", sequence_type="protein")
     construct = Construct([seg])
     gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-    gen.assign(seg)
     con = Constraint(
         inputs=[seg], backward=_backward, backward_config=_Cfg(), function=_scorer, function_config=_Cfg(), label="mock"
     )
     defaults: dict[str, object] = {"lr": 0.1}
     defaults.update(kw)
     cfg = GradientOptimizerConfig(num_results=num_results, num_steps=num_steps, seed=seed, **defaults)
-    opt = GradientOptimizer(constructs=[construct], generators=[gen], constraints=[con], config=cfg)
+    opt = GradientOptimizer(target_segment=seg, constructs=[construct], generators=[gen], constraints=[con], config=cfg)
     return opt, seg
 
 
@@ -79,9 +85,9 @@ def _make_optimizer(
 ) -> GradientOptimizer:
     """Minimal single-constraint optimizer on a caller-supplied segment."""
     gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-    gen.assign(seg)
     con = Constraint(inputs=[seg], backward=backward, backward_config=_Cfg(), label=label, weight=weight)
     return GradientOptimizer(
+        target_segment=seg,
         constructs=[Construct([seg])],
         generators=[gen],
         constraints=[con],
@@ -200,11 +206,59 @@ class TestSchedules:
         assert _abs_sum(scale=True) < _abs_sum(scale=False)
 
 
+class TestLogitBiasMatrix:
+    def test_position_specific_bias_flows_to_init_logits(self) -> None:
+        """Non-uniform bias — the scalar-era field couldn't express this."""
+        aa_idx = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
+        bias = [[0.0] * len(PROTEIN_AMINO_ACIDS) for _ in range(5)]
+        bias[0][aa_idx["E"]] = 10.0
+        bias[4][aa_idx["V"]] = 10.0
+        opt, seg = _make(num_steps=1, seed=42, lr=1e-30, logit_bias=bias)
+        opt.run()
+        logits = seg.result_sequences[0].logits
+        assert logits is not None
+        assert int(logits[0].argmax()) == aa_idx["E"]
+        assert int(logits[4].argmax()) == aa_idx["V"]
+        assert np.allclose(logits[[1, 2, 3]], 0.0)
+
+    def test_large_negative_bias_persists_through_updates(self) -> None:
+        """-1e6 at an AA survives gradient updates toward it — decode never picks it."""
+        aa_idx = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
+        bias = [[0.0] * len(PROTEIN_AMINO_ACIDS) for _ in range(5)]
+        for row in bias:
+            row[aa_idx["A"]] = -1e6  # _backward pushes toward A; the penalty must still win.
+        opt, seg = _make(num_steps=10, seed=42, lr=1.0, logit_bias=bias)
+        opt.run()
+        logits = seg.result_sequences[0].logits
+        assert logits is not None
+        assert np.all(logits[:, aa_idx["A"]] < -1e5)
+        assert "A" not in seg.result_sequences[0].sequence
+
+    @pytest.mark.parametrize(
+        "bad,match",
+        [
+            ([[0.0] * len(PROTEIN_AMINO_ACIDS) for _ in range(3)], "logit_bias shape"),  # 3 rows, need 5
+            ([[0.0] * (len(PROTEIN_AMINO_ACIDS) + 1) for _ in range(5)], "logit_bias shape"),  # 21 cols, need 20
+            ([[0.0, 0.0], [0.0, 0.0, 0.0]] + [[0.0] * len(PROTEIN_AMINO_ACIDS)] * 3, "rectangular"),  # jagged
+            ([], "logit_bias shape"),  # empty list — caught cleanly, not IndexError
+        ],
+    )
+    def test_malformed_bias_raises_at_init(self, bad: list, match: str) -> None:
+        """Shape/rectangularity vs target segment is checked in GradientOptimizer.__init__, not run()."""
+        with pytest.raises(ValueError, match=match):
+            _make(num_steps=1, logit_bias=bad)
+
+
 class TestFixedPositions:
     def test_logits_unchanged_at_fixed(self) -> None:
-        opt, seg = _make(num_steps=20, lr=1.0, initial_logit_bias=5.0, fixed_positions=[0, 4], gumbel_logit_init=True)
+        opt, seg = _make(
+            num_steps=20,
+            lr=1.0,
+            logit_bias=_anchor_bias("EVQLV", 5.0),
+            fixed_positions=[0, 4],
+            gumbel_logit_init=True,
+        )
         opt.run()
-        from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
 
         aa_idx = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
         result = seg.result_sequences[0].logits
@@ -218,10 +272,10 @@ class TestValidation:
     def test_no_gradient_constraints(self) -> None:
         seg = Segment(sequence="AA", sequence_type="protein")
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-        gen.assign(seg)
         con = Constraint(inputs=[seg], function=_scorer, function_config=_Cfg())
         with pytest.raises(ValueError, match="gradient-capable"):
             GradientOptimizer(
+                target_segment=seg,
                 constructs=[Construct([seg])],
                 generators=[gen],
                 constraints=[con],
@@ -231,10 +285,10 @@ class TestValidation:
     def test_wrong_generator(self) -> None:
         seg = Segment(sequence="AA", sequence_type="protein")
         gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
-        gen.assign(seg)
         con = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="m")
         with pytest.raises(ValueError, match="PositionWeightGenerator"):
             GradientOptimizer(
+                target_segment=seg,
                 constructs=[Construct([seg])],
                 generators=[gen],
                 constraints=[con],
@@ -260,7 +314,13 @@ class TestHistory:
 
     def test_snapshots_reflect_current_logits(self) -> None:
         """History entries must follow the trajectory, not report the initial state."""
-        opt, _ = _make(num_steps=30, lr=1.0, tracking_interval=5, seed=1, initial_logit_bias=5.0)
+        opt, _ = _make(
+            num_steps=30,
+            lr=1.0,
+            tracking_interval=5,
+            seed=1,
+            logit_bias=_anchor_bias("EVQLV", 5.0),
+        )
         opt.run()
 
         def _seq(idx: int) -> str:
@@ -277,10 +337,10 @@ class TestMergers:
         for merger in ("pcgrad", "weighted_sum"):
             seg = Segment(sequence="GGGGG", sequence_type="protein")
             gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-            gen.assign(seg)
             con_a = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="A")
             con_c = Constraint(inputs=[seg], backward=_backward_toward_C, backward_config=_Cfg(), label="C")
             opt = GradientOptimizer(
+                target_segment=seg,
                 constructs=[Construct([seg])],
                 generators=[gen],
                 constraints=[con_a, con_c],
@@ -301,10 +361,10 @@ class TestMergers:
         """High-weight constraint dominates in logit space."""
         seg = Segment(sequence="GGGGG", sequence_type="protein")
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-        gen.assign(seg)
         con_a = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="A", weight=10.0)
         con_c = Constraint(inputs=[seg], backward=_backward_toward_C, backward_config=_Cfg(), label="C", weight=0.01)
         opt = GradientOptimizer(
+            target_segment=seg,
             constructs=[Construct([seg])],
             generators=[gen],
             constraints=[con_a, con_c],
@@ -355,8 +415,9 @@ class TestWeightSchedules:
 
 class TestGumbelLogitInit:
     def test_gumbel_adds_noise(self) -> None:
-        opt_d, seg_d = _make(num_steps=1, seed=42, initial_logit_bias=5.0, gumbel_logit_init=False)
-        opt_g, seg_g = _make(num_steps=1, seed=42, initial_logit_bias=5.0, gumbel_logit_init=True)
+        bias = _anchor_bias("EVQLV", 5.0)
+        opt_d, seg_d = _make(num_steps=1, seed=42, logit_bias=bias, gumbel_logit_init=False)
+        opt_g, seg_g = _make(num_steps=1, seed=42, logit_bias=bias, gumbel_logit_init=True)
         opt_d.run()
         opt_g.run()
         assert not np.allclose(seg_d.result_sequences[0].logits, seg_g.result_sequences[0].logits)
@@ -375,12 +436,15 @@ class TestMultiStage:
     @staticmethod
     def _gradient_stage(seg: Segment, construct: Construct, label: str, **kw: object) -> GradientOptimizer:
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-        gen.assign(seg)
         con = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label=label)
         defaults: dict[str, object] = {"num_results": 1, "num_steps": 5, "lr": 0.1}
         defaults.update(kw)
         return GradientOptimizer(
-            constructs=[construct], generators=[gen], constraints=[con], config=GradientOptimizerConfig(**defaults)
+            target_segment=seg,
+            constructs=[construct],
+            generators=[gen],
+            constraints=[con],
+            config=GradientOptimizerConfig(**defaults),
         )
 
     def test_logit_handoff_across_stages(self) -> None:
@@ -425,9 +489,10 @@ class TestMultiStage:
 
         def stage(cfg: GradientOptimizerConfig, weight: float = 1.0) -> GradientOptimizer:
             gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-            gen.assign(seg)
             con = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="ablang", weight=weight)
-            return GradientOptimizer(constructs=[construct], generators=[gen], constraints=[con], config=cfg)
+            return GradientOptimizer(
+                target_segment=seg, constructs=[construct], generators=[gen], constraints=[con], config=cfg
+            )
 
         cfg_logit = GradientOptimizerConfig.germinal_logit_preset()
         cfg_logit.num_steps = 3
@@ -498,8 +563,8 @@ class TestGradientOptimizerGPU:
         """AbLang VHH gradient reduces naturalness loss over 10 steps."""
         seg = Segment(sequence="EVQLVESGGGLVQPGGSLRL", sequence_type="protein")
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-        gen.assign(seg)
         opt = GradientOptimizer(
+            target_segment=seg,
             constructs=[Construct([seg])],
             generators=[gen],
             constraints=[_ablang_constraint(seg)],
@@ -516,9 +581,9 @@ class TestGradientOptimizerGPU:
         target = _target_segment()
         construct = Construct([binder, target])
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-        gen.assign(binder)
 
         opt = GradientOptimizer(
+            target_segment=binder,
             constructs=[construct],
             generators=[gen],
             constraints=[_af2_constraint(binder, target)],
@@ -535,9 +600,9 @@ class TestGradientOptimizerGPU:
         target = _target_segment()
         construct = Construct([binder, target])
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-        gen.assign(binder)
 
         opt = GradientOptimizer(
+            target_segment=binder,
             constructs=[construct],
             generators=[gen],
             constraints=[_af2_constraint(binder, target), _ablang_constraint(binder)],
@@ -564,9 +629,12 @@ class TestGradientOptimizerGPU:
 
         def stage(cfg: GradientOptimizerConfig, label: str) -> GradientOptimizer:
             gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-            gen.assign(seg)
             return GradientOptimizer(
-                constructs=[construct], generators=[gen], constraints=[_ablang_constraint(seg, label)], config=cfg
+                target_segment=seg,
+                constructs=[construct],
+                generators=[gen],
+                constraints=[_ablang_constraint(seg, label)],
+                config=cfg,
             )
 
         cfg1 = GradientOptimizerConfig.germinal_logit_preset()

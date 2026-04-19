@@ -228,10 +228,6 @@ binder = Segment(length=130, sequence_type="protein", label="binder")
 target = Segment(sequence="MKFL...", sequence_type="protein", label="target")
 construct = Construct([binder, target])
 
-# Generator (discretizes logits → sequences at end)
-gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-gen.assign(binder)
-
 # Germinal pipeline: two gradient stages (logit → softmax).
 # Each stage needs its own constraint instances; each config gets the target PDB.
 af2_stage1 = Constraint(inputs=[binder, target], backward=af2_binder_backward,
@@ -245,16 +241,16 @@ ablang_stage2 = Constraint(inputs=[binder], backward=ablang_vhh_gradient_backwar
     backward_config=AbLangConstraintConfig(temperature=0.6), label="ablang", weight=0.4)
 
 gen1 = PositionWeightGenerator(PositionWeightGeneratorConfig())
-gen1.assign(binder)
 gen2 = PositionWeightGenerator(PositionWeightGeneratorConfig())
-gen2.assign(binder)
 
 stage1 = GradientOptimizer(
+    target_segment=binder,
     constructs=[construct], generators=[gen1],
     constraints=[af2_stage1, ablang_stage1],
     config=GradientOptimizerConfig.germinal_logit_preset(),
 )
 stage2 = GradientOptimizer(
+    target_segment=binder,
     constructs=[construct], generators=[gen2],
     constraints=[af2_stage2, ablang_stage2],
     config=GradientOptimizerConfig.germinal_softmax_preset(),

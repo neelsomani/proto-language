@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any, Literal, final
 
 import numpy as np
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import Constraint, Construct, Generator, Optimizer, Segment
@@ -75,7 +75,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         num_results (int | None): Parallel optimization trajectories.
         num_steps (int): Number of gradient steps.
         lr (float): Base learning rate.
-        initial_logit_bias (float): One-time logit bias at starting positions.
+        logit_bias (list[list[float]] | None): Per-position bias matrix ``(L, |vocab|)`` added to initial logits.
         soft_start (float): Soft blending at step 1 (0=hard, 1=softmax).
         soft_end (float): Soft blending at final step.
         temperature_start (float): Temperature at step 1.
@@ -95,7 +95,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         constraint_weight_schedules (list[ConstraintWeightSchedule] | None): Per-label
             weight schedules that override ``Constraint.weight`` each step.
         gumbel_logit_init (bool): If True, add Gumbel(0,1) noise per position on top of
-            the bias — gives parallel trajectories stochastic starts.
+            ``logit_bias`` — gives parallel trajectories stochastic starts.
         gumbel_init_alpha (float): Divisor for Gumbel init noise. ``1.0`` = unscaled.
 
     Note:
@@ -123,12 +123,12 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         title="Learning Rate",
         description="Base learning rate for gradient updates.",
     )
-    initial_logit_bias: float = ConfigField(
-        default=0.0,
-        ge=0.0,
-        title="Initial Logit Bias",
-        description="One-time logit bias at starting-sequence positions.",
+    logit_bias: list[list[float]] | None = ConfigField(
+        default=None,
+        title="Logit Bias Matrix",
+        description="Per-position logit bias matrix (L x |vocab|) added to initial logits.",
         advanced=True,
+        hidden=True,
     )
     soft_start: float = ConfigField(
         default=1.0,
@@ -189,7 +189,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     fixed_positions: list[int] | None = ConfigField(
         default=None,
         title="Fixed Positions",
-        description="Sequence positions to freeze. Pair with initial_logit_bias > 0 to anchor them.",
+        description="Sequence positions to freeze. Pair with logit_bias to anchor them at the desired AA.",
         advanced=True,
     )
     scale_lr_by_temperature: bool = ConfigField(
@@ -214,7 +214,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     gumbel_logit_init: bool = ConfigField(
         default=False,
         title="Gumbel Logit Init",
-        description="Add Gumbel(0,1) noise per position on top of the bias at init.",
+        description="Gumbel(0,1) noise at init; zeroed at fixed_positions; additive with logit_bias.",
         advanced=True,
     )
     gumbel_init_alpha: float = ConfigField(
@@ -224,6 +224,17 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         description="Divisor for Gumbel init noise. 1.0 = unscaled.",
         advanced=True,
     )
+
+    @field_validator("logit_bias")
+    @classmethod
+    def _validate_logit_bias(cls, v: list[list[float]] | None) -> list[list[float]] | None:
+        """Reject non-rectangular / non-numeric input; shape-vs-segment is checked in ``GradientOptimizer._validate_optimizer``."""
+        if v is not None:
+            try:
+                np.asarray(v, dtype=np.float64)
+            except ValueError as exc:
+                raise ValueError(f"logit_bias must be a rectangular 2-D matrix: {exc}") from exc
+        return v
 
     @classmethod
     def germinal_logit_preset(cls) -> "GradientOptimizerConfig":
@@ -298,6 +309,7 @@ class GradientOptimizer(Optimizer):
 
     def __init__(
         self,
+        target_segment: Segment,
         constructs: list[Construct],
         generators: list[Generator],
         constraints: list[Constraint],
@@ -308,6 +320,7 @@ class GradientOptimizer(Optimizer):
         """Initialize the gradient optimizer.
 
         Args:
+            target_segment (Segment): The specific Segment to optimize. Must belong to one of the constructs.
             constructs (list[Construct]): Constructs to optimize.
             generators (list[Generator]): Must contain exactly one PositionWeightGenerator.
             constraints (list[Constraint]): Must include at least one gradient-capable constraint.
@@ -319,10 +332,19 @@ class GradientOptimizer(Optimizer):
                               (List[str]) Restrict clearing cache to a list of tool names.
 
         Raises:
-            ValueError: If no gradient-capable constraints, generator validation fails,
+            ValueError: If the generator count/type is wrong, no gradient-capable constraints,
                 or a constraint's inputs do not include the target segment.
         """
+        if len(generators) != 1:
+            raise ValueError(f"GradientOptimizer requires exactly one generator, got {len(generators)}.")
+        generator = generators[0]
+        generator.assign(target_segment)
+
         self.config = config
+        self.target_segment: Segment = target_segment
+        self.generator: Generator = generator
+        self._gradient_constraints = [c for c in constraints if c.supports_gradient]
+
         super().__init__(
             constructs=constructs,
             generators=generators,
@@ -338,34 +360,7 @@ class GradientOptimizer(Optimizer):
         )
 
         self.num_steps: int = config.num_steps
-
-        # Extract gradient-capable constraints
-        self._gradient_constraints = [c for c in constraints if c.supports_gradient]
-        if not self._gradient_constraints:
-            raise ValueError("GradientOptimizer requires at least one gradient-capable constraint")
-
-        # Validate generator
-        pwg_generators = [g for g in generators if isinstance(g, PositionWeightGenerator)]
-        if len(pwg_generators) != 1:
-            raise ValueError(
-                f"GradientOptimizer requires exactly one PositionWeightGenerator, got {len(pwg_generators)}"
-            )
-        self._generator = pwg_generators[0]
-
-        # Validate fixed_positions are within the target segment's sequence length.
-        if config.fixed_positions:
-            seq_len = self._generator.segment.sequence_length
-            out_of_bounds = [p for p in config.fixed_positions if p < 0 or p >= seq_len]
-            if out_of_bounds:
-                raise ValueError(f"fixed_positions {out_of_bounds} out of bounds for segment length {seq_len}")
-
-        # Resolve which gradient index corresponds to the target segment in each constraint
-        target_seg = self._generator.segment
-        self._gradient_indices: list[int] = []
-        for c in self._gradient_constraints:
-            if target_seg not in c.inputs:
-                raise ValueError(f"Constraint '{c.label}' inputs do not include the target segment")
-            self._gradient_indices.append(c.inputs.index(target_seg))
+        self._gradient_indices: list[int] = [c.inputs.index(target_segment) for c in self._gradient_constraints]
 
         # Warn about non-gradient constraints that will be ignored
         skipped = [c.label for c in constraints if not c.supports_gradient]
@@ -385,6 +380,31 @@ class GradientOptimizer(Optimizer):
             else:
                 logger.warning(f"Unknown weight-schedule label '{e.constraint_label}'; ignored.")
 
+    def _validate_optimizer(self) -> None:
+        """Extend base validation with gradient-specific checks against the target segment."""
+        super()._validate_optimizer()
+        self._validate_target_segment(self.target_segment)
+
+        if not isinstance(self.generator, PositionWeightGenerator):
+            raise ValueError(
+                f"GradientOptimizer requires a PositionWeightGenerator, got {self.generator.__class__.__name__}."
+            )
+        if not self._gradient_constraints:
+            raise ValueError("GradientOptimizer requires at least one gradient-capable constraint.")
+
+        seq_len = self.target_segment.sequence_length
+        if self.config.fixed_positions:
+            out_of_bounds = [p for p in self.config.fixed_positions if p < 0 or p >= seq_len]
+            if out_of_bounds:
+                raise ValueError(f"fixed_positions {out_of_bounds} out of bounds for segment length {seq_len}.")
+
+        if self.config.logit_bias is not None:
+            expected = (seq_len, len(self.target_segment.ordered_vocab()))
+            row0 = self.config.logit_bias[0] if self.config.logit_bias else ()
+            actual = (len(self.config.logit_bias), len(row0))  # rectangularity validated upstream
+            if actual != expected:
+                raise ValueError(f"logit_bias shape {actual} does not match target segment {expected}.")
+
     def run(self) -> None:
         """Execute gradient optimization.
 
@@ -399,23 +419,25 @@ class GradientOptimizer(Optimizer):
         self._prepare_run()
         assert self.num_results is not None  # noqa: S101 -- mypy type narrowing
         assert self.num_proposals is not None  # noqa: S101 -- mypy type narrowing
-        target = self._generator.segment
+        target = self.target_segment
 
         vocab = target.ordered_vocab()
         init_rng = np.random.default_rng(self.config.seed) if self.config.gumbel_logit_init else None
+        logit_bias = (
+            np.asarray(self.config.logit_bias, dtype=np.float64) if self.config.logit_bias is not None else None
+        )
         for seq in target.proposal_sequences:
             if seq.logits is None:
                 seq.logits = _init_logits(
                     target.sequence_length,
-                    seq.sequence,
-                    self.config.initial_logit_bias,
-                    vocab,
+                    len(vocab),
+                    logit_bias=logit_bias,
                     rng=init_rng,
                     fixed_positions=self.config.fixed_positions,
                     gumbel_alpha=self.config.gumbel_init_alpha,
                 )
 
-        self._generator.sample()
+        self.generator.sample()
         self._proposal_outcomes = ["accepted"] * self.num_proposals
         self._proposal_energy_scores = list(self.energy_scores)
         self._sync_target_proposals_to_results(target)
@@ -462,7 +484,7 @@ class GradientOptimizer(Optimizer):
 
             # 6. At tracked steps: discretize, sync proposals→results, snapshot
             if step % self.tracking_interval == 0 or step == self.config.num_steps:
-                self._generator.sample()
+                self.generator.sample()
                 self._sync_target_proposals_to_results(target)
                 self._save_progress_snapshot(time_step=step)
                 self._log_progress(step, temp, lr)
@@ -548,23 +570,18 @@ class GradientOptimizer(Optimizer):
 
 def _init_logits(
     num_positions: int,
-    sequence: str,
-    bias: float,
-    vocab: list[str],
+    vocab_size: int,
     *,
+    logit_bias: np.ndarray | None = None,
     rng: np.random.Generator | None = None,
     fixed_positions: list[int] | None = None,
     gumbel_alpha: float = 1.0,
 ) -> np.ndarray:
-    """Return ``(num_positions, len(vocab))`` logits; ``sequence`` may be empty and only drives the bias.
-
-    When ``rng`` is provided, Gumbel(0,1) noise (divided by ``gumbel_alpha``) is added per position
-    so parallel trajectories diverge. Noise is skipped at ``fixed_positions``.
-    """
-    shape = (num_positions, len(vocab))
+    """Build ``(num_positions, vocab_size)`` initial logits: optional Gumbel noise, zeroed at ``fixed_positions``, plus ``logit_bias``."""
+    shape = (num_positions, vocab_size)
     logits = rng.gumbel(size=shape) / gumbel_alpha if rng is not None else np.zeros(shape, dtype=np.float64)
     if fixed_positions:
         logits[fixed_positions] = 0.0
-    for pos, char in enumerate(sequence[:num_positions]):
-        logits[pos, vocab.index(char)] += bias
+    if logit_bias is not None:
+        logits = logits + logit_bias  # shape validated upstream in GradientOptimizer.__init__
     return logits

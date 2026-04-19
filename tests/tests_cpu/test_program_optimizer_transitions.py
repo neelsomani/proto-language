@@ -599,7 +599,6 @@ _protein_scorer._constraint_num_input_sequences_per_tuple = 1  # type: ignore[at
 def create_gradient_optimizer(construct, segment, num_results=3, num_steps=5):
     """Create a GradientOptimizer with mock backward on a protein segment."""
     gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
-    gen.assign(segment)
     constraint = Constraint(
         inputs=[segment],
         backward=_grad_backward,
@@ -609,6 +608,7 @@ def create_gradient_optimizer(construct, segment, num_results=3, num_steps=5):
         label="mock_grad",
     )
     return GradientOptimizer(
+        target_segment=segment,
         constructs=[construct],
         generators=[gen],
         constraints=[constraint],

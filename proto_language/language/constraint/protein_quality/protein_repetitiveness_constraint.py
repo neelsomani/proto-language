@@ -7,7 +7,7 @@ import numpy as np
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
-from proto_language.utils import MAX_ENERGY, MIN_ENERGY
+from proto_language.utils import MAX_ENERGY
 
 
 class ProteinRepetitivenessConfig(BaseConfig):
@@ -125,12 +125,14 @@ def protein_repetitiveness_constraint(
     repetitiveness_scores = np.array(
         [_calculate_repetitiveness_score(s, config.min_repeat_length) for s in seq_strings]
     )
-    excess = repetitiveness_scores - config.max_repetitiveness
-    scores = np.where(
-        repetitiveness_scores <= config.max_repetitiveness,
-        MIN_ENERGY,
-        np.minimum(MAX_ENERGY, excess / (1.0 - config.max_repetitiveness)),
-    )
+    scores = np.zeros_like(repetitiveness_scores, dtype=float)
+    above_threshold = repetitiveness_scores > config.max_repetitiveness
+    if np.any(above_threshold):
+        if config.max_repetitiveness < 1.0:
+            excess = repetitiveness_scores[above_threshold] - config.max_repetitiveness
+            scores[above_threshold] = np.minimum(MAX_ENERGY, excess / (1.0 - config.max_repetitiveness))
+        else:
+            scores[above_threshold] = MAX_ENERGY
 
     for i, (input_sequence,) in enumerate(input_sequences):
         input_sequence._metadata["repetitiveness_score"] = float(repetitiveness_scores[i])

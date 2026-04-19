@@ -38,7 +38,7 @@ class TestProteinLengthConstraint:
         )
 
         score = constraint.evaluate()[0]
-        assert score > 0.0
+        assert score == pytest.approx(0.5)
         constraints = segment.proposal_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 5
 
@@ -54,7 +54,7 @@ class TestProteinLengthConstraint:
         )
 
         score = constraint.evaluate()[0]
-        assert score > 0.0
+        assert score == 1.0
         constraints = segment.proposal_sequences[0]._constraints_metadata
         assert constraints["protein_length_constraint"]["data"]["protein_length"] == 100
 
@@ -69,3 +69,8 @@ class TestProteinLengthConstraint:
                 function=protein_length_constraint,
                 function_config=config,
             )
+
+    def test_invalid_length_range(self):
+        """Test that min_length > max_length is rejected by config validation."""
+        with pytest.raises(ValueError, match="min_length \\(50\\) must be <= max_length \\(10\\)"):
+            ProteinLengthConfig(min_length=50, max_length=10)

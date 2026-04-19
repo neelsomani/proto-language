@@ -511,7 +511,7 @@ def rna_feature_similarity_constraint(
 ) -> list[float]:
     """Construct 10-dim feature vectors and compare using cosine similarity.
 
-    Returns 1 - similarity (so 0 is perfect match, 1 is worst).
+    Returns (1 - similarity) / 2, scaling cosine similarity from [-1, 1] to [0, 1].
 
     Args:
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
@@ -556,7 +556,7 @@ def rna_feature_similarity_constraint(
             }
         )
 
-        scores.append(1.0 - similarity)
+        scores.append((1.0 - similarity) / 2.0)
 
     return scores
 

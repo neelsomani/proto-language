@@ -42,34 +42,37 @@ def _evaluate(segment, config, mock_return):
 
 class TestPromoterStrengthConstraint:
     @pytest.mark.parametrize(
-        "dG, lo, hi",
+        "dG, expected",
         [
-            (0.5, 1.0, 1.0),  # positive dG
-            (-1.0, 1.0, 1.0),  # weak (above -1.5 threshold)
-            (-2.0, 0.5, 1.0),  # moderate (-1.5 to -3.0)
-            (-4.0, 0.0, 0.5),  # strong (below -3.0)
-            (-10.0, 0.0, 0.0),  # very strong, clamped to 0.0
+            (0.5, 1.0),  # positive dG
+            (-1.0, 1.0),  # weak (above -1.5 threshold)
+            (-2.0, 5 / 6),  # moderate (-1.5 to -3.0)
+            (-4.0, 0.375),  # strong (below -3.0)
+            (-10.0, 0.0),  # very strong, clamped to 0.0
         ],
     )
-    def test_dG_scoring(self, dG, lo, hi):
+    def test_dG_scoring(self, dG, expected):
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         config = PromoterStrengthConfig(scoring_type="dG")
         scores, _ = _evaluate(segment, config, [_mock_result(dG_total=dG)])
-        assert lo <= scores[0] <= hi
+        assert scores[0] == pytest.approx(expected)
 
     @pytest.mark.parametrize(
-        "tx_rate, lo, hi",
+        "tx_rate, expected",
         [
-            (1000.0, 1.0, 1.0),  # weak (below 3000)
-            (8000.0, 0.0, 1.0),  # moderate (3000-10000)
-            (30000.0, 0.0, 0.5),  # strong (above 20000)
+            (1000.0, 1.0),  # weak (below 3000)
+            (3000.0, 1.0),  # lower moderate boundary
+            (8000.0, 0.6428571428571428),  # moderate (3000-10000)
+            (10000.0, 0.5),  # upper moderate boundary
+            (20000.0, 0.0),  # upper strong boundary
+            (30000.0, 0.0),  # clamped to zero above 20000
         ],
     )
-    def test_tx_rate_scoring(self, tx_rate, lo, hi):
+    def test_tx_rate_scoring(self, tx_rate, expected):
         segment = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         config = PromoterStrengthConfig(scoring_type="tx_rate")
         scores, _ = _evaluate(segment, config, [_mock_result(Tx_rate=tx_rate)])
-        assert lo <= scores[0] <= hi
+        assert scores[0] == pytest.approx(expected)
 
     @pytest.mark.parametrize("return_value", [[], None])
     def test_no_promoter_found(self, return_value):
@@ -109,7 +112,7 @@ class TestPromoterStrengthConstraint:
         # Mixed strands -> uses only plus (dG=-2.0, moderate)
         segment2 = Segment(sequence="ATCGATCGATCG", sequence_type="dna")
         scores, _ = _evaluate(segment2, config, [plus, minus])
-        assert 0.5 < scores[0] < 1.0
+        assert scores[0] == pytest.approx(5 / 6)
 
     def test_add_context(self):
         """add_context pads with flanking 'A' nucleotides."""

@@ -78,10 +78,6 @@ class ProteinQualitySubConfig(BaseConfig):
             residues identified as low-complexity by segmasker. Valid range: 0.0-1.0.
             Lower values enforce stricter complexity requirements. Default: 0.2.
             Advanced parameter.
-        complexity_segmasker_path (str): Path to the segmasker executable for
-            low-complexity analysis. Can be an absolute path or a command name
-            if segmasker is in PATH. Default: "segmasker" (assumes it's in PATH).
-            Hidden parameter.
         enable_repetitiveness (bool): Toggle to include k-mer repetitiveness
             constraint. When True, analyzes the sequence for repeated k-mer
             patterns and penalizes sequences with excessive repetition. Checks
@@ -163,14 +159,6 @@ class ProteinQualitySubConfig(BaseConfig):
         advanced=True,
         depends_on={"field": "enable_complexity"},
     )
-    complexity_segmasker_path: str = ConfigField(
-        default="segmasker",
-        title="Segmasker Path",
-        description="Path to the segmasker executable for the complexity check.",
-        hidden=True,
-        depends_on={"field": "enable_complexity"},
-    )
-
     enable_repetitiveness: bool = ConfigField(
         default=False,
         title="Enable Repetitiveness Constraint",
@@ -251,10 +239,7 @@ class ProteinQualitySubConfig(BaseConfig):
         """Build the ProteinComplexityConfig if enabled."""
         if not self.enable_complexity:
             return None
-        return ProteinComplexityConfig(
-            max_low_complexity=self.complexity_max_low_complexity,
-            segmasker_path=self.complexity_segmasker_path,
-        )
+        return ProteinComplexityConfig(max_low_complexity=self.complexity_max_low_complexity)
 
     def get_repetitiveness_config(self) -> ProteinRepetitivenessConfig | None:
         """Build the ProteinRepetitivenessConfig if enabled."""
@@ -411,9 +396,6 @@ def overall_protein_quality_constraint(
               detection.
             - ``complexity_max_low_complexity`` (float): Maximum acceptable fraction
               of low-complexity residues (0.0-1.0, default: 0.2).
-            - ``complexity_segmasker_path`` (str): Path to segmasker executable
-              (default: "segmasker").
-
             **Repetitiveness constraint (optional):**
             - ``enable_repetitiveness`` (bool): Toggle for k-mer repetitiveness
               constraint.

@@ -961,20 +961,11 @@ class TestBuiltinConstraints:
         """Test constraints with optional config parameters."""
         segment = Segment(sequence="MVLSPADKTN", sequence_type="protein")
 
-        # protein-complexity has optional segmasker_path
-        # Should work with defaults
+        # protein-complexity should work with its default config
         constraint = ConstraintRegistry.create(
             key="protein-complexity", segments=[segment], config_dict={"max_low_complexity": 0.3}
         )
         assert constraint.function_config.max_low_complexity == 0.3
-
-        # Should also work with custom path
-        constraint_custom = ConstraintRegistry.create(
-            key="protein-complexity",
-            segments=[segment],
-            config_dict={"max_low_complexity": 0.3, "segmasker_path": "/custom/path"},
-        )
-        assert constraint_custom.function_config.segmasker_path == "/custom/path"
 
     def test_config_validation_with_constraints(self):
         """Test that Pydantic validators work through registry."""

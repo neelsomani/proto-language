@@ -54,17 +54,13 @@ class TestProteinComplexityConstraint:
             )
 
             scores = constraint.evaluate()
-            assert abs(scores[0] - expected_score) < 0.01
+            assert scores[0] == pytest.approx(expected_score)
 
             # Check constraint-specific metadata fields
             constraints = segment.proposal_sequences[0]._constraints_metadata
             assert "low_complexity_fraction" in constraints["protein_complexity_constraint"]["data"]
-            assert (
-                abs(
-                    constraints["protein_complexity_constraint"]["data"]["low_complexity_fraction"]
-                    - low_complexity_fraction
-                )
-                < 1e-9
+            assert constraints["protein_complexity_constraint"]["data"]["low_complexity_fraction"] == pytest.approx(
+                low_complexity_fraction
             )
 
     def test_segmasker_error_handling(self):

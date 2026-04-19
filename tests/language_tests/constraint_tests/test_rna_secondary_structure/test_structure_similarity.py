@@ -1,7 +1,11 @@
 """All tests call ViennaRNA via ToolInstance (requires micromamba)."""
 
+import numpy as np
 import pytest
 
+from proto_language.language.constraint.rna_secondary_structure import (
+    structure_similarity_constraint as structure_similarity_module,
+)
 from proto_language.language.constraint.rna_secondary_structure.structure_similarity_constraint import (
     RNABasePairSimilarityConfig,
     RNAFeatureSimilarityConfig,
@@ -154,3 +158,28 @@ class TestBatchedConstraints:
         )
         assert len(scores) == 3
         assert scores[0] < scores[2]  # Perfect match < different sequence
+
+
+def test_rna_feature_similarity_scales_anticorrelated_vectors_to_one(monkeypatch):
+    """Anti-correlated feature vectors should map to the worst valid score."""
+
+    def fake_fold_sequences(sequences, temperature=37.0):
+        if sequences == [HAIRPIN_SEQ]:
+            return [("reference", -1.0)]
+        return [("candidate", 1.0)]
+
+    def fake_extract_structure_features(structure, mfe):
+        if structure == "reference":
+            return np.array([1.0, 0.0])
+        return np.array([-1.0, 0.0])
+
+    monkeypatch.setattr(structure_similarity_module, "_fold_sequences", fake_fold_sequences)
+    monkeypatch.setattr(structure_similarity_module, "_extract_structure_features", fake_extract_structure_features)
+
+    config = RNAFeatureSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
+    score = rna_feature_similarity_constraint(
+        [(Sequence(DIFFERENT_SEQ, "rna"),)],
+        config,
+    )[0]
+
+    assert score == 1.0

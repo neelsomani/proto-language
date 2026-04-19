@@ -233,9 +233,9 @@ def promoter_strength_constraint(
             if tx_rate < 3000.0:
                 penalty = 1.0
             elif tx_rate <= 10000.0:
-                penalty = 1.0 - 0.5 * ((tx_rate - 1000.0) / (10000.0 - 3000.0))
+                penalty = 1.0 - 0.5 * ((tx_rate - 3000.0) / (10000.0 - 3000.0))
             else:
-                penalty = 0.5 - min((tx_rate - 20000.0) / 20000.0 * 0.5, 0.5)
+                penalty = 0.5 - 0.5 * min((tx_rate - 10000.0) / (20000.0 - 10000.0), 1.0)
                 penalty = max(0.0, penalty)
 
             # Store metadata

@@ -26,17 +26,6 @@ class ProteinComplexityConfig(BaseConfig):
             amino acid compositions. Typical values range from 0.1 (strict, allows
             up to 20% low-complexity) to 0.3 (lenient, allows up to 30%). Default: 0.3.
 
-        segmasker_path (str): Path to NCBI segmasker executable for detecting
-            low-complexity regions. Must be installed separately from NCBI BLAST+
-            toolkit. If segmasker is in your system PATH, use default "segmasker".
-            Otherwise, provide full path like "/usr/local/bin/segmasker".
-            Default: "segmasker".
-
-    Note:
-        To-do: Currently Segmasker must be installed separately. For client
-        applicability might be good to incorporate this into a venv.
-        Install via NCBI BLAST+ toolkit:
-        https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/
     """
 
     # Required parameter
@@ -47,14 +36,6 @@ class ProteinComplexityConfig(BaseConfig):
         le=1.0,
         description="Maximum acceptable fraction of low-complexity regions (repetitive/biased amino acid compositions)",
         examples=[0.1, 0.3],
-    )
-
-    # Optional parameter
-    segmasker_path: str = ConfigField(
-        title="Segmasker Path",
-        default="segmasker",
-        description="Path to NCBI segmasker executable for detecting low-complexity regions.",  # Must be installed separately.
-        hidden=True,
     )
 
 
@@ -89,8 +70,7 @@ def protein_complexity_constraint(
 
         config (ProteinComplexityConfig): Configuration object containing
             ``max_low_complexity`` (maximum acceptable low-complexity fraction,
-            default: 0.3) and ``segmasker_path`` (path to segmasker executable,
-            default: "segmasker").
+            default: 0.3).
 
     Returns:
         List[float]: Constraint scores for each sequence, where 0.0 indicates
@@ -119,7 +99,7 @@ def protein_complexity_constraint(
         Evaluating protein complexity:
 
         >>> from proto_language.language.core import Sequence, SequenceType
-        >>> config = ProteinComplexityConfig(max_low_complexity=0.3, segmasker_path="segmasker")
+        >>> config = ProteinComplexityConfig(max_low_complexity=0.3)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
         >>> scores = protein_complexity_constraint([(seq,)], config)
         >>> print(scores[0])  # 0.0 if low-complexity < 30%

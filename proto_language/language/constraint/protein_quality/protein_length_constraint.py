@@ -1,5 +1,7 @@
 """Protein length constraint function."""
 
+from pydantic import model_validator
+
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
@@ -40,6 +42,13 @@ class ProteinLengthConfig(BaseConfig):
         gt=0,
         description="Maximum acceptable protein length above which sequences are penalized",
     )
+
+    @model_validator(mode="after")
+    def validate_length_range(self) -> "ProteinLengthConfig":
+        """Ensure min_length <= max_length."""
+        if self.min_length > self.max_length:
+            raise ValueError(f"min_length ({self.min_length}) must be <= max_length ({self.max_length})")
+        return self
 
 
 @constraint(

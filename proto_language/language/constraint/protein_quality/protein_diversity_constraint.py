@@ -5,7 +5,7 @@ import numpy as np
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import Sequence
-from proto_language.utils import MAX_ENERGY, MIN_ENERGY
+from proto_language.utils import MAX_ENERGY
 
 
 class ProteinDiversityConfig(BaseConfig):
@@ -112,11 +112,11 @@ def protein_diversity_constraint(
     unique_aa_counts = np.array([len(set(s)) for s in seq_strings])
     diversity_scores = unique_aa_counts / 20.0  # 20 standard amino acids
 
-    deficits = config.min_diversity - diversity_scores
-
-    scores_array = np.where(
-        diversity_scores >= config.min_diversity, MIN_ENERGY, np.minimum(MAX_ENERGY, deficits / config.min_diversity)
-    )
+    scores_array = np.zeros_like(diversity_scores, dtype=float)
+    if config.min_diversity > 0.0:
+        deficits = config.min_diversity - diversity_scores
+        below_threshold = diversity_scores < config.min_diversity
+        scores_array[below_threshold] = np.minimum(MAX_ENERGY, deficits[below_threshold] / config.min_diversity)
 
     # Store metadata
     for i, (input_sequence,) in enumerate(input_sequences):

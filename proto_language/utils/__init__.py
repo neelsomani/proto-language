@@ -39,6 +39,7 @@ from proto_language.utils.helpers import (
     mask_assigned_positions,
     mask_k,
     mask_p,
+    mean_peak_probability,
     one_hot_protein_logits,
     resolve_sequence_ids,
     run_subprocess_command,
@@ -75,6 +76,7 @@ __all__ = [
     "softmax",
     "inverse_sigmoid_score",
     "one_hot_protein_logits",
+    "mean_peak_probability",
     # Tool utilities
     "mask_k",
     "mask_p",

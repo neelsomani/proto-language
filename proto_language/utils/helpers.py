@@ -152,6 +152,12 @@ def softmax(matrix: np.ndarray) -> np.ndarray:
     return result
 
 
+def mean_peak_probability(matrix: np.ndarray, positions: list[int] | None = None) -> float:
+    """Return the mean per-row peak probability, optionally restricted to ``positions``."""
+    rows = matrix if positions is None else matrix[positions]
+    return float(np.mean(np.max(rows, axis=-1)))
+
+
 def sigmoid_score(
     metric: float,
     inflection: float,

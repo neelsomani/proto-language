@@ -3,11 +3,12 @@
 from typing import Literal, final
 
 import numpy as np
+from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator
 from proto_language.language.generator.generator_registry import generator
-from proto_language.utils import softmax
+from proto_language.utils import mean_peak_probability, softmax
 
 
 class PositionWeightGeneratorConfig(BaseConfig):
@@ -22,6 +23,10 @@ class PositionWeightGeneratorConfig(BaseConfig):
             most likely token at each position or sample stochastically from the
             per-position distribution.
         temperature (float): Softmax temperature applied to logits in ``sample()``.
+        entropy_positions (list[int] | None): Zero-based positions to include
+            when computing the ``mean_peak_probability`` metric (mean per-position
+            peak probability). ``None`` = all positions. Segment-length bounds
+            are checked at ``sample()`` time (config doesn't know the segment).
     """
 
     sampling_mode: Literal["argmax", "categorical"] = ConfigField(
@@ -36,6 +41,25 @@ class PositionWeightGeneratorConfig(BaseConfig):
         description="Softmax temperature used when logits are provided.",
         advanced=True,
     )
+    entropy_positions: list[int] | None = ConfigField(
+        default=None,
+        title="Entropy Positions",
+        description="Positions to average over when computing mean_peak_probability. None = all.",
+        advanced=True,
+    )
+
+    @field_validator("entropy_positions")
+    @classmethod
+    def _check_entropy_positions(cls, value: list[int] | None) -> list[int] | None:
+        """Reject empty lists + negative indices at config time; segment bounds are checked at sample()."""
+        if value is None:
+            return value
+        if not value:
+            raise ValueError("entropy_positions must be None or non-empty; got [].")
+        negative = [p for p in value if p < 0]
+        if negative:
+            raise ValueError(f"entropy_positions must be non-negative; got {negative}.")
+        return value
 
 
 @generator(
@@ -63,6 +87,8 @@ class PositionWeightGenerator(Generator):
         config (PositionWeightGeneratorConfig): Generator configuration.
         sampling_mode (Literal["argmax", "categorical"]): Decoding strategy.
         temperature (float): Softmax temperature for logits.
+        entropy_positions (list[int] | None): Rows included when computing
+            ``mean_peak_probability`` on each proposal's metadata. ``None`` = all.
 
     Example:
         >>> segment = Segment(sequence="ACGT", sequence_type="dna")
@@ -80,19 +106,31 @@ class PositionWeightGenerator(Generator):
         self.config = config
         self.sampling_mode = config.sampling_mode
         self.temperature = config.temperature
+        self.entropy_positions = config.entropy_positions
 
     def sample(self) -> None:
         """Decode discrete sequences from ``seq.logits`` on each proposal.
 
         Reads ``.logits`` from each proposal sequence, applies softmax at the
         configured temperature, and writes the decoded string to ``.sequence``.
+        Also stashes ``mean_peak_probability`` (mean per-position peak probability,
+        optionally restricted to ``entropy_positions``, computed on the
+        temperature-scaled softmax; duplicates in ``entropy_positions`` double-count)
+        onto ``proposal._metadata`` so entropy-based gates can read it without
+        re-running the softmax.
 
         Raises:
             RuntimeError: If called before ``assign()`` or if a proposal has no logits.
-            ValueError: If logits shape or contents are invalid.
+            ValueError: If logits shape or contents are invalid, or ``entropy_positions``
+                references an out-of-range index.
         """
         self._validate_generator()
         vocab = self.segment.ordered_vocab()
+        seq_len = self.segment.sequence_length
+        if self.entropy_positions is not None:
+            out_of_range = [p for p in self.entropy_positions if p >= seq_len]
+            if out_of_range:
+                raise ValueError(f"entropy_positions {out_of_range} are >= sequence_length ({seq_len}).")
 
         rng = np.random.default_rng(self._next_seed()) if self.sampling_mode == "categorical" else None
 
@@ -105,6 +143,7 @@ class PositionWeightGenerator(Generator):
             else:
                 assert rng is not None  # noqa: S101 -- categorical branch always sets rng
                 proposal.sequence = self._decode_categorical(matrix, vocab, rng)
+            proposal._metadata["mean_peak_probability"] = mean_peak_probability(matrix, self.entropy_positions)
 
     def _prepare_matrix(self, *, logits: np.ndarray, vocab_size: int) -> np.ndarray:
         """Validate logits and convert to a probability matrix via softmax."""

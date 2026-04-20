@@ -80,9 +80,11 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         logit_bias (list[list[float]] | None): Per-position bias matrix ``(L, |vocab|)`` added to initial logits.
         soft_start (float): Soft blending at step 1 (0=hard, 1=softmax).
         soft_end (float): Soft blending at final step.
-        temperature_start (float): Temperature at step 1.
+        temperature_start (float): Temperature at step 1. Both schedules interpolate
+            between this and ``temperature_end``; they differ only in curve shape.
         temperature_end (float): Temperature at final step.
-        schedule (ScheduleName): Temperature decay schedule.
+        softmax_schedule (ScheduleName): Softmax sharpening schedule for constraints.
+        lr_schedule (ScheduleName): Learning rate decay schedule.
         merger (GradientMergerName): Gradient merging strategy.
         norm_alignment (Literal["none", "unit", "match_first"]): Per-constraint
             gradient normalization before merging.
@@ -160,10 +162,15 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         title="Temperature End",
         description="Softmax temperature at final step.",
     )
-    schedule: ScheduleName = ConfigField(
+    softmax_schedule: ScheduleName = ConfigField(
         default="constant",
-        title="Temperature Schedule",
-        description="Temperature decay schedule across steps.",
+        title="Softmax Schedule",
+        description="Softmax sharpening schedule for constraints.",
+    )
+    lr_schedule: ScheduleName = ConfigField(
+        default="constant",
+        title="LR Schedule",
+        description="Learning rate decay schedule.",
     )
     merger: GradientMergerName = ConfigField(
         default="weighted_sum",
@@ -253,7 +260,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
             soft_end=1.0,
             temperature_start=1.0,
             temperature_end=1.0,
-            schedule="constant",
+            softmax_schedule="constant",
+            lr_schedule="constant",
             merger="pcgrad",
             norm_alignment="match_first",
             normalize_mode="sqrt_length",
@@ -277,7 +285,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
             soft_end=1.0,
             temperature_start=1.0,
             temperature_end=0.01,
-            schedule="quadratic",
+            softmax_schedule="quadratic",
+            lr_schedule="quadratic",
             merger="pcgrad",
             norm_alignment="match_first",
             normalize_mode="sqrt_length",
@@ -372,7 +381,8 @@ class GradientOptimizer(Optimizer):
 
         # Build merger and schedule
         self._merger = MERGERS[config.merger]()
-        self._temperature_schedule = SCHEDULES[config.schedule](config.temperature_start, config.temperature_end)
+        self._softmax_schedule = SCHEDULES[config.softmax_schedule](config.temperature_start, config.temperature_end)
+        self._lr_schedule = SCHEDULES[config.lr_schedule](config.temperature_start, config.temperature_end)
 
         # Missing labels warn (not error) so presets remain portable across constraint sets.
         known = {c.label for c in self._gradient_constraints}
@@ -458,8 +468,9 @@ class GradientOptimizer(Optimizer):
             # 1. Compute soft and temperature from linear/scheduled interpolation
             progress = step / self.config.num_steps
             soft = self.config.soft_start + (self.config.soft_end - self.config.soft_start) * progress
-            temp = self._temperature_schedule(step, self.config.num_steps)
-            lr = self._effective_lr(temp, soft)
+            temp = self._softmax_schedule(step, self.config.num_steps)
+            lr_temp = self._lr_schedule(step, self.config.num_steps)
+            lr = self._effective_lr(lr_temp, soft)
 
             # 2. Compute gradients from all gradient-capable constraints
             all_results = [c.compute_gradient(temperature=temp, soft=soft) for c in self._gradient_constraints]

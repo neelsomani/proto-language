@@ -103,7 +103,8 @@ class TestConfig:
         assert cfg.num_steps == 65 and cfg.lr == 0.1
         assert (cfg.soft_start, cfg.soft_end) == (0.0, 1.0)
         assert (cfg.temperature_start, cfg.temperature_end) == (1.0, 1.0)
-        assert cfg.schedule == "constant"
+        assert cfg.softmax_schedule == "constant"
+        assert cfg.lr_schedule == "constant"
         assert cfg.merger == "pcgrad"
         assert cfg.norm_alignment == "match_first"
         assert cfg.normalize_mode == "sqrt_length"
@@ -119,7 +120,8 @@ class TestConfig:
         assert cfg.num_steps == 35 and cfg.lr == 0.1
         assert (cfg.soft_start, cfg.soft_end) == (1.0, 1.0)
         assert (cfg.temperature_start, cfg.temperature_end) == (1.0, 0.01)
-        assert cfg.schedule == "quadratic"
+        assert cfg.softmax_schedule == "quadratic"
+        assert cfg.lr_schedule == "quadratic"
         assert cfg.merger == "pcgrad"
         assert cfg.norm_alignment == "match_first"
         assert cfg.normalize_mode == "sqrt_length"
@@ -178,7 +180,7 @@ class TestSchedules:
             soft_end=1.0,
             temperature_start=1.0,
             temperature_end=0.1,
-            schedule="linear",
+            softmax_schedule="linear",
         )
         opt.run()
         assert received_soft[0] == pytest.approx(0.25) and received_soft[-1] == pytest.approx(1.0)
@@ -195,7 +197,8 @@ class TestSchedules:
                 num_steps=5,
                 lr=1.0,
                 temperature_end=0.01,
-                schedule="quadratic",
+                softmax_schedule="quadratic",
+                lr_schedule="quadratic",
                 scale_lr_by_temperature=scale,
                 normalize_gradients=False,
             )
@@ -467,7 +470,9 @@ class TestMultiStage:
         seg = Segment(sequence="EVQLV", sequence_type="protein")
         construct = Construct([seg])
         opt1 = self._gradient_stage(seg, construct, "s1", soft_start=0.0, soft_end=1.0)
-        opt2 = self._gradient_stage(seg, construct, "s2", temperature_start=1.0, temperature_end=0.1, schedule="linear")
+        opt2 = self._gradient_stage(
+            seg, construct, "s2", temperature_start=1.0, temperature_end=0.1, softmax_schedule="linear"
+        )
 
         program = Program(optimizers=[opt1, opt2], num_results=1)
         program.run_stage(0)

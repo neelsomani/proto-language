@@ -1,15 +1,15 @@
-"""Run a Germinal-style PD-L1 nanobody redesign pipeline.
+"""Run a Germinal-style PD-L1 antibody redesign pipeline.
 
 By default this example stitches:
 
 - ``examples/germinal/pdbs/pdl1.pdb`` chain ``A`` as the PD-L1 target
-- ``examples/germinal/pdbs/nb.pdb`` chain ``A`` as the nanobody scaffold
+- ``examples/germinal/pdbs/nb.pdb`` chain ``A`` as the VHH scaffold
 - Companion Germinal-style YAML configs from ``examples/germinal/configs/``
 
 The program has three stages:
 
-1. Germinal logit phase (AF2 germinal backend + external AbLang gradient via PCGrad)
-2. Germinal softmax refinement (AF2 germinal backend + external AbLang gradient via PCGrad)
+1. Germinal logit phase (AF2 germinal backend + external AbLang gradient)
+2. Germinal softmax refinement (AF2 germinal backend + external AbLang gradient)
 3. pLDDT-weighted semigreedy MCMC refinement with forward AF2 + AbLang scoring
 
 The default step counts are intentionally small so the script doubles as a smoke
@@ -25,6 +25,7 @@ import logging
 import math
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +33,13 @@ from Bio.PDB import PDBIO, PDBParser, PPBuilder
 import numpy as np
 from Bio.PDB.Model import Model as BioModel
 from Bio.PDB.Structure import Structure as BioPDBStructure
+from proto_tools.entities.antibody import AntibodyLogits
 from proto_tools.entities.structures import Structure
+from proto_tools.tools.masked_models.ablang import (
+    AbLangGradientConfig,
+    AbLangGradientInput,
+    run_ablang_gradient,
+)
 from proto_tools.utils.device_manager import DeviceManager
 from proto_tools.utils.tool_pool import ToolPool
 import yaml
@@ -68,11 +75,16 @@ from proto_language.language.optimizer import (
     MCMCOptimizer,
     MCMCOptimizerConfig,
 )
+from proto_language.utils import one_hot_protein_logits
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TARGET_PDB = Path(__file__).resolve().parents[2] / "examples" / "germinal" / "pdbs" / "pdl1.pdb"
 DEFAULT_NANOBODY_TEMPLATE_PDB = Path(__file__).resolve().parents[2] / "examples" / "germinal" / "pdbs" / "nb.pdb"
+DEFAULT_VHH_CDR_LENGTHS = (11, 8, 18)
+DEFAULT_VHH_FRAMEWORK_LENGTHS = (25, 17, 38, 14)
+DEFAULT_SCFV_CDR_LENGTHS = (8, 8, 13, 6, 6, 9)
+DEFAULT_SCFV_FRAMEWORK_LENGTHS = (25, 17, 38, 52, 17, 33, 10)
 DEFAULT_PDL1_TARGET_HOTSPOT = "37,39,41,96,98"
 _HOTSPOT_TOKEN_RE = re.compile(r"^(?P<chain>[A-Za-z]+)?(?P<residue>\d+[A-Za-z]?)$")
 
@@ -91,19 +103,37 @@ YAML_LOSS_WEIGHT_MAP = {
 }
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(
+    *,
+    description: str | None = None,
+    default_config_yaml: Path | None = None,
+    default_target_pdb: Path = DEFAULT_TARGET_PDB,
+    default_binder_template_pdb: Path = DEFAULT_NANOBODY_TEMPLATE_PDB,
+    default_binder_type: str = "vhh",
+    default_cdr_lengths: tuple[int, ...] = DEFAULT_VHH_CDR_LENGTHS,
+    default_framework_lengths: tuple[int, ...] = DEFAULT_VHH_FRAMEWORK_LENGTHS,
+    default_vh_len: int | None = None,
+    default_vl_len: int | None = None,
+    default_vh_first: bool = True,
+) -> argparse.ArgumentParser:
     """Build the CLI parser."""
     parser = argparse.ArgumentParser(
-        description=__doc__,
+        description=description or __doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--config-yaml",
         type=Path,
-        default=None,
+        default=default_config_yaml,
         help="Optional Germinal-style YAML config to map onto the local PD-L1 runner.",
     )
-    parser.add_argument("--target-pdb", type=Path, default=DEFAULT_TARGET_PDB, help="Target PDB.")
+    parser.add_argument(
+        "--binder-type",
+        choices=["vhh", "scfv"],
+        default=default_binder_type,
+        help="Antibody binder format for the scaffold and external AbLang constraint.",
+    )
+    parser.add_argument("--target-pdb", type=Path, default=default_target_pdb, help="Target PDB.")
     parser.add_argument("--target-chain", default="A", help="Frozen target chain ID in --target-pdb.")
     parser.add_argument(
         "--target-hotspot",
@@ -111,15 +141,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated target hotspot residues for AF2 binder design, e.g. '37,39,41,96,98'.",
     )
     parser.add_argument(
+        "--binder-template-pdb",
         "--nanobody-template-pdb",
+        dest="binder_template_pdb",
         type=Path,
-        default=DEFAULT_NANOBODY_TEMPLATE_PDB,
-        help="Nanobody template/scaffold PDB.",
+        default=default_binder_template_pdb,
+        help="Binder template/scaffold PDB.",
     )
     parser.add_argument(
+        "--binder-template-chain",
         "--nanobody-template-chain",
+        dest="binder_template_chain",
         default="A",
-        help="Nanobody template chain ID inside --nanobody-template-pdb.",
+        help="Binder template chain ID inside --binder-template-pdb.",
     )
     parser.add_argument(
         "--binder-chain",
@@ -129,7 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--binder-sequence",
         default=None,
-        help="Optional starting binder sequence. Defaults to the sequence extracted from --nanobody-template-pdb.",
+        help="Optional starting binder sequence. Defaults to the sequence extracted from --binder-template-pdb.",
     )
     parser.add_argument(
         "--proto-home",
@@ -208,7 +242,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--allow-multiple-per-device",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="Allow AF2 and AbLang persistent workers to coexist on the same GPU.",
     )
     parser.add_argument(
@@ -222,33 +257,61 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cdr-lengths",
         type=int,
-        nargs=3,
-        default=(11, 8, 18),
-        metavar=("CDR1", "CDR2", "CDR3"),
-        help="VHH-style CDR lengths used to derive AF2 design positions.",
+        nargs="+",
+        default=default_cdr_lengths,
+        metavar="CDR_LEN",
+        help="Sequential CDR lengths used to derive AF2 design positions.",
     )
     parser.add_argument(
         "--framework-lengths",
         type=int,
-        nargs=4,
-        default=(25, 17, 38, 14),
-        metavar=("FW1", "FW2", "FW3", "FW4"),
-        help="Framework lengths paired with --cdr-lengths to derive AF2 design positions.",
+        nargs="+",
+        default=default_framework_lengths,
+        metavar="FW_LEN",
+        help="Sequential framework lengths paired with --cdr-lengths to derive AF2 design positions.",
+    )
+    parser.add_argument(
+        "--vh-len",
+        type=int,
+        default=default_vh_len,
+        help="scFv-only: VH domain length used to split the single-chain scaffold for AbLang.",
+    )
+    parser.add_argument(
+        "--vl-len",
+        type=int,
+        default=default_vl_len,
+        help="scFv-only: VL domain length used to split the single-chain scaffold for AbLang.",
+    )
+    parser.add_argument(
+        "--vh-first",
+        action=argparse.BooleanOptionalAction,
+        default=default_vh_first,
+        help="scFv-only: whether the single-chain scaffold is ordered VH-linker-VL.",
     )
     parser.add_argument("--seed", type=int, default=7, help="Program/tool seed.")
     parser.add_argument("--verbose", action="store_true", help="Enable optimizer-level verbose logging.")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging.")
-    parser.add_argument("--dry-run", action="store_true", help="Build the program and print the config without running.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Build the program and print the config without running."
+    )
     return parser
 
 
 def _parser_defaults(parser: argparse.ArgumentParser) -> dict[str, Any]:
     """Return parser defaults keyed by destination."""
-    return {
-        action.dest: action.default
-        for action in parser._actions
-        if action.dest is not argparse.SUPPRESS
-    }
+    return {action.dest: action.default for action in parser._actions if action.dest is not argparse.SUPPRESS}
+
+
+def normalize_binder_type(binder_type: str | None) -> str | None:
+    """Normalize binder type aliases to the local runner vocabulary."""
+    if binder_type is None:
+        return None
+    normalized = binder_type.strip().lower()
+    if normalized in {"vhh", "nb", "nanobody"}:
+        return "vhh"
+    if normalized == "scfv":
+        return "scfv"
+    raise ValueError(f"Unsupported binder type {binder_type!r}; expected one of: vhh, nb, nanobody, scfv.")
 
 
 def _apply_yaml_config(args: argparse.Namespace, parser: argparse.ArgumentParser) -> argparse.Namespace:
@@ -277,6 +340,7 @@ def _apply_yaml_config(args: argparse.Namespace, parser: argparse.ArgumentParser
             setattr(args, name, value)
             args.yaml_applied[name] = value
 
+    maybe_set("binder_type", normalize_binder_type(config.get("type")))
     maybe_set("logit_steps", config.get("logits_steps"))
     maybe_set("softmax_steps", config.get("softmax_steps"))
     maybe_set("mcmc_steps", config.get("search_steps"))
@@ -287,6 +351,9 @@ def _apply_yaml_config(args: argparse.Namespace, parser: argparse.ArgumentParser
     maybe_set("target_hotspot", normalize_target_hotspot(config.get("target_hotspots"), args.target_chain))
     maybe_set("cdr_lengths", tuple(config.get("cdr_lengths", [])) or None)
     maybe_set("framework_lengths", tuple(config.get("fw_lengths", [])) or None)
+    maybe_set("vh_len", config.get("vh_len"))
+    maybe_set("vl_len", config.get("vl_len"))
+    maybe_set("vh_first", config.get("vh_first"))
     maybe_set("semigreedy_temperature", config.get("sampling_temp"))
 
     if "ablm_model" in config:
@@ -342,10 +409,11 @@ def _apply_yaml_config(args: argparse.Namespace, parser: argparse.ArgumentParser
     return args
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(parser: argparse.ArgumentParser | None = None) -> argparse.Namespace:
     """Parse CLI arguments."""
-    parser = build_parser()
+    parser = parser or build_parser()
     args = _apply_yaml_config(parser.parse_args(), parser)
+    args.binder_type = normalize_binder_type(args.binder_type)
     args.target_hotspot = normalize_target_hotspot(args.target_hotspot, args.target_chain)
     return args
 
@@ -412,33 +480,98 @@ def build_target_segment(pdb_path: Path, target_chain: str) -> Segment:
     return target
 
 
-def build_vhh_design_positions(
-    cdr_lengths: tuple[int, int, int] | list[int],
-    framework_lengths: tuple[int, int, int, int] | list[int],
+def build_design_positions(
+    cdr_lengths: tuple[int, ...] | list[int],
+    framework_lengths: tuple[int, ...] | list[int],
     binder_length: int,
 ) -> tuple[list[int], list[int]]:
-    """Return zero-based CDR and framework positions from VHH length metadata."""
-    if len(cdr_lengths) != 3:
-        raise ValueError(f"Expected 3 CDR lengths, got {cdr_lengths}.")
-    if len(framework_lengths) != 4:
-        raise ValueError(f"Expected 4 framework lengths, got {framework_lengths}.")
+    """Return zero-based CDR and framework positions from alternating region lengths."""
+    if not cdr_lengths:
+        raise ValueError("cdr_lengths must be non-empty.")
+    if len(framework_lengths) != len(cdr_lengths) + 1:
+        raise ValueError(
+            f"Expected len(framework_lengths) == len(cdr_lengths) + 1, got {framework_lengths} vs {cdr_lengths}."
+        )
 
     cdr_positions: list[int] = []
     framework_positions: list[int] = []
     position = 0
-    for index, framework_length in enumerate(framework_lengths):
+    for index, cdr_length in enumerate(cdr_lengths):
+        framework_length = framework_lengths[index]
         framework_positions.extend(range(position, position + framework_length))
         position += framework_length
-        if index < len(cdr_lengths):
-            cdr_length = cdr_lengths[index]
-            cdr_positions.extend(range(position, position + cdr_length))
-            position += cdr_length
+        cdr_positions.extend(range(position, position + cdr_length))
+        position += cdr_length
+
+    framework_positions.extend(range(position, position + framework_lengths[-1]))
+    position += framework_lengths[-1]
 
     if position != binder_length:
         raise ValueError(
             f"CDR/framework lengths imply binder length {position}, but scaffold sequence length is {binder_length}."
         )
     return cdr_positions, framework_positions
+
+
+@dataclass(frozen=True)
+class SingleChainScFvLayout:
+    """Single-chain scFv sequence split used by the external AbLang constraint."""
+
+    binder_length: int
+    vh_len: int
+    vl_len: int
+    vh_first: bool
+
+    @property
+    def linker_len(self) -> int:
+        return self.binder_length - self.vh_len - self.vl_len
+
+    @property
+    def heavy_slice(self) -> slice:
+        return slice(0, self.vh_len) if self.vh_first else slice(self.binder_length - self.vh_len, self.binder_length)
+
+    @property
+    def light_slice(self) -> slice:
+        return slice(self.binder_length - self.vl_len, self.binder_length) if self.vh_first else slice(0, self.vl_len)
+
+    @property
+    def linker_slice(self) -> slice:
+        if self.vh_first:
+            return slice(self.vh_len, self.binder_length - self.vl_len)
+        return slice(self.vl_len, self.binder_length - self.vh_len)
+
+
+def validate_single_chain_scfv_layout(
+    binder_length: int,
+    cdr_positions: list[int],
+    *,
+    vh_len: int | None,
+    vl_len: int | None,
+    vh_first: bool,
+) -> SingleChainScFvLayout:
+    """Validate an scFv single-chain split against the scaffold and CDR positions."""
+    if vh_len is None or vl_len is None:
+        raise ValueError("scFv runs require both --vh-len and --vl-len (or YAML vh_len / vl_len).")
+    if vh_len <= 0 or vl_len <= 0:
+        raise ValueError(f"scFv domain lengths must be positive, got vh_len={vh_len}, vl_len={vl_len}.")
+    if vh_len + vl_len > binder_length:
+        raise ValueError(
+            f"scFv vh_len + vl_len = {vh_len + vl_len}, but scaffold sequence length is only {binder_length}."
+        )
+
+    layout = SingleChainScFvLayout(
+        binder_length=binder_length,
+        vh_len=vh_len,
+        vl_len=vl_len,
+        vh_first=vh_first,
+    )
+    linker_range = set(range(layout.linker_slice.start or 0, layout.linker_slice.stop or 0))
+    if linker_range.intersection(cdr_positions):
+        raise ValueError(
+            f"CDR positions {sorted(linker_range.intersection(cdr_positions))} overlap the scFv linker; "
+            "the CDR/framework YAML does not match the scaffold split."
+        )
+    return layout
 
 
 def _template_workspace(output_dir: Path | None) -> Path:
@@ -460,7 +593,7 @@ def stitch_template_complex(
     binder_chain: str,
     output_dir: Path | None,
 ) -> Path:
-    """Create a two-chain AF2 template from separate target and nanobody template inputs."""
+    """Create a two-chain AF2 template from separate target and binder template inputs."""
     if binder_chain == target_chain:
         raise ValueError("binder_chain must differ from target_chain when stitching the AF2 template.")
 
@@ -480,7 +613,7 @@ def stitch_template_complex(
     if target_chain not in target_model:
         raise ValueError(f"Target chain {target_chain!r} not found in {target_pdb_path}.")
     if binder_template_chain not in binder_model:
-        raise ValueError(f"Nanobody template chain {binder_template_chain!r} not found in {binder_template_pdb}.")
+        raise ValueError(f"Binder template chain {binder_template_chain!r} not found in {binder_template_pdb}.")
 
     stitched_structure = BioPDBStructure(output_path.stem)
     stitched_model = BioModel(0)
@@ -497,21 +630,30 @@ def stitch_template_complex(
     return output_path
 
 
-def resolve_template_inputs(args: argparse.Namespace) -> tuple[Path, str, list[int]]:
+def resolve_template_inputs(args: argparse.Namespace) -> tuple[Path, str, list[int], SingleChainScFvLayout | None]:
     """Resolve the stitched AF2 template PDB, binder seed sequence, and CDR design positions."""
     target_pdb_path = args.target_pdb.resolve()
-    binder_template_pdb = args.nanobody_template_pdb.resolve()
+    binder_template_pdb = args.binder_template_pdb.resolve()
     template_pdb_path = stitch_template_complex(
         target_pdb_path,
         target_chain=args.target_chain,
         binder_template_pdb=binder_template_pdb,
-        binder_template_chain=args.nanobody_template_chain,
+        binder_template_chain=args.binder_template_chain,
         binder_chain=args.binder_chain,
         output_dir=args.output_dir,
     )
-    binder_seed = args.binder_sequence or extract_chain_sequence(binder_template_pdb, args.nanobody_template_chain)
-    cdr_positions, _ = build_vhh_design_positions(args.cdr_lengths, args.framework_lengths, len(binder_seed))
-    return template_pdb_path, binder_seed, cdr_positions
+    binder_seed = args.binder_sequence or extract_chain_sequence(binder_template_pdb, args.binder_template_chain)
+    cdr_positions, _ = build_design_positions(args.cdr_lengths, args.framework_lengths, len(binder_seed))
+    scfv_layout = None
+    if args.binder_type == "scfv":
+        scfv_layout = validate_single_chain_scfv_layout(
+            len(binder_seed),
+            cdr_positions,
+            vh_len=args.vh_len,
+            vl_len=args.vl_len,
+            vh_first=args.vh_first,
+        )
+    return template_pdb_path, binder_seed, cdr_positions, scfv_layout
 
 
 def make_af2_config(
@@ -520,6 +662,7 @@ def make_af2_config(
     template_pdb: Path,
     starting_binder_seq: str | None,
     design_positions: list[int] | None,
+    hard: float = 0.0,
 ) -> AF2BinderConstraintConfig:
     """Create the AF2 germinal binder config used across stages."""
     config = AF2BinderConstraintConfig.germinal_vhh_preset(
@@ -532,6 +675,7 @@ def make_af2_config(
     config.sample_models = args.sample_models
     config.starting_binder_seq = starting_binder_seq
     config.design_positions = design_positions
+    config.hard = hard
     if args.loss_weights_override is not None:
         config.loss_weights = dict(args.loss_weights_override)
     if args.bias_redesign_override is not None:
@@ -650,7 +794,125 @@ def make_cdr_masked_ablang_backward(cdr_positions: list[int]) -> Any:
         )
 
     backward.__name__ = "ablang_vhh_cdr_gradient_backward"
+    backward._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
+    backward._constraint_num_input_sequences_per_tuple = 1  # type: ignore[attr-defined]
     return backward
+
+
+def _split_single_chain_scfv_logits(
+    logits: np.ndarray,
+    layout: SingleChainScFvLayout,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Split a full single-chain scFv logit matrix into VH and VL submatrices."""
+    full_logits = np.asarray(logits, dtype=np.float64)
+    return full_logits[layout.heavy_slice], full_logits[layout.light_slice]
+
+
+def _split_single_chain_scfv_sequence(
+    sequence: str,
+    layout: SingleChainScFvLayout,
+) -> tuple[str, str]:
+    """Split a full single-chain scFv sequence into VH and VL strings."""
+    return sequence[layout.heavy_slice], sequence[layout.light_slice]
+
+
+def make_single_chain_scfv_ablang_forward(layout: SingleChainScFvLayout) -> Any:
+    """Return a forward AbLang scorer for single-chain scFvs."""
+
+    def forward(
+        input_sequences: list[tuple[Sequence, ...]],
+        *,
+        config: AbLangConstraintConfig,
+    ) -> list[float]:
+        scores: list[float] = []
+        for (binder_seq,) in input_sequences:
+            vh_sequence, vl_sequence = _split_single_chain_scfv_sequence(binder_seq.sequence, layout)
+            output = run_ablang_gradient(
+                AbLangGradientInput(
+                    antibody=AntibodyLogits(
+                        heavy_chain=one_hot_protein_logits(vh_sequence),
+                        light_chain=one_hot_protein_logits(vl_sequence),
+                    ),
+                    temperature=config.temperature,
+                ),
+                AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=False, device=config.device),
+            )
+            binder_seq._metadata["ablang_log_likelihood"] = output.metrics["log_likelihood"]
+            binder_seq._metadata["ablang_loss"] = output.loss
+            scores.append(1.0 / (1.0 + math.exp(-output.loss)))
+        return scores
+
+    forward.__name__ = "ablang_scfv_single_chain_forward"
+    forward._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
+    forward._constraint_num_input_sequences_per_tuple = 1  # type: ignore[attr-defined]
+    return forward
+
+
+def make_cdr_masked_scfv_ablang_backward(
+    cdr_positions: list[int],
+    layout: SingleChainScFvLayout,
+) -> Any:
+    """Return a single-chain scFv AbLang backward wrapper with framework masking."""
+
+    cdr_index = np.asarray(sorted(set(cdr_positions)), dtype=int)
+
+    def backward(inputs: tuple[Sequence, ...], *, config: AbLangConstraintConfig, **kwargs: Any) -> Any:
+        binder_logits = inputs[0].logits
+        assert binder_logits is not None  # noqa: S101 -- input_labels slot check guarantees it
+        vh_logits, vl_logits = _split_single_chain_scfv_logits(binder_logits, layout)
+        output = run_ablang_gradient(
+            AbLangGradientInput(
+                antibody=AntibodyLogits(heavy_chain=vh_logits.tolist(), light_chain=vl_logits.tolist()),
+                temperature=config.temperature,
+            ),
+            AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
+        )
+        assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
+        gradient = np.zeros_like(binder_logits, dtype=np.float64)
+        raw_gradient = np.asarray(output.gradient, dtype=np.float64)
+        gradient[layout.heavy_slice] = raw_gradient[: layout.vh_len]
+        gradient[layout.light_slice] = raw_gradient[layout.vh_len :]
+        mask = np.zeros(gradient.shape[0], dtype=bool)
+        mask[cdr_index] = True
+        gradient[~mask] = 0.0
+        return GradientResult(gradient=(gradient,), loss=output.loss, metrics=output.metrics)
+
+    backward.__name__ = "ablang_scfv_single_chain_cdr_gradient_backward"
+    backward._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
+    backward._constraint_num_input_sequences_per_tuple = 1  # type: ignore[attr-defined]
+    return backward
+
+
+def build_ablang_constraint(
+    args: argparse.Namespace,
+    binder: Segment,
+    *,
+    cdr_positions: list[int],
+    scfv_layout: SingleChainScFvLayout | None,
+    weight: float,
+    include_backward: bool,
+) -> Constraint:
+    """Create the external AbLang constraint for either VHH or scFv binders."""
+    ablang_config = make_ablang_config(args)
+
+    if args.binder_type == "scfv":
+        if scfv_layout is None:
+            raise ValueError("scFv runs require a validated SingleChainScFvLayout.")
+        forward_fn = make_single_chain_scfv_ablang_forward(scfv_layout)
+        backward_fn = make_cdr_masked_scfv_ablang_backward(cdr_positions, scfv_layout) if include_backward else None
+    else:
+        forward_fn = ablang_vhh_forward
+        backward_fn = make_cdr_masked_ablang_backward(cdr_positions) if include_backward else None
+
+    return Constraint(
+        inputs=[binder],
+        function=forward_fn,
+        function_config=ablang_config,
+        backward=backward_fn,
+        backward_config=copy.deepcopy(ablang_config) if include_backward else None,
+        label="ablang",
+        weight=weight,
+    )
 
 
 def make_gradient_stage(
@@ -664,6 +926,7 @@ def make_gradient_stage(
     binder_seed: str,
     af2_starting_binder_seq: str | None,
     cdr_positions: list[int],
+    scfv_layout: SingleChainScFvLayout | None,
     ablang_weight: float = 1.0,
 ) -> GradientOptimizer:
     """Build one gradient-optimization stage."""
@@ -682,6 +945,7 @@ def make_gradient_stage(
             omit_aas=af2_config.omit_aas,
         ),
     )
+    generator.assign(binder)
     constraints = [
         Constraint(
             inputs=[binder, target],
@@ -691,19 +955,17 @@ def make_gradient_stage(
             backward_config=copy.deepcopy(af2_config),
             label="af2",
         ),
-        Constraint(
-            inputs=[binder],
-            function=ablang_vhh_forward,
-            function_config=make_ablang_config(args),
-            backward=make_cdr_masked_ablang_backward(cdr_positions),
-            backward_config=make_ablang_config(args),
-            label="ablang",
+        build_ablang_constraint(
+            args,
+            binder,
+            cdr_positions=cdr_positions,
+            scfv_layout=scfv_layout,
             weight=ablang_weight,
+            include_backward=True,
         ),
     ]
     optimizer_config.verbose = args.verbose
     return GradientOptimizer(
-        target_segment=binder,
         constructs=[construct],
         generators=[generator],
         constraints=constraints,
@@ -720,6 +982,7 @@ def make_semigreedy_stage(
     template_pdb: Path,
     binder_seed: str,
     cdr_positions: list[int],
+    scfv_layout: SingleChainScFvLayout | None,
 ) -> MCMCOptimizer:
     """Build the discrete semigreedy sampling stage."""
     af2_config = make_af2_config(
@@ -727,6 +990,7 @@ def make_semigreedy_stage(
         template_pdb=template_pdb,
         starting_binder_seq=None,
         design_positions=cdr_positions,
+        hard=1.0,
     )
     generator = SemigreedyMutationGenerator(
         SemigreedyMutationGeneratorConfig(
@@ -748,12 +1012,13 @@ def make_semigreedy_stage(
             function_config=af2_config,
             label="af2",
         ),
-        Constraint(
-            inputs=[binder],
-            function=ablang_vhh_forward,
-            function_config=make_ablang_config(args),
-            label="ablang",
+        build_ablang_constraint(
+            args,
+            binder,
+            cdr_positions=cdr_positions,
+            scfv_layout=scfv_layout,
             weight=args.ablang_weight,
+            include_backward=False,
         ),
     ]
     return MCMCOptimizer(
@@ -774,9 +1039,9 @@ def build_program(
     args: argparse.Namespace,
     *,
     compute: ToolPool | None = None,
-) -> tuple[Program, Segment, Segment, str, Path]:
+) -> tuple[Program, Segment, Segment, str, Path, SingleChainScFvLayout | None]:
     """Build the full three-stage PD-L1 redesign program."""
-    template_pdb_path, binder_seed, cdr_positions = resolve_template_inputs(args)
+    template_pdb_path, binder_seed, cdr_positions, scfv_layout = resolve_template_inputs(args)
     binder = Segment(sequence=binder_seed, sequence_type="protein", label="binder")
     target = build_target_segment(args.target_pdb.resolve(), args.target_chain)
     construct = Construct([binder, target])
@@ -796,6 +1061,7 @@ def build_program(
         binder_seed=binder_seed,
         af2_starting_binder_seq=binder_seed,
         cdr_positions=cdr_positions,
+        scfv_layout=scfv_layout,
     )
     stage2 = make_gradient_stage(
         construct,
@@ -807,6 +1073,7 @@ def build_program(
         binder_seed=binder_seed,
         af2_starting_binder_seq=None,
         cdr_positions=cdr_positions,
+        scfv_layout=scfv_layout,
         ablang_weight=0.4,
     )
     stage3 = make_semigreedy_stage(
@@ -817,6 +1084,7 @@ def build_program(
         template_pdb=template_pdb_path,
         binder_seed=binder_seed,
         cdr_positions=cdr_positions,
+        scfv_layout=scfv_layout,
     )
 
     program = Program(
@@ -825,7 +1093,7 @@ def build_program(
         compute=compute,
         seed=args.seed,
     )
-    return program, binder, target, binder_seed, template_pdb_path
+    return program, binder, target, binder_seed, template_pdb_path, scfv_layout
 
 
 def clone_args(args: argparse.Namespace, **updates: Any) -> argparse.Namespace:
@@ -909,7 +1177,9 @@ def export_sweep_results(output_dir: Path, summary: list[dict[str, Any]]) -> Non
         if candidate_binder_pdb is not None:
             source_binder_pdb = Path(candidate_binder_pdb)
             if source_binder_pdb.exists():
-                dest_binder_pdb = output_dir / f"candidate_{row_copy['rank']:02d}_seed_{row_copy['seed']:04d}_binder.pdb"
+                dest_binder_pdb = (
+                    output_dir / f"candidate_{row_copy['rank']:02d}_seed_{row_copy['seed']:04d}_binder.pdb"
+                )
                 dest_binder_pdb.write_text(source_binder_pdb.read_text())
                 row_copy["candidate_binder_pdb"] = str(dest_binder_pdb)
         fasta_lines.append(
@@ -922,24 +1192,39 @@ def export_sweep_results(output_dir: Path, summary: list[dict[str, Any]]) -> Non
     (output_dir / "candidates.fasta").write_text("\n".join(fasta_lines) + "\n")
 
 
-def log_run_configuration(args: argparse.Namespace, binder_seed: str, target: Segment, template_pdb_path: Path) -> None:
+def log_run_configuration(
+    args: argparse.Namespace,
+    binder_seed: str,
+    target: Segment,
+    template_pdb_path: Path,
+    scfv_layout: SingleChainScFvLayout | None,
+) -> None:
     """Log the resolved run configuration."""
     logger.info("Target PDB: %s (chain %s)", args.target_pdb.resolve(), args.target_chain)
     logger.info(
-        "Nanobody template PDB: %s (chain %s) -> binder chain %s",
-        args.nanobody_template_pdb.resolve(),
-        args.nanobody_template_chain,
+        "Binder template PDB: %s (chain %s) -> binder chain %s",
+        args.binder_template_pdb.resolve(),
+        args.binder_template_chain,
         args.binder_chain,
     )
     logger.info("AF2 template: %s", template_pdb_path.resolve())
     if args.config_yaml is not None:
         logger.info("Config YAML: %s", args.config_yaml.resolve())
     logger.info(
-        "Target length=%d | binder length=%d | target_hotspot=%s",
+        "Binder type=%s | target length=%d | binder length=%d | target_hotspot=%s",
+        args.binder_type,
         len(target.original_sequence.sequence),
         len(binder_seed),
         args.target_hotspot,
     )
+    if scfv_layout is not None:
+        logger.info(
+            "scFv split: vh_len=%d vl_len=%d linker_len=%d vh_first=%s",
+            scfv_layout.vh_len,
+            scfv_layout.vl_len,
+            scfv_layout.linker_len,
+            scfv_layout.vh_first,
+        )
     logger.info(
         "Stages: logit=%d softmax=%d semigreedy=%d | num_results=%d num_seeds=%d proposals_per_result=%d recycles=%d | ablang_temp=%.2f | ablang_device=%s | share_gpu=%s | seed=%d",
         args.logit_steps,
@@ -962,9 +1247,9 @@ def log_run_configuration(args: argparse.Namespace, binder_seed: str, target: Se
 
 def log_dry_run_configuration(args: argparse.Namespace) -> None:
     """Build the program once and log the resolved configuration without running it."""
-    preview_program, _, target, binder_seed, template_pdb_path = build_program(args)
+    preview_program, _, target, binder_seed, template_pdb_path, scfv_layout = build_program(args)
     del preview_program
-    log_run_configuration(args, binder_seed, target, template_pdb_path)
+    log_run_configuration(args, binder_seed, target, template_pdb_path, scfv_layout)
 
 
 def log_seed_sweep_configuration(args: argparse.Namespace, seeds: list[int]) -> None:
@@ -1008,9 +1293,9 @@ def run_single_seed(
     log_config: bool = True,
 ) -> list[dict[str, Any]]:
     """Execute one seed and return its ranked summary rows."""
-    program, binder, target, binder_seed, template_pdb_path = build_program(args, compute=compute)
+    program, binder, target, binder_seed, template_pdb_path, scfv_layout = build_program(args, compute=compute)
     if log_config:
-        log_run_configuration(args, binder_seed, target, template_pdb_path)
+        log_run_configuration(args, binder_seed, target, template_pdb_path, scfv_layout)
     program.run()
     summary = summarize_candidates(binder, program.energy_scores)
 
@@ -1033,15 +1318,14 @@ def run_single_seed(
     return summary
 
 
-def main() -> None:
+def main(parser: argparse.ArgumentParser | None = None) -> None:
     """Build and optionally run the program."""
-    args = parse_args()
+    args = parse_args(parser)
     configure_logging(args.debug)
 
     if args.proto_home is not None:
         os.environ["PROTO_HOME"] = str(args.proto_home.resolve())
-    if args.allow_multiple_per_device:
-        DeviceManager.get_instance().configure(allow_multiple_per_device=True)
+    DeviceManager.get_instance().configure(allow_multiple_per_device=args.allow_multiple_per_device)
     seed_values = build_seed_values(args)
 
     if len(seed_values) == 1:

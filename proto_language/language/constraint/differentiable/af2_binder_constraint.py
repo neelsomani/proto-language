@@ -42,6 +42,8 @@ class AF2BinderConstraintConfig(BaseConfig):
         intra_contact_cutoff (float): Distance cutoff for intra-molecular contacts.
         inter_contact_num (int): Inter-molecular contacts per residue.
         inter_contact_cutoff (float): Distance cutoff for inter-molecular contacts.
+        framework_contact_offset (float): Framework contact penalty offset in the
+            Germinal inter-chain contact loss. Germinal backend only.
         bias_redesign (float | None): Soft bias toward wildtype at non-design positions.
         sample_models (bool): Randomly sample AF2 model parameter sets each forward pass.
         backend (Literal["base", "germinal"]): ColabDesign backend.
@@ -122,6 +124,13 @@ class AF2BinderConstraintConfig(BaseConfig):
         advanced=True,
         description="Distance cutoff for inter contacts.",
     )
+    framework_contact_offset: float = ConfigField(
+        title="Framework Contact Offset",
+        default=1.0,
+        gt=0.0,
+        advanced=True,
+        description="Framework contact penalty offset in the Germinal i_con loss.",
+    )
     bias_redesign: float | None = ConfigField(
         title="Bias Redesign",
         default=None,
@@ -189,6 +198,8 @@ class AF2BinderConstraintConfig(BaseConfig):
             )
             if value is not None
         ]
+        if self.framework_contact_offset != 1.0:
+            offenders.append("framework_contact_offset")
         offenders.extend(f"loss_weights[{k!r}]" for k in sorted(_GERMINAL_ONLY_LOSS_KEYS & self.loss_weights.keys()))
         if offenders:
             raise ValueError(f"{offenders} require backend='germinal'; got {self.backend!r}.")
@@ -220,6 +231,7 @@ class AF2BinderConstraintConfig(BaseConfig):
             },
             omit_aas="C",
             bias_redesign=10.0,
+            framework_contact_offset=1.0,
             sample_models=True,
             backend="germinal",
         )
@@ -271,6 +283,7 @@ def af2_binder_backward(
             intra_contact_cutoff=config.intra_contact_cutoff,
             inter_contact_num=config.inter_contact_num,
             inter_contact_cutoff=config.inter_contact_cutoff,
+            framework_contact_offset=config.framework_contact_offset,
             bias_redesign=config.bias_redesign,
             sample_models=config.sample_models,
             backend=config.backend,
@@ -349,6 +362,7 @@ def af2_binder_forward(
                 intra_contact_cutoff=config.intra_contact_cutoff,
                 inter_contact_num=config.inter_contact_num,
                 inter_contact_cutoff=config.inter_contact_cutoff,
+                framework_contact_offset=config.framework_contact_offset,
                 bias_redesign=config.bias_redesign,
                 sample_models=config.sample_models,
                 backend=config.backend,

@@ -8,7 +8,7 @@ from proto_tools.tools.structure_prediction.alphafold2 import (
     AlphaFold2BinderInput,
     run_alphafold2_binder,
 )
-from pydantic import model_validator
+from pydantic import PrivateAttr, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
@@ -47,10 +47,9 @@ class AF2BinderConstraintConfig(BaseConfig):
         backend (Literal["base", "germinal"]): ColabDesign backend.
         starting_binder_seq (str | None): Warm-start binder AA sequence. Germinal
             backend only; length must match the binder segment.
-        seed (int | None): Seed forwarded to AF2 (ColabDesign ``set_seed``) for
-            per-call reproducibility — e.g. a per-trajectory seed in the Germinal
-            pipeline. Seeds both the JAX PRNGKey (recycle / Gumbel / uniform noise)
-            and the ``np.random.choice(5)`` model picker when ``sample_models=True``.
+        seed (int | None): Base AF2 seed for the evaluation stream. When set, the
+            constraint derives a unique per-evaluation ColabDesign seed from it so
+            repeated calls do not reset AF2 to the same RNG state.
     """
 
     target_pdb: str = ConfigField(
@@ -152,9 +151,10 @@ class AF2BinderConstraintConfig(BaseConfig):
         title="Seed",
         default=None,
         ge=0,
-        description="Forwarded to ColabDesign ``set_seed`` for per-call AF2 reproducibility.",
+        description="Base AF2 seed; the constraint derives a unique per-evaluation ColabDesign seed from it.",
         advanced=True,
     )
+    _evaluation_seed_offset: int = PrivateAttr(default=0)
 
     @model_validator(mode="after")
     def _require_target_pdb(self) -> "AF2BinderConstraintConfig":
@@ -217,6 +217,15 @@ AF2BinderForwardConstraintConfig = AF2BinderConstraintConfig
 AF2BinderBackwardConstraintConfig = AF2BinderConstraintConfig
 
 
+def _next_af2_seed(config: AF2BinderConstraintConfig) -> int | None:
+    """Derive deterministic per-evaluation seeds instead of replaying one fixed AF2 RNG state."""
+    if config.seed is None:
+        return None
+    seed = config.seed + config._evaluation_seed_offset
+    config._evaluation_seed_offset += 1
+    return seed
+
+
 def af2_binder_backward(
     inputs: tuple[Sequence, ...],
     *,
@@ -229,6 +238,7 @@ def af2_binder_backward(
     binder_seq, target_seq = inputs[0], inputs[1]
     logits = binder_seq.logits
     assert logits is not None  # noqa: S101 -- input_labels slot check guarantees logits on the binder
+    evaluation_seed = _next_af2_seed(config)
 
     output = run_alphafold2_binder(
         AlphaFold2BinderInput(
@@ -253,7 +263,7 @@ def af2_binder_backward(
             sample_models=config.sample_models,
             backend=config.backend,
             starting_binder_seq=config.starting_binder_seq,
-            seed=config.seed,
+            seed=evaluation_seed,
             soft=soft,
             compute_gradient=True,
         ),
@@ -308,6 +318,7 @@ def af2_binder_forward(
     for binder_seq, target_seq in input_sequences:
         # Forward-only scoring evaluates AF2 on the exact discrete proposal. Pass a true one-hot
         # matrix and force ColabDesign's STE (hard=1) so the argmax gets through unchanged.
+        evaluation_seed = _next_af2_seed(config)
         output = run_alphafold2_binder(
             AlphaFold2BinderInput(
                 logits=one_hot_protein_matrix(binder_seq.sequence),
@@ -330,7 +341,7 @@ def af2_binder_forward(
                 sample_models=config.sample_models,
                 backend=config.backend,
                 starting_binder_seq=config.starting_binder_seq,
-                seed=config.seed,
+                seed=evaluation_seed,
                 soft=0.0,
                 hard=1.0,
                 compute_gradient=False,

@@ -8,7 +8,7 @@ from proto_tools.tools.structure_prediction.alphafold2 import (
     AlphaFold2BinderInput,
     run_alphafold2_binder,
 )
-from pydantic import PrivateAttr, model_validator
+from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
@@ -154,7 +154,7 @@ class AF2BinderConstraintConfig(BaseConfig):
         description="Base AF2 seed; the constraint derives a unique per-evaluation ColabDesign seed from it.",
         advanced=True,
     )
-    _evaluation_seed_offset: int = PrivateAttr(default=0)
+    _evaluation_seed_offset: int = 0
 
     @model_validator(mode="after")
     def _require_target_pdb(self) -> "AF2BinderConstraintConfig":

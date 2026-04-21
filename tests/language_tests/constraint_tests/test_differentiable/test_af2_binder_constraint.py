@@ -64,7 +64,7 @@ def _mock_tool_output(
 class TestConfig:
     def test_defaults(self) -> None:
         config = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT)
-        assert config.target_chain == "A"
+        assert config.target_chains == ["A"]
         assert config.binder_chain == "H"
         assert config.backend == "base"
 
@@ -138,10 +138,11 @@ class TestBackward:
         )
         binder = _binder_with_logits(np.ones((2, 20)) / 20.0)
         target = Sequence("A" * 4, "protein")
-        config = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, target_chain="A,B", binder_chain="H")
+        config = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, target_chains="A,B", binder_chain="H")
 
         result = af2_binder_backward((binder, target), temperature=1.0, soft=1.0, config=config)
 
+        assert mock_run.call_args[0][0].target_chain == "A,B"
         assert result.structures[0].get_chain_ids() == ["H"]
         assert result.structures[1].get_chain_ids() == ["A", "B"]
         assert result.structures[1].per_residue_plddt == pytest.approx([0.95, 0.90, 0.80, 0.75])
@@ -212,9 +213,10 @@ class TestForward:
 
         af2_binder_forward(
             [(binder, target)],
-            config=AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, target_chain="A,B", binder_chain="H"),
+            config=AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, target_chains=["A", "B"], binder_chain="H"),
         )
 
+        assert mock_run.call_args[0][0].target_chain == "A,B"
         assert binder.structure.get_chain_ids() == ["H"]
         assert target.structure.get_chain_ids() == ["A", "B"]
         assert target.structure.per_residue_plddt == pytest.approx([0.95, 0.90, 0.80, 0.75])
@@ -259,7 +261,7 @@ class TestRegistry:
 class TestGPU:
     def test_different_inputs_produce_different_gradients(self) -> None:
         config = AF2BinderConstraintConfig(
-            target_pdb=_PDL1_PDB_TEXT, target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
+            target_pdb=_PDL1_PDB_TEXT, target_chains="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
         )
         target = _target_sequence()
         uniform = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
@@ -275,7 +277,7 @@ class TestGPU:
     def test_loss_weights_change_gradient(self) -> None:
         target = _target_sequence()
         binder = _binder_with_logits(np.random.RandomState(42).randn(10, 20).astype(np.float64))
-        base = {"target_pdb": _PDL1_PDB_TEXT, "target_chain": "A", "binder_chain": "B", "num_recycles": 1}
+        base = {"target_pdb": _PDL1_PDB_TEXT, "target_chains": "A", "binder_chain": "B", "num_recycles": 1}
 
         r_plddt = af2_binder_backward(
             (binder, target),
@@ -293,7 +295,7 @@ class TestGPU:
 
     def test_metrics_populated(self) -> None:
         config = AF2BinderConstraintConfig(
-            target_pdb=_PDL1_PDB_TEXT, target_chain="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
+            target_pdb=_PDL1_PDB_TEXT, target_chains="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
         )
         result = af2_binder_backward(
             (_binder_with_logits(np.zeros((10, 20), dtype=np.float64)), _target_sequence()),

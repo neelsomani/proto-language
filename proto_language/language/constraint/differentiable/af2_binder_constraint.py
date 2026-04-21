@@ -8,7 +8,7 @@ from proto_tools.tools.structure_prediction.alphafold2 import (
     AlphaFold2BinderInput,
     run_alphafold2_binder,
 )
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
@@ -30,7 +30,7 @@ class AF2BinderConstraintConfig(BaseConfig):
     Attributes:
         target_pdb (str): PDB content of the frozen target template (the "receptor"
             side of the binder-design task). Set once at construction.
-        target_chain (str): Chain ID(s) of the frozen target in the PDB.
+        target_chains (list[str]): Chain ID(s) of the frozen target in the PDB.
         binder_chain (str): Binder chain ID for template-based binder redesign.
         target_hotspot (str | None): Comma-separated target residue indices for interface contacts.
         design_positions (list[int] | None): Zero-based binder residue indices for loss focus.
@@ -57,9 +57,9 @@ class AF2BinderConstraintConfig(BaseConfig):
         default="",
         description="PDB content of the frozen target template.",
     )
-    target_chain: str = ConfigField(
-        title="Target Chain",
-        default="A",
+    target_chains: list[str] = ConfigField(
+        title="Target Chains",
+        default_factory=lambda: ["A"],
         description="Chain ID(s) of the frozen target in the PDB.",
     )
     binder_chain: str = ConfigField(
@@ -156,6 +156,18 @@ class AF2BinderConstraintConfig(BaseConfig):
     )
     _evaluation_seed_offset: int = 0
 
+    @field_validator("target_chains", mode="before")
+    @classmethod
+    def _normalize_target_chains(cls, value: Any) -> list[str]:
+        """Accept comma-separated strings or explicit lists; store a clean chain list."""
+        raw_chain_ids = [value] if isinstance(value, str) else value
+        if not isinstance(raw_chain_ids, (list, tuple)) or not all(isinstance(c, str) for c in raw_chain_ids):
+            raise ValueError("target_chains must be a string or list of strings.")
+        chains = [chain.strip() for raw in raw_chain_ids for chain in raw.split(",") if chain.strip()]
+        if not chains:
+            raise ValueError("target_chains must contain at least one chain ID.")
+        return chains
+
     @model_validator(mode="after")
     def _require_target_pdb(self) -> "AF2BinderConstraintConfig":
         """Fail fast at config-time if target_pdb is empty; AF2 can't run without a template."""
@@ -245,7 +257,7 @@ def af2_binder_backward(
             logits=logits.tolist(),
             temperature=temperature,
             target_pdb=config.target_pdb,
-            target_chain=config.target_chain,
+            target_chain=",".join(config.target_chains),
             target_hotspot=config.target_hotspot,
             binder_chain=config.binder_chain,
             design_positions=config.design_positions,
@@ -279,7 +291,7 @@ def af2_binder_backward(
         metrics=output.metrics,
         structures=(
             output.structure.select_chain(config.binder_chain),
-            output.structure.select_chains(config.target_chain),
+            output.structure.select_chains(config.target_chains),
         ),
     )
 
@@ -323,7 +335,7 @@ def af2_binder_forward(
             AlphaFold2BinderInput(
                 logits=one_hot_protein_matrix(binder_seq.sequence),
                 target_pdb=config.target_pdb,
-                target_chain=config.target_chain,
+                target_chain=",".join(config.target_chains),
                 target_hotspot=config.target_hotspot,
                 binder_chain=config.binder_chain,
                 design_positions=config.design_positions,
@@ -349,7 +361,7 @@ def af2_binder_forward(
         )
 
         binder_seq.structure = output.structure.select_chain(config.binder_chain)
-        target_seq.structure = output.structure.select_chains(config.target_chain)
+        target_seq.structure = output.structure.select_chains(config.target_chains)
         # Metrics first so our explicit keys below win on collision.
         binder_seq._metadata.update(output.metrics)
         binder_seq._metadata["complex_pdb"] = output.structure.structure_pdb

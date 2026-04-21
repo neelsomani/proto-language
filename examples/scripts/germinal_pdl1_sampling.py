@@ -624,7 +624,7 @@ def make_af2_config(
         target_pdb=str(template_pdb.resolve()),
         binder_chain=args.binder_chain,
     )
-    config.target_chain = args.target_chain
+    config.target_chains = args.target_chain
     config.target_hotspot = args.target_hotspot
     config.num_recycles = args.num_recycles
     config.sample_models = args.sample_models

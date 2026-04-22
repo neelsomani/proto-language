@@ -39,6 +39,8 @@ class AbLangConstraintConfig(BaseConfig):
             single-chain scFv mode; leave both ``None`` for VHH (heavy-only) scoring.
         light_slice (tuple[int, int] | None): Optional half-open ``(start, end)`` over the
             binder Segment for the VL region. Set together with ``heavy_slice``.
+        logit_scale (float): Multiply raw logits before AbLang. 2.0 for Germinal parity.
+        logit_bias (list[list[float]] | None): Additive bias (L x 20) applied after scaling.
     """
 
     temperature: float = ConfigField(
@@ -66,6 +68,18 @@ class AbLangConstraintConfig(BaseConfig):
         title="Light Chain Slice",
         default=None,
         description="VL region (start, end) within the binder; set with heavy_slice for scFv mode.",
+    )
+    logit_scale: float = ConfigField(
+        title="Logit Scale",
+        default=1.0,
+        gt=0.0,
+        description="Pre-scale raw logits before AbLang. Set to 2.0 for Germinal parity.",
+    )
+    logit_bias: list[list[float]] | None = ConfigField(
+        title="Logit Bias",
+        default=None,
+        description="Additive bias (L x 20) applied after scaling, before AbLang.",
+        hidden=True,
     )
 
     @model_validator(mode="after")
@@ -96,8 +110,10 @@ def ablang_naturalness_gradient_backward(
     slice VH and VL out of the binder, call AbLang paired, scatter per-chain gradients
     back into a full-binder-shaped array with linker rows zero.
     """
-    logits = inputs[0].logits
-    assert logits is not None  # noqa: S101 -- input_labels slot check guarantees it
+    raw_logits = inputs[0].logits
+    assert raw_logits is not None  # noqa: S101 -- input_labels slot check guarantees it
+    bias = np.asarray(config.logit_bias, dtype=np.float64) if config.logit_bias is not None else 0.0
+    logits = config.logit_scale * raw_logits + bias
 
     if config.heavy_slice is None:
         output = run_ablang_gradient(
@@ -105,9 +121,8 @@ def ablang_naturalness_gradient_backward(
             AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
         )
         assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
-        return GradientResult(
-            gradient=(np.array(output.gradient, dtype=np.float64),), loss=output.loss, metrics=output.metrics
-        )
+        grad = np.array(output.gradient, dtype=np.float64) * config.logit_scale
+        return GradientResult(gradient=(grad,), loss=output.loss, metrics=output.metrics)
 
     assert config.light_slice is not None  # noqa: S101 -- validator guarantees both-or-neither
     h_start, h_end = config.heavy_slice
@@ -125,8 +140,8 @@ def ablang_naturalness_gradient_backward(
         AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
     )
     assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
-    paired_grad = np.array(output.gradient, dtype=np.float64)
-    full_grad = np.zeros_like(logits, dtype=np.float64)
+    paired_grad = np.array(output.gradient, dtype=np.float64) * config.logit_scale
+    full_grad = np.zeros_like(raw_logits, dtype=np.float64)
     full_grad[h_start:h_end] = paired_grad[: h_end - h_start]
     full_grad[l_start:l_end] = paired_grad[h_end - h_start :]
     return GradientResult(gradient=(full_grad,), loss=output.loss, metrics=output.metrics)

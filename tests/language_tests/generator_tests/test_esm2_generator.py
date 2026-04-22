@@ -3,7 +3,7 @@
 import copy
 
 import pytest
-from proto_tools.tools.masked_models.masking import MaskingStrategy
+from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.language.core import Segment
 from proto_language.language.generator import ESM2Generator, ESM2GeneratorConfig

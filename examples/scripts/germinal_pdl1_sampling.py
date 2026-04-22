@@ -56,6 +56,7 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
+from proto_language.utils import one_hot_protein_matrix
 from proto_language.language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
@@ -616,7 +617,6 @@ def make_af2_config(
     args: argparse.Namespace,
     *,
     template_pdb: Path,
-    starting_binder_seq: str | None,
     design_positions: list[int] | None,
 ) -> AF2BinderConstraintConfig:
     """Create the AF2 germinal binder config used across stages."""
@@ -628,7 +628,6 @@ def make_af2_config(
     config.target_hotspot = args.target_hotspot
     config.num_recycles = args.num_recycles
     config.sample_models = args.sample_models
-    config.starting_binder_seq = starting_binder_seq
     config.design_positions = design_positions
     if args.loss_weights_override is not None:
         config.loss_weights = dict(args.loss_weights_override)
@@ -748,7 +747,6 @@ def make_gradient_stage(
     *,
     template_pdb: Path,
     binder_seed: str,
-    af2_starting_binder_seq: str | None,
     cdr_positions: list[int],
     ablang_weight: float = 1.0,
 ) -> GradientOptimizer:
@@ -756,7 +754,6 @@ def make_gradient_stage(
     af2_config = make_af2_config(
         args,
         template_pdb=template_pdb,
-        starting_binder_seq=af2_starting_binder_seq,
         design_positions=cdr_positions,
     )
     generator = PositionWeightGenerator(
@@ -811,7 +808,6 @@ def make_semigreedy_stage(
     af2_config = make_af2_config(
         args,
         template_pdb=template_pdb,
-        starting_binder_seq=None,
         design_positions=cdr_positions,
     )
     generator = SemigreedyMutationGenerator(
@@ -869,6 +865,8 @@ def build_program(
 
     logit_config = GradientOptimizerConfig.germinal_logit_preset()
     logit_config.num_steps = args.logit_steps
+    logit_config.initial_logits = one_hot_protein_matrix(binder_seed)
+    logit_config.softmax_init_positions = cdr_positions
     softmax_config = GradientOptimizerConfig.germinal_softmax_preset()
     softmax_config.num_steps = args.softmax_steps
 
@@ -880,7 +878,6 @@ def build_program(
         args,
         template_pdb=template_pdb_path,
         binder_seed=binder_seed,
-        af2_starting_binder_seq=binder_seed,
         cdr_positions=cdr_positions,
     )
     stage2 = make_gradient_stage(
@@ -891,7 +888,6 @@ def build_program(
         args,
         template_pdb=template_pdb_path,
         binder_seed=binder_seed,
-        af2_starting_binder_seq=None,
         cdr_positions=cdr_positions,
         ablang_weight=0.4,
     )

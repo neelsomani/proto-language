@@ -47,8 +47,6 @@ class AF2BinderConstraintConfig(BaseConfig):
         bias_redesign (float | None): Soft bias toward wildtype at non-design positions.
         sample_models (bool): Randomly sample AF2 model parameter sets each forward pass.
         backend (Literal["base", "germinal"]): ColabDesign backend.
-        starting_binder_seq (str | None): Warm-start binder AA sequence. Germinal
-            backend only; length must match the binder segment.
         seed (int | None): Base AF2 seed for the evaluation stream. When set, the
             constraint derives a unique per-evaluation ColabDesign seed from it so
             repeated calls do not reset AF2 to the same RNG state.
@@ -150,12 +148,6 @@ class AF2BinderConstraintConfig(BaseConfig):
         description="ColabDesign backend: 'base' (upstream) or 'germinal' (with alpha, bias, IgLM).",
         advanced=True,
     )
-    starting_binder_seq: str | None = ConfigField(
-        title="Starting Binder Sequence",
-        default=None,
-        description="Warm-start binder AA sequence (Germinal backend only; length must match binder).",
-        advanced=True,
-    )
     seed: int | None = ConfigField(
         title="Seed",
         default=None,
@@ -194,7 +186,6 @@ class AF2BinderConstraintConfig(BaseConfig):
             for name, value in (
                 ("bias_redesign", self.bias_redesign),
                 ("design_positions", self.design_positions),
-                ("starting_binder_seq", self.starting_binder_seq),
             )
             if value is not None
         ]
@@ -287,7 +278,6 @@ def af2_binder_backward(
             bias_redesign=config.bias_redesign,
             sample_models=config.sample_models,
             backend=config.backend,
-            starting_binder_seq=config.starting_binder_seq,
             seed=evaluation_seed,
             soft=soft,
             compute_gradient=True,
@@ -366,7 +356,6 @@ def af2_binder_forward(
                 bias_redesign=config.bias_redesign,
                 sample_models=config.sample_models,
                 backend=config.backend,
-                starting_binder_seq=config.starting_binder_seq,
                 seed=evaluation_seed,
                 soft=0.0,
                 hard=1.0,

@@ -85,7 +85,6 @@ class TestConfig:
         [
             {"bias_redesign": 10.0},
             {"design_positions": [0, 1, 2]},
-            {"starting_binder_seq": "AAAAA"},
             *({"loss_weights": {"plddt": 1.0, k: 0.1}} for k in ("rg", "i_ptm", "NC", "helix", "beta_strand")),
         ],
     )

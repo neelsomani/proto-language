@@ -6,13 +6,14 @@ from collections.abc import Callable
 from typing import Any, Literal, final
 
 import numpy as np
-from pydantic import field_validator, model_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import Constraint, Construct, Generator, Optimizer, Segment
 from proto_language.language.core.constraint import GradientResult
 from proto_language.language.generator import PositionWeightGenerator
 from proto_language.language.optimizer.optimizer_registry import optimizer
+from proto_language.utils import softmax
 from proto_language.utils.gradients import MERGERS, GradientMergerName, align_norms, normalize_gradient
 from proto_language.utils.scheduling import SCHEDULES, Schedule, ScheduleName
 
@@ -101,6 +102,10 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         gumbel_logit_init (bool): If True, add Gumbel(0,1) noise per position on top of
             ``logit_bias`` — gives parallel trajectories stochastic starts.
         gumbel_init_alpha (float): Divisor for Gumbel init noise. ``1.0`` = unscaled.
+        initial_logits (list[list[float]] | None): Base logit matrix ``(L, |vocab|)``
+            replacing default initialization.
+        softmax_init_positions (list[int] | None): Positions receiving per-trajectory
+            Gumbel noise + softmax over ``initial_logits``.
 
     Note:
         Ramps use ``progress = step / num_steps`` with ``step`` starting at 1,
@@ -233,17 +238,44 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         description="Divisor for Gumbel init noise. 1.0 = unscaled.",
         advanced=True,
     )
+    initial_logits: list[list[float]] | None = ConfigField(
+        default=None,
+        title="Initial Logits",
+        description="Base logit matrix (L x |vocab|) replacing default initialization.",
+        advanced=True,
+        hidden=True,
+    )
+    softmax_init_positions: list[int] | None = ConfigField(
+        default=None,
+        title="Softmax Init Positions",
+        description="Positions receiving Gumbel noise + softmax over initial_logits.",
+        advanced=True,
+        hidden=True,
+    )
 
-    @field_validator("logit_bias")
+    @field_validator("logit_bias", "initial_logits")
     @classmethod
-    def _validate_logit_bias(cls, v: list[list[float]] | None) -> list[list[float]] | None:
+    def _validate_matrix(cls, v: list[list[float]] | None, info: ValidationInfo) -> list[list[float]] | None:
         """Reject non-rectangular / non-numeric input; shape-vs-segment is checked in ``GradientOptimizer._validate_optimizer``."""
         if v is not None:
             try:
                 np.asarray(v, dtype=np.float64)
             except ValueError as exc:
-                raise ValueError(f"logit_bias must be a rectangular 2-D matrix: {exc}") from exc
+                raise ValueError(f"{info.field_name} must be a rectangular 2-D matrix: {exc}") from exc
         return v
+
+    @model_validator(mode="after")
+    def _validate_initial_logits_config(self) -> "GradientOptimizerConfig":
+        """Validate cross-field initialization settings."""
+        if self.softmax_init_positions is not None and self.initial_logits is None:
+            raise ValueError("softmax_init_positions requires initial_logits to be set")
+        if self.softmax_init_positions and self.fixed_positions:
+            overlap = set(self.softmax_init_positions) & set(self.fixed_positions)
+            if overlap:
+                raise ValueError(
+                    f"positions {sorted(overlap)} appear in both softmax_init_positions and fixed_positions"
+                )
+        return self
 
     @classmethod
     def germinal_logit_preset(cls) -> "GradientOptimizerConfig":
@@ -418,6 +450,17 @@ class GradientOptimizer(Optimizer):
             if actual != expected:
                 raise ValueError(f"logit_bias shape {actual} does not match target segment {expected}.")
 
+        if self.config.initial_logits is not None:
+            expected = (seq_len, len(self.target_segment.ordered_vocab()))
+            row0 = self.config.initial_logits[0] if self.config.initial_logits else ()
+            actual = (len(self.config.initial_logits), len(row0))
+            if actual != expected:
+                raise ValueError(f"initial_logits shape {actual} does not match target segment {expected}.")
+        if self.config.softmax_init_positions:
+            out_of_bounds = [p for p in self.config.softmax_init_positions if p < 0 or p >= seq_len]
+            if out_of_bounds:
+                raise ValueError(f"softmax_init_positions {out_of_bounds} out of bounds for segment length {seq_len}.")
+
     def run(self) -> None:
         """Execute gradient optimization.
 
@@ -435,19 +478,25 @@ class GradientOptimizer(Optimizer):
         target = self.target_segment
 
         vocab = target.ordered_vocab()
-        init_rng = np.random.default_rng(self.seed) if self.config.gumbel_logit_init and self.seed is not None else None
+        needs_rng = self.config.initial_logits is not None or (self.config.gumbel_logit_init and self.seed is not None)
+        init_rng = np.random.default_rng(self.seed) if needs_rng else None
         logit_bias = (
             np.asarray(self.config.logit_bias, dtype=np.float64) if self.config.logit_bias is not None else None
+        )
+        initial_logits_arr = (
+            np.asarray(self.config.initial_logits, dtype=np.float64) if self.config.initial_logits is not None else None
         )
         for seq in target.proposal_sequences:
             if seq.logits is None:
                 seq.logits = _init_logits(
                     target.sequence_length,
                     len(vocab),
+                    initial_logits=initial_logits_arr,
                     logit_bias=logit_bias,
                     rng=init_rng,
                     fixed_positions=self.config.fixed_positions,
                     gumbel_alpha=self.config.gumbel_init_alpha,
+                    softmax_init_positions=self.config.softmax_init_positions,
                 )
 
         self.generator.sample()
@@ -587,13 +636,30 @@ def _init_logits(
     num_positions: int,
     vocab_size: int,
     *,
+    initial_logits: np.ndarray | None = None,
     logit_bias: np.ndarray | None = None,
     rng: np.random.Generator | None = None,
     fixed_positions: list[int] | None = None,
     gumbel_alpha: float = 1.0,
+    softmax_init_positions: list[int] | None = None,
 ) -> np.ndarray:
-    """Build ``(num_positions, vocab_size)`` initial logits: optional Gumbel noise, zeroed at ``fixed_positions``, plus ``logit_bias``."""
+    """Build ``(num_positions, vocab_size)`` initial logits.
+
+    With ``initial_logits``: copies the matrix, adds any bias, then applies
+    Gumbel + softmax at ``softmax_init_positions`` only. Without:
+    Gumbel/alpha + bias (original path).
+    """
     shape = (num_positions, vocab_size)
+
+    if initial_logits is not None:
+        logits: np.ndarray = initial_logits.copy()
+        if logit_bias is not None:
+            logits = logits + logit_bias
+        if softmax_init_positions and rng is not None:
+            sp = sorted(softmax_init_positions)
+            logits[sp] = softmax(logits[sp] + rng.gumbel(size=(len(sp), vocab_size)))
+        return logits
+
     logits = rng.gumbel(size=shape) / gumbel_alpha if rng is not None else np.zeros(shape, dtype=np.float64)
     if fixed_positions:
         logits[fixed_positions] = 0.0

@@ -7,10 +7,10 @@ from proto_tools import (
     RandomNucleotideSampleInput,
     run_random_nucleotide_sample,
 )
-from proto_tools.tools.masked_models.masking import MaskingStrategy
 from proto_tools.tools.mutagenesis.random_nucleotide.random_nucleotide_sample import (
     SubstitutionScheme,
 )
+from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator

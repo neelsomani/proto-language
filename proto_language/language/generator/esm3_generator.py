@@ -6,7 +6,7 @@ from proto_tools import ESM3SampleConfig, ESM3SampleInput, run_esm3_sample
 from proto_tools.tools.masked_models.esm3.esm3_sample import (
     ESM3_MODEL_CHECKPOINTS,
 )
-from proto_tools.tools.masked_models.masking import MaskingStrategy
+from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator

@@ -129,6 +129,49 @@ class TestConfig:
         assert cfg.min_lr_scale == 0.01
 
 
+class TestInitLogitsTemplateSoft:
+    """Tests for the initial_logits + softmax_init_positions initialization path."""
+
+    def test_softmax_positions_are_probabilities_and_framework_is_template(self) -> None:
+        from proto_language.language.optimizer.gradient_optimizer import _init_logits
+
+        base = np.eye(5, 20, dtype=np.float64)
+        original = base.copy()
+        result = _init_logits(5, 20, initial_logits=base, rng=np.random.default_rng(42), softmax_init_positions=[1, 3])
+        np.testing.assert_array_equal(base, original)
+        for pos in [1, 3]:
+            assert np.all(result[pos] >= 0.0)
+            np.testing.assert_allclose(result[pos].sum(), 1.0, atol=1e-7)
+        assert not np.allclose(result[[1, 3]], base[[1, 3]])
+        for pos in [0, 2, 4]:
+            np.testing.assert_array_equal(result[pos], base[pos])
+
+    def test_backward_compat_none(self) -> None:
+        from proto_language.language.optimizer.gradient_optimizer import _init_logits
+
+        rng1, rng2 = np.random.default_rng(99), np.random.default_rng(99)
+        np.testing.assert_array_equal(
+            _init_logits(5, 20, initial_logits=None, rng=rng1, gumbel_alpha=2.0),
+            rng2.gumbel(size=(5, 20)) / 2.0,
+        )
+
+    def test_rejects_invalid_initial_logits_config(self) -> None:
+        with pytest.raises(ValueError, match="softmax_init_positions requires initial_logits"):
+            GradientOptimizerConfig(softmax_init_positions=[0, 1])
+        with pytest.raises(ValueError, match="initial_logits must be a rectangular"):
+            GradientOptimizerConfig(initial_logits=[[1.0], [1.0, 0.0]])
+        with pytest.raises(ValueError, match="initial_logits shape"):
+            _make(initial_logits=np.eye(3, 20).tolist())
+        with pytest.raises(ValueError, match=r"softmax_init_positions .* out of bounds"):
+            _make(initial_logits=np.eye(5, 20).tolist(), softmax_init_positions=[-1, 5])
+        with pytest.raises(ValueError, match="appear in both softmax_init_positions and fixed_positions"):
+            _make(
+                initial_logits=np.eye(5, 20).tolist(),
+                softmax_init_positions=[1],
+                fixed_positions=[1],
+            )
+
+
 class TestRun:
     def test_produces_results_with_logits(self) -> None:
         opt, seg = _make()

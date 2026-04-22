@@ -17,7 +17,7 @@ import random
 from unittest.mock import Mock
 
 import numpy as np
-from proto_tools.tools.masked_models.masking import MaskingStrategy
+from proto_tools.transforms.masking import MaskingStrategy
 from pydantic import BaseModel
 
 from proto_language.language.constraint import gc_content_constraint

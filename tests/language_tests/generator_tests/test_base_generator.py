@@ -73,7 +73,7 @@ class TestGeneratorBase:
 
     def test_mutation_generator_lazy_init_and_preserves_existing(self):
         """Tests lazy random init for length-only segments and preservation of existing sequences."""
-        from proto_tools.tools.masked_models.masking import MaskingStrategy
+        from proto_tools.transforms.masking import MaskingStrategy
 
         from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 
@@ -102,7 +102,7 @@ class TestGeneratorBase:
         """Regression: each proposal must get a unique random sequence."""
         import random
 
-        from proto_tools.tools.masked_models.masking import MaskingStrategy
+        from proto_tools.transforms.masking import MaskingStrategy
 
         from proto_language.language.core import Sequence
         from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
@@ -132,7 +132,7 @@ class TestGeneratorBase:
 
     def test_validate_generator_empty_proposal_pool_raises(self):
         """Tests that _validate_generator raises on empty proposal_sequences."""
-        from proto_tools.tools.masked_models.masking import MaskingStrategy
+        from proto_tools.transforms.masking import MaskingStrategy
 
         from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 

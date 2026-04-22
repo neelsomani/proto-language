@@ -113,6 +113,7 @@ from proto_language.language.constraint.protein_structure.structure_constraint_c
     StructureBasedConstraintConfig,
 )
 from proto_language.language.core import PROTEIN_AMINO_ACIDS, Constraint, Construct, Program, Segment, Sequence
+from proto_language.utils import one_hot_protein_matrix
 from proto_language.language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
@@ -568,6 +569,8 @@ def run_trajectory(
     # ── STAGE 0 / 1: gradient hallucination ──
     logit_cfg = GradientOptimizerConfig.germinal_logit_preset()
     logit_cfg.num_steps = geom.logits_steps
+    logit_cfg.initial_logits = one_hot_protein_matrix(binder_template)
+    logit_cfg.softmax_init_positions = cdr_positions
     logit_cfg.constraint_weight_schedules = [
         ConstraintWeightSchedule(
             constraint_label="ablang",
@@ -753,7 +756,7 @@ def run_trajectory(
     Program(optimizers=[stage3], num_results=geom.max_mpnn_sequences, seed=traj_idx).run_stage(0)
 
     print(f"[Traj {traj_idx}] Final filter: relax + evaluate {len(geom.final_filters)} gates per variant...")
-    # ── FINAL FILTER: relax + evaluate 11/14 Germinal gates per variant ──
+    # ── FINAL FILTER: relax + evaluate configured Germinal gates per variant ──
     accepted = 0
     for variant_idx, variant in enumerate(binder.result_sequences):
         data = variant._constraints_metadata["cofold"]["data"]

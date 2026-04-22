@@ -4,7 +4,7 @@ from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
 import pytest
-from proto_tools.tools.masked_models.masking import MaskingStrategy
+from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.core import Construct, Program, Segment

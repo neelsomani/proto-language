@@ -1,7 +1,7 @@
 """Generator registry and all registered sequence generators."""
 
 # Masking strategies (re-exported for convenience)
-from proto_tools.tools.masked_models.masking import MaskingStrategy
+from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.language.generator.esm2_generator import ESM2Generator, ESM2GeneratorConfig
 from proto_language.language.generator.esm3_generator import ESM3Generator, ESM3GeneratorConfig

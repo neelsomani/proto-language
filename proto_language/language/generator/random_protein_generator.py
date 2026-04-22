@@ -7,10 +7,10 @@ from proto_tools import (
     RandomProteinSampleInput,
     run_random_protein_sample,
 )
-from proto_tools.tools.masked_models.masking import MaskingStrategy
 from proto_tools.tools.mutagenesis.random_protein.random_protein_sample import (
     CodonScheme,
 )
+from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator

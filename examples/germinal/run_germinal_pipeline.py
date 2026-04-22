@@ -45,13 +45,13 @@ Known parity gaps (intentional):
 
 Usage:
     # VHH against PD-L1 (default)
-    python examples/germinal/germinal_antibody_binder.py --mode vhh --max-trajectories 10
+    python examples/germinal/run_germinal_pipeline.py --mode vhh --max-trajectories 10
 
     # scFv against PD-L1
-    python examples/germinal/germinal_antibody_binder.py --mode scfv --max-trajectories 10
+    python examples/germinal/run_germinal_pipeline.py --mode scfv --max-trajectories 10
 
     # Generic VHH preset against an explicit target
-    python examples/germinal/germinal_antibody_binder.py --preset vhh \
+    python examples/germinal/run_germinal_pipeline.py --preset vhh \
         --target-pdb path/to/target.pdb --target-chain A \
         --binder-scaffold-pdb path/to/scaffold.pdb --binder-scaffold-chain A \
         --target-hotspots A45,A47,A50 --max-trajectories 10
@@ -632,7 +632,7 @@ def run_trajectory(
         config=MCMCOptimizerConfig(
             num_steps=geom.search_steps,
             proposals_per_result=max(1, math.ceil(geom.binder_length * geom.search_mutation_rate)),
-            max_temperature=1e-3,
+            max_temperature=1e-6,
             min_temperature=1e-6,
         ),
     )
@@ -712,8 +712,6 @@ def run_trajectory(
 
     # ── STAGE 3: AbMPNN redesign ──
     # External pre-redesign filters are now applied on the separate cofolded structure.
-    # Fixed positions still come from the hallucinated AF2 complex, matching Germinal.
-    # All 5 external initial gates closed.
     non_cdr_one_indexed = {i + 1 for i in range(geom.binder_length) if i not in cdr_set}
     fixed_positions = sorted(non_cdr_one_indexed | interface_residues)
     print(

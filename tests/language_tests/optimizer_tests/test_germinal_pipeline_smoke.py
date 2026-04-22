@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[3] / "examples" / "germinal" / "germinal_antibody_binder.py"
+SCRIPT = Path(__file__).resolve().parents[3] / "examples" / "germinal" / "run_germinal_pipeline.py"
 PDB_DIR = SCRIPT.parent / "pdbs"
 
 

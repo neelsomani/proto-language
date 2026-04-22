@@ -1,4 +1,4 @@
-# Script-owned preset surface for the colocated ``germinal_antibody_binder.py``.
+# Script-owned preset surface for the colocated ``run_germinal_pipeline.py``.
 # Values are derived from the local Germinal run/filter presets, but flattened
 # into the smaller schema this script actually consumes.
 #

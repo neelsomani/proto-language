@@ -360,12 +360,13 @@ class Constraint:
             raise ValueError(
                 f"Constraint '{self.label}' returned {len(raw_scores)} scores but expected {len(input_sequences_to_evaluate)}"
             )
+        is_filter = self._threshold is not None
         for i, score in enumerate(raw_scores):
-            if not np.isfinite(score):
+            if not np.isfinite(score) and not is_filter:
                 raise ValueError(
                     f"Constraint '{self.label}' returned non-finite score {score!r} at proposal {indices_to_evaluate[i]}."
                 )
-            if not allow_raw_scores and not (0.0 <= score <= 1.0):
+            if not allow_raw_scores and not is_filter and not (0.0 <= score <= 1.0):
                 raise ValueError(
                     f"Constraint '{self.label}' returned raw score {score!r} at proposal {indices_to_evaluate[i]}; "
                     f"expected a finite value in [0.0, 1.0]."

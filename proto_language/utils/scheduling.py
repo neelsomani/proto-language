@@ -7,7 +7,7 @@ from typing import Literal
 Schedule = Callable[[int, int], float]
 """Callable that maps ``(step, total_steps)`` to a scalar value."""
 
-ScheduleName = Literal["constant", "cosine", "exponential", "hinge", "linear", "quadratic"]
+Scheduler = Literal["constant", "cosine", "exponential", "hinge", "linear", "quadratic"]
 
 
 def progress(step: int, total_steps: int) -> float:
@@ -65,7 +65,7 @@ def quadratic_decay(start: float, end: float) -> Schedule:
     return _with_progress(lambda t: end + (start - end) * (1.0 - t) ** 2)
 
 
-SCHEDULES: dict[ScheduleName, Callable[[float, float], Schedule]] = {
+SCHEDULES: dict[Scheduler, Callable[[float, float], Schedule]] = {
     "constant": constant_schedule,
     "cosine": cosine_anneal,
     "exponential": exponential_decay,

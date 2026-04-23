@@ -15,7 +15,7 @@ from proto_language.language.generator import PositionWeightGenerator
 from proto_language.language.optimizer.optimizer_registry import optimizer
 from proto_language.utils import softmax
 from proto_language.utils.gradients import MERGERS, GradientMergerName, align_norms, normalize_gradient
-from proto_language.utils.scheduling import SCHEDULES, Schedule, ScheduleName
+from proto_language.utils.scheduling import SCHEDULES, Schedule, Scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class ConstraintWeightSchedule(BaseConfig):
         constraint_label (str): Label of the target constraint.
         start_weight (float): Weight at step 1.
         end_weight (float): Weight at final step (ignored when ``schedule="constant"``).
-        schedule (ScheduleName): Interpolation between start and end.
+        schedule (Scheduler): Interpolation between start and end.
     """
 
     constraint_label: str = ConfigField(
@@ -52,7 +52,7 @@ class ConstraintWeightSchedule(BaseConfig):
         ge=0.0,
         description="Weight at the final step.",
     )
-    schedule: ScheduleName = ConfigField(
+    schedule: Scheduler = ConfigField(
         default="linear",
         title="Schedule",
         description="Interpolation schedule between start_weight and end_weight.",
@@ -84,8 +84,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         temperature_start (float): Temperature at step 1. Both schedules interpolate
             between this and ``temperature_end``; they differ only in curve shape.
         temperature_end (float): Temperature at final step.
-        softmax_schedule (ScheduleName): Softmax sharpening schedule for constraints.
-        lr_schedule (ScheduleName): Learning rate decay schedule.
+        softmax_schedule (Scheduler): Softmax sharpening schedule for constraints.
+        lr_schedule (Scheduler): Learning rate decay schedule.
         merger (GradientMergerName): Gradient merging strategy.
         norm_alignment (Literal["none", "unit", "match_first"]): Per-constraint
             gradient normalization before merging.
@@ -167,12 +167,12 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         title="Temperature End",
         description="Softmax temperature at final step.",
     )
-    softmax_schedule: ScheduleName = ConfigField(
+    softmax_schedule: Scheduler = ConfigField(
         default="constant",
         title="Softmax Schedule",
         description="Softmax sharpening schedule for constraints.",
     )
-    lr_schedule: ScheduleName = ConfigField(
+    lr_schedule: Scheduler = ConfigField(
         default="constant",
         title="LR Schedule",
         description="Learning rate decay schedule.",

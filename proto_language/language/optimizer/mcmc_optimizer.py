@@ -18,6 +18,7 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
+from proto_language.utils.scheduling import SCHEDULES, Schedule, Scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -58,17 +59,19 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
             accepting only improvements. Must be greater than 0 and less than
             ``max_temperature``. Default: 0.001.
 
+        temperature_schedule (Scheduler): Annealing schedule from max to min temperature.
+
         verbose (bool): Whether to print detailed progress information at each
             step, including energy statistics and temperature. Default: ``False``.
+
         tracking_interval (int): Number of steps between progress snapshots.
+
         track_proposals (bool): Whether to record proposal sequences alongside accepted results.
 
     Note:
         - When ``num_results=1`` (default), behaves like standard single-chain MCMC.
         - When ``num_results > 1``, maintains that many independent trajectories and
           generates ``proposals_per_result`` (default: 1) proposals per result sequence each step.
-        - Temperature annealing follows exponential decay:
-          T(step) = T_max x (T_min / T_max)^(step / num_steps)
     """
 
     # Required parameters
@@ -103,16 +106,20 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
         description="Minimum temperature for annealing",
         advanced=True,
     )
+    temperature_schedule: Scheduler = ConfigField(
+        default="exponential",
+        title="Temperature Schedule",
+        description="Annealing schedule from max to min temperature.",
+        advanced=True,
+    )
 
     @model_validator(mode="after")
     def validate_cross_field_constraints(self) -> "MCMCOptimizerConfig":
         """Validate cross-field constraints."""
-        # Validate min_temperature < max_temperature for annealing
         if self.min_temperature >= self.max_temperature:
             raise ValueError(
-                f"min_temperature ({self.min_temperature}) must be less than max_temperature ({self.max_temperature}) for annealing to work properly"
+                f"min_temperature ({self.min_temperature}) must be < max_temperature ({self.max_temperature})"
             )
-
         return self
 
 
@@ -157,8 +164,7 @@ class MCMCOptimizer(Optimizer):
         - Only supports mutation generators (``category="mutation"``)
         - Uses Metropolis-Hastings acceptance: always accepts improvements,
           accepts worse proposals with probability exp(-ΔE/T)
-        - Simulated annealing: temperature decreases exponentially from
-          ``max_temperature`` to ``min_temperature``
+        - Simulated annealing via configurable ``temperature_schedule``
         - Lower energy scores are better (minimization objective)
         - When ``proposals_per_result > 1``, generates multiple proposals per
           trajectory, selects the best one, then applies a single MH accept/reject decision
@@ -210,6 +216,7 @@ class MCMCOptimizer(Optimizer):
         self.num_steps: int = config.num_steps
         self.max_temperature: float = config.max_temperature
         self.min_temperature: float = config.min_temperature
+        self._temperature_schedule = self._build_temperature_schedule(config)
 
     def run(self) -> None:
         """Execute Metropolis-Hastings MCMC sampling for sequence optimization.
@@ -222,7 +229,7 @@ class MCMCOptimizer(Optimizer):
 
         Note:
             - Each trajectory (result index) is independent with no cross-trajectory mixing.
-            - Simulated annealing: T(step) = T_max * (T_min / T_max) ^ (step / num_steps)
+            - Temperature anneals via ``temperature_schedule`` (default: exponential)
             - Total proposals per step: num_results x proposals_per_result
             - Snapshots of constructs at tracked timesteps are stored in self.history.
         """
@@ -371,22 +378,18 @@ class MCMCOptimizer(Optimizer):
         # 5. Truncate to num_results (score_energy() resizes back each step)
         self.energy_scores = self.energy_scores[: self.num_results]
 
-    def _compute_temperature(self, step: int) -> float:
-        """Calculate annealed temperature: T(step) = T_max * (T_min/T_max)^((step-1)/(num_steps-1)).
+    @staticmethod
+    def _build_temperature_schedule(config: MCMCOptimizerConfig) -> Schedule:
+        """Build a temperature schedule mapping MCMC step to temperature.
 
-        Args:
-            step (int): Current MCMC iteration index.
-
-        Note:
-        - At step=1: T = T_max (start hot), at step=num_steps: T = T_min (end cold)
-        - Exponential decay between T_max and T_min
-        - (step-1) ensures proper boundary conditions since steps are 1-indexed (range: 1 to num_steps)
+        Shifts indices so step=1 is exactly ``max_temperature`` and
+        step=num_steps is exactly ``min_temperature``.
         """
-        if self.num_steps == 1:
-            return self.max_temperature
-        return (  # type: ignore[no-any-return]
-            self.max_temperature * (self.min_temperature / self.max_temperature) ** ((step - 1) / (self.num_steps - 1))
-        )
+        base = SCHEDULES[config.temperature_schedule](config.max_temperature, config.min_temperature)
+        n = config.num_steps
+        if n <= 1:
+            return lambda _s, _t: config.max_temperature
+        return lambda step, _total: base(max(step - 1, 0), n - 1)
 
     def _compute_mcmc_alpha(self, current_energy: float, proposed_energy: float, step: int) -> float:
         """Compute Metropolis-Hastings acceptance probability: alpha = min(1, exp(-(E_new - E_old) / T)).
@@ -412,7 +415,7 @@ class MCMCOptimizer(Optimizer):
         if math.isinf(current_energy):
             return 1.0  # Any finite proposal beats infinite current
 
-        temperature = self._compute_temperature(step)
+        temperature = self._temperature_schedule(step, self.num_steps)
         log_acceptance_ratio = -(proposed_energy - current_energy) / temperature
         # Cap to prevent overflow in exp()
         log_acceptance_ratio = min(log_acceptance_ratio, MAX_EXP_ARG)
@@ -425,7 +428,7 @@ class MCMCOptimizer(Optimizer):
             mean_energy = np.mean(self.energy_scores)
             worst_energy = max(self.energy_scores)
             std_energy = np.std(self.energy_scores) if len(self.energy_scores) > 1 else 0.0
-            current_temp = self._compute_temperature(step)
+            current_temp = self._temperature_schedule(step, self.num_steps)
 
             # Format output based on num_results
             if self.num_results == 1:

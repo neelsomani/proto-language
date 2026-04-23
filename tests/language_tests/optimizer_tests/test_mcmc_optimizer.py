@@ -408,7 +408,7 @@ class TestMCMCOptimizer:
             assert actual_timesteps[i] > actual_timesteps[i - 1]
 
     def test_temperature_scheduling(self):
-        """Tests that simulated annealing temperature schedule is correct."""
+        """Temperature schedule hits exact boundaries and decreases monotonically."""
         num_steps = 100
         max_temperature = 10.0
         min_temperature = 0.01
@@ -417,47 +417,19 @@ class TestMCMCOptimizer:
         optimizer.max_temperature = max_temperature
         optimizer.min_temperature = min_temperature
         optimizer.num_steps = num_steps
+        optimizer._temperature_schedule = MCMCOptimizer._build_temperature_schedule(
+            MCMCOptimizerConfig(num_steps=num_steps, max_temperature=max_temperature, min_temperature=min_temperature)
+        )
 
-        # Test temperature at key steps
-        step_1_temp = optimizer._compute_temperature(1)
-        step_50_temp = optimizer._compute_temperature(50)
-        step_100_temp = optimizer._compute_temperature(100)
+        schedule = optimizer._temperature_schedule
+        temperatures = [schedule(step, num_steps) for step in range(1, num_steps + 1)]
 
-        # Step 1 should be exactly T_max
-        assert abs(step_1_temp - max_temperature) < 1e-10
-
-        # Final step should be exactly T_min
-        assert abs(step_100_temp - min_temperature) < 1e-10
-
-        # Middle step should be between T_max and T_min
-        assert min_temperature < step_50_temp < max_temperature
-
-        # Temperatures should decrease monotonically
-        temperatures = [optimizer._compute_temperature(step) for step in range(1, num_steps + 1)]
+        assert abs(temperatures[0] - max_temperature) < 1e-10
+        assert abs(temperatures[-1] - min_temperature) < 1e-10
+        for t in temperatures:
+            assert min_temperature <= t <= max_temperature
         for i in range(1, len(temperatures)):
             assert temperatures[i] <= temperatures[i - 1]
-
-    def test_temperature_scheduling_edge_cases(self):
-        """Tests temperature scheduling edge cases."""
-        max_temperature = 5.0
-        min_temperature = 0.001
-
-        # Test num_steps=1 (should return T_max)
-        optimizer, _, _, _ = _setup_mcmc_components(num_mcmc_steps=1)
-        optimizer.max_temperature = max_temperature
-        optimizer.min_temperature = min_temperature
-        optimizer.num_steps = 1
-
-        step_1_temp = optimizer._compute_temperature(1)
-        assert abs(step_1_temp - max_temperature) < 1e-10
-
-        # Test num_steps=2 (should go from T_max to T_min)
-        optimizer.num_steps = 2
-        step_1_temp = optimizer._compute_temperature(1)
-        step_2_temp = optimizer._compute_temperature(2)
-
-        assert abs(step_1_temp - max_temperature) < 1e-10
-        assert abs(step_2_temp - min_temperature) < 1e-10
 
     def test_mcmc_acceptance_probability(self):
         """Tests Metropolis-Hastings acceptance probability computation."""

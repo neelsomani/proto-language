@@ -49,7 +49,7 @@ from proto_language.utils.helpers import (
 from proto_language.utils.scheduling import (
     SCHEDULES,
     Schedule,
-    ScheduleName,
+    Scheduler,
     constant_schedule,
     cosine_anneal,
     exponential_decay,
@@ -105,7 +105,7 @@ __all__ = [
     "normalize_gradient",
     # Scheduling utilities
     "Schedule",
-    "ScheduleName",
+    "Scheduler",
     "SCHEDULES",
     "progress",
     "constant_schedule",

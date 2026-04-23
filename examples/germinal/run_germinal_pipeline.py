@@ -61,7 +61,8 @@ import argparse
 import json
 import math
 import os
-from dataclasses import dataclass, replace
+import tempfile
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -255,6 +256,91 @@ class PreRedesignFilterMetrics:
         return self.cdr_hotspot_contacts >= MIN_CDR_HOTSPOT_CONTACTS
 
 
+@dataclass
+class StageMetrics:
+    plddt: float = 0.0
+    iptm: float = 0.0
+    ipae: float = 0.0
+    ablang_loss: float = 0.0
+
+
+@dataclass
+class TrajectoryRecord:
+    traj_idx: int
+    stage_metrics: dict[str, StageMetrics] = field(default_factory=dict)
+    rejected_at: str | None = None
+    accepted: bool = False
+
+
+def _extract_stage_metrics(binder: "Segment") -> StageMetrics:
+    """Extract current metrics from binder segment after a stage run."""
+    result = binder.result_sequences[0]
+    if result.structure is None:
+        return StageMetrics(plddt=float("nan"), iptm=float("nan"), ipae=float("nan"), ablang_loss=float("nan"))
+    af2_data = result._constraints_metadata.get("af2", {}).get("data", {})
+    ablang_data = result._constraints_metadata.get("ablang", {}).get("data", {})
+    iptm_val = af2_data.get("iptm")
+    ipae_val = af2_data.get("i_pae")
+    ablang_val = ablang_data.get("score")
+    return StageMetrics(
+        plddt=float(np.mean(result.structure.per_residue_plddt)),
+        iptm=float(iptm_val) if iptm_val is not None else float("nan"),
+        ipae=float(ipae_val) if ipae_val is not None else float("nan"),
+        ablang_loss=float(ablang_val) if ablang_val is not None else float("nan"),
+    )
+
+
+def _plot_trajectory_dynamics(records: list[TrajectoryRecord], run_dir: str) -> None:
+    """Generate per-metric charts with individual trajectory lines and bolded average."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    stage_names = ["stage0", "stage1", "stage2"]
+    metric_names = ["plddt", "iptm", "ipae", "ablang_loss"]
+    metric_labels = {"plddt": "pLDDT", "iptm": "iPTM", "ipae": "iPAE", "ablang_loss": "AbLang Loss"}
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    axes = axes.flatten()
+
+    for ax, metric in zip(axes, metric_names):
+        all_values: list[list[float]] = []
+        for rec in records:
+            vals = []
+            for stage in stage_names:
+                if stage in rec.stage_metrics:
+                    vals.append(getattr(rec.stage_metrics[stage], metric))
+                else:
+                    break
+            if vals:
+                all_values.append(vals)
+                x = list(range(len(vals)))
+                alpha = 0.15 if len(records) > 10 else 0.3
+                ax.plot(x, vals, color="steelblue", alpha=alpha, linewidth=0.8)
+
+        if all_values:
+            max_len = max(len(v) for v in all_values)
+            avg_line = []
+            for stage_i in range(max_len):
+                stage_vals = [v[stage_i] for v in all_values if len(v) > stage_i]
+                avg_line.append(np.nanmean(stage_vals))
+            ax.plot(range(len(avg_line)), avg_line, color="black", linewidth=2.5, label="Average")
+            ax.legend()
+
+        ax.set_xticks(range(len(stage_names)))
+        ax.set_xticklabels(["Stage 0\n(logit)", "Stage 1\n(softmax)", "Stage 2\n(MCMC)"])
+        ax.set_ylabel(metric_labels[metric])
+        ax.set_title(metric_labels[metric])
+        ax.grid(True, alpha=0.3)
+
+    fig.suptitle(f"Trajectory Dynamics ({len(records)} trajectories)", fontsize=14, fontweight="bold")
+    fig.tight_layout()
+    plot_path = os.path.join(run_dir, "trajectory_dynamics.png")
+    fig.savefig(plot_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved trajectory dynamics plot to {plot_path}")
+
+
 def _load_yaml_dict(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text())
     if not isinstance(data, dict):
@@ -432,6 +518,7 @@ def run_germinal_antibody(
     max_trajectories: int,
     max_passing: int,
     output_dir: str,
+    no_filter: bool = False,
 ) -> None:
     """Run the Germinal antibody pipeline until ``max_passing`` designs are accepted."""
     target_chains = [chain_id.strip() for chain_id in target_chain.split(",") if chain_id.strip()]
@@ -472,8 +559,10 @@ def run_germinal_antibody(
     )
 
     num_accepted = 0
+    all_records: list[TrajectoryRecord] = []
     for traj_idx in range(max_trajectories):
         print(f"\n--- Trajectory {traj_idx + 1}/{max_trajectories} ---")
+        record = TrajectoryRecord(traj_idx=traj_idx)
         num_accepted += run_trajectory(
             geom,
             traj_idx,
@@ -484,11 +573,44 @@ def run_germinal_antibody(
             target_hotspots,
             binder_chain,
             run_dir,
+            no_filter=no_filter,
+            record=record,
         )
+        all_records.append(record)
         if num_accepted >= max_passing:
             break
 
-    print(f"\nDone. {num_accepted} accepted design(s) in {run_dir}")
+    def _nan_safe(v: float) -> float | None:
+        return None if math.isnan(v) else v
+
+    summary = {
+        "num_trajectories": len(all_records),
+        "num_accepted": num_accepted,
+        "trajectories": [
+            {
+                "traj_idx": r.traj_idx,
+                "rejected_at": r.rejected_at,
+                "accepted": r.accepted,
+                "stages": {
+                    stage: {
+                        "plddt": _nan_safe(m.plddt),
+                        "iptm": _nan_safe(m.iptm),
+                        "ipae": _nan_safe(m.ipae),
+                        "ablang_loss": _nan_safe(m.ablang_loss),
+                    }
+                    for stage, m in r.stage_metrics.items()
+                },
+            }
+            for r in all_records
+        ],
+    }
+    with open(os.path.join(run_dir, "trajectory_summary.json"), "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"\nSaved trajectory summary to {run_dir}/trajectory_summary.json")
+
+    _plot_trajectory_dynamics(all_records, run_dir)
+
+    print(f"Done. {num_accepted} accepted design(s) in {run_dir}")
 
 
 def run_trajectory(
@@ -501,6 +623,8 @@ def run_trajectory(
     target_hotspots: str | None,
     binder_chain: str,
     run_dir: str,
+    no_filter: bool = False,
+    record: TrajectoryRecord | None = None,
 ) -> int:
     """Run one Germinal trajectory; returns number of accepted variants saved."""
     np.random.seed(traj_idx)
@@ -637,31 +761,43 @@ def run_trajectory(
         ),
     )
 
+    def _check_gate(gate_name: str, passed: bool, detail: str = "") -> bool:
+        """Check a gate; returns True to continue, False to abort (when filters are on)."""
+        if passed:
+            print(f"[Traj {traj_idx}] {gate_name} passed" + (f" ({detail})" if detail else ""))
+            return True
+        if no_filter:
+            print(f"[Traj {traj_idx}] {gate_name} FAILED (continuing, --no-filter)" + (f" ({detail})" if detail else ""))
+            return True
+        if record is not None:
+            record.rejected_at = f"{gate_name}: {detail}" if detail else gate_name
+        print(f"[Traj {traj_idx}] rejected at {gate_name}" + (f": {detail}" if detail else ""))
+        return False
+
     hallucination = Program(optimizers=[stage0, stage1, stage2], num_results=1, seed=traj_idx)
 
     print(f"[Traj {traj_idx}] Stage 0: logit hallucination ({geom.logits_steps} steps)...")
     hallucination.run_stage(0)
-    if not passes_gate(binder, geom=geom, include_ipae=False):
-        print(f"[Traj {traj_idx}] rejected at post-stage-0 confidence gate")
+    if record is not None:
+        record.stage_metrics["stage0"] = _extract_stage_metrics(binder)
+    if not _check_gate("stage0_gate", passes_gate(binder, geom=geom, include_ipae=False)):
         return 0
-    print(f"[Traj {traj_idx}] Stage 0 passed")
 
     print(f"[Traj {traj_idx}] Stage 1: softmax refinement ({geom.softmax_steps} steps)...")
     hallucination.run_stage(1)
-    if not passes_gate(binder, geom=geom, include_ipae=True):
-        print(f"[Traj {traj_idx}] rejected at post-stage-1 confidence gate")
+    if record is not None:
+        record.stage_metrics["stage1"] = _extract_stage_metrics(binder)
+    if not _check_gate("stage1_gate", passes_gate(binder, geom=geom, include_ipae=True)):
         return 0
-    print(f"[Traj {traj_idx}] Stage 1 passed")
 
     print(f"[Traj {traj_idx}] Stage 2: semigreedy MCMC ({geom.search_steps} steps)...")
     hallucination.run_stage(2)
-    if not passes_gate(binder, geom=geom, include_ipae=True):
-        print(f"[Traj {traj_idx}] rejected at post-stage-2 confidence gate")
+    if record is not None:
+        record.stage_metrics["stage2"] = _extract_stage_metrics(binder)
+    if not _check_gate("stage2_gate", passes_gate(binder, geom=geom, include_ipae=True)):
         return 0
-    print(f"[Traj {traj_idx}] Stage 2 passed")
 
     # ── POST-STAGE-2: structural gates ──
-    # Rejoin binder + target structures into a single complex for geometric checks.
     binder_struct = binder.result_sequences[0].structure
     target_struct = target.result_sequences[0].structure
     assert binder_struct is not None and target_struct is not None  # noqa: S101 -- populated by af2 backward/forward
@@ -669,17 +805,15 @@ def run_trajectory(
 
     print(f"[Traj {traj_idx}] Post-stage-2 structural checks...")
     clashes = complex_struct.ca_clash_score(threshold=CLASH_THRESHOLD)
-    if clashes > 0:
-        print(f"[Traj {traj_idx}] rejected at Ca-clash gate: {clashes} clashes")
-        return 0
-
     general_contacts = complex_struct.interface_contact_residues(
         binder_chain=binder_chain, target_chains=target_chains, cutoff=4.0
     )
-    if len(general_contacts) < 3:
-        print(f"[Traj {traj_idx}] rejected: too few interface contacts ({len(general_contacts)} < 3)")
+    if not _check_gate(
+        "structural_gate",
+        clashes == 0 and len(general_contacts) >= 3,
+        f"{clashes} clashes, {len(general_contacts)} contacts",
+    ):
         return 0
-    print(f"[Traj {traj_idx}] Structural checks passed (0 clashes, {len(general_contacts)} contacts)")
 
     # Map target hotspots onto the external cofold chain layout.
     cofold_hotspots = remap_hotspots_to_cofold(
@@ -706,9 +840,11 @@ def run_trajectory(
         cdr_positions_1idx=cdr_positions_1idx,
         cdr3_positions_1idx=cdr3_positions_1idx,
     )
-    if not passes_pre_redesign_external_gate(pre_redesign_metrics, geom=geom, traj_idx=traj_idx):
+    if not _check_gate(
+        "pre_redesign_external_gate",
+        passes_pre_redesign_external_gate(pre_redesign_metrics, geom=geom, traj_idx=traj_idx),
+    ):
         return 0
-    print(f"[Traj {traj_idx}] Pre-redesign filters passed")
 
     # ── STAGE 3: AbMPNN redesign ──
     # External pre-redesign filters are now applied on the separate cofolded structure.
@@ -848,7 +984,11 @@ def run_trajectory(
             "surface_hydrophobicity": float(iface_analysis.surface_hydrophobicity),
         }
         ok = all(rule.evaluate(filter_values[k]) for k, rule in geom.final_filters.items())
+        if no_filter:
+            ok = True
         status = "accepted" if ok else "redesign_candidate"
+        if ok and record is not None:
+            record.accepted = True
         metrics_str = " ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in filter_values.items())
         print(f"[Traj {traj_idx} / variant {variant_idx + 1}] {metrics_str} -> {status}")
 
@@ -864,6 +1004,9 @@ def run_trajectory(
             )
         relaxed_struct.write_pdb(os.path.join(run_dir, f"{stem}.pdb"))
         accepted += int(ok)
+
+    if accepted == 0 and record is not None and record.rejected_at is None:
+        record.rejected_at = "final_filter"
 
     return accepted
 
@@ -944,6 +1087,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Keep AF2 (~3GB) and AbLang (~3GB) loaded simultaneously. Disable with --no-share-gpu on low-memory GPUs.",
     )
+    parser.add_argument(
+        "--no-filter",
+        action="store_true",
+        default=False,
+        help="Disable all inter-stage gates and final filters. All trajectories run through all stages (significantly slower since no trajectories are short-circuited); metrics are still collected and saved.",
+    )
     return parser.parse_args()
 
 
@@ -980,6 +1129,7 @@ def main() -> None:
         max_trajectories=args.max_trajectories,
         max_passing=args.max_passing,
         output_dir=args.output_dir,
+        no_filter=args.no_filter,
     )
 
 
@@ -1181,70 +1331,62 @@ def compute_sc_rmsd(
     cofold_target_chain: str,
     cofold_binder_chain: str,
 ) -> float:
-    """Binder backbone RMSD after target-CA superposition. Returns 100.0 on error."""
-    try:
-        parser = PDBParser(QUIET=True)
+    """Binder backbone RMSD after target-CA superposition."""
+    parser = PDBParser(QUIET=True)
 
-        import tempfile
+    def _parse(struct: Structure, label: str) -> BioStructure:
+        with tempfile.NamedTemporaryFile(suffix=".pdb", mode="w", delete=False) as f:
+            f.write(struct.structure_pdb)
+            tmp = f.name
+        try:
+            return parser.get_structure(label, tmp)
+        finally:
+            os.unlink(tmp)
 
-        def _parse(struct: Structure, label: str) -> BioStructure:
-            with tempfile.NamedTemporaryFile(suffix=".pdb", mode="w", delete=False) as f:
-                f.write(struct.structure_pdb)
-                tmp = f.name
-            try:
-                return parser.get_structure(label, tmp)
-            finally:
-                os.unlink(tmp)
+    hall_bio = _parse(hallucinated_struct, "hall")
+    cofold_bio = _parse(cofolded_struct, "cofold")
 
-        hall_bio = _parse(hallucinated_struct, "hall")
-        cofold_bio = _parse(cofolded_struct, "cofold")
+    def _ca_atoms(bio_struct: BioStructure, chain_ids: list[str]) -> list:
+        atoms = []
+        chains = {chain.id: chain for chain in bio_struct[0]}
+        for chain_id in chain_ids:
+            chain = chains.get(chain_id)
+            if chain is None:
+                raise ValueError(f"Chain {chain_id} not found in structure (available: {list(chains.keys())})")
+            atoms.extend(
+                atom for residue in chain for atom in residue if atom.get_name() == "CA"
+            )
+        return atoms
 
-        def _ca_coords(bio_struct: BioStructure, chain_ids: list[str]) -> list[np.ndarray]:
-            coords: list[np.ndarray] = []
-            chains = {chain.id: chain for chain in bio_struct[0]}
-            for chain_id in chain_ids:
-                chain = chains.get(chain_id)
-                if chain is None:
-                    continue
-                coords.extend(
-                    atom.get_vector().get_array()
-                    for residue in chain
-                    for atom in residue
-                    if atom.get_name() == "CA"
-                )
-            return coords
+    def _bb_atoms(bio_struct: BioStructure, chain_id: str) -> list:
+        return [
+            atom
+            for chain in bio_struct[0]
+            if chain.id == chain_id
+            for residue in chain
+            for atom in residue
+            if atom.get_name() in _BACKBONE_ATOMS
+        ]
 
-        def _bb_coords(bio_struct: BioStructure, chain_id: str) -> list[np.ndarray]:
-            return [
-                atom.get_vector().get_array()
-                for chain in bio_struct[0]
-                if chain.id == chain_id
-                for residue in chain
-                for atom in residue
-                if atom.get_name() in _BACKBONE_ATOMS
-            ]
+    hall_target_ca = _ca_atoms(hall_bio, hall_target_chains)
+    cofold_target_ca = _ca_atoms(cofold_bio, [cofold_target_chain])
+    n_align = min(len(hall_target_ca), len(cofold_target_ca))
+    if n_align < 3:
+        raise ValueError(f"Too few CA atoms for superposition: hall={len(hall_target_ca)}, cofold={len(cofold_target_ca)}")
 
-        hall_target_ca = _ca_coords(hall_bio, hall_target_chains)
-        cofold_target_ca = _ca_coords(cofold_bio, [cofold_target_chain])
-        n_align = min(len(hall_target_ca), len(cofold_target_ca))
-        if n_align < 3:
-            return 100.0
+    sup = Superimposer()
+    sup.set_atoms(hall_target_ca[:n_align], cofold_target_ca[:n_align])
 
-        sup = Superimposer()
-        sup.set(np.array(hall_target_ca[:n_align]), np.array(cofold_target_ca[:n_align]))
-        rot, tran = sup.rotran
+    hall_bb = _bb_atoms(hall_bio, hall_binder_chain)
+    cofold_bb = _bb_atoms(cofold_bio, cofold_binder_chain)
+    n_bb = min(len(hall_bb), len(cofold_bb))
+    if n_bb == 0:
+        raise ValueError(f"No backbone atoms found: hall chain {hall_binder_chain}={len(hall_bb)}, cofold chain {cofold_binder_chain}={len(cofold_bb)}")
 
-        hall_bb = np.array(_bb_coords(hall_bio, hall_binder_chain))
-        cofold_bb = np.array(_bb_coords(cofold_bio, cofold_binder_chain))
-        n_bb = min(len(hall_bb), len(cofold_bb))
-        if n_bb == 0:
-            return 100.0
-
-        cofold_transformed = cofold_bb[:n_bb] @ rot + tran
-        diff = hall_bb[:n_bb] - cofold_transformed
-        return round(float(np.sqrt(np.mean(np.sum(diff**2, axis=1)))), 2)
-    except Exception:
-        return 100.0
+    sup.apply(cofold_bb[:n_bb])
+    diff = np.array([h.get_vector().get_array() - c.get_vector().get_array()
+                     for h, c in zip(hall_bb[:n_bb], cofold_bb[:n_bb])])
+    return round(float(np.sqrt(np.mean(np.sum(diff**2, axis=1)))), 2)
 
 
 def remap_hotspots_to_cofold(

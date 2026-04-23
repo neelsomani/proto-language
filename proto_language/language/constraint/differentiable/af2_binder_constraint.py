@@ -16,9 +16,6 @@ from proto_language.language.core import PROTEIN_AMINO_ACIDS, Sequence
 from proto_language.language.core.constraint import GradientResult
 from proto_language.utils import one_hot_protein_matrix
 
-# Loss keys registered only under backend="germinal" (see proto-tools ``_configure_germinal_losses``).
-_GERMINAL_ONLY_LOSS_KEYS = frozenset({"rg", "i_ptm", "NC", "helix", "beta_strand"})
-
 
 class AF2BinderConstraintConfig(BaseConfig):
     """Configuration for the AlphaFold2 binder-design constraint.
@@ -178,7 +175,7 @@ class AF2BinderConstraintConfig(BaseConfig):
 
     @model_validator(mode="after")
     def _reject_germinal_only_fields_on_base(self) -> "AF2BinderConstraintConfig":
-        """Reject germinal-only fields under ``backend="base"`` — they'd otherwise silently drop."""
+        """Reject germinal-fork features that need the fork's ``prep_inputs`` or contact config."""
         if self.backend == "germinal":
             return self
         offenders = [
@@ -191,7 +188,6 @@ class AF2BinderConstraintConfig(BaseConfig):
         ]
         if self.framework_contact_offset != 1.0:
             offenders.append("framework_contact_offset")
-        offenders.extend(f"loss_weights[{k!r}]" for k in sorted(_GERMINAL_ONLY_LOSS_KEYS & self.loss_weights.keys()))
         if offenders:
             raise ValueError(f"{offenders} require backend='germinal'; got {self.backend!r}.")
         return self

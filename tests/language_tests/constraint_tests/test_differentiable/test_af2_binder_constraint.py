@@ -85,11 +85,11 @@ class TestConfig:
         [
             {"bias_redesign": 10.0},
             {"design_positions": [0, 1, 2]},
-            *({"loss_weights": {"plddt": 1.0, k: 0.1}} for k in ("rg", "i_ptm", "NC", "helix", "beta_strand")),
+            {"framework_contact_offset": 2.0},
         ],
     )
     def test_germinal_only_fields_rejected_on_base(self, kwargs: dict[str, object]) -> None:
-        """Each germinal-only field / extension loss key fails validation under backend='base'."""
+        """Germinal-fork features (bias, positions, contact offset) fail on backend='base'."""
         with pytest.raises(ValueError, match="require backend='germinal'"):
             AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, **kwargs)
 

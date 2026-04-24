@@ -127,15 +127,36 @@ MERGERS: dict[GradientMergerName, type[GradientMerger]] = {
 # =============================================================================
 
 
-def align_norms(grads: list[np.ndarray], mode: Literal["none", "unit", "match_first"]) -> list[np.ndarray]:
-    """Align gradient norms before merging."""
+def align_norms(
+    grads: list[np.ndarray],
+    mode: Literal["none", "unit", "match_first"],
+    zero_norm_eps: float = 0.0,
+) -> list[np.ndarray]:
+    """Align gradient norms before merging.
+
+    Args:
+        grads (list[np.ndarray]): Gradients to align.
+        mode (Literal["none", "unit", "match_first"]): Alignment strategy.
+        zero_norm_eps (float): In ``match_first`` mode, zero out gradients with
+            norm below this threshold instead of scaling them up.
+
+    Returns:
+        list[np.ndarray]: Norm-aligned gradients.
+    """
     if mode == "none" or len(grads) <= 1:
         return grads
     if mode == "unit":
         return [g / (np.linalg.norm(g) + 1e-7) for g in grads]
     if mode == "match_first":
         target_norm = np.linalg.norm(grads[0])
-        return [grads[0]] + [g * (target_norm / (np.linalg.norm(g) + 1e-7)) for g in grads[1:]]
+        aligned = [grads[0]]
+        for g in grads[1:]:
+            g_norm = float(np.linalg.norm(g))
+            if g_norm < zero_norm_eps:
+                aligned.append(np.zeros_like(g))
+            else:
+                aligned.append(g * (target_norm / (g_norm + 1e-7)))
+        return aligned
     raise ValueError(f"Unknown norm_alignment mode: {mode}")
 
 

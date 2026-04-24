@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from proto_language.utils.gradients import MGDAMerger, normalize_gradient
+from proto_language.utils.gradients import MGDAMerger, align_norms, normalize_gradient
 
 
 class TestMGDAMerger:
@@ -13,6 +13,28 @@ class TestMGDAMerger:
     def test_opposing_gradients_cancel(self) -> None:
         g = np.array([[1.0, -1.0], [2.0, 0.5]])
         assert np.linalg.norm(MGDAMerger().merge([g, -g])) < 1e-6
+
+
+class TestAlignNorms:
+    def test_default_eps_does_not_zero(self) -> None:
+        large = np.array([3.0, 4.0])
+        near_zero = np.array([1e-8, 1e-9])
+        aligned = align_norms([large, near_zero], mode="match_first")
+        assert not np.allclose(aligned[1], 0.0)
+
+    def test_match_first_zeros_near_zero_gradient(self) -> None:
+        large = np.array([3.0, 4.0])
+        near_zero = np.array([1e-8, 1e-9])
+        aligned = align_norms([large, near_zero], mode="match_first", zero_norm_eps=1e-4)
+        assert np.array_equal(aligned[0], large)
+        assert np.allclose(aligned[1], 0.0)
+
+    def test_match_first_preserves_direction(self) -> None:
+        large = np.array([3.0, 4.0])
+        normal = np.array([1.0, 0.0])
+        aligned = align_norms([large, normal], mode="match_first", zero_norm_eps=1e-4)
+        assert np.isclose(np.linalg.norm(aligned[1]), np.linalg.norm(large), rtol=1e-5)
+        assert np.allclose(aligned[1] / np.linalg.norm(aligned[1]), normal / np.linalg.norm(normal), atol=1e-6)
 
 
 class TestNormalizeGradient:

@@ -183,6 +183,7 @@ class BinderGeometry:
     ablm_logit_start_weight: float
     ablm_logit_end_weight: float
     min_lr_scale: float
+    zero_norm_eps: float
     lr_schedule: str | None
     ban_cysteine: bool
     cofold_tool: str
@@ -441,6 +442,7 @@ def _load_geometry(preset_name: str, preset_cfg: dict[str, Any]) -> BinderGeomet
         ablm_logit_start_weight=float(preset_cfg["ablm_logit_start_weight"]),
         ablm_logit_end_weight=float(preset_cfg["ablm_logit_end_weight"]),
         min_lr_scale=float(preset_cfg["min_lr_scale"]),
+        zero_norm_eps=float(preset_cfg.get("zero_norm_eps", 0.0)),
         lr_schedule=None if preset_cfg["lr_schedule"] is None else str(preset_cfg["lr_schedule"]),
         ban_cysteine=bool(preset_cfg["ban_cysteine"]),
         cofold_tool=str(preset_cfg["cofold_tool"]),
@@ -693,6 +695,7 @@ def run_trajectory(
     # ── STAGE 0 / 1: gradient hallucination ──
     logit_cfg = GradientOptimizerConfig.germinal_logit_preset()
     logit_cfg.num_steps = geom.logits_steps
+    logit_cfg.zero_norm_eps = geom.zero_norm_eps
     logit_cfg.initial_logits = one_hot_protein_matrix(binder_template)
     logit_cfg.softmax_init_positions = cdr_positions
     logit_cfg.constraint_weight_schedules = [
@@ -721,6 +724,7 @@ def run_trajectory(
     softmax_cfg = GradientOptimizerConfig.germinal_softmax_preset()
     softmax_cfg.num_steps = geom.softmax_steps
     softmax_cfg.min_lr_scale = geom.min_lr_scale
+    softmax_cfg.zero_norm_eps = geom.zero_norm_eps
     if geom.lr_schedule is not None:
         softmax_cfg.lr_schedule = geom.lr_schedule
     pwg_stage1 = PositionWeightGenerator(

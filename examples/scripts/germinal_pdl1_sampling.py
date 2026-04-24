@@ -865,10 +865,12 @@ def build_program(
 
     logit_config = GradientOptimizerConfig.germinal_logit_preset()
     logit_config.num_steps = args.logit_steps
+    logit_config.zero_norm_eps = 1e-4
     logit_config.initial_logits = one_hot_protein_matrix(binder_seed)
     logit_config.softmax_init_positions = cdr_positions
     softmax_config = GradientOptimizerConfig.germinal_softmax_preset()
     softmax_config.num_steps = args.softmax_steps
+    softmax_config.zero_norm_eps = 1e-4
 
     stage1 = make_gradient_stage(
         construct,

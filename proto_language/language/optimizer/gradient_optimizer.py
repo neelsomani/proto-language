@@ -94,6 +94,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         adam_config (AdamConfig): Adam hyperparameters. Only visible when ``ml_optimizer="adam"``.
         norm_alignment (Literal["none", "unit", "match_first"]): Per-constraint
             gradient normalization before merging.
+        zero_norm_eps (float): In match_first mode, zero out gradients with norm below this.
         normalize_gradients (bool): Normalize merged gradient before update.
         normalize_mode (Literal["unit", "sqrt_length"]): Normalization formula.
             ``"unit"`` = L2 to magnitude 1. ``"sqrt_length"`` = ``g * sqrt(eff_L) / ||g||``.
@@ -219,6 +220,14 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         title="Norm Alignment",
         description="Per-constraint gradient normalization before merging.",
         advanced=True,
+    )
+    zero_norm_eps: float = ConfigField(
+        default=0.0,
+        ge=0.0,
+        title="Zero Norm Epsilon",
+        description="In match_first mode, zero out gradients with norm below this threshold.",
+        advanced=True,
+        depends_on={"field": "norm_alignment", "value": "match_first"},
     )
     normalize_gradients: bool = ConfigField(
         default=True,
@@ -623,7 +632,7 @@ class GradientOptimizer(Optimizer):
         weights = [self._effective_weight(c, step) for c in self._gradient_constraints]
 
         # Align norms first so ``match_first`` doesn't wash out weights.
-        grads = align_norms(grads, self.config.norm_alignment)
+        grads = align_norms(grads, self.config.norm_alignment, zero_norm_eps=self.config.zero_norm_eps)
         grads = [g * w for g, w in zip(grads, weights, strict=True)]
         merged = self._merger.merge(grads)
 

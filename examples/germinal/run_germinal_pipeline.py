@@ -276,18 +276,13 @@ class TrajectoryRecord:
 def _extract_stage_metrics(binder: "Segment") -> StageMetrics:
     """Extract current metrics from binder segment after a stage run."""
     result = binder.result_sequences[0]
-    if result.structure is None:
-        return StageMetrics(plddt=float("nan"), iptm=float("nan"), ipae=float("nan"), ablang_loss=float("nan"))
-    af2_data = result._constraints_metadata.get("af2", {}).get("data", {})
-    ablang_data = result._constraints_metadata.get("ablang", {}).get("data", {})
-    iptm_val = af2_data.get("iptm")
-    ipae_val = af2_data.get("i_pae")
-    ablang_val = ablang_data.get("score")
+    assert result.structure is not None  # noqa: S101 -- af2 always populates it on stages 0/1/2
+    af2_data = result._constraints_metadata["af2"]["data"]
     return StageMetrics(
         plddt=float(np.mean(result.structure.per_residue_plddt)),
-        iptm=float(iptm_val) if iptm_val is not None else float("nan"),
-        ipae=float(ipae_val) if ipae_val is not None else float("nan"),
-        ablang_loss=float(ablang_val) if ablang_val is not None else float("nan"),
+        iptm=float(af2_data["iptm"]),
+        ipae=float(af2_data["i_pae"]),
+        ablang_loss=float(result._constraints_metadata["ablang"]["score"]),
     )
 
 
@@ -1148,8 +1143,8 @@ def passes_gate(binder: Segment, *, geom: BinderGeometry, include_ipae: bool) ->
     data = result._constraints_metadata["af2"]["data"]
     assert result.structure is not None  # noqa: S101 -- af2 backward always populates it
     plddt = float(np.mean(result.structure.per_residue_plddt))
-    iptm = float(data.get("iptm", 0.0) or 0.0)
-    ipae = float(data.get("i_pae", math.inf) or math.inf)
+    iptm = float(data["iptm"])
+    ipae = float(data["i_pae"])
     if plddt <= geom.plddt_threshold or iptm <= geom.iptm_threshold:
         print(f"  gate: plddt={plddt:.3f} (need>{geom.plddt_threshold}) iptm={iptm:.3f} (need>{geom.iptm_threshold}) ipae={ipae:.2f}")
         return False

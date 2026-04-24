@@ -28,11 +28,10 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
     existing proteins while maintaining structural compatibility.
 
     Attributes:
-        model_choice (Literal["proteinmpnn", "abmpnn"]): Model weights to use.
-            ``"proteinmpnn"`` for the general-purpose ProteinMPNN model,
-            ``"abmpnn"`` for antibody-optimized weights (same architecture,
-            trained on antibody structures). Use ``"abmpnn"`` for antibody
-            design workflows such as the Germinal pipeline.
+        model_choice (Literal["proteinmpnn", "abmpnn", "soluble"]): Model weights to use.
+            ``"proteinmpnn"`` for the general-purpose model, ``"abmpnn"`` for
+            antibody-optimized weights, ``"soluble"`` for soluble-protein-trained
+            weights (same architecture, different training data).
         structure_inputs (list[InverseFoldingStructureInput] | None): Structure(s) with per-structure
             design constraints. Each ``InverseFoldingStructureInput`` bundles a structure with optional
             ``chain_ids`` and ``fixed_positions`` specific to that structure.
@@ -129,10 +128,10 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
         ... )
     """
 
-    model_choice: Literal["proteinmpnn", "abmpnn"] = ConfigField(
+    model_choice: Literal["proteinmpnn", "abmpnn", "soluble"] = ConfigField(
         default="proteinmpnn",
         title="Model Choice",
-        description="Model weights: 'proteinmpnn' (general) or 'abmpnn' (antibody-optimized).",
+        description="Model weights: 'proteinmpnn' (general), 'abmpnn' (antibody), or 'soluble' (soluble proteins).",
     )
 
     # Structure parameters - bundles structure, chain_ids, and fixed_positions per structure.

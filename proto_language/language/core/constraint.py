@@ -199,7 +199,7 @@ class Constraint:
                 ``(inputs: tuple[Sequence, ...], *, config: BaseModel, **kwargs) -> GradientResult``.
                 Receives a tuple of Sequences from input segments (parallel with the scoring function).
                 Reads ``.logits`` from optimized segments, ``.sequence`` from context segments.
-                Additional kwargs (e.g., ``temperature``, ``soft``) are forwarded from ``compute_gradient()``.
+                Additional kwargs (e.g., ``temperature``, ``soft``, ``hard``) are forwarded from ``compute_gradient()``.
             backward_config (BaseModel | dict[str, Any] | None): Configuration for the backward callable.
             label (str | None): Optional label for metadata tracking. Defaults to
                 ``function.__name__`` or ``backward.__name__``.
@@ -595,13 +595,8 @@ class Constraint:
         metrics to ``_constraints_metadata``. The backward reads ``.logits`` from
         optimized segments and ``.sequence`` from context segments.
 
-        All keyword arguments are forwarded to the backward callable. Each
-        backward declares what it accepts (e.g., ``temperature``, ``soft``).
-
         Args:
-            **kwargs (Any): Forwarded to the backward callable. Common kwargs
-                include ``temperature`` (softmax temperature) and ``soft``
-                (AF2 logit/softmax blending).
+            **kwargs (Any): Forwarded to the backward callable (e.g. ``temperature``, ``soft``, ``hard``).
 
         Returns:
             list[GradientResult]: One result per proposal. Raw gradient, loss, and

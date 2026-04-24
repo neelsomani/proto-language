@@ -243,6 +243,7 @@ def af2_binder_backward(
     config: AF2BinderBackwardConstraintConfig,
     temperature: float,
     soft: float,
+    hard: float = 0.0,
     **kwargs: Any,  # noqa: ARG001
 ) -> GradientResult:
     """Compute AlphaFold2 binder-design gradient w.r.t. binder logits."""
@@ -276,6 +277,7 @@ def af2_binder_backward(
             backend=config.backend,
             seed=evaluation_seed,
             soft=soft,
+            hard=hard,
             compute_gradient=True,
         ),
     )

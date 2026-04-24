@@ -82,6 +82,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         logit_bias (list[list[float]] | None): Per-position bias matrix ``(L, |vocab|)`` added to initial logits.
         soft_start (float): Soft blending at step 1 (0=hard, 1=softmax).
         soft_end (float): Soft blending at final step.
+        hard_start (float): Straight-through estimator at step 1 (0=relaxed, 1=argmax).
+        hard_end (float): Straight-through estimator at final step.
         temperature_start (float): Temperature at step 1. Both schedules interpolate
             between this and ``temperature_end``; they differ only in curve shape.
         temperature_end (float): Temperature at final step.
@@ -156,6 +158,22 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         le=1.0,
         title="Soft End",
         description="Soft blending at final step.",
+        advanced=True,
+    )
+    hard_start: float = ConfigField(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        title="Hard Start",
+        description="Straight-through estimator blending at step 1 (0=relaxed, 1=argmax).",
+        advanced=True,
+    )
+    hard_end: float = ConfigField(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        title="Hard End",
+        description="Straight-through estimator blending at final step.",
         advanced=True,
     )
     temperature_start: float = ConfigField(
@@ -531,6 +549,7 @@ class GradientOptimizer(Optimizer):
             logger.info(
                 f"GradientOptimizer: {self.num_results} trajectories, {self.config.num_steps} steps, "
                 f"soft {self.config.soft_start}→{self.config.soft_end}, "
+                f"hard {self.config.hard_start}→{self.config.hard_end}, "
                 f"temp {self.config.temperature_start}→{self.config.temperature_end}"
             )
 
@@ -539,12 +558,15 @@ class GradientOptimizer(Optimizer):
             # 1. Compute soft and temperature from linear/scheduled interpolation
             progress = step / self.config.num_steps
             soft = self.config.soft_start + (self.config.soft_end - self.config.soft_start) * progress
+            hard = self.config.hard_start + (self.config.hard_end - self.config.hard_start) * progress
             temp = self._softmax_schedule(step, self.config.num_steps)
             lr_temp = self._lr_schedule(step, self.config.num_steps)
             lr = self._effective_lr(lr_temp, soft)
 
             # 2. Compute gradients from all gradient-capable constraints
-            all_results = [c.compute_gradient(temperature=temp, soft=soft) for c in self._gradient_constraints]
+            all_results = [
+                c.compute_gradient(temperature=temp, soft=soft, hard=hard) for c in self._gradient_constraints
+            ]
             for i, constraint in enumerate(self._gradient_constraints):
                 for k, r in enumerate(all_results[i]):
                     if not np.isfinite(r.gradient[self._gradient_indices[i]]).all():

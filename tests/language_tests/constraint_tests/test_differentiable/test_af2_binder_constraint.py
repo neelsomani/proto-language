@@ -153,8 +153,9 @@ class TestBackward:
         target = _target_sequence()
         cfg = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B")
 
-        af2_binder_backward((binder, target), temperature=1.0, config=cfg, soft=0.5)
+        af2_binder_backward((binder, target), temperature=1.0, config=cfg, soft=0.5, hard=0.7)
         assert mock_run.call_args[0][1].soft == 0.5
+        assert mock_run.call_args[0][1].hard == 0.7
 
 
 class TestForward:

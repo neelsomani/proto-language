@@ -23,7 +23,7 @@ def _seq_with_logits(logits: np.ndarray) -> Sequence:
     return seq
 
 
-def _mock_tool_output(
+def _mock_gradient_output(
     *, gradient: list[list[float]] | None, loss: float = 0.5, log_likelihood: float = -0.5
 ) -> SimpleNamespace:
     """Build a mock AbLangGradientOutput-shaped object."""
@@ -35,7 +35,7 @@ class TestVHHMode:
 
     @patch(f"{_TOOL_MODULE}.run_ablang_gradient")
     def test_backward_passes_full_binder_as_heavy_chain(self, mock_run: object) -> None:
-        mock_run.return_value = _mock_tool_output(gradient=[[0.1] * 20] * 5, loss=0.5)
+        mock_run.return_value = _mock_gradient_output(gradient=[[0.1] * 20] * 5, loss=0.5)
         binder = _seq_with_logits(np.ones((5, 20)) / 20.0)
 
         result = ablang_naturalness_gradient_backward(
@@ -53,7 +53,7 @@ class TestForward:
     @patch(f"{_TOOL_MODULE}.run_ablang_gradient")
     def test_returns_raw_loss(self, mock_run: object) -> None:
         def score_for(loss: float) -> float:
-            mock_run.return_value = _mock_tool_output(gradient=None, loss=loss, log_likelihood=-loss)
+            mock_run.return_value = _mock_gradient_output(gradient=None, loss=loss, log_likelihood=-loss)
             return ablang_naturalness_forward(
                 [(Sequence("EV", "protein"),)], config=AbLangConstraintConfig(temperature=0.6)
             )[0]
@@ -63,7 +63,7 @@ class TestForward:
 
     @patch(f"{_TOOL_MODULE}.run_ablang_gradient")
     def test_forward_writes_metadata_and_sets_compute_gradient_false(self, mock_run: object) -> None:
-        mock_run.return_value = _mock_tool_output(gradient=None, loss=2.0, log_likelihood=-2.0)
+        mock_run.return_value = _mock_gradient_output(gradient=None, loss=2.0, log_likelihood=-2.0)
         binder = Sequence("EVQLV", "protein")
         ablang_naturalness_forward([(binder,)], config=AbLangConstraintConfig(temperature=0.6, device="cpu"))
         assert binder._metadata == {"ablang_log_likelihood": -2.0, "ablang_loss": 2.0}
@@ -79,7 +79,7 @@ class TestScFvMode:
         # Tool returns concatenated (vh_len + vl_len, 20) gradient with distinct per-row values.
         vh_len, vl_len, total = 8, 8, 20
         full_paired = [[float(i + 1)] * 20 for i in range(vh_len + vl_len)]
-        mock_run.return_value = _mock_tool_output(gradient=full_paired, loss=0.3)
+        mock_run.return_value = _mock_gradient_output(gradient=full_paired, loss=0.3)
         binder = _seq_with_logits(np.zeros((total, 20)))
 
         result = ablang_naturalness_gradient_backward(
@@ -100,7 +100,7 @@ class TestScFvMode:
 
     @patch(f"{_TOOL_MODULE}.run_ablang_gradient")
     def test_forward_extracts_slices_for_one_hot(self, mock_run: object) -> None:
-        mock_run.return_value = _mock_tool_output(gradient=None, loss=1.0)
+        mock_run.return_value = _mock_gradient_output(gradient=None, loss=1.0)
         binder = Sequence("EVQLAAAA" + "GGGG" + "DIQAAAAA", "protein")  # vh=8, linker=4, vl=8
         ablang_naturalness_forward(
             [(binder,)],
@@ -178,8 +178,8 @@ class TestGPU:
         assert np.isfinite(r1.gradient[0]).all() and np.isfinite(r2.gradient[0]).all()
         assert r1.loss != r2.loss and not np.allclose(r1.gradient[0], r2.gradient[0])
 
-    def test_vhh_forward_matches_backward_loss_on_discrete_sequence(self) -> None:
-        """Forward path one-hots a discrete sequence → same argmax as backward input → same loss."""
+    def test_vhh_forward_matches_backward_loss(self) -> None:
+        """Forward (compute_gradient=False) and backward use the same PLL code path."""
         config = AbLangConstraintConfig(temperature=0.6)
         sequence = "EVQLVESGGGLVQPGGSLRL"
         aa_order = "ACDEFGHIKLMNPQRSTVWY"
@@ -190,7 +190,8 @@ class TestGPU:
         backward = ablang_naturalness_gradient_backward((_seq_with_logits(logits),), config=config)
         forward_score = ablang_naturalness_forward([(Sequence(sequence, "protein"),)], config=config)[0]
 
-        assert forward_score == pytest.approx(backward.loss, rel=1e-3)
+        assert np.isfinite(forward_score) and forward_score > 0
+        assert forward_score == pytest.approx(backward.loss, rel=1e-5)
 
     def test_scfv_mode_produces_full_binder_gradient_with_zero_linker(self) -> None:
         binder = _seq_with_logits(np.zeros((30, 20), dtype=np.float64))

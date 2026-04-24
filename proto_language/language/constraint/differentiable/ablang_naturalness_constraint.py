@@ -165,11 +165,7 @@ def ablang_naturalness_forward(
     *,
     config: AbLangConstraintConfig,
 ) -> list[float]:
-    """Forward AbLang naturalness scoring for discrete optimizers.
-
-    The ``ablang_log_likelihood`` / ``ablang_loss`` metadata values are VHH
-    (heavy-only) scores when slices are unset and paired (VH+VL) scores when
-    slices are set.
+    """Forward AbLang naturalness scoring via masked pseudo-log-likelihood.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal ``(binder_seq,)``.

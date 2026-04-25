@@ -291,7 +291,7 @@ class ProteinMPNNGenerator(Generator):
 
         generated_sequences = []
         perplexities = []
-        sequence_identities = []
+        sequence_recoveries = []
 
         if len(sampling_structure_inputs) == 1:
             # Single structure: generate num_proposals sequences in chunks of batch_size
@@ -324,18 +324,18 @@ class ProteinMPNNGenerator(Generator):
         for designed in result.designed_sequences:
             generated_sequences.extend(designed.sequences)
             perplexities.extend(designed.perplexity)
-            sequence_identities.extend(designed.sequence_identity)
+            sequence_recoveries.extend(designed.sequence_recovery)
 
         key = self._spec.key
-        for proposal, sequence, perplexity, identity in zip(
+        for proposal, sequence, perplexity, recovery in zip(
             self.segment.proposal_sequences,
             generated_sequences,
             perplexities,
-            sequence_identities,
+            sequence_recoveries,
             strict=True,
         ):
             proposal.sequence = sequence
-            proposal._generator_metadata[key] = {"perplexity": perplexity, "sequence_identity": identity}
+            proposal._generator_metadata[key] = {"perplexity": perplexity, "sequence_recovery": recovery}
 
         # Write the generating structure onto each proposal sequence
         if len(sampling_structure_inputs) == 1:

@@ -285,8 +285,9 @@ class LigandMPNNGenerator(Generator):
                 "No structure_inputs provided. Either pass structure_inputs to sample() or configure structure_inputs in the generator config."
             )
 
-        generated_sequences = []
-        all_metrics = []
+        generated_sequences: list[str] = []
+        all_recovery: list[float] = []
+        all_interface_recovery: list[float] = []
 
         if len(sampling_structure_inputs) == 1:
             # Single structure: generate num_proposals sequences in chunks of batch_size
@@ -317,17 +318,22 @@ class LigandMPNNGenerator(Generator):
         )
         for design in result.designed_sequences:
             generated_sequences.extend(design.sequences)
-            all_metrics.extend(design.ligandmpnn_metrics)
+            all_recovery.extend(design.sequence_recovery)
+            all_interface_recovery.extend(design.ligand_interface_sequence_recovery)
 
         key = self._spec.key
-        for proposal, sequence, metrics in zip(
+        for proposal, sequence, recovery, interface_recovery in zip(
             self.segment.proposal_sequences,
             generated_sequences,
-            all_metrics,
+            all_recovery,
+            all_interface_recovery,
             strict=True,
         ):
             proposal.sequence = sequence
-            proposal._generator_metadata[key] = {"metrics": metrics}
+            proposal._generator_metadata[key] = {
+                "sequence_recovery": recovery,
+                "ligand_interface_sequence_recovery": interface_recovery,
+            }
 
         # Write the generating structure onto each proposal sequence
         if len(sampling_structure_inputs) == 1:

@@ -63,7 +63,7 @@ def sample_results():
                                     },
                                 },
                                 "generators": {
-                                    "proteinmpnn": {"perplexity": 1.8, "sequence_identity": 0.7},
+                                    "proteinmpnn": {"perplexity": 1.8, "sequence_recovery": 0.7},
                                     "evo1": {"score": -2.5},
                                 },
                                 "metadata": {"source": "synthetic"},
@@ -265,10 +265,10 @@ class TestFlattenGeneratorColumns:
 
     def test_single_generator_flat(self):
         """One generator with several fields produces generator.{key}.{field} columns."""
-        flat = _flatten_generator_columns({"proteinmpnn": {"perplexity": 1.8, "sequence_identity": 0.7}})
+        flat = _flatten_generator_columns({"proteinmpnn": {"perplexity": 1.8, "sequence_recovery": 0.7}})
         assert flat == {
             "generator.proteinmpnn.perplexity": 1.8,
-            "generator.proteinmpnn.sequence_identity": 0.7,
+            "generator.proteinmpnn.sequence_recovery": 0.7,
         }
 
     def test_multiple_generators_isolated(self):
@@ -290,10 +290,10 @@ class TestFlattenGeneratorColumns:
 
     def test_serializes_nested_values(self):
         """Nested dict values are JSON-stringified via _serialize_value."""
-        flat = _flatten_generator_columns({"ligandmpnn": {"metrics": {"a": 1.0, "b": 2.0}}})
-        assert "generator.ligandmpnn.metrics" in flat
+        flat = _flatten_generator_columns({"mygen": {"nested_field": {"a": 1.0, "b": 2.0}}})
+        assert "generator.mygen.nested_field" in flat
         # _serialize_value JSON-stringifies dicts so flat tables can write them as scalars
-        assert isinstance(flat["generator.ligandmpnn.metrics"], str)
+        assert isinstance(flat["generator.mygen.nested_field"], str)
 
 
 # =============================================================================
@@ -343,7 +343,7 @@ class TestFlattenSequences:
         rows = flatten_sequences(sample_results)
         promoter_row = next(r for r in rows if r["segment"] == "promoter" and r["result_idx"] == 0)
         assert promoter_row["generator.proteinmpnn.perplexity"] == 1.8
-        assert promoter_row["generator.proteinmpnn.sequence_identity"] == 0.7
+        assert promoter_row["generator.proteinmpnn.sequence_recovery"] == 0.7
         assert promoter_row["generator.evo1.score"] == -2.5
 
     def test_no_generator_columns_when_empty(self, sample_results):
@@ -487,7 +487,7 @@ class TestFlattenConstructs:
         """Per-segment generator metadata uses {segment}.generator.{registry_key}.{field} prefix."""
         rows = flatten_constructs(sample_results)
         assert rows[0]["promoter.generator.proteinmpnn.perplexity"] == 1.8
-        assert rows[0]["promoter.generator.proteinmpnn.sequence_identity"] == 0.7
+        assert rows[0]["promoter.generator.proteinmpnn.sequence_recovery"] == 0.7
         assert rows[0]["promoter.generator.evo1.score"] == -2.5
 
     def test_empty_results(self):

@@ -235,12 +235,20 @@ def gap_gini_constraint(
                 len(query_str),
                 len(ref_str),
             )
-            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={"gap_gini": None, "gap_gini_error": True}))
+            results.append(
+                ConstraintOutput(
+                    score=MAX_ENERGY,
+                    metadata={"gap_gini": None, "gap_gini_error": True},
+                    metadata_recipient="Query Sequence",
+                )
+            )
             continue
 
         if not align_result.msa or len(align_result.msa) < 2:
             logger.warning("MAFFT returned no alignment; penalizing pair")
-            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={"gap_gini": None}))
+            results.append(
+                ConstraintOutput(score=MAX_ENERGY, metadata={"gap_gini": None}, metadata_recipient="Query Sequence")
+            )
             continue
 
         al1, al2 = align_result.msa[0], align_result.msa[1]
@@ -250,7 +258,9 @@ def gap_gini_constraint(
             al1, al2 = _trim_alignment(al1, al2)
             if al1 is None:
                 # No overlap after trimming, treat as 0.0 (no gaps)
-                results.append(ConstraintOutput(score=MIN_ENERGY, metadata={"gap_gini": 0.0}))
+                results.append(
+                    ConstraintOutput(score=MIN_ENERGY, metadata={"gap_gini": 0.0}, metadata_recipient="Query Sequence")
+                )
                 continue
 
         # --- Gini computation ---
@@ -264,6 +274,8 @@ def gap_gini_constraint(
             # max_gap_gini=0.1, gini=0.5 → (0.5-0.1)/(1.0-0.1)=0.44
             penalty = (gini_score - config.max_gap_gini) / (1.0 - config.max_gap_gini)
             score = min(MAX_ENERGY, penalty)
-        results.append(ConstraintOutput(score=score, metadata={"gap_gini": gini_score}))
+        results.append(
+            ConstraintOutput(score=score, metadata={"gap_gini": gini_score}, metadata_recipient="Query Sequence")
+        )
 
     return results

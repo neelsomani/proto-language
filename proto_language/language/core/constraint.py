@@ -88,12 +88,18 @@ class ConstraintOutput:
         structures (tuple[Structure | None, ...]): Optional per-segment structures, aligned
             with the input tuple. Non-``None`` entries are written to ``inputs[i].structure``.
         logits (tuple[np.ndarray | None, ...]): Optional per-segment logits, same semantics.
+        metadata_recipient (str | None): Optional unique input label that should receive
+            ``metadata``. Constraints with declared ``InputSlot``s resolve this against
+            slot labels; otherwise this resolves against segment labels. If unset,
+            metadata is written to every input segment, which is the intended default
+            for metrics that describe the full input tuple or complex.
     """
 
     score: float
     metadata: dict[str, Any] = field(default_factory=dict)
     structures: tuple[Structure | None, ...] = ()
     logits: tuple[np.ndarray | None, ...] = ()
+    metadata_recipient: str | None = None
 
 
 @dataclass(frozen=True)
@@ -350,6 +356,7 @@ class Constraint:
         if len(results) != len(input_sequences):
             raise ValueError(f"'{self.label}' returned {len(results)} results, expected {len(input_sequences)}")
         n_inputs = len(self._inputs)
+        metadata_recipient_positions: list[int | None] = []
         for i, result in enumerate(results):
             idx = indices_to_evaluate[i]
             if not isinstance(result, ConstraintOutput):
@@ -361,6 +368,9 @@ class Constraint:
                 raise ValueError(f"'{self.label}' proposal {idx}: non-finite score {score!r}")
             if not allow_raw_scores and not is_filter and not (0.0 <= score <= 1.0):
                 raise ValueError(f"'{self.label}' proposal {idx}: score {score!r} not in [0.0, 1.0]")
+            metadata_recipient_positions.append(
+                self._resolve_metadata_recipient_position(idx, result.metadata_recipient)
+            )
             if result.structures and len(result.structures) != n_inputs:
                 raise ValueError(
                     f"'{self.label}' proposal {idx}: {len(result.structures)} structures, expected {n_inputs}"
@@ -368,8 +378,10 @@ class Constraint:
             if result.logits and len(result.logits) != n_inputs:
                 raise ValueError(f"'{self.label}' proposal {idx}: {len(result.logits)} logits, expected {n_inputs}")
 
-        for original_idx, result in zip(indices_to_evaluate, results, strict=True):
-            self._write_forward_result(original_idx, result)
+        for original_idx, result, metadata_recipient_position in zip(
+            indices_to_evaluate, results, metadata_recipient_positions, strict=True
+        ):
+            self._write_forward_result(original_idx, result, metadata_recipient_position)
 
         if self._threshold is None:
             final_scores: list[float] | list[bool] = [float("nan")] * num_proposals
@@ -401,7 +413,9 @@ class Constraint:
 
         return final_scores
 
-    def _write_forward_result(self, sequence_idx: int, result: ConstraintOutput) -> None:
+    def _write_forward_result(
+        self, sequence_idx: int, result: ConstraintOutput, metadata_recipient_position: int | None
+    ) -> None:
         """Write a ``ConstraintOutput`` onto the original proposal sequences.
 
         Stores score/weight/weighted_score and nested ``data`` under
@@ -409,7 +423,7 @@ class Constraint:
         structures and logits to matching proposal sequences. Skips duplicate segments
         that share a proposal Sequence instance (e.g., homomers).
         """
-        self._write_constraint_metadata(sequence_idx, result.score, result.metadata)
+        self._write_constraint_metadata(sequence_idx, result.score, result.metadata, metadata_recipient_position)
         if result.structures or result.logits:
             processed_ids: set[int] = set()
             for seg_idx, segment in enumerate(self._inputs):
@@ -426,24 +440,60 @@ class Constraint:
                     if lg is not None:
                         original.logits = lg
 
-    def _write_constraint_metadata(self, sequence_idx: int, score: float, metadata: dict[str, Any]) -> None:
-        """Write ``_constraints_metadata[self.label]`` on each unique input proposal."""
-        processed_ids: set[int] = set()
+    def _write_constraint_metadata(
+        self, sequence_idx: int, score: float, metadata: dict[str, Any], metadata_recipient_position: int | None = None
+    ) -> None:
+        """Write ``_constraints_metadata[self.label]`` on each unique input proposal.
+
+        ``metadata_recipient_position`` restricts custom metadata to one input.
+        When unset, custom metadata is copied to all inputs for discoverability.
+        """
+        originals_by_id: dict[int, Sequence] = {}
+        metadata_by_original: dict[int, dict[str, Any]] = {}
+        position_by_original: dict[int, int] = {}
         for seg_idx, segment in enumerate(self._inputs):
             original = segment.proposal_sequences[sequence_idx]
-            if id(original) in processed_ids:
-                continue
-            processed_ids.add(id(original))
+            original_id = id(original)
+            originals_by_id.setdefault(original_id, original)
+            metadata_by_original.setdefault(original_id, {})
+            position_by_original.setdefault(original_id, seg_idx)
+            if metadata_recipient_position is None or metadata_recipient_position == seg_idx:
+                metadata_by_original[original_id].update(metadata)
+
+        for original_id, original in originals_by_id.items():
+            seg_idx = position_by_original[original_id]
             constraint_data: dict[str, Any] = {
                 "score": filter_inf_nan_scores(score),
                 "weight": self._weight,
                 "weighted_score": filter_inf_nan_scores(score * self._weight),
-                "data": dict(metadata),
+                "data": metadata_by_original[original_id],
             }
             if len(self._inputs) > 1:
                 constraint_data["input_segments"] = [f"{s.construct_label}.{s.label}" for s in self._inputs]
                 constraint_data["position_in_inputs"] = seg_idx
             original._constraints_metadata[self.label] = constraint_data
+
+    def _resolve_metadata_recipient_position(self, sequence_idx: int, metadata_recipient: str | None) -> int | None:
+        """Resolve a metadata target to an input position for one proposal."""
+        if metadata_recipient is None:
+            return None
+
+        if self._input_slots:
+            matches = [idx for idx, slot in enumerate(self._input_slots) if slot.label == metadata_recipient]
+        else:
+            matches = [
+                idx
+                for idx, segment in enumerate(self._inputs)
+                if metadata_recipient == segment.label
+                or (segment.construct_label and metadata_recipient == f"{segment.construct_label}.{segment.label}")
+            ]
+
+        if len(matches) == 1:
+            return matches[0]
+        raise ValueError(
+            f"'{self.label}' proposal {sequence_idx}: metadata_recipient {metadata_recipient!r} "
+            "must match exactly one input label"
+        )
 
     def _validate_constraint(self) -> None:
         """Validate constraint configuration.

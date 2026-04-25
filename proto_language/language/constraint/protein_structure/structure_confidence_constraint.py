@@ -107,7 +107,11 @@ def _assemble_result(
     structure_tool: str,
     n_segments: int,
 ) -> ConstraintOutput:
-    """Build a ``ConstraintOutput`` for a single proposal; structure attaches to slot 0 only."""
+    """Build a full-tuple structure result.
+
+    Metadata describes the predicted input tuple/complex and is broadcast by
+    default; the predicted Structure attaches to slot 0 as the canonical carrier.
+    """
     if structure is None:
         return ConstraintOutput(score=score)
     metadata = {
@@ -154,7 +158,8 @@ def structure_plddt_constraint(
 
     Returns:
         list[ConstraintOutput]: Per-proposal score and ``avg_plddt`` / ``pdb_output``
-            / ``structure_tool`` metadata; predicted Structure attaches to slot 0.
+            / ``structure_tool`` metadata for the predicted full input tuple;
+            predicted Structure attaches to slot 0.
 
     Example:
         Programming a homo-trimer with ESMFold:
@@ -421,8 +426,9 @@ def structure_composite_constraint(
         list[ConstraintOutput]: Per-proposal composite score in ``[0, 1]`` (lower
             is better). Metadata carries the four normalized components
             (``composite_avg_plddt``, ``composite_iptm``, ``composite_ptm``,
-            ``composite_avg_pae``) plus ``pdb_output`` and ``structure_tool``;
-            the predicted Structure attaches to slot 0.
+            ``composite_avg_pae``) plus ``pdb_output`` and ``structure_tool`` for
+            the predicted full input tuple; the predicted Structure attaches to
+            slot 0.
 
     Note:
         Metadata values are **all normalized to ``[0, 1]``** so downstream

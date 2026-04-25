@@ -336,7 +336,8 @@ def structure_rmsd_constraint(
 ) -> list[ConstraintOutput]:
     """Predicts structure of input proposals and compares RMSD against a target.
 
-    Returns a score 0-1 (0 is perfect match).
+    Returns a score 0-1 (0 is perfect match). Metadata describes the predicted
+    full input tuple/complex, not an individual chain.
     """
     # Prepare target.
     target_pdb = _prepare_target_structure(config)
@@ -423,8 +424,9 @@ def structure_tmscore_constraint(
         config (StructureTMScoreConfig): Constraint configuration controlling evaluation parameters.
 
     Note:
-    All TM-scores are normalized by the length of the **target** structure. This
-    can help ensure consistent scoring magnitude across evaluations.
+        All TM-scores are normalized by the length of the **target** structure.
+        Metadata describes the predicted full input tuple/complex, not an
+        individual chain.
     """
     # Prepare target.
     target_pdb = _prepare_target_structure(config)

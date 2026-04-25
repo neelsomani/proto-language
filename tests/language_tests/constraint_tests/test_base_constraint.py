@@ -127,7 +127,7 @@ class TestConstraintEvaluation:
         expected_scores = [0.0, 0.25, 0.5, 0.75, 1.0]
         assert scores == expected_scores
 
-        # Each segment should have its own metadata in nested format
+        # By default, flat metadata is written to each input segment.
         for i in range(len(sequences_a)):
             constraints_a = seg_a.proposal_sequences[i]._constraints_metadata
             constraints_b = seg_b.proposal_sequences[i]._constraints_metadata
@@ -135,6 +135,37 @@ class TestConstraintEvaluation:
             assert "mock_multi_input_scoring_function_disjoint" in constraints_b
             assert "t_percent" in constraints_a["mock_multi_input_scoring_function_disjoint"]["data"]
             assert "c_percent" in constraints_b["mock_multi_input_scoring_function_disjoint"]["data"]
+            assert "c_percent" in constraints_a["mock_multi_input_scoring_function_disjoint"]["data"]
+            assert "t_percent" in constraints_b["mock_multi_input_scoring_function_disjoint"]["data"]
+
+    @pytest.mark.parametrize("use_input_slots", [True, False], ids=["input-slots", "segment-labels"])
+    def test_metadata_recipient_label_limits_metadata_to_one_segment(self, use_input_slots: bool):
+        """metadata_recipient keeps user metadata on the selected labeled input only."""
+        seg_a = _make_segment_with_proposals(["AAAA"], "dna")
+        seg_b = _make_segment_with_proposals(["CCCC"], "dna")
+        input_slots = None
+        if use_input_slots:
+            input_slots = [InputSlot(label="Query"), InputSlot(label="Reference")]
+        else:
+            seg_a.label = "Query"
+            seg_b.label = "Reference"
+
+        def metadata_to_query(input_sequences, config):
+            return [ConstraintOutput(score=0.0, metadata={"query_metric": 1.0}, metadata_recipient="Query")]
+
+        metadata_to_query._constraint_supported_sequence_types = ["dna"]
+
+        Constraint(
+            inputs=[seg_a, seg_b],
+            function=metadata_to_query,
+            function_config=MockConfig(),
+            input_slots=input_slots,
+        ).evaluate()
+
+        data_a = seg_a.proposal_sequences[0]._constraints_metadata["metadata_to_query"]["data"]
+        data_b = seg_b.proposal_sequences[0]._constraints_metadata["metadata_to_query"]["data"]
+        assert data_a == {"query_metric": 1.0}
+        assert data_b == {}
 
     def test_structure_and_logits_propagate_to_original(self):
         """Regression for #1180: structures/logits on the returned result reach the original proposal."""
@@ -561,6 +592,25 @@ class TestConstraintEdgeCases:
 
         constraint = Constraint(inputs=[seg_a, seg_b], function=wrong_arity, function_config=MockConfig())
         with pytest.raises(ValueError, match=r"1 logits, expected 2"):
+            constraint.evaluate()
+
+    def test_metadata_recipient_ambiguous_label_raises(self):
+        """metadata_recipient labels must be unique."""
+        seg_a = _make_segment_with_proposals(["AAAA"], "dna")
+        seg_b = _make_segment_with_proposals(["TTTT"], "dna")
+
+        def ambiguous_label(input_sequences, config=None):
+            return [ConstraintOutput(score=0.0, metadata={"metric": 1}, metadata_recipient="Target")]
+
+        ambiguous_label._constraint_supported_sequence_types = ["dna"]
+
+        constraint = Constraint(
+            inputs=[seg_a, seg_b],
+            function=ambiguous_label,
+            function_config=MockConfig(),
+            input_slots=[InputSlot(label="Target"), InputSlot(label="Target")],
+        )
+        with pytest.raises(ValueError, match=r"metadata_recipient 'Target' must match exactly one input label"):
             constraint.evaluate()
 
 

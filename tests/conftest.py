@@ -8,7 +8,6 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
@@ -20,15 +19,6 @@ def is_on_chimera() -> bool:
     return os.environ.get("SLURM_CLUSTER_NAME") == "arc-slurm"
 
 
-# Helper to create a mock generator spec for patching
-def _create_mock_generator_spec(category: str = "autoregressive", sequence_types: list | None = None):
-    """Create a mock GeneratorSpec with the given category."""
-    mock_spec = Mock()
-    mock_spec.category = category
-    mock_spec.supported_sequence_types = sequence_types or ["dna"]
-    return mock_spec
-
-
 # Fixture to patch GeneratorRegistry for mock generators
 @pytest.fixture(autouse=True)
 def mock_generator_registry(monkeypatch):
@@ -36,43 +26,38 @@ def mock_generator_registry(monkeypatch):
     from proto_language.language.generator import generator_registry
 
     original_get_key = generator_registry.GeneratorRegistry.get_key
-    original_get = generator_registry.GeneratorRegistry.get
 
-    def patched_get_key(generator):
-        # For mock generators, return a fake key
-        if generator.__class__.__name__ in (
-            "MockAutoregressiveGenerator",
-            "MockAutoregressiveGeneratorNoKVCache",
-            "ControlledMockGenerator",
-            "SegmentAwareMockGenerator",
-            "AccumulativeTrackingGenerator",
-        ):
-            return f"mock-{generator.__class__.__name__}"
-        if generator.__class__.__name__ == "MockMutationGenerator":
-            return "mock-mutation"
-        if generator.__class__.__name__ == "MockInverseFoldingGenerator":
-            return "mock-inverse-folding"
-        return original_get_key(generator)
+    # Map mock generators to real registry keys so they pass compatible_generators checks.
+    # Autoregressive mocks → "evo1", mutation → "random-protein", inverse_folding → "proteinmpnn".
+    _MOCK_KEY_MAP = {
+        "MockAutoregressiveGenerator": "evo1",
+        "MockAutoregressiveGeneratorNoKVCache": "evo1",
+        "ControlledMockGenerator": "evo1",
+        "SegmentAwareMockGenerator": "evo1",
+        "AccumulativeTrackingGenerator": "evo1",
+        "MockMutationGenerator": "random-protein",
+        "MockInverseFoldingGenerator": "proteinmpnn",
+    }
 
-    def patched_get(key):
-        # For mock generator keys, return appropriate mock spec
-        if key.startswith("mock-"):
-            if key == "mock-mutation":
-                return _create_mock_generator_spec("mutation")
-            if key == "mock-inverse-folding":
-                return _create_mock_generator_spec("inverse_folding", ["protein"])
-            return _create_mock_generator_spec("autoregressive")
-        return original_get(key)
+    original_find_key = generator_registry.GeneratorRegistry.find_key
+
+    def patched_key_lookup(generator):
+        key = _MOCK_KEY_MAP.get(generator.__class__.__name__)
+        return key if key is not None else original_get_key(generator)
+
+    def patched_find_key(generator):
+        key = _MOCK_KEY_MAP.get(generator.__class__.__name__)
+        return key if key is not None else original_find_key(generator)
 
     monkeypatch.setattr(
         generator_registry.GeneratorRegistry,
         "get_key",
-        classmethod(lambda cls, gen: patched_get_key(gen)),
+        classmethod(lambda cls, gen: patched_key_lookup(gen)),
     )
     monkeypatch.setattr(
         generator_registry.GeneratorRegistry,
-        "get",
-        classmethod(lambda cls, key: patched_get(key)),
+        "find_key",
+        classmethod(lambda cls, gen: patched_find_key(gen)),
     )
 
 

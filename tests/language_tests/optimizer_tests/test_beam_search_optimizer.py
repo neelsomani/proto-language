@@ -320,7 +320,7 @@ class TestBeamSearchOptimizer:
             function_config=GCContentConfig(min_gc=40.0, max_gc=60.0),
         )
         config = BeamSearchOptimizerConfig(prompt="ATCG", beam_length=10, num_results=3, proposals_per_result=5)
-        with pytest.raises(ValueError, match="requires autoregressive generators"):
+        with pytest.raises(ValueError, match="not compatible with"):
             BeamSearchOptimizer(
                 target_segment=segment,
                 constructs=[construct],

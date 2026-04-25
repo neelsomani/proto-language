@@ -21,7 +21,6 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
-from proto_language.language.generator.generator_registry import GeneratorRegistry
 from proto_language.language.optimizer.optimizer_registry import optimizer
 
 logger = logging.getLogger(__name__)
@@ -282,19 +281,12 @@ class BeamSearchOptimizer(Optimizer):
         """Validate beam search optimizer configuration.
 
         Extends base validation with beam-search-specific checks:
-        target_segment membership, autoregressive generator, KV caching
-        interface, non-empty prompt, and beam_length bounds.
+        target_segment membership, KV caching interface, non-empty prompt,
+        and beam_length bounds. Generator key compatibility is enforced
+        centrally via ``OptimizerSpec.compatible_generators``.
         """
         super()._validate_optimizer()
         self._validate_target_segment(self.target_segment)
-
-        # Generator must be autoregressive
-        generator_spec = GeneratorRegistry.get(GeneratorRegistry.get_key(self.generator))
-        if generator_spec.category != "autoregressive":
-            raise ValueError(
-                f"BeamSearchOptimizer requires autoregressive generators. "
-                f"The provided generator '{self.generator.__class__.__name__}' is not autoregressive."
-            )
 
         # KV caching support (if enabled)
         if self.use_kv_caching:

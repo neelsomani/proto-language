@@ -36,6 +36,12 @@ class ConstraintSpec(BaseSpec):
         "None means any number of interchangeable inputs.",
     )
 
+    requires_generators: list[str] | None = Field(
+        default=None,
+        description="Generator registry keys required in the same optimizer stage. "
+        "Validated at optimizer construction time. None means no generator dependency.",
+    )
+
     # Constraint mode — set during registration, exposed in API
     mode: Literal["discrete", "gradient", "dual"] = Field(
         default="discrete",
@@ -124,6 +130,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         category: str | None = None,
         supported_sequence_types: list[str] | None = None,
         input_labels: list[str | InputSlot] | None = ("Sequence",),  # type: ignore[assignment]
+        requires_generators: list[str] | None = None,
         backward: Callable[..., Any] | None = None,
         backward_config: type[BaseModel] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -146,6 +153,8 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 ``InputSlot(label=s)``. Use ``InputSlot(..., requires_logits=True)`` /
                 ``requires_structure=True`` to enable swap-detection. ``None`` means any number
                 of interchangeable inputs.
+            requires_generators (list[str] | None): Generator registry keys required in
+                the same optimizer stage. Validated at optimizer construction time.
             backward (Callable[..., Any] | None): Explicit backward callable to pair with
                 a scoring function. Cannot be used when the decorated function itself
                 returns ``GradientConstraintOutput``.
@@ -237,6 +246,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 category=category,
                 supported_sequence_types=supported_sequence_types,
                 input_labels=input_labels,
+                requires_generators=requires_generators,
                 mode=mode,
                 backward_config_model=backward_config,
             )
@@ -335,14 +345,22 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         )
 
     @classmethod
-    def get_key(cls, constraint: Constraint) -> str:
-        """Get registry key for a constraint instance."""
+    def find_key(cls, constraint: Constraint) -> str | None:
+        """Get registry key for a constraint instance, or ``None`` if not registered."""
         for key, spec in cls._registry.items():
             if spec.function is not None and spec.function == constraint.function:
                 return key
             if spec.backward is not None and spec.backward == constraint.backward:
                 return key
-        raise ValueError(f"Constraint '{constraint.label}' is not registered")
+        return None
+
+    @classmethod
+    def get_key(cls, constraint: Constraint) -> str:
+        """Get registry key for a constraint instance. Raises ``ValueError`` if not registered."""
+        key = cls.find_key(constraint)
+        if key is None:
+            raise ValueError(f"Constraint '{constraint.label}' is not registered")
+        return key
 
     @classmethod
     def list_all(cls) -> list[ConstraintSpec]:

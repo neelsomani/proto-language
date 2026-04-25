@@ -379,6 +379,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     label="Gradient Optimizer",
     config=GradientOptimizerConfig,
     description="Gradient-based sequence optimization via differentiable constraints",
+    compatible_generators=["position-weight"],
+    required_constraint_mode="gradient",
 )
 @final
 class GradientOptimizer(Optimizer):
@@ -434,8 +436,12 @@ class GradientOptimizer(Optimizer):
         self.config = config
         self.target_segment: Segment = target_segment
         self.generator: Generator = generator
-        self._gradient_constraints = [c for c in constraints if c.supports_gradient]
-
+        non_gradient = [c.label for c in constraints if not c.supports_gradient]
+        if non_gradient:
+            raise ValueError(
+                f"GradientOptimizer requires all constraints to support gradient evaluation, but {non_gradient} do not"
+            )
+        self._gradient_constraints = list(constraints)
         super().__init__(
             constructs=constructs,
             generators=generators,
@@ -452,11 +458,6 @@ class GradientOptimizer(Optimizer):
 
         self.num_steps: int = config.num_steps
         self._gradient_indices: list[int] = [c.inputs.index(target_segment) for c in self._gradient_constraints]
-
-        # Warn about non-gradient constraints that will be ignored
-        skipped = [c.label for c in constraints if not c.supports_gradient]
-        if skipped:
-            logger.warning(f"GradientOptimizer ignoring non-gradient constraints: {skipped}")
 
         # Merger, ML optimizer, schedules
         self._merger = MERGERS[config.merger]()
@@ -482,8 +483,6 @@ class GradientOptimizer(Optimizer):
             raise ValueError(
                 f"GradientOptimizer requires a PositionWeightGenerator, got {self.generator.__class__.__name__}."
             )
-        if not self._gradient_constraints:
-            raise ValueError("GradientOptimizer requires at least one gradient-capable constraint.")
 
         seq_len = self.target_segment.sequence_length
         if self.config.fixed_positions:

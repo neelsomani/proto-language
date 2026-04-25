@@ -331,7 +331,7 @@ class TestValidation:
         seg = Segment(sequence="AA", sequence_type="protein")
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
         con = Constraint(inputs=[seg], function=_scorer, function_config=_Cfg())
-        with pytest.raises(ValueError, match="gradient-capable"):
+        with pytest.raises(ValueError, match="gradient evaluation"):
             GradientOptimizer(
                 target_segment=seg,
                 constructs=[Construct([seg])],
@@ -344,7 +344,7 @@ class TestValidation:
         seg = Segment(sequence="AA", sequence_type="protein")
         gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
         con = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="m")
-        with pytest.raises(ValueError, match="PositionWeightGenerator"):
+        with pytest.raises(ValueError, match="not compatible with"):
             GradientOptimizer(
                 target_segment=seg,
                 constructs=[Construct([seg])],

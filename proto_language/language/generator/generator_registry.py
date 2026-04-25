@@ -204,12 +204,20 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         return spec.generator_class(validated_config)  # type: ignore[call-arg]
 
     @classmethod
-    def get_key(cls, generator: Generator) -> str:
-        """Get registry key for a generator instance."""
+    def find_key(cls, generator: Generator) -> str | None:
+        """Get registry key for a generator instance, or ``None`` if not registered."""
         for key, spec in cls._registry.items():
             if isinstance(generator, spec.generator_class):
                 return key
-        raise ValueError(f"Generator '{generator.__class__.__name__}' is not registered")
+        return None
+
+    @classmethod
+    def get_key(cls, generator: Generator) -> str:
+        """Get registry key for a generator instance. Raises ``ValueError`` if not registered."""
+        key = cls.find_key(generator)
+        if key is None:
+            raise ValueError(f"Generator '{generator.__class__.__name__}' is not registered")
+        return key
 
     @classmethod
     def list_all(cls) -> list[GeneratorSpec]:

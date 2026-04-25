@@ -4,7 +4,7 @@ automatic schema generation for API/client integration.
 """
 
 from collections.abc import Callable
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,7 @@ class OptimizerSpec(BaseSpec):
         config_model (type[BaseModel]): Pydantic model class for the component configuration.
         targets_single_segment (bool): Whether this optimizer operates on a single segment at a time.
         compatible_generators (list[str] | None): Generator keys this optimizer accepts. None means all unclaimed generators.
+        required_constraint_mode (Literal["discrete", "gradient"] | None): If set, all constraints must support this mode.
         optimizer_class (type[Optimizer]): Optimizer subclass implementing the optimization logic.
     """
 
@@ -35,6 +36,11 @@ class OptimizerSpec(BaseSpec):
     compatible_generators: list[str] | None = Field(
         default=None,
         description="Generator keys this optimizer accepts. None means all unclaimed generators.",
+    )
+    required_constraint_mode: Literal["discrete", "gradient"] | None = Field(
+        default=None,
+        description="If set, all constraints must support this mode. "
+        "'gradient' accepts mode='gradient' or 'dual'. 'discrete' accepts mode='discrete' or 'dual'.",
     )
 
     # Private field - excluded from serialization
@@ -100,6 +106,7 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
         uses_gpu: bool = False,
         targets_single_segment: bool = False,
         compatible_generators: list[str] | None = None,
+        required_constraint_mode: Literal["discrete", "gradient"] | None = None,
     ) -> Callable[[type[Optimizer]], type[Optimizer]]:
         """Decorator to register an optimizer class.
 
@@ -115,6 +122,8 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
             targets_single_segment (bool): If True, optimizer operates on a single target segment
             compatible_generators (list[str] | None): Generator keys this optimizer accepts.
                 None means all unclaimed generators.
+            required_constraint_mode (Literal["discrete", "gradient"] | None): If set, all
+                constraints must support this mode. Enforced at optimizer construction.
 
         Returns:
             Callable[[type[Optimizer]], type[Optimizer]]: Decorator that registers the class and returns it unchanged
@@ -145,19 +154,28 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
                 uses_gpu=uses_gpu,
                 targets_single_segment=targets_single_segment,
                 compatible_generators=compatible_generators,
+                required_constraint_mode=required_constraint_mode,
             )
             return optimizer_class
 
         return decorator
 
     @classmethod
-    def get_key(cls, optimizer: Optimizer) -> str:
-        """Get registry key for an optimizer instance."""
+    def find_key(cls, optimizer: Optimizer) -> str | None:
+        """Get registry key for an optimizer instance, or ``None`` if not registered."""
         optimizer_class = type(optimizer)
         for key, spec in cls._registry.items():
             if spec.optimizer_class == optimizer_class:
                 return key
-        raise ValueError(f"Optimizer '{optimizer_class.__name__}' is not registered")
+        return None
+
+    @classmethod
+    def get_key(cls, optimizer: Optimizer) -> str:
+        """Get registry key for an optimizer instance. Raises ``ValueError`` if not registered."""
+        key = cls.find_key(optimizer)
+        if key is None:
+            raise ValueError(f"Optimizer '{type(optimizer).__name__}' is not registered")
+        return key
 
     @classmethod
     def list_all(cls) -> list[OptimizerSpec]:

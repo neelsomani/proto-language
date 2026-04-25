@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -13,8 +14,22 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
+from proto_language.language.core.constraint import ConstraintOutput, GradientConstraintOutput
+from proto_language.language.generator import (
+    PositionWeightGenerator,
+    PositionWeightGeneratorConfig,
+    RandomProteinGenerator,
+    RandomProteinGeneratorConfig,
+)
 from proto_language.language.generator.generator_registry import GeneratorRegistry
-from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry, OptimizerSpec
+from proto_language.language.generator.proteinmpnn_generator import ProteinMPNNGenerator, ProteinMPNNGeneratorConfig
+from proto_language.language.optimizer import (
+    GradientOptimizer,
+    GradientOptimizerConfig,
+    RejectionSamplingOptimizer,
+    RejectionSamplingOptimizerConfig,
+)
+from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 
 
 # Concrete implementation for testing the abstract base class
@@ -1111,22 +1126,104 @@ class TestOptimizerExport:
 
 
 class TestOptimizerRegistry:
-    """Tests for OptimizerRegistry compatible_generators metadata."""
-
-    def test_all_specs_have_compatible_generators_field(self):
-        """Tests that all optimizer specs expose the compatible_generators field."""
-        for spec in OptimizerRegistry.list_all():
-            assert isinstance(spec, OptimizerSpec)
-            assert hasattr(spec, "compatible_generators")
+    """Tests for OptimizerRegistry metadata fields."""
 
     def test_beam_search_compatible_generators_match_autoregressive(self):
-        """Tests that BeamSearchOptimizer lists exactly the autoregressive generators."""
         spec = OptimizerRegistry.get("beam-search")
         autoregressive_keys = sorted(s.key for s in GeneratorRegistry.list_all() if s.category == "autoregressive")
         assert sorted(spec.compatible_generators) == autoregressive_keys
 
     def test_general_optimizers_accept_all_generators(self):
-        """Tests that general-purpose optimizers default to None."""
         for key in ("mcmc", "rejection-sampling", "cycling"):
-            spec = OptimizerRegistry.get(key)
-            assert spec.compatible_generators is None
+            assert OptimizerRegistry.get(key).compatible_generators is None
+
+    def test_gradient_required_constraint_mode(self):
+        assert OptimizerRegistry.get("gradient").required_constraint_mode == "gradient"
+
+    def test_default_required_constraint_mode_is_none(self):
+        assert OptimizerRegistry.get("mcmc").required_constraint_mode is None
+
+    def test_requires_generators_on_mpnn_perplexity(self):
+        assert ConstraintRegistry.get("mpnn-perplexity").requires_generators == ["proteinmpnn"]
+
+    def test_requires_generators_default_none(self):
+        assert ConstraintRegistry.get("gc-content").requires_generators is None
+
+
+def _compat_scorer(input_sequences: list[tuple[Sequence, ...]], config) -> list[ConstraintOutput]:
+    return [ConstraintOutput(score=0.5) for _ in input_sequences]
+
+
+def _compat_backward(inputs: tuple[Sequence, ...], *, config, **kwargs) -> GradientConstraintOutput:
+    import numpy as np
+
+    return GradientConstraintOutput(gradient=(np.zeros((6, 20)),), loss=0.0)
+
+
+class TestComponentCompatibility:
+    """Tests for centralized component dependency validation."""
+
+    def test_missing_required_generator_raises(self):
+        seg = Segment(sequence="ACDEFG", sequence_type="protein")
+        gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
+        gen.assign(seg)
+        con = ConstraintRegistry.create(
+            key="mpnn-perplexity",
+            segments=[seg],
+            config_dict={"top_k": 5},
+            label="mpnn_prescreen",
+            threshold=0.0,
+        )
+        with pytest.raises(ValueError, match="proteinmpnn"):
+            RejectionSamplingOptimizer(
+                constructs=[Construct([seg])],
+                generators=[gen],
+                constraints=[con],
+                config=RejectionSamplingOptimizerConfig(num_results=1, num_samples=5),
+            )
+
+    def test_present_required_generator_passes(self):
+        seg = Segment(sequence="ACDEFG", sequence_type="protein")
+        gen = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig())
+        gen.assign(seg)
+        con = ConstraintRegistry.create(
+            key="mpnn-perplexity",
+            segments=[seg],
+            config_dict={"top_k": 5},
+            label="mpnn_prescreen",
+            threshold=0.0,
+        )
+        RejectionSamplingOptimizer(
+            constructs=[Construct([seg])],
+            generators=[gen],
+            constraints=[con],
+            config=RejectionSamplingOptimizerConfig(num_results=1, num_samples=5),
+        )
+
+    def test_incompatible_generator_rejected(self):
+        seg = Segment(sequence="ACDEFG", sequence_type="protein")
+        gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
+        gen.assign(seg)
+        con = Constraint(inputs=[seg], backward=_compat_backward, backward_config={}, label="g")
+        with pytest.raises(ValueError, match="not compatible with"):
+            GradientOptimizer(
+                target_segment=seg,
+                constructs=[Construct([seg])],
+                generators=[gen],
+                constraints=[con],
+                config=GradientOptimizerConfig(num_steps=1),
+            )
+
+    def test_discrete_constraint_rejected_by_gradient_optimizer(self):
+        seg = Segment(sequence="ACDEFG", sequence_type="protein")
+        gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(seg)
+        con = Constraint(inputs=[seg], function=_compat_scorer, function_config={}, label="d")
+        with pytest.raises(ValueError, match="gradient"):
+            GradientOptimizer(
+                target_segment=seg,
+                constructs=[Construct([seg])],
+                generators=[gen],
+                constraints=[con],
+                config=GradientOptimizerConfig(num_steps=1),
+            )

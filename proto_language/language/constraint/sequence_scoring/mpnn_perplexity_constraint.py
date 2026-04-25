@@ -31,6 +31,7 @@ class MpnnPerplexityConfig(BaseConfig):
     tools_called=[],
     category="sequence scoring",
     supported_sequence_types=["protein"],
+    requires_generators=["proteinmpnn"],
 )
 def mpnn_perplexity_constraint(
     input_sequences: list[tuple[Sequence, ...]],

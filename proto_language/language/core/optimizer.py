@@ -379,6 +379,55 @@ class Optimizer(ABC):
                         "which has no populated sequence and no generator assigned."
                     )
 
+        # 7. Constraint → Generator dependencies
+        self._validate_component_compatibility()
+
+    def _validate_component_compatibility(self) -> None:
+        """Validate declarative component dependencies via registries.
+
+        Skips unregistered components (ad-hoc ``Constraint(function=...)`` or test mocks).
+        """
+        from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+        from proto_language.language.generator.generator_registry import GeneratorRegistry
+        from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
+
+        opt_key = OptimizerRegistry.find_key(self)
+        opt = OptimizerRegistry.get(opt_key) if opt_key else None
+        opt_label = opt.label if opt else self.__class__.__name__
+        gen_keys = {k for gen in self.generators if (k := GeneratorRegistry.find_key(gen)) is not None}
+
+        # A. Optimizer → Generator key compatibility
+        if opt and opt.compatible_generators is not None:
+            for key in gen_keys:
+                if key not in opt.compatible_generators:
+                    raise ValueError(
+                        f"Generator '{key}' is not compatible with {opt_label}. "
+                        f"Compatible generators: {', '.join(opt.compatible_generators)}"
+                    )
+
+        # B. Optimizer → Constraint mode compatibility
+        if opt and opt.required_constraint_mode is not None:
+            required = opt.required_constraint_mode
+            ok_modes = {"gradient": ("gradient", "dual"), "discrete": ("discrete", "dual")}[required]
+            for con in self.constraints:
+                con_key = ConstraintRegistry.find_key(con)
+                if con_key and ConstraintRegistry.get(con_key).mode not in ok_modes:
+                    raise ValueError(
+                        f"Constraint '{con.label}' does not support {required} evaluation, required by {opt_label}"
+                    )
+
+        # C. Constraint → Generator key dependency
+        for con in self.constraints:
+            con_key = ConstraintRegistry.find_key(con)
+            spec = ConstraintRegistry.get(con_key) if con_key else None
+            if not spec or not spec.requires_generators:
+                continue
+            missing = [r for r in spec.requires_generators if r not in gen_keys]
+            if missing:
+                raise ValueError(
+                    f"Constraint '{con.label}' requires a {', '.join(missing)} generator in the same optimization stage"
+                )
+
     def _deduplicate_constraint_labels(self) -> None:
         """Ensure unique constraint labels per segment for metadata namespacing.
 

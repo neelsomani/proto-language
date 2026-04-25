@@ -161,7 +161,7 @@ class MCMCOptimizer(Optimizer):
         >>> final_sequences = mcmc.constructs[0].joined_sequences
 
     Note:
-        - Only supports mutation generators (``category="mutation"``)
+        - Typically used with mutation generators (``category="mutation"``)
         - Uses Metropolis-Hastings acceptance: always accepts improvements,
           accepts worse proposals with probability exp(-ΔE/T)
         - Simulated annealing via configurable ``temperature_schedule``

@@ -9,6 +9,7 @@ import pytest
 
 from proto_language.utils.export import (
     _finalize_file_refs,
+    _flatten_generator_columns,
     _serialize_value,
     build_proposal_results,
     flatten_constraints,
@@ -61,6 +62,10 @@ def sample_results():
                                         "data": {"length": 8},
                                     },
                                 },
+                                "generators": {
+                                    "proteinmpnn": {"perplexity": 1.8, "sequence_identity": 0.7},
+                                    "evo1": {"score": -2.5},
+                                },
                                 "metadata": {"source": "synthetic"},
                             },
                             {
@@ -74,6 +79,7 @@ def sample_results():
                                         "data": {"gc_content": 52.0},
                                     },
                                 },
+                                "generators": {},
                                 "metadata": {},
                             },
                         ],
@@ -155,6 +161,7 @@ def sample_history():
                                             "data": {"gc_content": 0.0},
                                         },
                                     },
+                                    "generators": {"evo1": {"score": -3.1}},
                                     "metadata": {},
                                 },
                             ],
@@ -249,6 +256,47 @@ def sample_history():
 
 
 # =============================================================================
+# Test _flatten_generator_columns
+# =============================================================================
+
+
+class TestFlattenGeneratorColumns:
+    """Direct unit tests for the generator-column flattener helper."""
+
+    def test_single_generator_flat(self):
+        """One generator with several fields produces generator.{key}.{field} columns."""
+        flat = _flatten_generator_columns({"proteinmpnn": {"perplexity": 1.8, "sequence_identity": 0.7}})
+        assert flat == {
+            "generator.proteinmpnn.perplexity": 1.8,
+            "generator.proteinmpnn.sequence_identity": 0.7,
+        }
+
+    def test_multiple_generators_isolated(self):
+        """Multiple generator namespaces don't collide."""
+        flat = _flatten_generator_columns({"evo1": {"score": -2.5}, "proteinmpnn": {"perplexity": 1.8}})
+        assert flat == {
+            "generator.evo1.score": -2.5,
+            "generator.proteinmpnn.perplexity": 1.8,
+        }
+
+    def test_with_segment_prefix(self):
+        """Caller-supplied prefix nests under segment label (used by flatten_constructs)."""
+        flat = _flatten_generator_columns({"proteinmpnn": {"perplexity": 1.8}}, prefix="promoter.")
+        assert flat == {"promoter.generator.proteinmpnn.perplexity": 1.8}
+
+    def test_empty(self):
+        """Empty input emits no columns."""
+        assert _flatten_generator_columns({}) == {}
+
+    def test_serializes_nested_values(self):
+        """Nested dict values are JSON-stringified via _serialize_value."""
+        flat = _flatten_generator_columns({"ligandmpnn": {"metrics": {"a": 1.0, "b": 2.0}}})
+        assert "generator.ligandmpnn.metrics" in flat
+        # _serialize_value JSON-stringifies dicts so flat tables can write them as scalars
+        assert isinstance(flat["generator.ligandmpnn.metrics"], str)
+
+
+# =============================================================================
 # Test flatten_sequences
 # =============================================================================
 
@@ -289,6 +337,20 @@ class TestFlattenSequences:
         rows = flatten_sequences(sample_results)
         promoter_row = next(r for r in rows if r["segment"] == "promoter" and r["result_idx"] == 0)
         assert promoter_row["metadata.source"] == "synthetic"
+
+    def test_generator_columns_present(self, sample_results):
+        """Generator metadata uses generator.{registry_key}.{field} namespacing."""
+        rows = flatten_sequences(sample_results)
+        promoter_row = next(r for r in rows if r["segment"] == "promoter" and r["result_idx"] == 0)
+        assert promoter_row["generator.proteinmpnn.perplexity"] == 1.8
+        assert promoter_row["generator.proteinmpnn.sequence_identity"] == 0.7
+        assert promoter_row["generator.evo1.score"] == -2.5
+
+    def test_no_generator_columns_when_empty(self, sample_results):
+        """Segments with no generator metadata get no generator columns."""
+        rows = flatten_sequences(sample_results)
+        cds_row = next(r for r in rows if r["segment"] == "cds" and r["result_idx"] == 0)
+        assert not any(k.startswith("generator.") for k in cds_row)
 
     def test_correct_values(self, sample_results):
         """Spot-check specific values."""
@@ -421,6 +483,13 @@ class TestFlattenConstructs:
         rows = flatten_constructs(sample_results)
         assert rows[0]["promoter.metadata.source"] == "synthetic"
 
+    def test_per_segment_generator_columns(self, sample_results):
+        """Per-segment generator metadata uses {segment}.generator.{registry_key}.{field} prefix."""
+        rows = flatten_constructs(sample_results)
+        assert rows[0]["promoter.generator.proteinmpnn.perplexity"] == 1.8
+        assert rows[0]["promoter.generator.proteinmpnn.sequence_identity"] == 0.7
+        assert rows[0]["promoter.generator.evo1.score"] == -2.5
+
     def test_empty_results(self):
         """Handles empty results."""
         assert flatten_constructs({"results": []}) == []
@@ -461,6 +530,12 @@ class TestFlattenOptimization:
         t10_b0 = next(r for r in rows if r["timepoint"] == 10 and r["result_idx"] == 0)
         assert t10_b0["promoter.gc_constraint.score"] == 0.2
         assert t10_b0["promoter.gc_constraint.gc_content"] == 50.0
+
+    def test_per_segment_generator_columns(self, sample_history):
+        """Single-construct: generator metadata uses {segment}.generator.{key}.{field} prefix."""
+        rows = flatten_optimization(sample_history)
+        t0_b0 = next(r for r in rows if r["timepoint"] == 0 and r["result_idx"] == 0)
+        assert t0_b0["promoter.generator.evo1.score"] == -3.1
 
     def test_result_energy_scores(self, sample_history):
         """Each result member has its own energy score."""
@@ -1381,6 +1456,36 @@ def test_build_results_exports_structure_and_logits_as_file_references():
     seg_without = results["results"][1]["constructs"][0]["segments"][0]
     assert "structure" not in seg_without
     assert "logits" not in seg_without
+
+
+def test_build_results_includes_generator_metadata():
+    """build_results emits a 'generators' key per segment, parallel to 'constraints'."""
+    from unittest.mock import MagicMock
+
+    from proto_language.language.core import Construct, Segment, Sequence
+    from proto_language.utils.export import build_results, flatten_sequences
+
+    seq = Sequence("ACGT", sequence_type="dna")
+    seq._generator_metadata = {"proteinmpnn": {"perplexity": 1.8}, "evo1": {"score": -2.5}}
+
+    segment = MagicMock(spec=Segment)
+    segment.label = "promoter"
+    segment.result_sequences = [seq]
+    construct = MagicMock(spec=Construct)
+    construct.label = "c0"
+    construct.sequence_type = "dna"
+    construct.segments = [segment]
+
+    results = build_results([construct], [0.42])
+
+    # Structured Results dict carries the namespaced store
+    seg = results["results"][0]["constructs"][0]["segments"][0]
+    assert seg["generators"] == {"proteinmpnn": {"perplexity": 1.8}, "evo1": {"score": -2.5}}
+
+    # And it surfaces through to flat tables as generator.{key}.{field} columns
+    rows = flatten_sequences(results)
+    assert rows[0]["generator.proteinmpnn.perplexity"] == 1.8
+    assert rows[0]["generator.evo1.score"] == -2.5
 
 
 # =============================================================================

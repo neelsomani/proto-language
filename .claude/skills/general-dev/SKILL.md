@@ -36,8 +36,10 @@ Never use `print()`. Always use `logger.info()` / `logger.debug()` / `logger.war
 
 ```
 Sequence          A string + type (dna/rna/protein/ligand) + optional logits + optional structure.
-                  Has ._metadata dict (user/generator bag), ._constraints_metadata dict (written
-                  by the constraint framework from ConstraintOutput), .logits (np.ndarray | None),
+                  Has ._metadata dict (user bag), ._constraints_metadata dict (written by the
+                  constraint framework from ConstraintOutput, namespaced by constraint label),
+                  ._generator_metadata dict (written by generator sample() methods,
+                  namespaced by generator registry key), .logits (np.ndarray | None),
                   .structure (Structure | None).
     ↓
 Segment           Groups proposal sequences for one design region.

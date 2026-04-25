@@ -188,7 +188,9 @@ class TestPositionWeightGenerator:
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig(entropy_positions=entropy_positions))
         gen.assign(segment)
         gen.sample()
-        assert segment.proposal_sequences[0]._metadata["mean_peak_probability"] == pytest.approx(expected, abs=1e-3)
+        assert segment.proposal_sequences[0]._generator_metadata["position-weight"][
+            "mean_peak_probability"
+        ] == pytest.approx(expected, abs=1e-3)
 
     @pytest.mark.parametrize("bad_value", [[-1], []], ids=["negative", "empty"])
     def test_entropy_positions_config_validation(self, bad_value):

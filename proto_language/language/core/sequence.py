@@ -29,7 +29,7 @@ SequenceType = Literal["dna", "rna", "protein", "ligand"]
 # Reserved keys in the computed .metadata property — user-provided metadata
 # should not use these keys as they will be overwritten by identity fields
 # or collide with first-class Sequence attributes.
-_RESERVED_METADATA_KEYS = frozenset({"sequence", "sequence_length", "constraints", "logits", "structure"})
+_RESERVED_METADATA_KEYS = frozenset({"sequence", "sequence_length", "constraints", "generators", "logits", "structure"})
 
 
 class Sequence:
@@ -90,6 +90,7 @@ class Sequence:
         self._sequence: str = sequence
         self._metadata: dict[str, Any] = dict(metadata) if metadata else {}
         self._constraints_metadata: dict[str, Any] = {}
+        self._generator_metadata: dict[str, dict[str, Any]] = {}
 
         self._logits: np.ndarray | None = None
         self.logits = logits  # validates via setter
@@ -141,15 +142,16 @@ class Sequence:
 
     @property
     def metadata(self) -> dict[str, Any]:
-        """Computed read-only view combining identity, user/generator metadata, and constraints.
+        """Computed read-only view combining identity, user metadata, constraints, and generators.
 
-        Identity fields (sequence, sequence_length, constraints) always take
-        precedence over user-provided metadata with the same keys.
+        Identity fields (sequence, sequence_length, constraints, generators)
+        always take precedence over user-provided metadata with the same keys.
         """
         result = dict(self._metadata)
         result["sequence"] = self._sequence
         result["sequence_length"] = len(self._sequence)
         result["constraints"] = self._constraints_metadata
+        result["generators"] = self._generator_metadata
         return result
 
     @property
@@ -220,7 +222,7 @@ class Sequence:
         """Optimized deepcopy: share stable data, only copy mutable dicts.
 
         - _valid_chars, _sequence_type, _sequence: Immutable, share reference
-        - _metadata, _constraints: Mutable, must deep copy
+        - _metadata, _constraints_metadata, _generator_metadata: Mutable, must deep copy
         - _logits: ndarray, copy if present
         - structure: Pydantic BaseModel, treated as immutable by convention — do not mutate after construction
         """
@@ -230,6 +232,7 @@ class Sequence:
         new_seq._valid_chars = self._valid_chars
         new_seq._metadata = copy.deepcopy(self._metadata, memo)
         new_seq._constraints_metadata = copy.deepcopy(self._constraints_metadata, memo)
+        new_seq._generator_metadata = copy.deepcopy(self._generator_metadata, memo)
         new_seq._logits = self._logits.copy() if self._logits is not None else None
         new_seq.structure = self.structure
         memo[id(self)] = new_seq
@@ -243,6 +246,7 @@ class Sequence:
             "valid_chars": list(self._valid_chars) if self._valid_chars else None,
             "metadata": copy.deepcopy(self._metadata) if self._metadata else {},
             "constraints": copy.deepcopy(self._constraints_metadata) if self._constraints_metadata else {},
+            "generators": copy.deepcopy(self._generator_metadata) if self._generator_metadata else {},
         }
         if include_logits and self._logits is not None:
             result["logits"] = self._logits.tolist()
@@ -277,6 +281,7 @@ class Sequence:
             structure=structure,
         )
         seq._constraints_metadata = data.get("constraints", {})
+        seq._generator_metadata = data.get("generators", {})
         return seq
 
 
@@ -314,6 +319,7 @@ def create_concatenated_sequence(
             label: {
                 **copy.deepcopy(seq._metadata),
                 "constraints": copy.deepcopy(seq._constraints_metadata),
+                "generators": copy.deepcopy(seq._generator_metadata),
             }
             for label, seq in zip(segment_labels, seq_list, strict=False)
         }

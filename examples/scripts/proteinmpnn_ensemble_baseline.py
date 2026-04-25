@@ -63,7 +63,7 @@ if __name__ == "__main__":
         best_ppl = float("inf")
         best_seq = None
         for proposal in protein_segment.proposal_sequences:
-            ppl = proposal._metadata["proteinmpnn_perplexity"]
+            ppl = proposal._generator_metadata["proteinmpnn"]["perplexity"]
             if ppl < best_ppl:
                 best_ppl = ppl
                 best_seq = str(proposal.sequence)

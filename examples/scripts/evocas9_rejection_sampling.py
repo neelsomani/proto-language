@@ -866,7 +866,7 @@ def collect_results(
                 "proposal_idx": i,
                 "temperature": temperature,
                 "top_k": top_k_val,
-                "score": seq._metadata.get("evo1_score"),
+                "score": seq._generator_metadata["evo1"]["score"],
                 "identity": entry.get("identity"),
                 "gap_gini": entry.get("gap_gini"),
                 "domains_found": entry.get("domains_found", []),

@@ -326,6 +326,7 @@ class ProteinMPNNGenerator(Generator):
             perplexities.extend(designed.perplexity)
             sequence_identities.extend(designed.sequence_identity)
 
+        key = self._spec.key
         for proposal, sequence, perplexity, identity in zip(
             self.segment.proposal_sequences,
             generated_sequences,
@@ -334,12 +335,7 @@ class ProteinMPNNGenerator(Generator):
             strict=True,
         ):
             proposal.sequence = sequence
-            proposal._metadata.update(
-                {
-                    "proteinmpnn_perplexity": perplexity,
-                    "proteinmpnn_sequence_identity": identity,
-                }
-            )
+            proposal._generator_metadata[key] = {"perplexity": perplexity, "sequence_identity": identity}
 
         # Write the generating structure onto each proposal sequence
         if len(sampling_structure_inputs) == 1:

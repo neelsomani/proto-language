@@ -86,6 +86,7 @@ def build_results(
                                                 "data": {"gc_content": 50.0},
                                             }
                                         },
+                                        "generators": {"proteinmpnn": {"perplexity": 1.8}},
                                         "metadata": {},
                                         "structure": {"__file_ref__": ...},  # optional
                                         "logits": {"__file_ref__": ...},  # optional
@@ -114,6 +115,7 @@ def build_results(
                     "label": segment.label or f"segment_{seg_idx}",
                     "sequence": seq.sequence,
                     "constraints": copy.deepcopy(seq._constraints_metadata),
+                    "generators": copy.deepcopy(seq._generator_metadata),
                     "metadata": copy.deepcopy(seq._metadata),
                 }
                 _attach_file_refs(seg_dict, seq)
@@ -174,6 +176,7 @@ def build_proposal_results(
                                     "label": "promoter",
                                     "sequence": "ATCG",
                                     "constraints": {...},
+                                    "generators": {...},
                                     "metadata": {},
                                     "structure": ...,
                                     "logits": ...,
@@ -201,6 +204,7 @@ def build_proposal_results(
                     "label": segment.label or f"segment_{seg_idx}",
                     "sequence": seq.sequence,
                     "constraints": copy.deepcopy(seq._constraints_metadata),
+                    "generators": copy.deepcopy(seq._generator_metadata),
                     "metadata": copy.deepcopy(seq._metadata),
                 }
                 _attach_file_refs(seg_dict, seq)
@@ -333,6 +337,26 @@ def _flatten_constraint_columns(constraints: dict[str, dict[str, Any]], prefix: 
     return flat
 
 
+def _flatten_generator_columns(generators: dict[str, dict[str, Any]], prefix: str = "") -> dict[str, Any]:
+    """Flatten generator metadata with {prefix}generator.{key}.{field} namespacing.
+
+    Generator metadata is namespaced by registry key on the Sequence
+    (``_generator_metadata[<registry_key>]``); we surface it under a literal
+    ``generator.`` prefix so columns can't collide with user-chosen constraint
+    labels.
+
+    Args:
+        generators (dict[str, dict[str, Any]]): Dict mapping generator registry keys to flat metadata dicts.
+        prefix (str): Column name prefix (e.g., "promoter." for construct-level).
+    """
+    flat = {}
+    for key, gdata in generators.items():
+        base = f"{prefix}generator.{key}"
+        for k, v in gdata.items():
+            flat[f"{base}.{k}"] = _serialize_value(v)
+    return flat
+
+
 # =============================================================================
 # Flatten functions, one per table
 # =============================================================================
@@ -358,6 +382,7 @@ def flatten_sequences(
         Per constraint: {label}.score, {label}.weight, {label}.weighted_score,
             {label}.{data_key}, and optionally {label}.input_segments,
             {label}.position_in_inputs
+        Per generator: generator.{registry_key}.{field}
         Metadata: metadata.{key}
     """
     rows = []
@@ -377,6 +402,7 @@ def flatten_sequences(
                     "sequence": segment["sequence"],
                 }
                 row.update(_flatten_constraint_columns(segment.get("constraints", {})))
+                row.update(_flatten_generator_columns(segment.get("generators", {})))
                 for key, value in segment.get("metadata", {}).items():
                     row[f"metadata.{key}"] = _serialize_value(value)
                 rows.append(row)
@@ -457,6 +483,7 @@ def flatten_constructs(
         Fixed: result_idx, energy_score, construct, full_sequence
         Per segment: {segment}.sequence
         Per segment x constraint: {segment}.{constraint}.score, etc.
+        Per segment x generator: {segment}.generator.{registry_key}.{field}
         Per segment metadata: {segment}.metadata.{key}
     """
     rows = []
@@ -484,6 +511,12 @@ def flatten_constructs(
                 row.update(
                     _flatten_constraint_columns(
                         segment.get("constraints", {}),
+                        prefix=f"{seg}.",
+                    )
+                )
+                row.update(
+                    _flatten_generator_columns(
+                        segment.get("generators", {}),
                         prefix=f"{seg}.",
                     )
                 )
@@ -558,6 +591,12 @@ def flatten_optimization(
                             prefix=f"{seg}.",
                         )
                     )
+                    row.update(
+                        _flatten_generator_columns(
+                            segment.get("generators", {}),
+                            prefix=f"{seg}.",
+                        )
+                    )
             rows.append(row)
 
         # Append proposal rows when requested
@@ -588,6 +627,12 @@ def flatten_optimization(
                         row.update(
                             _flatten_constraint_columns(
                                 segment.get("constraints", {}),
+                                prefix=f"{seg}.",
+                            )
+                        )
+                        row.update(
+                            _flatten_generator_columns(
+                                segment.get("generators", {}),
                                 prefix=f"{seg}.",
                             )
                         )

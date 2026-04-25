@@ -56,6 +56,7 @@ class Generator(ABC):
 - Always call `self._validate_generator()` as first line in `sample()`
 - Always use `@final` decorator on the class to prevent subclassing
 - `sample()` modifies sequences **in-place** — it returns nothing
+- Per-proposal diagnostics go to ``proposal._generator_metadata[self._spec.key]`` (dict), namespaced by the registry key. Don't write to ``proposal._metadata``: that's a free-form user bag and prefixed keys collide across generators.
 
 ## Category Behavior
 

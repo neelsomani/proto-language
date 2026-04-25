@@ -133,16 +133,13 @@ class MyGenerator(Generator):
             temperature=self.temperature,
         )
 
-        # Update sequences IN PLACE
-        for proposal, new_seq in zip(proposals, result.sequences):
+        # Update sequences IN PLACE; store per-proposal diagnostics under
+        # _generator_metadata[<registry_key>] so they don't collide with other
+        # generators or the free-form user bag at proposal._metadata.
+        key = self._spec.key
+        for proposal, new_seq, score in zip(proposals, result.sequences, result.scores, strict=True):
             proposal.sequence = new_seq
-
-        # Optionally store metadata
-        for proposal, score in zip(proposals, result.scores):
-            proposal._metadata.update({
-                "my_generator_score": score,
-                "my_generator_model": self.model_name,
-            })
+            proposal._generator_metadata[key] = {"score": score, "model": self.model_name}
 ```
 
 ## Autoregressive Generator Template

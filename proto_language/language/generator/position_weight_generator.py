@@ -124,7 +124,8 @@ class PositionWeightGenerator(Generator):
         logit_scale (float): Scale factor applied to logits before the additive
             bias and temperature-scaled softmax.
         entropy_positions (list[int] | None): Rows included when computing
-            ``mean_peak_probability`` on each proposal's metadata. ``None`` = all.
+            ``mean_peak_probability`` on each proposal's
+            ``_generator_metadata["position-weight"]``. ``None`` = all.
 
     Example:
         >>> segment = Segment(sequence="ACGT", sequence_type="dna")
@@ -162,8 +163,8 @@ class PositionWeightGenerator(Generator):
         Also stashes ``mean_peak_probability`` (mean per-position peak probability,
         optionally restricted to ``entropy_positions``, computed on the
         temperature-scaled softmax; duplicates in ``entropy_positions`` double-count)
-        onto ``proposal._metadata`` so entropy-based gates can read it without
-        re-running the softmax.
+        onto ``proposal._generator_metadata["position-weight"]`` so entropy-based
+        gates can read it without re-running the softmax.
 
         Raises:
             RuntimeError: If called before ``assign()`` or if a proposal has no logits.
@@ -185,6 +186,7 @@ class PositionWeightGenerator(Generator):
                 raise ValueError(f"logit_bias shape {shape} != {expected_shape} on segment '{label}'.")
 
         rng = np.random.default_rng(self._next_seed()) if self.sampling_mode == "categorical" else None
+        key = self._spec.key
 
         for proposal in self.segment.proposal_sequences:
             if proposal.logits is None:
@@ -195,7 +197,9 @@ class PositionWeightGenerator(Generator):
             else:
                 assert rng is not None  # noqa: S101 -- categorical branch always sets rng
                 proposal.sequence = self._decode_categorical(matrix, vocab, rng)
-            proposal._metadata["mean_peak_probability"] = mean_peak_probability(matrix, self.entropy_positions)
+            proposal._generator_metadata[key] = {
+                "mean_peak_probability": mean_peak_probability(matrix, self.entropy_positions)
+            }
 
     def _prepare_matrix(self, *, logits: np.ndarray, vocab_size: int) -> np.ndarray:
         """Validate, optionally bias/scale, and convert logits to probabilities."""

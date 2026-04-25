@@ -319,14 +319,15 @@ class LigandMPNNGenerator(Generator):
             generated_sequences.extend(design.sequences)
             all_metrics.extend(design.ligandmpnn_metrics)
 
-        for proposal, sequence, score in zip(
+        key = self._spec.key
+        for proposal, sequence, metrics in zip(
             self.segment.proposal_sequences,
             generated_sequences,
             all_metrics,
             strict=True,
         ):
             proposal.sequence = sequence
-            proposal._metadata.update({"ligandmpnn_metrics": score})
+            proposal._generator_metadata[key] = {"metrics": metrics}
 
         # Write the generating structure onto each proposal sequence
         if len(sampling_structure_inputs) == 1:

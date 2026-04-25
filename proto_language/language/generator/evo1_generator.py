@@ -166,13 +166,13 @@ class Evo1Generator(Generator):
 
         evo1_output = run_evo1_sample(inputs=inputs, config=sample_config)
         generated_sequences = evo1_output.sequences
+        # Some checkpoints don't return scores; record None so consumers can subscript unconditionally.
+        scores = evo1_output.scores or [None] * len(generated_sequences)
+        key = self._spec.key
 
-        for proposal, sequence in zip(self.segment.proposal_sequences, generated_sequences, strict=True):
+        for proposal, sequence, score in zip(self.segment.proposal_sequences, generated_sequences, scores, strict=True):
             proposal.sequence = sequence
-
-        if evo1_output.scores:
-            for proposal, score in zip(self.segment.proposal_sequences, evo1_output.scores, strict=True):
-                proposal._metadata["evo1_score"] = score
+            proposal._generator_metadata[key] = {"score": score}
 
     def _replicate_prompts(self, prompts: list[str]) -> list[str]:
         """Match prompt count to proposal count, replicating single prompts."""

@@ -6,7 +6,7 @@ from promoter_calculator.wrapper import promoter_calculator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 
 class PromoterStrengthConfig(BaseConfig):
@@ -116,7 +116,7 @@ class PromoterStrengthConfig(BaseConfig):
 )
 def promoter_strength_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: PromoterStrengthConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate bacterial promoter strength using Salis Lab Promoter Calculator.
 
     This constraint function uses the Salis Lab Promoter Calculator to predict
@@ -143,49 +143,34 @@ def promoter_strength_constraint(
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
 
     Returns:
-        List[float]: Penalty scores for each sequence, ranging from 0.0 (strong
-            promoter) to 1.0 (weak/no promoter). The scoring scheme depends on
-            ``scoring_type``:
+        list[ConstraintOutput]: One result per sequence. Score ranges from 0.0 (strong
+            promoter) to 1.0 (weak/no promoter). ``metadata`` carries a single
+            ``promoter_strength`` dict:
 
-            **For dG scoring:**
-            - penalty = 1.0: dG > -1.5 (weak/no promoter)
-            - penalty = 1.0 → 0.5: dG from -1.5 to -3.0 (moderate)
-            - penalty = 0.5 → 0.0: dG from -3.0 to -5.0+ (strong)
+            **When promoter is found:**
 
-            **For tx_rate scoring:**
-            - penalty = 1.0: tx_rate < 3000 (weak/no promoter)
-            - penalty = 1.0 → 0.5: tx_rate from 3000 to 10000 (moderate)
-            - penalty = 0.5 → 0.0: tx_rate from 10000 to 20,000+ (strong)
+            - ``penalty``: Float penalty score (0.0-1.0)
+            - ``tx_rate`` OR ``dG_rate``: Float best promoter strength value
+              (depending on scoring_type)
+            - ``raw_output``: List of dictionaries with detailed promoter predictions
+              including -10/-35 box positions, sequences, spacer length, and
+              individual energy terms
 
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
+            **When no promoter is found:**
 
-        **When promoter is found:**
-        - ``promoter_strength``: Dictionary containing:
-          - ``penalty``: Float penalty score (0.0-1.0)
-          - ``tx_rate`` OR ``dG_rate``: Float best promoter strength value
-            (depending on scoring_type)
-          - ``raw_output``: List of dictionaries with detailed promoter predictions
-            including -10/-35 box positions, sequences, spacer length, and
-            individual energy terms
-
-        **When no promoter is found:**
-        - ``promoter_strength``: Dictionary containing:
-          - ``penalty``: Float 1.0 (maximum penalty)
-          - ``reason``: String "no_promoter_found"
-          - ``raw_output``: Empty list []
+            - ``penalty``: Float 1.0 (maximum penalty)
+            - ``reason``: String "no_promoter_found"
+            - ``raw_output``: Empty list []
 
     Examples:
         Evaluating promoter strength using dG scoring:
 
         >>> from proto_language.language.core import Sequence, SequenceType
-        >>> # Sequence with strong constitutive promoter
         >>> promoter_seq = Sequence("TTGACAATGATACTTAGATTCACTTATAATACTAGTAGGAGGAACTTTATGAAA", "dna")
         >>> config = PromoterStrengthConfig(scoring_type="dG")
-        >>> scores = promoter_strength_constraint([promoter_seq], config)
-        >>> print(scores[0])  # e.g., 0.15 (strong promoter, dG ≈ -4.5)
-        >>> print(promoter_seq._metadata["promoter_strength"]["dG_rate"])  # e.g., -4.5
+        >>> results = promoter_strength_constraint([(promoter_seq,)], config)
+        >>> print(results[0].score)  # e.g., 0.15 (strong promoter, dG ~ -4.5)
+        >>> print(results[0].metadata["promoter_strength"]["dG_rate"])  # e.g., -4.5
     """
     # Extract and clean sequences from tuples
     processed_sequences = []
@@ -195,7 +180,7 @@ def promoter_strength_constraint(
             s = ("A" * config.context_length) + s + ("A" * config.context_length)
         processed_sequences.append(s)
 
-    penalties: list[float] = []
+    results: list[ConstraintOutput] = []
 
     all_results = []
     for seq in processed_sequences:
@@ -211,18 +196,24 @@ def promoter_strength_constraint(
         all_results.append(res)
 
     # Process results for each sequence
-    for (seq_obj,), raw_res in zip(input_sequences, all_results, strict=False):
+    for (_seq_obj,), raw_res in zip(input_sequences, all_results, strict=False):
         # Keep only + strand
         res = [r for r in raw_res if getattr(r, "strand", "+") == "+"]
 
         if not res:
             penalty = 1.0
-            seq_obj._metadata["promoter_strength"] = {
-                "penalty": penalty,
-                "reason": "no_promoter_found",
-                "raw_output": [],
-            }
-            penalties.append(penalty)
+            results.append(
+                ConstraintOutput(
+                    score=penalty,
+                    metadata={
+                        "promoter_strength": {
+                            "penalty": penalty,
+                            "reason": "no_promoter_found",
+                            "raw_output": [],
+                        }
+                    },
+                )
+            )
             continue
 
         if config.scoring_type == "tx_rate":
@@ -238,13 +229,18 @@ def promoter_strength_constraint(
                 penalty = 0.5 - 0.5 * min((tx_rate - 10000.0) / (20000.0 - 10000.0), 1.0)
                 penalty = max(0.0, penalty)
 
-            # Store metadata
-            seq_obj._metadata["promoter_strength"] = {
-                "penalty": penalty,
-                "tx_rate": tx_rate,
-                "raw_output": [r.__dict__ for r in res],
-            }
-            penalties.append(penalty)
+            results.append(
+                ConstraintOutput(
+                    score=penalty,
+                    metadata={
+                        "promoter_strength": {
+                            "penalty": penalty,
+                            "tx_rate": tx_rate,
+                            "raw_output": [r.__dict__ for r in res],
+                        }
+                    },
+                )
+            )
         else:
             dG = min(float(r.dG_total) for r in res if hasattr(r, "dG_total"))
             if dG >= 0 or dG > -1.5:
@@ -256,11 +252,17 @@ def promoter_strength_constraint(
                 penalty = 0.5 * (1 - normalized**2)
                 penalty = max(0.0, min(0.5, penalty))
 
-            seq_obj._metadata["promoter_strength"] = {
-                "penalty": penalty,
-                "dG_rate": dG,
-                "raw_output": [r.__dict__ for r in res],
-            }
-            penalties.append(penalty)
+            results.append(
+                ConstraintOutput(
+                    score=penalty,
+                    metadata={
+                        "promoter_strength": {
+                            "penalty": penalty,
+                            "dG_rate": dG,
+                            "raw_output": [r.__dict__ for r in res],
+                        }
+                    },
+                )
+            )
 
-    return penalties
+    return results

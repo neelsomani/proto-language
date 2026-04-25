@@ -16,7 +16,7 @@ from proto_language.language.constraint.sequence_composition.gc_content_constrai
 from proto_language.language.constraint.sequence_composition.sequence_length_constraint import (
     SequenceLengthConfig,
 )
-from proto_language.language.core import Constraint, Construct, Segment
+from proto_language.language.core import Constraint, ConstraintOutput, Construct, Segment
 from proto_language.language.generator import (
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
@@ -92,7 +92,7 @@ class TestMCMCOptimizer:
 
         # Create a dummy scoring function with required attributes
         def dummy_scoring_func(input_sequences, config=None):
-            return [0.0 for _ in input_sequences]
+            return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
         dummy_scoring_func._constraint_config_class = EmptyConfig
         dummy_scoring_func._constraint_supported_sequence_types = ["dna"]
@@ -473,7 +473,10 @@ class TestMCMCOptimizer:
 
         # Constraint with clear optimum (all G's)
         def perfect_g_energy(input_sequences, config=None):
-            return [(seq_length - seq.sequence.count("G")) / seq_length for (seq,) in input_sequences]
+            return [
+                ConstraintOutput(score=(seq_length - seq.sequence.count("G")) / seq_length)
+                for (seq,) in input_sequences
+            ]
 
         # Add required attributes for the scoring function
         perfect_g_energy._constraint_config_class = EmptyConfig
@@ -631,7 +634,7 @@ class TestMCMCOptimizer:
 
         # Create a dummy scoring function with required attributes
         def dummy_scoring_func(input_sequences, config=None):
-            return [0.0 for _ in input_sequences]
+            return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
         dummy_scoring_func._constraint_config_class = EmptyConfig
         dummy_scoring_func._constraint_supported_sequence_types = ["dna"]
@@ -771,7 +774,7 @@ class TestMCMCOptimizer:
 
         # Custom constraint that returns energy = number of G's (so more G's = higher energy)
         def count_g_energy(input_sequences, config=None):
-            return [seq.sequence.count("G") / seq_length for (seq,) in input_sequences]
+            return [ConstraintOutput(score=seq.sequence.count("G") / seq_length) for (seq,) in input_sequences]
 
         count_g_energy._constraint_config_class = EmptyConfig
         count_g_energy._constraint_supported_sequence_types = ["dna"]
@@ -943,7 +946,10 @@ class TestMCMCOptimizer:
 
         # Custom constraint: energy = count of non-A characters
         def count_non_a_energy(input_sequences, config=None):
-            return [(seq_length - seq.sequence.count("A")) / seq_length for (seq,) in input_sequences]
+            return [
+                ConstraintOutput(score=(seq_length - seq.sequence.count("A")) / seq_length)
+                for (seq,) in input_sequences
+            ]
 
         count_non_a_energy._constraint_config_class = EmptyConfig
         count_non_a_energy._constraint_supported_sequence_types = ["dna"]

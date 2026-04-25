@@ -34,29 +34,29 @@ class TestRNAPropertySimilarityConstraint:
     def test_perfect_match(self):
         """Identical sequences should have score near 0."""
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_property_similarity_constraint(
+        result = rna_property_similarity_constraint(
             [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
-        assert score < EPSILON
+        assert result.score < EPSILON
 
     def test_imperfect_match(self):
         """Different sequences should have score > 0."""
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_property_similarity_constraint(
+        result = rna_property_similarity_constraint(
             [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
-        assert score > 0.0
+        assert result.score > 0.0
 
     def test_similar_structures(self):
         """Similar hairpins should have low but non-zero score."""
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_property_similarity_constraint(
+        result = rna_property_similarity_constraint(
             [(Sequence(SIMILAR_HAIRPIN, "rna"),)],
             config,
         )[0]
-        assert score < 0.5  # Should be fairly similar
+        assert result.score < 0.5  # Should be fairly similar
 
 
 @pytest.mark.integration
@@ -66,20 +66,20 @@ class TestRNAMotifSimilarityConstraint:
     def test_perfect_match(self):
         """Identical sequences should have score near 0."""
         config = RNAMotifSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_motif_similarity_constraint(
+        result = rna_motif_similarity_constraint(
             [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
-        assert score < EPSILON
+        assert result.score < EPSILON
 
     def test_different_motifs(self):
         """Unstructured vs structured should have high score."""
         config = RNAMotifSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_motif_similarity_constraint(
+        result = rna_motif_similarity_constraint(
             [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
-        assert score > 0.5
+        assert result.score > 0.5
 
 
 @pytest.mark.integration
@@ -89,20 +89,20 @@ class TestRNAFeatureSimilarityConstraint:
     def test_perfect_match(self):
         """Identical sequences should have score near 0."""
         config = RNAFeatureSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_feature_similarity_constraint(
+        result = rna_feature_similarity_constraint(
             [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
-        assert score < EPSILON
+        assert result.score < EPSILON
 
     def test_imperfect_match(self):
         """Different sequences should have score > 0."""
         config = RNAFeatureSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_feature_similarity_constraint(
+        result = rna_feature_similarity_constraint(
             [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
-        assert score > 0.0
+        assert result.score > 0.0
 
 
 @pytest.mark.integration
@@ -112,20 +112,20 @@ class TestRNABasePairSimilarityConstraint:
     def test_perfect_match(self):
         """Identical sequences should have score near 0."""
         config = RNABasePairSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_basepair_similarity_constraint(
+        result = rna_basepair_similarity_constraint(
             [(Sequence(HAIRPIN_SEQ, "rna"),)],
             config,
         )[0]
-        assert score < EPSILON
+        assert result.score < EPSILON
 
     def test_no_shared_pairs(self):
         """Unstructured vs structured should have score of 1."""
         config = RNABasePairSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        score = rna_basepair_similarity_constraint(
+        result = rna_basepair_similarity_constraint(
             [(Sequence(DIFFERENT_SEQ, "rna"),)],
             config,
         )[0]
-        assert score == 1.0
+        assert result.score == 1.0
 
     def test_length_ratio_cutoff(self):
         """Very different lengths should return score of 1."""
@@ -134,11 +134,11 @@ class TestRNABasePairSimilarityConstraint:
             max_length_ratio_diff=0.3,
         )
         # LONG_HAIRPIN is much longer than HAIRPIN_SEQ
-        score = rna_basepair_similarity_constraint(
+        result = rna_basepair_similarity_constraint(
             [(Sequence(LONG_HAIRPIN, "rna"),)],
             config,
         )[0]
-        assert score == 1.0
+        assert result.score == 1.0
 
 
 @pytest.mark.integration
@@ -148,7 +148,7 @@ class TestBatchedConstraints:
     def test_batched_property_constraint(self):
         """Test multiple sequences in one call."""
         config = RNAPropertySimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-        scores = rna_property_similarity_constraint(
+        results = rna_property_similarity_constraint(
             [
                 (Sequence(HAIRPIN_SEQ, "rna"),),
                 (Sequence(SIMILAR_HAIRPIN, "rna"),),
@@ -156,8 +156,8 @@ class TestBatchedConstraints:
             ],
             config,
         )
-        assert len(scores) == 3
-        assert scores[0] < scores[2]  # Perfect match < different sequence
+        assert len(results) == 3
+        assert results[0].score < results[2].score  # Perfect match < different sequence
 
 
 def test_rna_feature_similarity_scales_anticorrelated_vectors_to_one(monkeypatch):
@@ -177,9 +177,9 @@ def test_rna_feature_similarity_scales_anticorrelated_vectors_to_one(monkeypatch
     monkeypatch.setattr(structure_similarity_module, "_extract_structure_features", fake_extract_structure_features)
 
     config = RNAFeatureSimilarityConfig(reference_sequence=HAIRPIN_SEQ)
-    score = rna_feature_similarity_constraint(
+    result = rna_feature_similarity_constraint(
         [(Sequence(DIFFERENT_SEQ, "rna"),)],
         config,
     )[0]
 
-    assert score == 1.0
+    assert result.score == 1.0

@@ -6,7 +6,7 @@ import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY
 
 
@@ -67,7 +67,7 @@ class ProteinRepetitivenessConfig(BaseConfig):
 )
 def protein_repetitiveness_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinRepetitivenessConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate protein sequence repetitiveness based on k-mer frequency analysis.
 
     This constraint function analyzes protein sequences for repetitive content by
@@ -89,26 +89,21 @@ def protein_repetitiveness_constraint(
             consider, default: 3).
 
     Returns:
-        List[float]: Constraint scores for each sequence, where 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             acceptable repetitiveness (at or below threshold) and higher values
             indicate excessive repetitive content. Penalties scale linearly with
             excess repetitiveness: if max is 0.4 and actual is 0.6, the excess
             (0.2) is normalized by the remaining range (1.0 - 0.4 = 0.6), giving
-            a score of 0.33.
+            a score of 0.33. ``metadata`` carries:
+
+            - ``repetitiveness_score``: Float repetitiveness score (0.0-1.0)
+              representing the maximum fraction of sequence covered by repeated k-mers
+            - ``max_repetitive_fraction``: Float identical to ``repetitiveness_score``
 
     Raises:
         AssertionError: If any sequence in the input list is not a protein sequence.
         ValueError: If any sequence has length shorter than ``min_repeat_length``
             (raised by the helper function ``_calculate_repetitiveness_score``).
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
-
-        - ``repetitiveness_score``: Float repetitiveness score (0.0-1.0)
-          representing the maximum fraction of sequence covered by repeated k-mers
-        - ``max_repetitive_fraction``: Float identical to ``repetitiveness_score``
-          (kept for backward compatibility)
 
     Examples:
         Evaluating repetitiveness with default settings:
@@ -116,9 +111,9 @@ def protein_repetitiveness_constraint(
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinRepetitivenessConfig(max_repetitiveness=0.4, min_repeat_length=3)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_repetitiveness_constraint([(seq,)], config)
-        >>> print(scores[0])  # 0.0 if repetitiveness < 40%
-        >>> print(seq._metadata["repetitiveness_score"])  # e.g., 0.15
+        >>> results = protein_repetitiveness_constraint([(seq,)], config)
+        >>> print(results[0].score)  # 0.0 if repetitiveness < 40%
+        >>> print(results[0].metadata["repetitiveness_score"])  # e.g., 0.15
     """
     # Extract sequence strings from tuples
     seq_strings = [seq.sequence for (seq,) in input_sequences]
@@ -134,11 +129,16 @@ def protein_repetitiveness_constraint(
         else:
             scores[above_threshold] = MAX_ENERGY
 
-    for i, (input_sequence,) in enumerate(input_sequences):
-        input_sequence._metadata["repetitiveness_score"] = float(repetitiveness_scores[i])
-        input_sequence._metadata["max_repetitive_fraction"] = float(repetitiveness_scores[i])
-
-    return scores.tolist()  # type: ignore[no-any-return]
+    return [
+        ConstraintOutput(
+            score=float(scores[i]),
+            metadata={
+                "repetitiveness_score": float(repetitiveness_scores[i]),
+                "max_repetitive_fraction": float(repetitiveness_scores[i]),
+            },
+        )
+        for i in range(len(input_sequences))
+    ]
 
 
 def _calculate_repetitiveness_score(seq: str, min_repeat_length: int = 3) -> float:

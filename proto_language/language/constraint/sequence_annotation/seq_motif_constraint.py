@@ -10,7 +10,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 
 class SeqMotifConfig(BaseConfig):
@@ -162,7 +162,7 @@ class SeqMotifConfig(BaseConfig):
     category="sequence annotation",
     supported_sequence_types=["dna"],
 )
-def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: SeqMotifConfig) -> list[float]:
+def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: SeqMotifConfig) -> list[ConstraintOutput]:
     """Score DNA sequences against sequence motifs using MEME.
 
     This constraint function uses MEME Suite's Find Individual Motif
@@ -190,34 +190,27 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
 
     Returns:
-        List[float]: Penalty scores for each sequence, ranging from 0.0 (best,
-            all motif criteria satisfied) to 1.0 (worst, severe violations). The
-            scoring depends on wanted/unwanted configuration:
-            - **Only unwanted specified**: 0.0 if no unwanted motifs found, higher
-              scores for stronger unwanted matches
-            - **Only wanted specified**: 0.0 if all wanted motifs found with strong
-              E-values, 1.0 if wanted motifs missing
-            - **Both specified**: Weighted combination based on aggregation method
+        list[ConstraintOutput]: One result per sequence. Score ranges from 0.0
+            (all criteria satisfied) to 1.0 (severe violations). ``metadata``
+            carries a single ``motif_constraint`` dict:
 
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
+            - ``penalty``: Float overall penalty score (0.0-1.0)
+            - ``wanted``: Set of wanted motif names
+            - ``not_wanted``: Set of unwanted motif names
+            - ``found``: Dictionary mapping motif names to their best (lowest) E-values
+            - ``details``: Dictionary with per-motif scoring details including:
 
-        - ``motif_constraint``: Dictionary containing:
-          - ``penalty``: Float overall penalty score (0.0-1.0)
-          - ``wanted``: Set of wanted motif names
-          - ``not_wanted``: Set of unwanted motif names
-          - ``found``: Dictionary mapping motif names to their best (lowest) E-values
-          - ``details``: Dictionary with per-motif scoring details including:
-            - ``penalty``: Individual motif penalty
-            - ``status``: "wanted_found", "wanted_missing", "unwanted", or "unwanted_absent"
-            - ``e_value``: E-value if motif was found
-          - ``aggregation_info``: Dictionary with aggregation statistics:
-            - ``method``: Aggregation method used
-            - ``unwanted_count``: Number of unwanted motif evaluations
-            - ``wanted_count``: Number of wanted motif evaluations
-            - ``unwanted_matches``: Number of unwanted motifs found
-            - ``wanted_matches``: Number of wanted motifs found
+              - ``penalty``: Individual motif penalty
+              - ``status``: "wanted_found", "wanted_missing", "unwanted", or "unwanted_absent"
+              - ``e_value``: E-value if motif was found
+
+            - ``aggregation_info``: Dictionary with aggregation statistics:
+
+              - ``method``: Aggregation method used
+              - ``unwanted_count``: Number of unwanted motif evaluations
+              - ``wanted_count``: Number of wanted motif evaluations
+              - ``unwanted_matches``: Number of unwanted motifs found
+              - ``wanted_matches``: Number of wanted motifs found
 
     Examples:
         Requiring specific transcription factor binding sites:
@@ -227,13 +220,12 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
         >>> config = SeqMotifConfig(
         ...     motifs_path="/data/jaspar_vertebrates.meme",
         ...     meme_bin_path="/usr/local/meme/bin",
-        ...     wanted=["SP1", "lacI"],  # Must have these motifs
+        ...     wanted=["SP1", "lacI"],
         ...     aggregation="average",
         ... )
-        >>> scores = seq_motif_constraint([promoter_seq], config)
-        >>> print(scores[0])  # e.g., 0.15 (both motifs found with good E-values)
-        >>> metadata = promoter_seq._metadata["motif_constraint"]
-        >>> print(metadata["found"])  # e.g., {"SP1": 1e-8, "lacI": 3e-6}
+        >>> results = seq_motif_constraint([(promoter_seq,)], config)
+        >>> print(results[0].score)  # e.g., 0.15
+        >>> print(results[0].metadata["motif_constraint"]["found"])  # e.g., {"SP1": 1e-8}
     """
     # Parse motif names
     with open(config.motifs_path) as f:
@@ -260,7 +252,7 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
         elif not_wanted_set and not wanted_set:
             wanted_set = set(motif_names) - not_wanted_set
 
-    penalties: list[float] = []
+    results: list[ConstraintOutput] = []
 
     for (seq_obj,) in input_sequences:
         seq = seq_obj.sequence.upper().replace(" ", "").replace("\n", "")
@@ -311,19 +303,25 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
                 else:
                     penalty = 1.0
 
-            seq_obj._metadata["motif_constraint"] = {
-                "penalty": penalty,
-                "wanted": wanted_set,
-                "not_wanted": not_wanted_set,
-                "found": found,
-                "details": {},
-                "aggregation_info": {
-                    "method": "none_wanted",
-                    "unwanted_count": 0,
-                    "wanted_count": 0,
-                },
-            }
-            penalties.append(penalty)
+            results.append(
+                ConstraintOutput(
+                    score=penalty,
+                    metadata={
+                        "motif_constraint": {
+                            "penalty": penalty,
+                            "wanted": wanted_set,
+                            "not_wanted": not_wanted_set,
+                            "found": found,
+                            "details": {},
+                            "aggregation_info": {
+                                "method": "none_wanted",
+                                "unwanted_count": 0,
+                                "wanted_count": 0,
+                            },
+                        }
+                    },
+                )
+            )
             continue
 
         unwanted_penalties = []
@@ -428,21 +426,26 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
 
         penalty = min(1.0, final_penalty)
 
-        # Store results in metadata
-        seq_obj._metadata["motif_constraint"] = {
-            "penalty": penalty,
-            "wanted": wanted_set,
-            "not_wanted": not_wanted_set,
-            "found": found,
-            "details": details,
-            "aggregation_info": {
-                "method": config.aggregation,
-                "unwanted_count": len(unwanted_penalties),
-                "wanted_count": len(wanted_penalties),
-                "unwanted_matches": len([p for p in unwanted_penalties if p > 0]),
-                "wanted_matches": len([p for p in wanted_penalties if p < 1.0 * config.scale]),
-            },
-        }
-        penalties.append(penalty)
+        results.append(
+            ConstraintOutput(
+                score=penalty,
+                metadata={
+                    "motif_constraint": {
+                        "penalty": penalty,
+                        "wanted": wanted_set,
+                        "not_wanted": not_wanted_set,
+                        "found": found,
+                        "details": details,
+                        "aggregation_info": {
+                            "method": config.aggregation,
+                            "unwanted_count": len(unwanted_penalties),
+                            "wanted_count": len(wanted_penalties),
+                            "unwanted_matches": len([p for p in unwanted_penalties if p > 0]),
+                            "wanted_matches": len([p for p in wanted_penalties if p < 1.0 * config.scale]),
+                        },
+                    }
+                },
+            )
+        )
 
-    return penalties
+    return results

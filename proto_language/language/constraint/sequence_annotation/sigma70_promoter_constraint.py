@@ -6,7 +6,7 @@ import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 
 class Sigma70PromoterConfig(BaseConfig):
@@ -196,7 +196,7 @@ class Sigma70PromoterConfig(BaseConfig):
 )
 def sigma70_promoter_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: Sigma70PromoterConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate E. coli sigma-70 promoter similarity using PWM-based scoring.
 
     This constraint function evaluates bacterial promoter similarity by scanning
@@ -229,52 +229,45 @@ def sigma70_promoter_constraint(
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
 
     Returns:
-        List[float]: Constraint scores for each sequence, ranging from 0.0 (perfect
+        list[ConstraintOutput]: One result per sequence. Score ranges from 0.0 (perfect
             promoter, exact consensus with optimal spacer) to 1.0 (poor/no promoter).
-            The score represents a penalty, so lower values indicate stronger
-            predicted promoters. Scores combine PWM similarity, match count, and
-            spacer length penalties.
+            ``metadata`` carries a single ``sigma70`` dict with the following fields:
 
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary under the key ``sigma70``
-        with the following fields:
+            **For valid promoters found:**
 
-        **For valid promoters found:**
-        - ``sigma70_score``: Float overall penalty score (0.0-1.0)
-        - ``pos``: Integer start position of the -35 box in the sequence
-        - ``box35``: String sequence of the -35 box (6 bp)
-        - ``box10``: String sequence of the -10 box (6 bp)
-        - ``spacer_len``: Integer spacer length between boxes (bp)
-        - ``total_matches``: Integer total matches to consensus (out of 12)
-        - ``pwm_penalty``: Float PWM-based penalty component (0.0-1.0)
-        - ``match_penalty``: Float match count penalty component (0.0-1.0)
-        - ``spacer_penalty``: Float spacer length penalty component (0.0-1.0)
+            - ``sigma70_score``: Float overall penalty score (0.0-1.0)
+            - ``pos``: Integer start position of the -35 box in the sequence
+            - ``box35``: String sequence of the -35 box (6 bp)
+            - ``box10``: String sequence of the -10 box (6 bp)
+            - ``spacer_len``: Integer spacer length between boxes (bp)
+            - ``total_matches``: Integer total matches to consensus (out of 12)
+            - ``pwm_penalty``: Float PWM-based penalty component (0.0-1.0)
+            - ``match_penalty``: Float match count penalty component (0.0-1.0)
+            - ``spacer_penalty``: Float spacer length penalty component (0.0-1.0)
 
-        **For sequences too short (<12 bp):**
-        - ``sigma70_score``: Float 1.0 (maximum penalty)
-        - ``reason``: String "too_short"
+            **For sequences too short (<12 bp):**
 
-        **For sequences with invalid spacer (12-32 bp range):**
-        - ``sigma70_score``: Float 1.0 (maximum penalty)
-        - ``reason``: String "invalid_spacer"
+            - ``sigma70_score``: Float 1.0 (maximum penalty)
+            - ``reason``: String "too_short"
+
+            **For sequences with invalid spacer (12-32 bp range):**
+
+            - ``sigma70_score``: Float 1.0 (maximum penalty)
+            - ``reason``: String "invalid_spacer"
 
     Examples:
         Evaluating a canonical sigma-70 promoter:
 
         >>> from proto_language.language.core import Sequence, SequenceType
-        >>> # Strong promoter with consensus -35 (TTGACA) and -10 (TATAAT) boxes
         >>> promoter_seq = Sequence(
         ...     "TTGACAATGATACTTAGATTCACTTATAATACTAGTAG",  # 17 bp spacer
         ...     "dna",
         ... )
-        >>> config = Sigma70PromoterConfig()  # Use defaults
-        >>> scores = sigma70_promoter_constraint([promoter_seq], config)
-        >>> print(scores[0])  # e.g., 0.08 (strong promoter)
-        >>> metadata = promoter_seq._metadata["sigma70"]
-        >>> print(f"-35: {metadata['box35']}, -10: {metadata['box10']}")  # TTGACA, TATAAT
-        >>> print(f"Matches: {metadata['total_matches']}/12")  # e.g., 11/12
-        >>> print(f"Spacer: {metadata['spacer_len']} bp")  # 17
+        >>> config = Sigma70PromoterConfig()
+        >>> results = sigma70_promoter_constraint([(promoter_seq,)], config)
+        >>> print(results[0].score)  # e.g., 0.08 (strong promoter)
+        >>> sigma70 = results[0].metadata["sigma70"]
+        >>> print(f"-35: {sigma70['box35']}, -10: {sigma70['box10']}")  # TTGACA, TATAAT
     """
     CONS_35 = config.consensus_35.upper()
     CONS_10 = config.consensus_10.upper()
@@ -314,7 +307,7 @@ def sigma70_promoter_constraint(
             "spacer_len": spacer_len,
         }
 
-    penalties: list[float] = []
+    results: list[ConstraintOutput] = []
 
     for (seq_obj,) in input_sequences:
         seq = seq_obj.sequence.upper().replace(" ", "").replace("\n", "")
@@ -352,11 +345,11 @@ def sigma70_promoter_constraint(
                             },
                         )
 
-        # Cache results in metadata
-        seq_obj._metadata["sigma70"] = {
-            "sigma70_score": best_score,
-            **best_info,
-        }
-        penalties.append(best_score)
+        results.append(
+            ConstraintOutput(
+                score=best_score,
+                metadata={"sigma70": {"sigma70_score": best_score, **best_info}},
+            )
+        )
 
-    return penalties
+    return results

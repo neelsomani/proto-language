@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from pydantic import BaseModel
 
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core import Constraint, ConstraintOutput, Construct, Program, Segment
+from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
 from proto_language.language.generator import (
     PositionWeightGenerator,
@@ -35,31 +35,38 @@ class _Cfg(BaseModel):
     """Empty config for mocks."""
 
 
-def _backward(inputs: tuple, *, config: BaseModel, temperature: float = 1.0, **kwargs: object) -> GradientResult:
+def _backward(
+    inputs: tuple, *, config: BaseModel, temperature: float = 1.0, **kwargs: object
+) -> GradientConstraintOutput:
     """Gradient pushes logits toward alanine (column 0)."""
     logits = inputs[0].logits
     target = np.zeros_like(logits)
     target[:, 0] = 1.0
     grad = logits - target
-    return GradientResult(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={"temperature": temperature})
+    return GradientConstraintOutput(
+        gradient=(grad,), loss=float(np.mean(grad**2)), metrics={"temperature": temperature}
+    )
 
 
-def _backward_toward_C(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientResult:
+def _backward_toward_C(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientConstraintOutput:
     """Gradient pushes logits toward cysteine (column 2) — conflicts with _backward."""
     logits = inputs[0].logits
     target = np.zeros_like(logits)
     target[:, 2] = 1.0
     grad = logits - target
-    return GradientResult(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
+    return GradientConstraintOutput(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
 
 
-def _unit_grad_bwd(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientResult:
+def _unit_grad_bwd(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientConstraintOutput:
     """Constant unit gradient — handy for measuring update magnitudes directly."""
-    return GradientResult(gradient=(np.ones_like(inputs[0].logits),), loss=0.0, metrics={})
+    return GradientConstraintOutput(gradient=(np.ones_like(inputs[0].logits),), loss=0.0, metrics={})
 
 
-def _scorer(input_sequences: list[tuple], config: BaseModel) -> list[float]:
-    return [sum(c != "A" for c in seq.sequence) / max(len(seq.sequence), 1) for (seq,) in input_sequences]
+def _scorer(input_sequences: list[tuple], config: BaseModel) -> list[ConstraintOutput]:
+    return [
+        ConstraintOutput(score=sum(c != "A" for c in seq.sequence) / max(len(seq.sequence), 1))
+        for (seq,) in input_sequences
+    ]
 
 
 _scorer._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
@@ -82,7 +89,11 @@ def _make(num_steps: int = 5, num_results: int = 1, seed: int = 42, **kw: object
 
 
 def _make_optimizer(
-    seg: Segment, backward: Callable[..., GradientResult], label: str = "t", weight: float = 1.0, **cfg: object
+    seg: Segment,
+    backward: Callable[..., GradientConstraintOutput],
+    label: str = "t",
+    weight: float = 1.0,
+    **cfg: object,
 ) -> GradientOptimizer:
     """Minimal single-constraint optimizer on a caller-supplied segment."""
     gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -209,10 +220,10 @@ class TestSchedules:
 
         def bwd(
             inputs: tuple, *, config: BaseModel, soft: float = 1.0, temperature: float = 1.0, **kwargs: object
-        ) -> GradientResult:
+        ) -> GradientConstraintOutput:
             received_soft.append(soft)
             received_temp.append(temperature)
-            return GradientResult(gradient=(np.zeros_like(inputs[0].logits),), loss=0.0, metrics={})
+            return GradientConstraintOutput(gradient=(np.zeros_like(inputs[0].logits),), loss=0.0, metrics={})
 
         seg = Segment(sequence="AA", sequence_type="protein")
         opt = _make_optimizer(
@@ -345,8 +356,8 @@ class TestValidation:
     def test_nan_gradient_names_offending_constraint(self) -> None:
         """Non-finite gradients must raise with the constraint name so flaky backwards are easy to attribute."""
 
-        def nan_bwd(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientResult:
-            return GradientResult(gradient=(np.full_like(inputs[0].logits, np.nan),), loss=0.0, metrics={})
+        def nan_bwd(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientConstraintOutput:
+            return GradientConstraintOutput(gradient=(np.full_like(inputs[0].logits, np.nan),), loss=0.0, metrics={})
 
         opt = _make_optimizer(Segment(sequence="AA", sequence_type="protein"), nan_bwd, label="naughty", num_steps=1)
         with pytest.raises(ValueError, match="naughty"):

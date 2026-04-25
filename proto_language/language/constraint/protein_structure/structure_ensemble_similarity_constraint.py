@@ -24,7 +24,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, sigmoid_score
 
 logger = getLogger(__name__)
@@ -442,7 +442,7 @@ class StructureEnsembleSimilarityConfig(BaseConfig):
 def structure_ensemble_rmsd_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: StructureEnsembleSimilarityConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Generate conformational ensembles and compute RMSD against an experimental.
 
     target structure.
@@ -461,7 +461,8 @@ def structure_ensemble_rmsd_constraint(
                 parameters, and scoring settings.
 
     Returns:
-        list[float]: List of scores (0-1), where 0 is a perfect match and 1 is poor.
+        list[ConstraintOutput]: Per-proposal score in ``[0, 1]`` (0 is a perfect match)
+            with ensemble RMSD summary/distribution metadata.
     """
     # Prepare target structure
     target_pdb = _prepare_target_structure(
@@ -473,7 +474,7 @@ def structure_ensemble_rmsd_constraint(
     if config.verbose:
         logger.info(f"Target structure prepared ({len(target_pdb)} characters)")
 
-    scores = []
+    results: list[ConstraintOutput] = []
 
     for seq_idx, (seq,) in enumerate(input_sequences):
         if config.verbose:
@@ -489,15 +490,12 @@ def structure_ensemble_rmsd_constraint(
                 if config.verbose:
                     logger.info(f"Using residue range {start_res}-{end_res}: {len(proposal_sequence)} residues")
 
-            # Configure and run ensemble prediction.
-
             bioemu_input = BioEmuInput(
                 complexes=[
                     StructurePredictionComplex(chains=[{"sequence": proposal_sequence, "entity_type": "protein"}])
                 ]
             )
 
-            # Use maximum verbosity.
             if config.verbose:
                 config.bioemu_config.verbose = config.verbose
 
@@ -511,7 +509,7 @@ def structure_ensemble_rmsd_constraint(
 
             if not result.ensembles or len(result.ensembles[0].structures) == 0:
                 logger.warning(f"BioEmu returned no structures for sequence {seq_idx}")
-                scores.append(1.0)
+                results.append(ConstraintOutput(score=1.0))
                 continue
 
             ensemble = result.ensembles[0]
@@ -521,7 +519,6 @@ def structure_ensemble_rmsd_constraint(
 
             ensemble_pdb_frames = [s.structure_pdb for s in ensemble.structures]
 
-            # Compute RMSDs and distribution statistics.
             rmsds = _compute_ensemble_rmsds(
                 target_pdb_text=target_pdb,
                 ensemble_pdb_frames=ensemble_pdb_frames,
@@ -534,7 +531,6 @@ def structure_ensemble_rmsd_constraint(
                 logger.info(f"RMSD summary ({config.rmsd_aggregation}): {rmsd_summary:.2f} Å")
                 logger.info(f"RMSD stats: min={np.min(rmsds):.2f}, mean={np.mean(rmsds):.2f}, max={np.max(rmsds):.2f}")
 
-            # Convert to score in [0, 1].
             assert rmsd_summary is not None  # noqa: S101 -- mypy type narrowing
             score = sigmoid_score(
                 rmsd_summary,
@@ -543,27 +539,28 @@ def structure_ensemble_rmsd_constraint(
             )
 
             rmsd_arr = np.array(rmsds)
-            seq._metadata.update(
-                {
-                    "ensemble_rmsd_summary": rmsd_summary,
-                    "ensemble_rmsd_aggregation": config.rmsd_aggregation,
-                    "ensemble_rmsd_all": rmsds,
-                    "ensemble_rmsd_min": float(np.min(rmsd_arr)),
-                    "ensemble_rmsd_mean": float(np.mean(rmsd_arr)),
-                    "ensemble_rmsd_median": float(np.median(rmsd_arr)),
-                    "ensemble_rmsd_p10": float(np.percentile(rmsd_arr, 10)),
-                    "ensemble_rmsd_std": float(np.std(rmsd_arr)),
-                    "ensemble_size": len(rmsds),
-                    "ensemble_score": score,
-                    "pct_within_2A": float(np.mean(rmsd_arr < 2.0) * 100),
-                    "pct_within_3A": float(np.mean(rmsd_arr < 3.0) * 100),
-                }
+            results.append(
+                ConstraintOutput(
+                    score=score,
+                    metadata={
+                        "ensemble_rmsd_summary": rmsd_summary,
+                        "ensemble_rmsd_aggregation": config.rmsd_aggregation,
+                        "ensemble_rmsd_all": rmsds,
+                        "ensemble_rmsd_min": float(np.min(rmsd_arr)),
+                        "ensemble_rmsd_mean": float(np.mean(rmsd_arr)),
+                        "ensemble_rmsd_median": float(np.median(rmsd_arr)),
+                        "ensemble_rmsd_p10": float(np.percentile(rmsd_arr, 10)),
+                        "ensemble_rmsd_std": float(np.std(rmsd_arr)),
+                        "ensemble_size": len(rmsds),
+                        "ensemble_score": score,
+                        "pct_within_2A": float(np.mean(rmsd_arr < 2.0) * 100),
+                        "pct_within_3A": float(np.mean(rmsd_arr < 3.0) * 100),
+                    },
+                )
             )
-
-            scores.append(score)
 
         except Exception as e:
             logger.error(f"Error processing sequence {seq_idx}: {e}")
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY))
 
-    return scores
+    return results

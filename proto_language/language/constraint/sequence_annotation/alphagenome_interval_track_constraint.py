@@ -17,7 +17,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 
 class AlphaGenomeIntervalTrackConfig(BaseConfig):
@@ -209,7 +209,7 @@ def _extract_track_matrix(
 def alphagenome_interval_track_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: AlphaGenomeIntervalTrackConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Score mean AlphaGenome track signal over one or more intervals."""
     if not input_sequences:
         return []
@@ -236,7 +236,7 @@ def alphagenome_interval_track_constraint(
     )
     outputs = batch_output.results
 
-    scores: list[float] = []
+    results: list[ConstraintOutput] = []
     for sequence, output in zip(sequences, outputs, strict=True):
         sequence_length = len(sequence.sequence)
         matrix = _extract_track_matrix(output.result, config.requested_output)
@@ -265,21 +265,23 @@ def alphagenome_interval_track_constraint(
             minimize_clipped_signal = float(min(max(mean_signal, 0.0), config.minimize_threshold_value))
             score = float(minimize_clipped_signal / config.minimize_threshold_value)
 
-        sequence._metadata.update(
-            {
-                "intervals": [list(interval) for interval in config.intervals],
-                "ontology_terms": config.ontology_terms,
-                "requested_output": config.requested_output,
-                "direction": config.direction,
-                "interval_mean_signal": mean_signal,
-                "maximize_inflection_value": config.maximize_inflection_value,
-                "maximize_sigmoid_scale": config.maximize_sigmoid_scale,
-                "maximize_sigmoid_value": maximize_sigmoid_value,
-                "minimize_threshold_value": config.minimize_threshold_value,
-                "minimize_clipped_signal": minimize_clipped_signal,
-                "alphagenome_interval_track_score": score,
-            }
+        results.append(
+            ConstraintOutput(
+                score=score,
+                metadata={
+                    "intervals": [list(interval) for interval in config.intervals],
+                    "ontology_terms": config.ontology_terms,
+                    "requested_output": config.requested_output,
+                    "direction": config.direction,
+                    "interval_mean_signal": mean_signal,
+                    "maximize_inflection_value": config.maximize_inflection_value,
+                    "maximize_sigmoid_scale": config.maximize_sigmoid_scale,
+                    "maximize_sigmoid_value": maximize_sigmoid_value,
+                    "minimize_threshold_value": config.minimize_threshold_value,
+                    "minimize_clipped_signal": minimize_clipped_signal,
+                    "alphagenome_interval_track_score": score,
+                },
+            )
         )
-        scores.append(score)
 
-    return scores
+    return results

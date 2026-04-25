@@ -4,7 +4,7 @@ from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import calculate_range_deviation
 
 
@@ -60,7 +60,9 @@ class ProteinLengthConfig(BaseConfig):
     category="protein quality",
     supported_sequence_types=["protein"],
 )
-def protein_length_constraint(input_sequences: list[tuple[Sequence, ...]], config: ProteinLengthConfig) -> list[float]:
+def protein_length_constraint(
+    input_sequences: list[tuple[Sequence, ...]], config: ProteinLengthConfig
+) -> list[ConstraintOutput]:
     """Evaluate whether protein sequence lengths fall within an acceptable range.
 
     This constraint function checks if protein sequences have lengths within a
@@ -77,20 +79,16 @@ def protein_length_constraint(input_sequences: list[tuple[Sequence, ...]], confi
             acceptable length in amino acids).
 
     Returns:
-        List[float]: Constraint scores for each sequence, where 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             length is within the acceptable range [min_length, max_length] and
             higher values indicate greater deviation from the acceptable range.
             Penalties scale linearly: a sequence 10 amino acids outside the range
-            receives half the penalty of one 20 amino acids outside.
+            receives half the penalty of one 20 amino acids outside. ``metadata`` carries:
+
+            - ``protein_length``: Integer length of the protein sequence in amino acids
 
     Raises:
         AssertionError: If any sequence in the input list is not a protein sequence.
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary with the following key:
-
-        - ``protein_length``: Integer length of the protein sequence in amino acids
 
     Examples:
         Evaluating protein length within range:
@@ -98,16 +96,14 @@ def protein_length_constraint(input_sequences: list[tuple[Sequence, ...]], confi
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinLengthConfig(min_length=10, max_length=500)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_length_constraint([(seq,)], config)
-        >>> print(scores[0])  # 0.0
-        >>> print(seq._metadata["protein_length"])  # 37
+        >>> results = protein_length_constraint([(seq,)], config)
+        >>> print(results[0].score)  # 0.0
+        >>> print(results[0].metadata["protein_length"])  # 37
     """
-    scores = []
-
-    for (seq,) in input_sequences:
-        actual_length = len(seq)
-        seq._metadata["protein_length"] = actual_length
-        score = calculate_range_deviation(actual_length, config.min_length, config.max_length)
-        scores.append(score)
-
-    return scores
+    return [
+        ConstraintOutput(
+            score=calculate_range_deviation(len(seq), config.min_length, config.max_length),
+            metadata={"protein_length": len(seq)},
+        )
+        for (seq,) in input_sequences
+    ]

@@ -22,7 +22,7 @@ from proto_tools import (
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.storage import FileType, store_file
 from proto_language.utils import MAX_ENERGY
 
@@ -113,7 +113,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
 )
 def protein_symmetry_ring_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinSymmetryRingConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Constrain proteins to form symmetric ring-like multimeric structures using ESMFold.
 
     This constraint function uses ESMFold to predict multimeric protein
@@ -148,34 +148,28 @@ def protein_symmetry_ring_constraint(
             and optional ``esmfold_config`` for advanced ESMFold settings.
 
     Returns:
-        List[float]: Constraint scores for each sequence based on ring symmetry.
-            Scores range from 0.0 (perfect symmetry, all inter-protomer distances
-            equal) to 1.0 (highly asymmetric or max penalty). The score equals
-            (std of inter-protomer distances) / max_symmetry_std, capped at 1.0.
-            For DNA sequences, the score is based on the best symmetry among all
-            predicted proteins.
+        list[ConstraintOutput]: Per-proposal score in ``[0.0, 1.0]`` where 0.0 is
+            perfect ring symmetry. Protein results attach the predicted ``Structure``
+            to slot 0. ``metadata`` carries:
 
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by
-        sequence type:
+            **For protein sequences:**
 
-        **For protein sequences:**
-        - ``avg_plddt``: Float average pLDDT score for structure confidence (0.0-1.0)
-        - ``ptm``: Float predicted TM-score for structure accuracy (0.0-1.0)
-        - ``pdb_output``: String PDB format structure file content
-        - ``esmfolded_sequence``: String colon-separated sequence representation
-        - ``symmetry_std_raw``: Float raw standard deviation of inter-protomer
-          distances in Ångströms (lower = more symmetric)
-        - ``symmetry_score_normalized``: Float normalized symmetry score (0.0-1.0)
+            - ``avg_plddt``: Float average pLDDT score for structure confidence (0.0-1.0)
+            - ``ptm``: Float predicted TM-score for structure accuracy (0.0-1.0)
+            - ``pdb_output``: String PDB format structure file content
+            - ``esmfolded_sequence``: String colon-separated sequence representation
+            - ``symmetry_std_raw``: Float raw standard deviation of inter-protomer
+              distances in Ångströms (lower = more symmetric)
+            - ``symmetry_score_normalized``: Float normalized symmetry score (0.0-1.0)
 
-        **For DNA sequences:**
-        - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal
-        - ``prodigal_protein_count``: Integer count of predicted ORFs
-        - ``esmfold_protein_symmetry_stds``: List of float symmetry standard
-          deviations for each predicted protein (in Ångströms)
-        - ``esmfold_best_symmetry``: Float best (lowest) symmetry std among all
-          predicted proteins (in Ångströms)
+            **For DNA sequences:**
+
+            - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal
+            - ``prodigal_protein_count``: Integer count of predicted ORFs
+            - ``esmfold_protein_symmetry_stds``: List of float symmetry standard
+              deviations for each predicted protein (in Ångströms)
+            - ``esmfold_best_symmetry``: Float best (lowest) symmetry std among all
+              predicted proteins (in Ångströms)
 
     Examples:
         Designing a symmetric hexameric ring:
@@ -186,33 +180,33 @@ def protein_symmetry_ring_constraint(
         ...     n_replications=6,  # Hexamer
         ...     max_symmetry_std=10.0,
         ... )
-        >>> scores = protein_symmetry_ring_constraint([(seq,)], config)
-        >>> print(scores[0])  # e.g., 0.35 (3.5 Å std / 10.0 Å max)
-        >>> print(seq._metadata["symmetry_std_raw"])  # e.g., 3.5 Å
-        >>> print(seq._metadata["symmetry_score_normalized"])  # 0.35
+        >>> results = protein_symmetry_ring_constraint([(seq,)], config)
+        >>> print(results[0].score)  # e.g., 0.35 (3.5 Å std / 10.0 Å max)
+        >>> print(results[0].metadata["symmetry_std_raw"])  # e.g., 3.5 Å
+        >>> print(results[0].metadata["symmetry_score_normalized"])  # 0.35
     """
-    # Extract sequences from tuples and separate by type
     sequences = [seq for (seq,) in input_sequences]
     by_type: dict[str, list[Sequence]] = {"dna": [], "protein": []}
     for seq in sequences:
         by_type[seq.sequence_type].append(seq)
 
-    scores = [None] * len(input_sequences)
+    per_proposal: list[ConstraintOutput | None] = [None] * len(input_sequences)
 
     if by_type["protein"]:
-        protein_scores = _evaluate_protein_symmetry(by_type["protein"], config)
-        _map_scores_to_original(sequences, by_type["protein"], protein_scores, scores)  # type: ignore[arg-type]
+        protein_results = _evaluate_protein_symmetry(by_type["protein"], config)
+        _map_results_to_original(sequences, by_type["protein"], protein_results, per_proposal)
 
     if by_type["dna"]:
-        dna_scores = _evaluate_dna_symmetry(by_type["dna"], config)
-        _map_scores_to_original(sequences, by_type["dna"], dna_scores, scores)  # type: ignore[arg-type]
+        dna_results = _evaluate_dna_symmetry(by_type["dna"], config)
+        _map_results_to_original(sequences, by_type["dna"], dna_results, per_proposal)
 
-    return scores  # type: ignore[return-value]
+    return [r for r in per_proposal if r is not None]
 
 
-def _evaluate_protein_symmetry(protein_sequences: list[Sequence], config: ProteinSymmetryRingConfig) -> list[float]:
+def _evaluate_protein_symmetry(
+    protein_sequences: list[Sequence], config: ProteinSymmetryRingConfig
+) -> list[ConstraintOutput]:
     """Evaluate protein ring symmetry directly."""
-    # Create complexes with n_replications of each protein sequence
     complexes = [
         StructurePredictionComplex(
             chains=[{"sequence": seq.sequence, "entity_type": "protein"}] * config.n_replications
@@ -220,28 +214,15 @@ def _evaluate_protein_symmetry(protein_sequences: list[Sequence], config: Protei
         for seq in protein_sequences
     ]
 
-    # Run ESMFold
     output = run_esmfold(
         inputs=ESMFoldInput(complexes=complexes),
         config=config.esmfold_config,
     )
 
-    # Determine distance function
     distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
 
-    # Update sequence metadata with ESMFold output and calculate scores for each sequence
-    scores = []
+    results: list[ConstraintOutput] = []
     for seq, structure in zip(protein_sequences, output.structures, strict=False):
-        seq._metadata.update(
-            {
-                "avg_plddt": structure.metrics["avg_plddt"],
-                "ptm": structure.metrics["ptm"],
-                "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
-                "esmfolded_sequence": ":".join([seq.sequence] * config.n_replications),
-            }
-        )
-
-        # Calculate ring symmetry
         atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
 
         centroids = []
@@ -251,57 +232,62 @@ def _evaluate_protein_symmetry(protein_sequences: list[Sequence], config: Protei
 
         if len(centroids) != config.n_replications:
             raise ValueError(f"Expected {config.n_replications} centroids, got {len(centroids)}")
-        centroids = np.vstack(centroids)  # type: ignore[assignment]
+        centroids_arr = np.vstack(centroids)
 
-        symmetry_std = float(np.std(distance_func(centroids)))
+        symmetry_std = float(np.std(distance_func(centroids_arr)))
         normalized_score = min(1.0, symmetry_std / config.max_symmetry_std)
 
-        seq._metadata["symmetry_std_raw"] = symmetry_std
-        seq._metadata["symmetry_score_normalized"] = normalized_score
-        scores.append(normalized_score)
+        results.append(
+            ConstraintOutput(
+                score=normalized_score,
+                metadata={
+                    "avg_plddt": structure.metrics["avg_plddt"],
+                    "ptm": structure.metrics["ptm"],
+                    "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
+                    "esmfolded_sequence": ":".join([seq.sequence] * config.n_replications),
+                    "symmetry_std_raw": symmetry_std,
+                    "symmetry_score_normalized": normalized_score,
+                },
+                structures=(structure,),
+            )
+        )
 
-    return scores
+    return results
 
 
-def _evaluate_dna_symmetry(dna_sequences: list[Sequence], config: ProteinSymmetryRingConfig) -> list[float]:
+def _evaluate_dna_symmetry(dna_sequences: list[Sequence], config: ProteinSymmetryRingConfig) -> list[ConstraintOutput]:
     """Evaluate DNA sequences via Prodigal then symmetry."""
     prodigal_result = run_prodigal_prediction(
         ProdigalInput(input_sequences=[seq.sequence for seq in dna_sequences]), ProdigalConfig()
     )
 
     distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
-    scores = []
+    results: list[ConstraintOutput] = []
 
-    for dna_seq, proteins_list, num_genes in zip(
-        dna_sequences, prodigal_result.predicted_orfs, prodigal_result.num_orfs_per_sequence, strict=False
+    for proteins_list, num_genes in zip(
+        prodigal_result.predicted_orfs, prodigal_result.num_orfs_per_sequence, strict=False
     ):
         orf_dicts = [orf.model_dump() for orf in proteins_list]
-        dna_seq._metadata.update(
-            {
-                "prodigal_proteins": store_file(json.dumps(orf_dicts), FileType.JSON) if orf_dicts else None,
-                "prodigal_protein_count": num_genes,
-            }
-        )
+        metadata: dict[str, object] = {
+            "prodigal_proteins": store_file(json.dumps(orf_dicts), FileType.JSON) if orf_dicts else None,
+            "prodigal_protein_count": num_genes,
+        }
 
-        # If there are no genes predicted, score is MAX_ENERGY
         if num_genes == 0 or len(proteins_list) == 0:
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata=metadata))
             continue
 
-        # Create complexes with n_replications of each protein sequence
         protein_seqs = [orf.amino_acid_sequence for orf in proteins_list]
         complexes = [
             StructurePredictionComplex(chains=[{"sequence": seq, "entity_type": "protein"}] * config.n_replications)
             for seq in protein_seqs
         ]
 
-        # Run ESMFold
         esmfold_output = run_esmfold(
             inputs=ESMFoldInput(complexes=complexes),
             config=config.esmfold_config,
         )
 
-        # Calculate symmetry for all proteins, use best (lowest std)
         symmetry_stds = []
         for structure in esmfold_output.structures:
             atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
@@ -310,28 +296,28 @@ def _evaluate_dna_symmetry(dna_sequences: list[Sequence], config: ProteinSymmetr
                 chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord
                 centroids.append(get_centroid(chain_backbone))
 
-            centroids = np.vstack(centroids)  # type: ignore[assignment]
-            symmetry_stds.append(float(np.std(distance_func(centroids))))
+            centroids_arr = np.vstack(centroids)
+            symmetry_stds.append(float(np.std(distance_func(centroids_arr))))
 
         best_symmetry_std = min(symmetry_stds)
         normalized_score = min(1.0, best_symmetry_std / config.max_symmetry_std)
 
-        dna_seq._metadata["esmfold_protein_symmetry_stds"] = symmetry_stds
-        dna_seq._metadata["esmfold_best_symmetry"] = best_symmetry_std
-        scores.append(normalized_score)
+        metadata["esmfold_protein_symmetry_stds"] = symmetry_stds
+        metadata["esmfold_best_symmetry"] = best_symmetry_std
+        results.append(ConstraintOutput(score=normalized_score, metadata=metadata))
 
-    return scores
+    return results
 
 
-def _map_scores_to_original(
+def _map_results_to_original(
     all_sequences: list[Sequence],
     subset_sequences: list[Sequence],
-    subset_scores: list[float],
-    scores: list[float | None],
+    subset_results: list[ConstraintOutput],
+    per_proposal: list[ConstraintOutput | None],
 ) -> None:
-    """Map subset scores back to original sequence order."""
+    """Map subset results back to original sequence order."""
     subset_idx = 0
     for i, seq in enumerate(all_sequences):
         if seq in subset_sequences:
-            scores[i] = subset_scores[subset_idx]
+            per_proposal[i] = subset_results[subset_idx]
             subset_idx += 1

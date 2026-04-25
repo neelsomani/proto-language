@@ -115,35 +115,35 @@ class TestConstraintWithMocks:
 
         assert config.bioemu_config.num_samples == 3
 
-        scores = structure_ensemble_rmsd_constraint(
+        results = structure_ensemble_rmsd_constraint(
             [(Sequence(TEST_SEQ, "protein"),)],
             config,
         )
 
-        assert len(scores) == 1
-        assert 0.0 <= scores[0] <= 1.0
+        assert len(results) == 1
+        assert 0.0 <= results[0].score <= 1.0
 
     def test_metadata_populated(self, mock_bioemu, mock_pymol_rmsd):
-        """Check that metadata is populated on the sequence."""
+        """Check metadata fields are populated on the returned result."""
         config = StructureEnsembleSimilarityConfig(
             target_structure=MOCK_PDB,
             bioemu_config=BioEmuConfig(num_samples=3),
         )
 
         seq = Sequence(TEST_SEQ, "protein")
-        structure_ensemble_rmsd_constraint([(seq,)], config)
+        results = structure_ensemble_rmsd_constraint([(seq,)], config)
+        meta = results[0].metadata
 
-        # Check key metadata fields exist
-        assert "ensemble_rmsd_min" in seq._metadata
-        assert "ensemble_rmsd_mean" in seq._metadata
-        assert "ensemble_size" in seq._metadata
-        assert "pct_within_2A" in seq._metadata
-        assert "pct_within_3A" in seq._metadata
+        assert "ensemble_rmsd_min" in meta
+        assert "ensemble_rmsd_mean" in meta
+        assert "ensemble_size" in meta
+        assert "pct_within_2A" in meta
+        assert "pct_within_3A" in meta
 
-        # Check values make sense (RMSDs were 3.0, 2.0, 1.0)
-        assert seq._metadata["ensemble_rmsd_min"] == 1.0
-        assert seq._metadata["ensemble_rmsd_mean"] == 2.0
-        assert seq._metadata["ensemble_size"] == 3
+        # RMSDs were 3.0, 2.0, 1.0
+        assert meta["ensemble_rmsd_min"] == 1.0
+        assert meta["ensemble_rmsd_mean"] == 2.0
+        assert meta["ensemble_size"] == 3
 
     def test_proposal_residue_range_subsets_sequence(self, mock_bioemu, mock_pymol_rmsd):
         """Verify proposal_residue_range subsets sequence before BioEmu."""
@@ -173,7 +173,7 @@ class TestConstraintWithMocks:
             "proto_language.language.constraint.protein_structure."
             "structure_ensemble_similarity_constraint._compute_pymol_aligned_rmsd"
         ) as mock_rmsd:
-            results = {}
+            agg_scores: dict[str, float] = {}
 
             for agg in ["min", "mean", "median", "p10"]:
                 # Reset mock for each run
@@ -189,14 +189,14 @@ class TestConstraintWithMocks:
                     bioemu_config=BioEmuConfig(num_samples=3),
                 )
 
-                scores = structure_ensemble_rmsd_constraint(
+                results = structure_ensemble_rmsd_constraint(
                     [(Sequence(TEST_SEQ, "protein"),)],
                     config,
                 )
-                results[agg] = scores[0]
+                agg_scores[agg] = results[0].score
 
             # min should give best (lowest) score, mean should be worse
-            assert results["min"] < results["mean"]
+            assert agg_scores["min"] < agg_scores["mean"]
 
 
 @pytest.mark.uses_gpu
@@ -213,10 +213,10 @@ class TestConstraintIntegration:
 
         assert config.bioemu_config.num_samples == 10
 
-        scores = structure_ensemble_rmsd_constraint(
+        results = structure_ensemble_rmsd_constraint(
             [(Sequence("AGAGAGAG", "protein"),)],  # Short sequence
             config,
         )
 
-        assert len(scores) == 1
-        assert 0.0 <= scores[0] <= 1.0
+        assert len(results) == 1
+        assert 0.0 <= results[0].score <= 1.0

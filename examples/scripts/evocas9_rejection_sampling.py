@@ -31,6 +31,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from proto_language.language.core import ConstraintOutput
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -176,7 +178,7 @@ def _parse_seq_index(target_name: str) -> int | None:
 def orf_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by ORF length. Caches protein translation.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -191,7 +193,7 @@ def orf_filter(
         OrfipyConfig(min_len=min_len, strand="b"),
     )
 
-    scores = []
+    results: list[ConstraintOutput] = []
     for i, seq_orfs in enumerate(orf_result.predicted_orfs):
         dna = sequences[i]
         if dna not in CACHE:
@@ -200,18 +202,19 @@ def orf_filter(
         if seq_orfs:
             best = max(seq_orfs, key=lambda o: o.amino_acid_length)
             CACHE[dna]["protein"] = best.amino_acid_sequence
-            scores.append(0.0)
+            results.append(ConstraintOutput(score=0.0, metadata={"protein": best.amino_acid_sequence}))
         else:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
 
-    logger.info(f"orf_filter: {sum(1 for s in scores if s == 0.0)}/{len(scores)} have ORFs >= {min_len} nt")
-    return scores
+    n_pass = sum(1 for r in results if r.score == 0.0)
+    logger.info(f"orf_filter: {n_pass}/{len(results)} have ORFs >= {min_len} nt")
+    return results
 
 
 def cas9_phmm_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by Cas9 profile HMM hit.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -227,7 +230,7 @@ def cas9_phmm_filter(
 
     if not Path(hmm_path).exists():
         logger.warning(f"Cas9 HMM not found: {hmm_path}, passing all")
-        return [0.0] * len(input_sequences)
+        return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
     # Collect proteins from cache
     dna_seqs = [seq_tuple[0].sequence for seq_tuple in input_sequences]
@@ -240,7 +243,7 @@ def cas9_phmm_filter(
             valid_indices.append(i)
 
     if not proteins:
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
 
     hmm_result = run_pyhmmer_hmmsearch(
         PyHmmsearchInput(sequences=proteins, hmm=hmm_path),
@@ -260,13 +263,13 @@ def cas9_phmm_filter(
 
     n_pass = sum(1 for s in scores if s == 0.0)
     logger.info(f"cas9_phmm_filter: {n_pass}/{len(scores)} have Cas9 pHMM hit (E < {evalue})")
-    return scores
+    return [ConstraintOutput(score=s) for s in scores]
 
 
 def crispr_array_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by CRISPR array detection. Caches repeat sequence.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -280,31 +283,34 @@ def crispr_array_filter(
         MincedConfig(min_num_repeats=3, min_repeat_length=23),
     )
 
-    scores = []
+    results: list[ConstraintOutput] = []
     for i, dna in enumerate(sequences):
         if dna not in CACHE:
             CACHE[dna] = {}
 
+        metadata: dict[str, Any] = {}
         if i < len(minced_result.results):
             res = minced_result.results[i]
             if res.has_crispr:
                 if res.crispr_arrays:
-                    CACHE[dna]["crispr_repeat"] = res.crispr_arrays[0].repeats_and_spacers[0].repeat
-                scores.append(0.0)
+                    repeat = res.crispr_arrays[0].repeats_and_spacers[0].repeat
+                    CACHE[dna]["crispr_repeat"] = repeat
+                    metadata["crispr_repeat"] = repeat
+                results.append(ConstraintOutput(score=0.0, metadata=metadata))
             else:
-                scores.append(1.0)
+                results.append(ConstraintOutput(score=1.0))
         else:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
 
-    n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(f"crispr_array_filter: {n_pass}/{len(scores)} have CRISPR arrays")
-    return scores
+    n_pass = sum(1 for r in results if r.score == 0.0)
+    logger.info(f"crispr_array_filter: {n_pass}/{len(results)} have CRISPR arrays")
+    return results
 
 
 def identity_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by sequence identity to training set. Caches identity and nearest hit.
 
     Returns 0.0 for PASS (identity < threshold or no hit), 1.0 for FAIL.
@@ -333,7 +339,7 @@ def identity_filter(
         MmseqsSearchProteinsConfig(only_top_hits=True),
     )
 
-    scores = []
+    results: list[ConstraintOutput] = []
     for i, dna in enumerate(dna_seqs):
         if dna not in CACHE:
             CACHE[dna] = {}
@@ -343,7 +349,7 @@ def identity_filter(
         if not result.has_hits:
             CACHE[dna]["identity"] = 0.0
             CACHE[dna]["nearest_hit_seq"] = None
-            scores.append(0.0)
+            results.append(ConstraintOutput(score=0.0, metadata={"identity": 0.0, "nearest_hit_seq": None}))
             continue
 
         top_hit = result.top_hit
@@ -353,20 +359,18 @@ def identity_filter(
         target_seq = training_seqs.get(top_hit.target_id)
         CACHE[dna]["nearest_hit_seq"] = target_seq
 
-        if identity >= threshold:
-            scores.append(1.0)
-        else:
-            scores.append(0.0)
+        score = 1.0 if identity >= threshold else 0.0
+        results.append(ConstraintOutput(score=score, metadata={"identity": identity, "nearest_hit_seq": target_seq}))
 
-    n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(f"identity_filter: {n_pass}/{len(scores)} have identity < {threshold:.0%}")
-    return scores
+    n_pass = sum(1 for r in results if r.score == 0.0)
+    logger.info(f"identity_filter: {n_pass}/{len(results)} have identity < {threshold:.0%}")
+    return results
 
 
 def gap_gini_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by gap Gini on MAFFT alignment vs nearest training hit.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -380,7 +384,7 @@ def gap_gini_filter(
 
     threshold = config.get("threshold", GAP_GINI_THRESHOLD)
 
-    scores = []
+    results: list[ConstraintOutput] = []
     for seq_tuple in input_sequences:
         dna = seq_tuple[0].sequence
         if dna not in CACHE:
@@ -392,7 +396,7 @@ def gap_gini_filter(
         # No nearest hit or no protein -> passes (novel sequence)
         if not protein or nearest_hit is None:
             CACHE[dna]["gap_gini"] = 0.0
-            scores.append(0.0)
+            results.append(ConstraintOutput(score=0.0, metadata={"gap_gini": 0.0}))
             continue
 
         align_result = run_mafft_align(
@@ -410,21 +414,18 @@ def gap_gini_filter(
             gini = 0.0
 
         CACHE[dna]["gap_gini"] = gini
+        score = 0.0 if gini < threshold else 1.0
+        results.append(ConstraintOutput(score=score, metadata={"gap_gini": gini}))
 
-        if gini < threshold:
-            scores.append(0.0)
-        else:
-            scores.append(1.0)
-
-    n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(f"gap_gini_filter: {n_pass}/{len(scores)} have gap Gini < {threshold}")
-    return scores
+    n_pass = sum(1 for r in results if r.score == 0.0)
+    logger.info(f"gap_gini_filter: {n_pass}/{len(results)} have gap Gini < {threshold}")
+    return results
 
 
 def domain_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by presence of all required Cas9 domains.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -441,7 +442,7 @@ def domain_filter(
 
     if not Path(hmm_path).exists():
         logger.warning(f"Domain HMM not found: {hmm_path}, passing all")
-        return [0.0] * len(input_sequences)
+        return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
     dna_seqs = [seq_tuple[0].sequence for seq_tuple in input_sequences]
     proteins = []
@@ -453,7 +454,7 @@ def domain_filter(
             valid_indices.append(i)
 
     if not proteins:
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
 
     hmm_result = run_pyhmmer_hmmsearch(
         PyHmmsearchInput(sequences=proteins, hmm=hmm_path),
@@ -471,24 +472,26 @@ def domain_filter(
                         protein_domains[j].append(domain)
 
     scores = [1.0] * len(input_sequences)
+    metadata_per_idx: dict[int, dict[str, Any]] = {}
     for protein_idx, original_idx in enumerate(valid_indices):
         dna = dna_seqs[original_idx]
         if dna not in CACHE:
             CACHE[dna] = {}
         CACHE[dna]["domains_found"] = protein_domains[protein_idx]
+        metadata_per_idx[original_idx] = {"domains_found": protein_domains[protein_idx]}
 
         if set(protein_domains[protein_idx]) >= set(required):
             scores[original_idx] = 0.0
 
     n_pass = sum(1 for s in scores if s == 0.0)
     logger.info(f"domain_filter: {n_pass}/{len(scores)} have all required domains")
-    return scores
+    return [ConstraintOutput(score=scores[i], metadata=metadata_per_idx.get(i, {})) for i in range(len(scores))]
 
 
 def tracr_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by tracrRNA prediction. Caches tracrRNA and interaction energy.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -510,7 +513,7 @@ def tracr_filter(
     if tracr_result.success is False:
         raise RuntimeError(f"tracrRNA prediction failed: {tracr_result.errors}")
 
-    scores = []
+    results: list[ConstraintOutput] = []
     for i, dna in enumerate(sequences):
         if dna not in CACHE:
             CACHE[dna] = {}
@@ -519,26 +522,24 @@ def tracr_filter(
             pred = tracr_result.predictions[i]
             CACHE[dna]["tracr_sequence"] = pred.tracr_hit
             CACHE[dna]["interaction_energy"] = pred.interaction_energy
+            metadata = {"tracr_sequence": pred.tracr_hit, "interaction_energy": pred.interaction_energy}
 
             has_tracr = pred.has_tracr
             has_intarna = pred.intarna_anti_repeat_interaction is not None
-
-            if has_tracr and has_intarna:
-                scores.append(0.0)
-            else:
-                scores.append(1.0)
+            score = 0.0 if (has_tracr and has_intarna) else 1.0
+            results.append(ConstraintOutput(score=score, metadata=metadata))
         else:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
 
-    n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(f"tracr_filter: {n_pass}/{len(scores)} have tracrRNA + IntaRNA")
-    return scores
+    n_pass = sum(1 for r in results if r.score == 0.0)
+    logger.info(f"tracr_filter: {n_pass}/{len(results)} have tracrRNA + IntaRNA")
+    return results
 
 
 def structure_filter(
     input_sequences: list[tuple[Any, ...]],
     config: dict,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter by AF3 structure prediction + metrics.
 
     Returns 0.0 for PASS, 1.0 for FAIL.
@@ -559,6 +560,8 @@ def structure_filter(
 
     dna_seqs = [seq_tuple[0].sequence for seq_tuple in input_sequences]
     scores = [1.0] * len(input_sequences)
+    metadata_per_idx: dict[int, dict[str, Any]] = {}
+    structures_per_idx: dict[int, Any] = {}
 
     for i, dna in enumerate(dna_seqs):
         if dna not in CACHE:
@@ -578,6 +581,12 @@ def structure_filter(
                 plddt_ok = plddt is not None and plddt >= plddt_threshold
                 rg_ok = rg is not None and rg < rg_threshold
                 alpha_ok = alpha is not None and alpha < alpha_threshold
+                metadata_per_idx[i] = {
+                    "plddt": plddt,
+                    "gyration_radius": rg,
+                    "longest_alpha": alpha,
+                    "pdb_path": str(pdb_file),
+                }
                 if plddt_ok and rg_ok and alpha_ok:
                     scores[i] = 0.0
                 continue
@@ -640,6 +649,14 @@ def structure_filter(
             rg_ok = m.gyration_radius is not None and m.gyration_radius < rg_threshold
             alpha_ok = m.longest_alpha_helix is not None and m.longest_alpha_helix < alpha_threshold
 
+            metadata_per_idx[i] = {
+                "plddt": plddt,
+                "gyration_radius": m.gyration_radius,
+                "longest_alpha": m.longest_alpha_helix,
+                "pdb_path": str(pdb_file),
+            }
+            structures_per_idx[i] = structure
+
             if plddt_ok and rg_ok and alpha_ok:
                 scores[i] = 0.0
             else:
@@ -654,7 +671,17 @@ def structure_filter(
 
     n_pass = sum(1 for s in scores if s == 0.0)
     logger.info(f"structure_filter: {n_pass}/{len(scores)} passed structure checks")
-    return scores
+
+    results: list[ConstraintOutput] = []
+    for i in range(len(scores)):
+        results.append(
+            ConstraintOutput(
+                score=scores[i],
+                metadata=metadata_per_idx.get(i, {}),
+                structures=(structures_per_idx.get(i),),
+            )
+        )
+    return results
 
 
 structure_filter._next_idx = 0

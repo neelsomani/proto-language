@@ -13,13 +13,13 @@ Constraints:
 
 from logging import getLogger
 
-from proto_tools import StructurePredictionComplex, predict_structures
+from proto_tools import Structure, StructurePredictionComplex, predict_structures
 
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.protein_structure.structure_constraint_config import (
     StructureBasedConstraintConfig,
 )
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.storage import FileType, store_file
 
 logger = getLogger(__name__)
@@ -48,18 +48,21 @@ def _structure_confidence(
     proposals: list[tuple[Sequence, ...]],
     config: StructureBasedConstraintConfig,
     target_metric: str,
-) -> list[float | None]:
+) -> list[tuple[float | None, Structure | None]]:
     """Core helper for structure confidence constraints.
 
+    Runs the configured structure predictor on all proposals and returns the
+    requested raw metric plus the predicted ``Structure`` per proposal, without
+    mutating inputs. Callers assemble a ``ConstraintOutput`` from these values.
+
     Args:
-        proposals (list[tuple[Sequence, ...]]): List of sequence tuples, where each tuple represents a
-            complex (monomer = 1-tuple, dimer = 2-tuple, etc.).
-        config (StructureBasedConstraintConfig): Configuration specifying tool and tool-specific parameters.
+        proposals (list[tuple[Sequence, ...]]): Per-proposal sequence tuples.
+        config (StructureBasedConstraintConfig): Tool and tool-specific parameters.
         target_metric (str): Metric to extract from structure predictions.
 
     Returns:
-        list[float | None]: List of raw metrics requested by `target_metric`. Invalid
-            raw metrics are returned as None and should be checked by the caller.
+        list[tuple[float | None, Structure | None]]: ``(metric, structure)`` per
+            proposal. ``metric`` is ``None`` when the predictor omits it.
 
     Raises:
         ValueError: If target_metric is not available for the specified tool.
@@ -71,18 +74,15 @@ def _structure_confidence(
             f"Available metrics: {', '.join(sorted(available))}"
         )
 
-    # Build complexes from proposal tuples.
     complexes = []
     for proposal_tuple in proposals:
         chains = [{"sequence": seq.sequence, "entity_type": seq.sequence_type} for seq in proposal_tuple]
         complexes.append(StructurePredictionComplex(chains=chains))
 
-    # Run structure prediction.
     output = predict_structures(complexes, config.structure_tool, config.tool_config)
 
-    # Extract and return raw requested metric.
-    raw_metrics: list[float | None] = []
-    for structure, proposal_tuple in zip(output.structures, proposals, strict=False):
+    outcomes: list[tuple[float | None, Structure | None]] = []
+    for structure in output.structures:
         metric_value = structure.metrics.get(target_metric)
         if metric_value is None:
             alt = {"avg_plddt": "complex_plddt", "avg_pae": "complex_pde"}.get(target_metric)
@@ -91,23 +91,32 @@ def _structure_confidence(
 
         if metric_value is None:
             logger.warning(f"Metric '{target_metric}' not found in structure output, returning worst score.")
-            raw_metrics.append(None)
+            outcomes.append((None, None))
             continue
 
-        # Attach structure and metadata to first sequence in tuple for visibility.
-        if proposal_tuple:
-            proposal_tuple[0].structure = structure
-            proposal_tuple[0]._metadata.update(
-                {
-                    target_metric: metric_value,
-                    "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
-                    "structure_tool": config.structure_tool,
-                }
-            )
+        outcomes.append((metric_value, structure))
 
-        raw_metrics.append(metric_value)
+    return outcomes
 
-    return raw_metrics
+
+def _assemble_result(
+    metric: float | None,
+    structure: Structure | None,
+    target_metric: str,
+    score: float,
+    structure_tool: str,
+    n_segments: int,
+) -> ConstraintOutput:
+    """Build a ``ConstraintOutput`` for a single proposal; structure attaches to slot 0 only."""
+    if structure is None:
+        return ConstraintOutput(score=score)
+    metadata = {
+        target_metric: metric,
+        "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
+        "structure_tool": structure_tool,
+    }
+    structures = (structure,) + (None,) * (n_segments - 1)
+    return ConstraintOutput(score=score, metadata=metadata, structures=structures)
 
 
 @constraint(
@@ -123,7 +132,7 @@ def _structure_confidence(
 )
 def structure_plddt_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate structure quality using predicted LDDT (pLDDT) score.
 
     pLDDT (predicted Local Distance Difference Test) measures per-residue
@@ -143,6 +152,10 @@ def structure_plddt_constraint(
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (StructureBasedConstraintConfig): Constraint configuration controlling evaluation parameters.
 
+    Returns:
+        list[ConstraintOutput]: Per-proposal score and ``avg_plddt`` / ``pdb_output``
+            / ``structure_tool`` metadata; predicted Structure attaches to slot 0.
+
     Example:
         Programming a homo-trimer with ESMFold:
 
@@ -154,16 +167,19 @@ def structure_plddt_constraint(
         ...     function_config={"structure_tool": "esmfold"},
         ... )
     """
-    raw_metrics = _structure_confidence(input_sequences, config, "avg_plddt")
-    scores = []
-    for metric in raw_metrics:
+    outcomes = _structure_confidence(input_sequences, config, "avg_plddt")
+    results: list[ConstraintOutput] = []
+    for (metric, structure), proposal_tuple in zip(outcomes, input_sequences, strict=True):
         if metric is None:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
             continue
-        # Each structure predictor returns differently normalized pLDDTs.
         normalized = metric / 100.0 if config.structure_tool == "alphafold3" else metric
-        scores.append(1.0 - normalized)
-    return scores
+        results.append(
+            _assemble_result(
+                metric, structure, "avg_plddt", 1.0 - normalized, config.structure_tool, len(proposal_tuple)
+            )
+        )
+    return results
 
 
 @constraint(
@@ -179,7 +195,7 @@ def structure_plddt_constraint(
 )
 def structure_ptm_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate structure quality using predicted TM-score (pTM).
 
     pTM (predicted Template Modeling score) measures overall structural
@@ -195,6 +211,10 @@ def structure_ptm_constraint(
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (StructureBasedConstraintConfig): Constraint configuration controlling evaluation parameters.
 
+    Returns:
+        list[ConstraintOutput]: Per-proposal score and ``ptm`` / ``pdb_output`` /
+            ``structure_tool`` metadata; predicted Structure attaches to slot 0.
+
     Example:
         Programming a homo-dimer with ESMFold:
 
@@ -206,9 +226,16 @@ def structure_ptm_constraint(
         ...     function_config={"structure_tool": "esmfold"},
         ... )
     """
-    raw_metrics = _structure_confidence(input_sequences, config, "ptm")
-    # pTM is pretty standard, just return 1 minus the raw metric.
-    return [1.0 - metric if metric is not None else 1.0 for metric in raw_metrics]
+    outcomes = _structure_confidence(input_sequences, config, "ptm")
+    results: list[ConstraintOutput] = []
+    for (metric, structure), proposal_tuple in zip(outcomes, input_sequences, strict=True):
+        if metric is None:
+            results.append(ConstraintOutput(score=1.0))
+            continue
+        results.append(
+            _assemble_result(metric, structure, "ptm", 1.0 - metric, config.structure_tool, len(proposal_tuple))
+        )
+    return results
 
 
 @constraint(
@@ -224,7 +251,7 @@ def structure_ptm_constraint(
 )
 def structure_iptm_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate interface quality using predicted interface TM-score (ipTM).
 
     ipTM (interface predicted TM-score) specifically measures the quality
@@ -240,6 +267,10 @@ def structure_iptm_constraint(
     Args:
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (StructureBasedConstraintConfig): Constraint configuration controlling evaluation parameters.
+
+    Returns:
+        list[ConstraintOutput]: Per-proposal score and ``iptm`` / ``pdb_output`` /
+            ``structure_tool`` metadata; predicted Structure attaches to slot 0.
 
     Examples:
         Programming a protein-protein binder with AF3:
@@ -270,9 +301,16 @@ def structure_iptm_constraint(
         ...     },
         ... )
     """
-    raw_metrics = _structure_confidence(input_sequences, config, "iptm")
-    # ipTM is pretty standard, just return 1 minus the raw metric.
-    return [1.0 - metric if metric is not None else 1.0 for metric in raw_metrics]
+    outcomes = _structure_confidence(input_sequences, config, "iptm")
+    results: list[ConstraintOutput] = []
+    for (metric, structure), proposal_tuple in zip(outcomes, input_sequences, strict=True):
+        if metric is None:
+            results.append(ConstraintOutput(score=1.0))
+            continue
+        results.append(
+            _assemble_result(metric, structure, "iptm", 1.0 - metric, config.structure_tool, len(proposal_tuple))
+        )
+    return results
 
 
 @constraint(
@@ -288,7 +326,7 @@ def structure_iptm_constraint(
 )
 def structure_pae_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate structure quality using predicted aligned error (pAE).
 
     pAE (predicted Aligned Error) measures the expected positional error
@@ -308,6 +346,10 @@ def structure_pae_constraint(
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (StructureBasedConstraintConfig): Constraint configuration controlling evaluation parameters.
 
+    Returns:
+        list[ConstraintOutput]: Per-proposal score and ``avg_pae`` / ``pdb_output`` /
+            ``structure_tool`` metadata; predicted Structure attaches to slot 0.
+
     Examples:
         Programming a protein-protein binder with AF3:
 
@@ -323,8 +365,18 @@ def structure_pae_constraint(
         ...     },
         ... )
     """
-    raw_metrics = _structure_confidence(input_sequences, config, "avg_pae")
-    return [min(metric / PAE_MAXIMUM, 1.0) if metric is not None else 1.0 for metric in raw_metrics]
+    outcomes = _structure_confidence(input_sequences, config, "avg_pae")
+    results: list[ConstraintOutput] = []
+    for (metric, structure), proposal_tuple in zip(outcomes, input_sequences, strict=True):
+        if metric is None:
+            results.append(ConstraintOutput(score=1.0))
+            continue
+        results.append(
+            _assemble_result(
+                metric, structure, "avg_pae", min(metric / PAE_MAXIMUM, 1.0), config.structure_tool, len(proposal_tuple)
+            )
+        )
+    return results
 
 
 @constraint(
@@ -340,13 +392,13 @@ def structure_pae_constraint(
 )
 def structure_composite_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate structure quality using a composite of all confidence metrics from one prediction call.
 
     Runs ``predict_structures`` once per batch and combines ``avg_plddt``,
     ``iptm``, ``ptm``, and ``avg_pae`` into a single scalar in ``[0, 1]`` where
     lower is better (more confident). All four raw metrics plus the resulting
-    structure are also written to each proposal's ``_metadata`` so callers can
+    structure are also exposed via ``metadata`` / ``structures`` so callers can
     threshold on individual metrics post-hoc (e.g., Germinal's final-filter
     gates in ``configs/filter/final/vhh.yaml``) without re-running the predictor.
 
@@ -366,14 +418,17 @@ def structure_composite_constraint(
         config (StructureBasedConstraintConfig): Constraint configuration controlling evaluation parameters.
 
     Returns:
-        list[float]: Composite confidence score in ``[0, 1]`` per proposal;
-            lower is better.
+        list[ConstraintOutput]: Per-proposal composite score in ``[0, 1]`` (lower
+            is better). Metadata carries the four normalized components
+            (``composite_avg_plddt``, ``composite_iptm``, ``composite_ptm``,
+            ``composite_avg_pae``) plus ``pdb_output`` and ``structure_tool``;
+            the predicted Structure attaches to slot 0.
 
     Note:
-        Writes the following keys onto each proposal's ``_metadata`` dict,
-        **all normalized to ``[0, 1]``** so downstream threshold code is
-        tool-agnostic (unlike sibling single-metric constraints, which store
-        raw values and require the caller to know the tool's scale):
+        Metadata values are **all normalized to ``[0, 1]``** so downstream
+        threshold code is tool-agnostic (unlike sibling single-metric
+        constraints, which store raw values and require the caller to know
+        the tool's scale):
 
         - ``composite_avg_plddt``: Normalized pLDDT in ``[0, 1]`` (divided by
           100 for alphafold3).
@@ -404,7 +459,6 @@ def structure_composite_constraint(
             f"{sorted(COMPOSITE_REQUIRED_METRICS)}; '{config.structure_tool}' is missing {missing}."
         )
 
-    # Build complexes from proposal tuples.
     complexes = []
     for proposal_tuple in input_sequences:
         chains = [{"sequence": seq.sequence, "entity_type": seq.sequence_type} for seq in proposal_tuple]
@@ -412,7 +466,7 @@ def structure_composite_constraint(
 
     output = predict_structures(complexes, config.structure_tool, config.tool_config)
 
-    scores: list[float] = []
+    results: list[ConstraintOutput] = []
     for structure, proposal_tuple in zip(output.structures, input_sequences, strict=False):
         m = structure.metrics
         plddt_raw = m.get("avg_plddt")
@@ -429,7 +483,7 @@ def structure_composite_constraint(
                 f"Missing composite metrics from '{config.structure_tool}': "
                 f"plddt={plddt_raw}, iptm={iptm}, ptm={ptm}, pae={pae}. Returning worst score."
             )
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
             continue
 
         plddt_norm = plddt_raw / 100.0 if config.structure_tool == "alphafold3" else plddt_raw
@@ -437,19 +491,20 @@ def structure_composite_constraint(
 
         score = ((1.0 - plddt_norm) + (1.0 - iptm) + (1.0 - ptm) + pae_norm) / 4.0
 
-        if proposal_tuple:
-            proposal_tuple[0].structure = structure
-            proposal_tuple[0]._metadata.update(
-                {
+        n = len(proposal_tuple)
+        results.append(
+            ConstraintOutput(
+                score=score,
+                metadata={
                     "composite_avg_plddt": plddt_norm,
                     "composite_iptm": iptm,
                     "composite_ptm": ptm,
                     "composite_avg_pae": pae_norm,
                     "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
                     "structure_tool": config.structure_tool,
-                }
+                },
+                structures=(structure,) + (None,) * (n - 1),
             )
+        )
 
-        scores.append(score)
-
-    return scores
+    return results

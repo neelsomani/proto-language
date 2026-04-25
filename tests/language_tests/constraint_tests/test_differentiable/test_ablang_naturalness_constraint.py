@@ -56,7 +56,7 @@ class TestForward:
             mock_run.return_value = _mock_gradient_output(gradient=None, loss=loss, log_likelihood=-loss)
             return ablang_naturalness_forward(
                 [(Sequence("EV", "protein"),)], config=AbLangConstraintConfig(temperature=0.6)
-            )[0]
+            )[0].score
 
         assert score_for(0.0) == pytest.approx(0.0)
         assert score_for(-2.0) < score_for(0.0) < score_for(2.0)
@@ -65,8 +65,8 @@ class TestForward:
     def test_forward_writes_metadata_and_sets_compute_gradient_false(self, mock_run: object) -> None:
         mock_run.return_value = _mock_gradient_output(gradient=None, loss=2.0, log_likelihood=-2.0)
         binder = Sequence("EVQLV", "protein")
-        ablang_naturalness_forward([(binder,)], config=AbLangConstraintConfig(temperature=0.6, device="cpu"))
-        assert binder._metadata == {"ablang_log_likelihood": -2.0, "ablang_loss": 2.0}
+        results = ablang_naturalness_forward([(binder,)], config=AbLangConstraintConfig(temperature=0.6, device="cpu"))
+        assert results[0].metadata == {"ablang_log_likelihood": -2.0, "ablang_loss": 2.0}
         assert mock_run.call_args[0][1].compute_gradient is False
 
 
@@ -188,7 +188,7 @@ class TestGPU:
             logits[i, aa_order.index(aa)] = 1.0
 
         backward = ablang_naturalness_gradient_backward((_seq_with_logits(logits),), config=config)
-        forward_score = ablang_naturalness_forward([(Sequence(sequence, "protein"),)], config=config)[0]
+        forward_score = ablang_naturalness_forward([(Sequence(sequence, "protein"),)], config=config)[0].score
 
         assert np.isfinite(forward_score) and forward_score > 0
         assert forward_score == pytest.approx(backward.loss, rel=1e-5)

@@ -10,7 +10,7 @@ from pydantic import ValidationInfo, field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import Constraint, Construct, Generator, Optimizer, Segment
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.language.generator import PositionWeightGenerator
 from proto_language.language.optimizer.optimizer_registry import optimizer
 from proto_language.utils import softmax
@@ -562,7 +562,7 @@ class GradientOptimizer(Optimizer):
                 f"temp {self.config.temperature_start}→{self.config.temperature_end}"
             )
 
-        all_results: list[list[GradientResult]]
+        all_results: list[list[GradientConstraintOutput]]
         for step in range(1, self.config.num_steps + 1):
             # 1. Compute soft and temperature from linear/scheduled interpolation
             progress = step / self.config.num_steps
@@ -625,7 +625,7 @@ class GradientOptimizer(Optimizer):
             self.custom_logging(step, self.segments)
 
     def _update_trajectory(
-        self, k: int, all_results: list[list[GradientResult]], lr: float, target: Segment, step: int
+        self, k: int, all_results: list[list[GradientConstraintOutput]], lr: float, target: Segment, step: int
     ) -> None:
         """Align, merge, normalize, and apply one gradient step for trajectory *k*."""
         grads = [all_results[i][k].gradient[self._gradient_indices[i]] for i in range(len(self._gradient_constraints))]

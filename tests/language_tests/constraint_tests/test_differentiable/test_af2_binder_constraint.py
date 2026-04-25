@@ -165,7 +165,7 @@ class TestForward:
 
         def score_for(loss: float) -> float:
             mock_run.return_value = _mock_tool_output(gradient=None, loss=loss)
-            return af2_binder_forward([(Sequence("EVQLV", "protein"), _target_sequence())], config=cfg)[0]
+            return af2_binder_forward([(Sequence("EVQLV", "protein"), _target_sequence())], config=cfg)[0].score
 
         assert score_for(0.0) == pytest.approx(0.0)
         assert score_for(-2.0) < score_for(-1.0) < score_for(0.0) < score_for(1.0) < score_for(2.0)
@@ -179,21 +179,22 @@ class TestForward:
         )
         binder = Sequence("EV", "protein")
         target = _target_sequence()
-        af2_binder_forward(
+        results = af2_binder_forward(
             [(binder, target)], config=AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B")
         )
+        result = results[0]
 
         assert mock_run.call_args[0][1].compute_gradient is False
         # Binder slot: single-chain structure with (binder_len,) pLDDT — SemigreedyMutationGenerator invariant.
-        assert binder.structure.get_chain_ids() == ["B"]
-        assert binder.structure.per_residue_plddt == pytest.approx([0.70, 0.65])  # Chain-B bfactors 70/65 → [0,1].
-        assert len(binder.structure.per_residue_plddt) == len(binder.sequence)
+        assert result.structures[0].get_chain_ids() == ["B"]
+        assert result.structures[0].per_residue_plddt == pytest.approx([0.70, 0.65])  # Chain-B bfactors 70/65 → [0,1].
+        assert len(result.structures[0].per_residue_plddt) == len(binder.sequence)
         # Target slot: the predicted target chain only (complex-building is a consumer concern via concat).
-        assert target.structure.get_chain_ids() == ["A"]
-        assert binder._metadata["complex_pdb"] == mock_run.return_value.structure.structure_pdb
-        assert binder._metadata["avg_plddt"] == 0.82
-        assert binder._metadata["i_pae"] == 1.3
-        assert binder._metadata["loss"] == 0.75
+        assert result.structures[1].get_chain_ids() == ["A"]
+        assert result.metadata["complex_pdb"] == mock_run.return_value.structure.structure_pdb
+        assert result.metadata["avg_plddt"] == 0.82
+        assert result.metadata["i_pae"] == 1.3
+        assert result.metadata["loss"] == 0.75
 
     @patch(f"{_TOOL_MODULE}.run_alphafold2_binder")
     def test_forward_preserves_multi_chain_target_structure(self, mock_run: object) -> None:
@@ -211,15 +212,16 @@ class TestForward:
         binder = Sequence("EV", "protein")
         target = Sequence("A" * 4, "protein")
 
-        af2_binder_forward(
+        results = af2_binder_forward(
             [(binder, target)],
             config=AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, target_chains=["A", "B"], binder_chain="H"),
         )
+        result = results[0]
 
         assert mock_run.call_args[0][0].target_chain == "A,B"
-        assert binder.structure.get_chain_ids() == ["H"]
-        assert target.structure.get_chain_ids() == ["A", "B"]
-        assert target.structure.per_residue_plddt == pytest.approx([0.95, 0.90, 0.80, 0.75])
+        assert result.structures[0].get_chain_ids() == ["H"]
+        assert result.structures[1].get_chain_ids() == ["A", "B"]
+        assert result.structures[1].per_residue_plddt == pytest.approx([0.95, 0.90, 0.80, 0.75])
 
     @patch(f"{_TOOL_MODULE}.run_alphafold2_binder")
     def test_forward_sends_true_one_hot_with_hard_ste(self, mock_run: object) -> None:

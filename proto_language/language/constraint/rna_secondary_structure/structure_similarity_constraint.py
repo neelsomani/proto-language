@@ -11,7 +11,7 @@ from proto_tools import ViennaRNAConfig, ViennaRNAInput, run_viennarna
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 logger = getLogger(__name__)
 
@@ -356,7 +356,7 @@ class RNABasePairSimilarityConfig(RNAStructureConstraintBaseConfig):
 def rna_property_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: RNAPropertySimilarityConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Compare basic structural properties (length, pairing ratio) between proposals.
 
     and reference.
@@ -366,13 +366,17 @@ def rna_property_similarity_constraint(
     Args:
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (RNAPropertySimilarityConfig): Constraint configuration controlling evaluation parameters.
+
+    Returns:
+        list[ConstraintOutput]: Per-proposal score (``1 - similarity``) with metadata for component
+            similarities and the predicted structure.
     """
     # Fold reference
     ref_results = _fold_sequences([config.reference_sequence], config.temperature)
     ref_structure, _ = ref_results[0]
     if not ref_structure:
         logger.warning("Reference folding failed, returning worst scores")
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
 
     ref_len = len(ref_structure)
     ref_pairs = ref_structure.count("(")
@@ -382,10 +386,10 @@ def rna_property_similarity_constraint(
     proposal_seqs = [seq.sequence for (seq,) in input_sequences]
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
-    scores = []
-    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences, strict=False):
+    results: list[ConstraintOutput] = []
+    for cand_structure, _ in cand_results:
         if not cand_structure:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
             continue
 
         cand_len = len(cand_structure)
@@ -401,20 +405,19 @@ def rna_property_similarity_constraint(
         # Combined similarity
         similarity = config.length_weight * length_sim + (1 - config.length_weight) * pairing_sim
 
-        # Store metadata
-        seq._metadata.update(
-            {
-                "rna_property_similarity": similarity,
-                "length_similarity": length_sim,
-                "pairing_ratio_similarity": pairing_sim,
-                "structure": cand_structure,
-            }
+        results.append(
+            ConstraintOutput(
+                score=1.0 - similarity,
+                metadata={
+                    "rna_property_similarity": similarity,
+                    "length_similarity": length_sim,
+                    "pairing_ratio_similarity": pairing_sim,
+                    "structure": cand_structure,
+                },
+            )
         )
 
-        # Return 1 - similarity (constraint convention: lower is better)
-        scores.append(1.0 - similarity)
-
-    return scores
+    return results
 
 
 # =============================================================================
@@ -435,7 +438,7 @@ def rna_property_similarity_constraint(
 def rna_motif_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: RNAMotifSimilarityConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Compare structural motifs (stems, hairpins, bulges) between proposals and.
 
     reference using Jaccard similarity.
@@ -445,23 +448,27 @@ def rna_motif_similarity_constraint(
     Args:
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (RNAMotifSimilarityConfig): Constraint configuration controlling evaluation parameters.
+
+    Returns:
+        list[ConstraintOutput]: Per-proposal score (``1 - similarity``) with metadata for reference,
+            candidate, and shared motif sets plus the predicted structure.
     """
     # Fold reference
     ref_results = _fold_sequences([config.reference_sequence], config.temperature)
     ref_structure, _ = ref_results[0]
     if not ref_structure:
         logger.warning("Reference folding failed, returning worst scores")
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
     ref_motifs = set(_extract_structural_motifs(ref_structure))
 
     # Fold all proposals
     proposal_seqs = [seq.sequence for (seq,) in input_sequences]
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
-    scores = []
-    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences, strict=False):
+    results: list[ConstraintOutput] = []
+    for cand_structure, _ in cand_results:
         if not cand_structure:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
             continue
 
         cand_motifs = set(_extract_structural_motifs(cand_structure))
@@ -474,20 +481,20 @@ def rna_motif_similarity_constraint(
             union = len(ref_motifs | cand_motifs)
             similarity = intersection / union if union > 0 else 0.0
 
-        # Store metadata
-        seq._metadata.update(
-            {
-                "rna_motif_similarity": similarity,
-                "ref_motifs": list(ref_motifs),
-                "cand_motifs": list(cand_motifs),
-                "shared_motifs": list(ref_motifs & cand_motifs),
-                "structure": cand_structure,
-            }
+        results.append(
+            ConstraintOutput(
+                score=1.0 - similarity,
+                metadata={
+                    "rna_motif_similarity": similarity,
+                    "ref_motifs": list(ref_motifs),
+                    "cand_motifs": list(cand_motifs),
+                    "shared_motifs": list(ref_motifs & cand_motifs),
+                    "structure": cand_structure,
+                },
+            )
         )
 
-        scores.append(1.0 - similarity)
-
-    return scores
+    return results
 
 
 # =============================================================================
@@ -508,7 +515,7 @@ def rna_motif_similarity_constraint(
 def rna_feature_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: RNAFeatureSimilarityConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Construct 10-dim feature vectors and compare using cosine similarity.
 
     Returns (1 - similarity) / 2, scaling cosine similarity from [-1, 1] to [0, 1].
@@ -516,13 +523,17 @@ def rna_feature_similarity_constraint(
     Args:
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (RNAFeatureSimilarityConfig): Constraint configuration controlling evaluation parameters.
+
+    Returns:
+        list[ConstraintOutput]: Per-proposal score (``(1 - cosine) / 2``) with metadata for the
+            reference/candidate feature vectors, predicted structure, and candidate MFE.
     """
     # Fold reference
     ref_results = _fold_sequences([config.reference_sequence], config.temperature)
     ref_structure, ref_mfe = ref_results[0]
     if not ref_structure:
         logger.warning("Reference folding failed, returning worst scores")
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
     ref_features = _extract_structure_features(ref_structure, ref_mfe)
     ref_norm = np.linalg.norm(ref_features)
 
@@ -530,10 +541,10 @@ def rna_feature_similarity_constraint(
     proposal_seqs = [seq.sequence for (seq,) in input_sequences]
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
-    scores = []
-    for (cand_structure, cand_mfe), (seq,) in zip(cand_results, input_sequences, strict=False):
+    results: list[ConstraintOutput] = []
+    for cand_structure, cand_mfe in cand_results:
         if not cand_structure:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
             continue
 
         cand_features = _extract_structure_features(cand_structure, cand_mfe)
@@ -545,20 +556,20 @@ def rna_feature_similarity_constraint(
         else:
             similarity = float(np.dot(ref_features, cand_features) / (ref_norm * cand_norm))
 
-        # Store metadata
-        seq._metadata.update(
-            {
-                "rna_feature_similarity": similarity,
-                "ref_features": ref_features.tolist(),
-                "cand_features": cand_features.tolist(),
-                "structure": cand_structure,
-                "mfe": cand_mfe,
-            }
+        results.append(
+            ConstraintOutput(
+                score=(1.0 - similarity) / 2.0,
+                metadata={
+                    "rna_feature_similarity": similarity,
+                    "ref_features": ref_features.tolist(),
+                    "cand_features": cand_features.tolist(),
+                    "structure": cand_structure,
+                    "mfe": cand_mfe,
+                },
+            )
         )
 
-        scores.append((1.0 - similarity) / 2.0)
-
-    return scores
+    return results
 
 
 # =============================================================================
@@ -579,7 +590,7 @@ def rna_feature_similarity_constraint(
 def rna_basepair_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: RNABasePairSimilarityConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Compare base pair sets between proposals and reference using Jaccard similarity.
 
     Returns 1 - similarity (so 0 is perfect match, 1 is worst).
@@ -587,13 +598,17 @@ def rna_basepair_similarity_constraint(
     Args:
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
         config (RNABasePairSimilarityConfig): Constraint configuration controlling evaluation parameters.
+
+    Returns:
+        list[ConstraintOutput]: Per-proposal score (``1 - similarity``) with metadata for
+            reference/candidate base pair counts and the predicted structure.
     """
     # Fold reference
     ref_results = _fold_sequences([config.reference_sequence], config.temperature)
     ref_structure, _ = ref_results[0]
     if not ref_structure:
         logger.warning("Reference folding failed, returning worst scores")
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
     ref_pairs = _get_base_pairs(ref_structure)
     ref_len = len(ref_structure)
 
@@ -601,10 +616,10 @@ def rna_basepair_similarity_constraint(
     proposal_seqs = [seq.sequence for (seq,) in input_sequences]
     cand_results = _fold_sequences(proposal_seqs, config.temperature)
 
-    scores = []
-    for (cand_structure, _), (seq,) in zip(cand_results, input_sequences, strict=False):
+    results: list[ConstraintOutput] = []
+    for cand_structure, _ in cand_results:
         if not cand_structure:
-            scores.append(1.0)
+            results.append(ConstraintOutput(score=1.0))
             continue
 
         cand_len = len(cand_structure)
@@ -625,16 +640,16 @@ def rna_basepair_similarity_constraint(
                 union = len(ref_pairs | cand_pairs)
                 similarity = intersection / union if union > 0 else 0.0
 
-        # Store metadata
-        seq._metadata.update(
-            {
-                "rna_basepair_similarity": similarity,
-                "num_ref_pairs": len(ref_pairs),
-                "num_cand_pairs": len(_get_base_pairs(cand_structure)),
-                "structure": cand_structure,
-            }
+        results.append(
+            ConstraintOutput(
+                score=1.0 - similarity,
+                metadata={
+                    "rna_basepair_similarity": similarity,
+                    "num_ref_pairs": len(ref_pairs),
+                    "num_cand_pairs": len(_get_base_pairs(cand_structure)),
+                    "structure": cand_structure,
+                },
+            )
         )
 
-        scores.append(1.0 - similarity)
-
-    return scores
+    return results

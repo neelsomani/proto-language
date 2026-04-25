@@ -3,9 +3,10 @@
 from proto_language.language.constraint import ConstraintRegistry, ConstraintSpec, constraint
 from proto_language.language.core import (
     Constraint,
+    ConstraintOutput,
     Construct,
     Generator,
-    GradientResult,
+    GradientConstraintOutput,
     Optimizer,
     Program,
     Segment,
@@ -73,8 +74,9 @@ __all__ = [
     "ConstraintRegistry",
     "ConstraintSpec",
     "constraint",
-    # Gradient support
-    "GradientResult",
+    # Constraint / gradient result types
+    "ConstraintOutput",
+    "GradientConstraintOutput",
     # Masking strategies
     "MaskingStrategy",
     # Generator registry

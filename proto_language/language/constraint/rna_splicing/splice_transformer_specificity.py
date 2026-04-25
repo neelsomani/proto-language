@@ -2,7 +2,7 @@
 
 Accepts three segments (left_flank, intron_core, right_flank), concatenates
 them into a single 1-kb target sequence, and scores tissue-specific splice
-site usage. Metadata is propagated back to all three input segments.
+site usage.
 """
 
 import logging
@@ -18,7 +18,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -170,18 +170,23 @@ class SpliceTransformerSpecificityConfig(BaseConfig):
 def splice_transformer_specificity(
     input_sequences: list[tuple[Sequence, ...]],
     config: SpliceTransformerSpecificityConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Score tissue-specific splice site usage for three-segment intron boundaries.
 
     Accepts three segments (left_flank, intron_core, right_flank), concatenates
     them into a single 1-kb target sequence, and scores tissue-specific splice
-    site usage. Metadata is propagated back to all three input segments.
+    site usage.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Mapping of segment IDs to
             their current sequences.
         config (SpliceTransformerSpecificityConfig): Constraint configuration
             controlling evaluation parameters.
+
+    Returns:
+        list[ConstraintOutput]: One result per input. ``score`` is in ``[0.0, 1.0]``
+            (interpretation depends on direction). ``metadata`` carries
+            ``specificity_direction_<tissue>`` and ``specificity_score_<tissue>``.
     """
     if not input_sequences:
         return []
@@ -221,8 +226,8 @@ def splice_transformer_specificity(
             f"SpliceTransformer batch size mismatch: {output.shape[0]} outputs for {len(target_seqs)} inputs."
         )
 
-    scores = []
-    for batch_idx, (left_flank, intron_core, right_flank) in enumerate(input_sequences):
+    results: list[ConstraintOutput] = []
+    for batch_idx in range(len(input_sequences)):
         if output.shape[1] != len(target_seqs[batch_idx]):
             raise ValueError(
                 f"SpliceTransformer output length mismatch: {output.shape[1]} != {len(target_seqs[batch_idx])}."
@@ -246,9 +251,6 @@ def splice_transformer_specificity(
             f"specificity_direction_{config.tissue}": config.direction,
             f"specificity_score_{config.tissue}": score,
         }
-        for seq in (left_flank, intron_core, right_flank):
-            seq._metadata.update(metadata)
+        results.append(ConstraintOutput(score=score, metadata=metadata))
 
-        scores.append(score)
-
-    return scores
+    return results

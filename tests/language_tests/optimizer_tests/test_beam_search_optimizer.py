@@ -10,7 +10,7 @@ from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
     GCContentConfig,
 )
-from proto_language.language.core import Constraint, Construct, Generator, Segment
+from proto_language.language.core import Constraint, ConstraintOutput, Construct, Generator, Segment
 from proto_language.language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
@@ -962,13 +962,12 @@ class TestBeamSearchNonTargetSegmentSync:
 
         # Custom scoring function that reads from both segments
         def multi_seg_score(input_sequences, config=None):
-            scores = []
-            for seq_tuple in input_sequences:
-                target_seq, context_seq = seq_tuple
+            results = []
+            for target_seq, context_seq in input_sequences:
                 gc_target = sum(1 for c in target_seq.sequence if c in "GC") / max(len(target_seq.sequence), 1)
                 gc_context = sum(1 for c in context_seq.sequence if c in "GC") / max(len(context_seq.sequence), 1)
-                scores.append(abs(gc_target - gc_context))
-            return scores
+                results.append(ConstraintOutput(score=abs(gc_target - gc_context)))
+            return results
 
         multi_seg_score._constraint_supported_sequence_types = ["dna"]
         multi_seg_score._constraint_num_input_sequences_per_tuple = 2

@@ -20,7 +20,7 @@ import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
 
 logger = logging.getLogger(__name__)
@@ -191,7 +191,7 @@ class GapGiniConfig(BaseConfig):
 def gap_gini_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: GapGiniConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Score pairwise protein alignments by gap-distribution Gini coefficient.
 
     For each (query, reference) pair the function:
@@ -207,8 +207,9 @@ def gap_gini_constraint(
             ``trim_alignment`` flag.
 
     Returns:
-        list[float]: List of scores (one per pair). 0.0 = gap distribution
-            acceptable, up to 1.0 = worst violation.
+        list[ConstraintOutput]: One result per pair. ``score`` is 0.0 if the gap
+            distribution is acceptable, up to 1.0 for the worst violation. The
+            ``metadata`` carries ``gap_gini`` (and ``gap_gini_error`` on failure).
     """
     from proto_tools.tools.sequence_alignment.mafft import (
         MafftConfig,
@@ -216,7 +217,7 @@ def gap_gini_constraint(
         run_mafft_align,
     )
 
-    scores: list[float] = []
+    results: list[ConstraintOutput] = []
 
     for query_seq, ref_seq in input_sequences:
         query_str = query_seq.sequence
@@ -234,15 +235,12 @@ def gap_gini_constraint(
                 len(query_str),
                 len(ref_str),
             )
-            query_seq._metadata["gap_gini"] = None
-            query_seq._metadata["gap_gini_error"] = True
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={"gap_gini": None, "gap_gini_error": True}))
             continue
 
         if not align_result.msa or len(align_result.msa) < 2:
             logger.warning("MAFFT returned no alignment; penalizing pair")
-            query_seq._metadata["gap_gini"] = None
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={"gap_gini": None}))
             continue
 
         al1, al2 = align_result.msa[0], align_result.msa[1]
@@ -252,21 +250,20 @@ def gap_gini_constraint(
             al1, al2 = _trim_alignment(al1, al2)
             if al1 is None:
                 # No overlap after trimming, treat as 0.0 (no gaps)
-                query_seq._metadata["gap_gini"] = 0.0
-                scores.append(MIN_ENERGY)
+                results.append(ConstraintOutput(score=MIN_ENERGY, metadata={"gap_gini": 0.0}))
                 continue
 
         # --- Gini computation ---
         gini_score = _gap_gini_single(al1, al2)
-        query_seq._metadata["gap_gini"] = gini_score
 
         # --- Scoring ---
         if gini_score <= config.max_gap_gini:
-            scores.append(MIN_ENERGY)
+            score = MIN_ENERGY
         else:
             # Linear penalty: deviation above threshold scaled to [0, 1]
             # max_gap_gini=0.1, gini=0.5 → (0.5-0.1)/(1.0-0.1)=0.44
             penalty = (gini_score - config.max_gap_gini) / (1.0 - config.max_gap_gini)
-            scores.append(min(MAX_ENERGY, penalty))
+            score = min(MAX_ENERGY, penalty)
+        results.append(ConstraintOutput(score=score, metadata={"gap_gini": gini_score}))
 
-    return scores
+    return results

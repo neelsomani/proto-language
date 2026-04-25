@@ -122,7 +122,7 @@ results = program.get_stage_results(1)
 ```python
 def custom_logging(step: int, outputs: tuple[Segment]) -> None:
     seq = outputs[0].proposal_sequences[0]
-    gc = seq._metadata["constraints"]["gc_content_constraint"]["data"].get("gc_content", "N/A")
+    gc = seq._constraints_metadata["gc_content_constraint"]["data"].get("gc_content", "N/A")
     print(f"Step {step} | seq: {seq.sequence[:30]}... | gc: {gc}")
 
 optimizer = MCMCOptimizer(..., custom_logging=custom_logging)
@@ -178,8 +178,7 @@ for result in results["results"]:
 # Per-constraint metadata
 seg = construct.segments[0]
 for seq in seg.result_sequences:
-    constraints = seq._metadata.get("constraints", {})
-    for name, data in constraints.items():
+    for name, data in seq._constraints_metadata.items():
         print(f"  {name}: score={data['score']:.4f}")
 
 # Optimization history

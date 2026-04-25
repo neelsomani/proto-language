@@ -7,7 +7,7 @@ from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, calculate_range_deviation
 
 _FRACTIONAL_EPSILON = 1e-9
@@ -93,7 +93,9 @@ def _count_overlapping(seq_str: str, kmer: str) -> int:
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
 )
-def specific_kmer_constraint(input_sequences: list[tuple[Sequence, ...]], config: SpecificKmerConfig) -> list[float]:
+def specific_kmer_constraint(
+    input_sequences: list[tuple[Sequence, ...]], config: SpecificKmerConfig
+) -> list[ConstraintOutput]:
     """Evaluate frequency or usage deviation of a specific k-mer.
 
     Supports two scoring modes:
@@ -107,10 +109,11 @@ def specific_kmer_constraint(input_sequences: list[tuple[Sequence, ...]], config
         config (SpecificKmerConfig): Configuration specifying the k-mer and scoring parameters.
 
     Returns:
-        list[float]: Constraint scores for each input sequence.
+        list[ConstraintOutput]: One result per input sequence. The ``metadata`` field
+            carries per-mode k-mer data (see Note).
 
     Note:
-        Metadata stored on each Sequence._metadata:
+        Metadata varies by mode:
 
         **Frequency mode:**
         - ``{kmer}_frequency``: Float frequency value
@@ -121,14 +124,14 @@ def specific_kmer_constraint(input_sequences: list[tuple[Sequence, ...]], config
         - ``{kmer}_expected``: Float expected count
     """
     k = len(config.kmer)
-    scores = []
+    results: list[ConstraintOutput] = []
 
     for (seq,) in input_sequences:
         seq_str = seq.sequence.upper()
         seq_length = len(seq_str)
 
         if seq_length < k:
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY))
             continue
 
         # Validate kmer characters against sequence alphabet
@@ -144,7 +147,7 @@ def specific_kmer_constraint(input_sequences: list[tuple[Sequence, ...]], config
         if config.scoring_mode == "frequency":
             frequency = kmer_count / total_positions
             score = calculate_range_deviation(frequency, config.min_value, config.max_value, _FRACTIONAL_EPSILON)
-            seq._metadata[f"{config.kmer}_frequency"] = frequency
+            metadata: dict[str, float | int] = {f"{config.kmer}_frequency": frequency}
 
         else:
             # Usage deviation: observed / expected via zero-order Markov model
@@ -154,10 +157,12 @@ def specific_kmer_constraint(input_sequences: list[tuple[Sequence, ...]], config
             usage_deviation = kmer_count / expected_occurrences if expected_occurrences > 0 else 0
 
             score = calculate_range_deviation(usage_deviation, config.min_value, config.max_value, _FRACTIONAL_EPSILON)
-            seq._metadata[f"{config.kmer}_usage_deviation"] = usage_deviation
-            seq._metadata[f"{config.kmer}_count"] = kmer_count
-            seq._metadata[f"{config.kmer}_expected"] = float(expected_occurrences)
+            metadata = {
+                f"{config.kmer}_usage_deviation": usage_deviation,
+                f"{config.kmer}_count": kmer_count,
+                f"{config.kmer}_expected": float(expected_occurrences),
+            }
 
-        scores.append(score)
+        results.append(ConstraintOutput(score=score, metadata=metadata))
 
-    return scores
+    return results

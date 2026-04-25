@@ -12,11 +12,12 @@ Configuration via environment variables:
 
 Example usage in constraints:
     >>> from proto_language.storage import store_file, FileType
-    >>> seq._metadata["pdb_output"] = store_file(structure.structure_pdb, FileType.PDB)
+    >>> # In a forward constraint, place the reference on the returned result:
+    >>> ConstraintOutput(score=s, metadata={"pdb_output": store_file(pdb, FileType.PDB)})
 
 Example usage to retrieve content:
     >>> from proto_language.storage import get_file_content
-    >>> pdb_content = get_file_content(seq._metadata["pdb_output"])
+    >>> pdb_content = get_file_content(seq._constraints_metadata["structure-plddt"]["data"]["pdb_output"])
 
 Example usage for GCS file resolution:
     >>> from proto_language.storage import resolve_paths

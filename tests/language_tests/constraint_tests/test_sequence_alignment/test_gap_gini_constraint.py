@@ -118,11 +118,11 @@ class TestGapGiniConstraint:
         query = Sequence(seq, "protein")
         ref = Sequence(seq, "protein")
         config = GapGiniConfig(max_gap_gini=0.1)
-        scores = gap_gini_constraint([(query, ref)], config)
-        assert len(scores) == 1
-        assert scores[0] == 0.0
-        assert query._metadata.get("gap_gini") is not None
-        assert query._metadata["gap_gini"] == 0.0
+        results = gap_gini_constraint([(query, ref)], config)
+        assert len(results) == 1
+        assert results[0].score == 0.0
+        assert results[0].metadata.get("gap_gini") is not None
+        assert results[0].metadata["gap_gini"] == 0.0
 
     @pytest.mark.integration
     def test_similar_sequences(self):
@@ -136,10 +136,10 @@ class TestGapGiniConstraint:
             "protein",
         )
         config = GapGiniConfig(max_gap_gini=0.5)
-        scores = gap_gini_constraint([(query, ref)], config)
-        assert len(scores) == 1
+        results = gap_gini_constraint([(query, ref)], config)
+        assert len(results) == 1
         # Similar sequences should pass with a loose threshold
-        assert scores[0] == 0.0
+        assert results[0].score == 0.0
 
     @pytest.mark.integration
     def test_threshold_penalty(self):
@@ -155,12 +155,12 @@ class TestGapGiniConstraint:
             "protein",
         )
         config = GapGiniConfig(max_gap_gini=0.001)  # Very strict threshold
-        scores = gap_gini_constraint([(query, ref)], config)
-        assert len(scores) == 1
-        gini = query._metadata.get("gap_gini")
+        results = gap_gini_constraint([(query, ref)], config)
+        assert len(results) == 1
+        gini = results[0].metadata.get("gap_gini")
         assert gini is not None
         if gini > 0.001:
-            assert scores[0] > 0.0  # Should be penalized
+            assert results[0].score > 0.0  # Should be penalized
 
     @pytest.mark.integration
     def test_multiple_pairs(self):
@@ -173,5 +173,5 @@ class TestGapGiniConstraint:
             (Sequence(seq_a, "protein"), Sequence(seq_b, "protein")),
         ]
         config = GapGiniConfig(max_gap_gini=0.1)
-        scores = gap_gini_constraint(pairs, config)
-        assert len(scores) == 2
+        results = gap_gini_constraint(pairs, config)
+        assert len(results) == 2

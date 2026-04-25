@@ -3,7 +3,7 @@ name: implement-constraint
 description: >
   Implements, modifies, or debugs constraints in the proto-language DSL.
   Covers the full lifecycle: BaseConfig class with ConfigField, scoring function
-  returning list[float], @constraint decorator registration, 3-level export chain,
+  returning list[ConstraintOutput], @constraint decorator registration, 3-level export chain,
   and pytest test coverage. Use when working with constraints, scoring functions,
   GC content, structure prediction scores (pLDDT, pTM, pAE), protein quality,
   sequence motifs, RNA structure, or splicing predictions.
@@ -41,7 +41,7 @@ from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
 
 logger = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ class MyConstraintConfig(BaseConfig):
 def my_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: MyConstraintConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate sequences against target value.
 
     Args:
@@ -126,24 +126,18 @@ def my_constraint(
         config: Validated configuration object.
 
     Returns:
-        List of float scores in [0.0, 1.0]. 0.0 = perfect, 1.0 = worst.
+        One ``ConstraintOutput`` per proposal. ``score`` is in [0.0, 1.0]
+        (0.0 = perfect, 1.0 = worst); ``metadata`` carries per-proposal values
+        that land under ``_constraints_metadata[label]["data"]``.
     """
-    scores = []
+    results = []
 
     for (seq,) in input_sequences:
-        # Handle edge cases
         if len(seq.sequence) == 0:
-            seq._metadata["my_metric"] = 0.0
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={"my_metric": 0.0}))
             continue
 
-        # Calculate the metric
         metric = _compute_metric(seq.sequence, config)
-
-        # Store metadata (visible in UI and downstream)
-        seq._metadata["my_metric"] = metric
-
-        # Calculate penalty: 0.0 = in range, up to 1.0 = worst
         deviation = abs(metric - config.target_value)
         if deviation <= config.tolerance:
             score = MIN_ENERGY
@@ -151,9 +145,9 @@ def my_constraint(
             excess = deviation - config.tolerance
             score = min(MAX_ENERGY, excess / 100.0)
 
-        scores.append(score)
+        results.append(ConstraintOutput(score=score, metadata={"my_metric": metric}))
 
-    return scores
+    return results
 ```
 
 ## Decorator Argument Reference
@@ -169,7 +163,7 @@ def my_constraint(
 | `category` | `str` | No | Must match the subdirectory name (e.g., `"sequence_composition"`) |
 | `supported_sequence_types` | `list[str]` | Yes | Non-empty list from: `"dna"`, `"rna"`, `"protein"`, `"ligand"` |
 | `input_labels` | `list[str \| InputSlot] \| None` | No | Default `["Sequence"]`. Strings for plain labels (`["Query", "Reference"]`), or `InputSlot(label=..., requires_logits=True, requires_structure=True)` for per-slot swap-detection. Use `None` for any number of interchangeable inputs |
-| `backward` | `Callable \| None` | No | Gradient callable: `(inputs, *, config, **kwargs) -> GradientResult` |
+| `backward` | `Callable \| None` | No | Gradient callable: `(inputs, *, config, **kwargs) -> GradientConstraintOutput` |
 | `backward_config` | `Type[BaseModel] \| None` | No | Separate config class for backward callable. If `None`, uses `config` |
 
 ## Constraint Modes
@@ -178,8 +172,8 @@ A Constraint can expose three capability shapes:
 
 | Mode | `function` | `backward` | Registered how | Used by |
 |---|---|---|---|---|
-| `"discrete"` | ✅ | — | Decorated function returns `list[float]` | MCMC, BeamSearch, RejSamp |
-| `"gradient"` | — | ✅ | Decorated function returns `GradientResult` | GradientOptimizer |
+| `"discrete"` | ✅ | — | Decorated function returns `list[ConstraintOutput]` | MCMC, BeamSearch, RejSamp |
+| `"gradient"` | — | ✅ | Decorated function returns `GradientConstraintOutput` | GradientOptimizer |
 | `"dual"` | ✅ | ✅ | Decorated forward fn + `backward=` kwarg | Any optimizer — each picks the right path |
 
 **Discovery:**
@@ -197,11 +191,11 @@ c.supports_gradient    # True if backward callable is set
 ### Gradient-Only Constraints
 
 For constraints that only compute gradients (no discrete scoring path). The `@constraint`
-decorator auto-detects the role from the return type annotation: `-> GradientResult`
+decorator auto-detects the role from the return type annotation: `-> GradientConstraintOutput`
 registers the function as the backward callable and sets `mode="gradient"`.
 
 ```python
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core.constraint import GradientConstraintOutput
 
 @constraint(
     key="my-gradient-only",
@@ -213,10 +207,10 @@ from proto_language.language.core.constraint import GradientResult
 )
 def my_backward(
     inputs: tuple[Sequence, ...], *, config, **kwargs: Any,
-) -> GradientResult:
+) -> GradientConstraintOutput:
     """Compute gradient; no discrete scoring path exists."""
     grad, loss = run_tool(inputs[0].logits, config)
-    return GradientResult(gradient=(grad,), loss=loss)
+    return GradientConstraintOutput(gradient=(grad,), loss=loss)
 ```
 
 This constraint is invisible to MCMC / BeamSearch / RejSamp — `evaluate()` raises because
@@ -233,12 +227,12 @@ evaluator. Register ONE `@constraint` on the forward function and pair it with
 `backward=` for the gradient callable:
 
 ```python
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core.constraint import GradientConstraintOutput
 
 def my_backward(
     inputs: tuple[Sequence, ...], *, config: MyConfig, temperature: float, **kwargs: Any,
-) -> GradientResult:
-    """Gradient path — returns GradientResult."""
+) -> GradientConstraintOutput:
+    """Gradient path — returns GradientConstraintOutput."""
     ...
 
 
@@ -254,8 +248,8 @@ def my_backward(
 )
 def my_forward(
     input_sequences: list[tuple[Sequence, ...]], *, config: MyConfig,
-) -> list[float]:
-    """Forward path — returns [0, 1] scores."""
+) -> list[ConstraintOutput]:
+    """Forward path — returns one ConstraintOutput per proposal."""
     ...
 ```
 
@@ -298,45 +292,64 @@ Common scoring utilities (in `proto_language/utils/`):
 
 ## Metadata Pattern
 
-Store computed values on the Sequence object for downstream visibility:
+Pass per-proposal values through the `metadata` field of `ConstraintOutput`. The framework
+stores the dict under `_constraints_metadata[label]["data"]`:
 
 ```python
-seq._metadata["my_metric"] = metric_value
-seq._metadata["my_detail"] = {"sub_key": sub_value}
+ConstraintOutput(score=s, metadata={"my_metric": metric_value, "my_detail": {"sub_key": sub_value}})
 ```
 
-After constraint evaluation, metadata is accessible via:
+After evaluation, read it back via:
 ```python
-segment.proposal_sequences[i]._constraints_metadata["my_constraint"]["data"]["my_metric"]
-# Or via the computed .metadata property:
-segment.proposal_sequences[i].metadata["constraints"]["my_constraint"]["data"]["my_metric"]
+segment.proposal_sequences[i]._constraints_metadata["<constraint_key>"]["data"]["my_metric"]
+# Or the computed .metadata view:
+segment.proposal_sequences[i].metadata["constraints"]["<constraint_key>"]["data"]["my_metric"]
 ```
+
+Metadata keys may freely collide with infrastructure keys (`score`, `weight`, `weighted_score`) —
+user metadata lands one level deeper under `"data"`.
+
+### Attaching Structures and Logits
+
+When a constraint predicts a structure or logits for its inputs, pass them through the result
+so the framework assigns them to the proposal `Sequence` objects. Align the tuple length with
+the input tuple:
+
+```python
+n = len(proposal_tuple)  # number of input segments
+# Attach predicted structure to slot 0; leave other slots untouched.
+results.append(ConstraintOutput(
+    score=s,
+    structures=(structure,) + (None,) * (n - 1),
+))
+```
+
+Non-`None` entries in `structures` / `logits` are written to `inputs[i].structure` /
+`inputs[i].logits`; `None` entries and empty tuples are no-ops.
 
 ### Externalizing Large Metadata
 
 When a constraint produces large metadata (structure files, search hit lists, ORF annotations,
 domain results — anything that could exceed ~1KB), externalize it to the content-addressed
-file store instead of storing it inline. This prevents bloating `seq._metadata` and database rows.
+file store instead of inlining it. This prevents bloating metadata and database rows.
 
 ```python
 import json
 from proto_language.storage import store_file, FileType
 
-# Write Structure onto first sequence for in-memory data flow (optimizer/generator reads this):
-proposal_tuple[0].structure = structure
-
-# Large file content (PDB, CIF, etc.) — store for export pipeline:
-seq._metadata["pdb_output"] = store_file(structure.structure_pdb, FileType.PDB)
-
-# Large JSON data (hit lists, ORF annotations, etc.) — serialize then store:
 # Use None (not []) as the empty sentinel to avoid mixed types (dict vs list).
-seq._metadata["mmseqs_results"] = store_file(
-    json.dumps(hits), FileType.JSON
-) if hits else None
+mmseqs_ref = store_file(json.dumps(hits), FileType.JSON) if hits else None
 
-# Small scalar values — keep inline (no store_file needed):
-seq._metadata["avg_plddt"] = 0.85
-seq._metadata["hit_count"] = len(hits)
+results.append(ConstraintOutput(
+    score=s,
+    metadata={
+        "pdb_output": store_file(structure.structure_pdb, FileType.PDB),  # large: externalize
+        "mmseqs_results": mmseqs_ref,                                     # large: externalize
+        "avg_plddt": 0.85,                                                # small: inline
+        "hit_count": len(hits),                                           # small: inline
+    },
+    structures=(structure,) + (None,) * (len(proposal_tuple) - 1),
+))
 ```
 
 **When to use `store_file()`:**
@@ -351,7 +364,8 @@ inline strings and file references:
 
 ```python
 from proto_language.storage import get_file_content
-content = get_file_content(seq._metadata["pdb_output"])  # works with both formats
+ref = seq._constraints_metadata["<constraint_key>"]["data"]["pdb_output"]
+content = get_file_content(ref)  # works with both formats
 ```
 
 The export pipeline handles file references automatically — no special handling needed
@@ -366,30 +380,30 @@ from proto_tools import run_{tool}, {Tool}Input, {Tool}Config
 
 @constraint(tools_called=["{tool}"], ...)
 def my_tool_constraint(input_sequences, config):
-    # Build tool input from sequences
     tool_input = ToolInput(sequences=[seq.sequence for (seq,) in input_sequences])
     tool_config = ToolConfig(param=config.tool_param)
-
-    # Run tool
     result = run_tool(inputs=tool_input, config=tool_config)
 
-    # Handle failure
+    # Handle failure: surface the error via each result's metadata, then propagate.
     if not result.success:
         error_msg = result.errors[0] if result.errors else "Unknown error"
-        for (seq,) in input_sequences:
-            seq._metadata["tool_error"] = True
-            seq._metadata["tool_error_message"] = error_msg
-        raise ValueError(f"Tool failed: {error_msg}")
+        return [
+            ConstraintOutput(
+                score=MAX_ENERGY,
+                metadata={"tool_error": True, "tool_error_message": error_msg},
+            )
+            for _ in input_sequences
+        ]
 
-    # Process results
-    scores = []
+    # Success path
+    results = []
     for (seq,), tool_result in zip(input_sequences, result.per_sequence_results):
-        seq._metadata["tool_metric"] = tool_result.value
-        seq._metadata["tool_error"] = False
         score = _compute_score(tool_result.value, config)
-        scores.append(score)
-
-    return scores
+        results.append(ConstraintOutput(
+            score=score,
+            metadata={"tool_metric": tool_result.value, "tool_error": False},
+        ))
+    return results
 ```
 
 ### Batching Note
@@ -450,10 +464,10 @@ Copy this and check off as you go:
 
 - [ ] Config class inherits `BaseConfig` with `ConfigField`
 - [ ] `@constraint` decorator with unique kebab-case key
-- [ ] Mode chosen correctly: discrete (score only), gradient (backward only, `-> GradientResult`), or dual (`backward=` paired with forward scoring). Prefer dual when the computation supports both.
+- [ ] Mode chosen correctly: discrete (score only), gradient (backward only, `-> GradientConstraintOutput`), or dual (`backward=` paired with forward scoring). Prefer dual when the computation supports both.
 - [ ] `supported_sequence_types` is non-empty
-- [ ] Scoring function returns `list[float]` with scores in [0.0, 1.0]
-- [ ] Metadata stored on `seq._metadata` for downstream visibility
+- [ ] Scoring function returns `list[ConstraintOutput]`; `score` in [0.0, 1.0]
+- [ ] Per-proposal data passed via `ConstraintOutput.metadata`; predicted structures / logits passed via `ConstraintOutput.structures` / `.logits` (tuple aligned with inputs)
 - [ ] Edge cases handled (empty sequences, boundary values)
 - [ ] Export chain updated at all 3 levels (category `__init__`, constraint `__init__`, `__all__`)
 - [ ] Use `depends_on` for fields that are only relevant when another field has a specific value

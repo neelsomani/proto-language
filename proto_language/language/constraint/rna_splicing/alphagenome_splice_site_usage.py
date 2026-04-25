@@ -2,7 +2,6 @@
 
 them into a target sequence, integrates the target into a genomic context
 via cassette insertion, and scores splice-site usage with AlphaGenome.
-Metadata is propagated back to all three input segments.
 """
 
 import logging
@@ -18,7 +17,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -251,20 +250,21 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
 def alphagenome_splice_site_usage(
     input_sequences: list[tuple[Sequence, ...]],
     config: AlphaGenomeSpliceSiteUsageConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Score AlphaGenome SSU at selected positions in a three-part target.
 
     Each input tuple contains three DNA sequences (left_flank, intron_core,
     right_flank) which are concatenated into a target, wrapped with cassette
     contexts, and integrated into a genomic context for AlphaGenome prediction.
-    Metadata is propagated back to all three input segments.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): List of 3-tuples (left_flank, intron_core, right_flank).
         config (AlphaGenomeSpliceSiteUsageConfig): Configuration with genomic/cassette contexts and scoring params.
 
     Returns:
-        list[float]: List of float scores in [0.0, 1.0]. Interpretation depends on direction.
+        list[ConstraintOutput]: One result per input. ``score`` is in ``[0.0, 1.0]``
+            (interpretation depends on direction). ``metadata`` carries the selected
+            tracks plus ``alphagenome_splice_site_usage_raw`` and ``_score``.
     """
     if not input_sequences:
         return []
@@ -321,9 +321,9 @@ def alphagenome_splice_site_usage(
     )
     outputs = batch_output.results
 
-    # 6. Extract scores and propagate metadata.
-    scores: list[float] = []
-    for (left_flank, intron_core, right_flank), output in zip(input_sequences, outputs, strict=True):
+    # 6. Extract scores and build results.
+    results: list[ConstraintOutput] = []
+    for output in outputs:
         integrated_length = len(config.genomic_context)
 
         payload = _extract_splice_site_usage_track_payload(output.result)
@@ -363,9 +363,6 @@ def alphagenome_splice_site_usage(
             "alphagenome_splice_site_usage_raw": raw_usage,
             "alphagenome_splice_site_usage_score": score,
         }
-        for seq in (left_flank, intron_core, right_flank):
-            seq._metadata.update(metadata)
+        results.append(ConstraintOutput(score=score, metadata=metadata))
 
-        scores.append(score)
-
-    return scores
+    return results

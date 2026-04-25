@@ -98,10 +98,10 @@ def test_splice_transformer_tissue_specificity():
         splice_transformer_config=SpliceTransformerConfig(device="cpu"),
     )
 
-    scores = splice_transformer_specificity([(left_flank, intron_core, right_flank)], specificity_config)
+    results = splice_transformer_specificity([(left_flank, intron_core, right_flank)], specificity_config)
 
-    assert len(scores) == 1
-    assert 0.0 <= scores[0] <= 1.0, "Score must be between 0 and 1, inclusive"
+    assert len(results) == 1
+    assert 0.0 <= results[0].score <= 1.0, "Score must be between 0 and 1, inclusive"
 
 
 @pytest.mark.uses_gpu
@@ -120,10 +120,10 @@ def test_splice_transformer_all_tissues():
         splice_transformer_config=SpliceTransformerConfig(device="cuda"),
     )
 
-    scores = splice_transformer_specificity([(left_flank, intron_core, right_flank)], specificity_config)
+    results = splice_transformer_specificity([(left_flank, intron_core, right_flank)], specificity_config)
 
-    assert len(scores) == 1
-    assert 0.0 <= scores[0] <= 1.0, "Score must be between 0 and 1, inclusive"
+    assert len(results) == 1
+    assert 0.0 <= results[0].score <= 1.0, "Score must be between 0 and 1, inclusive"
 
 
 @pytest.mark.skip_ci
@@ -141,10 +141,10 @@ def test_splice_transformer_intron_boundary_cpu():
         splice_transformer_config=SpliceTransformerConfig(device="cpu"),
     )
 
-    scores = splice_transformer_intron_boundary([(left_flank, intron_core, right_flank)], boundary_config)
+    results = splice_transformer_intron_boundary([(left_flank, intron_core, right_flank)], boundary_config)
 
-    assert len(scores) == 1
-    assert 0.0 <= scores[0] <= 1.0, "Score must be between 0 and 1, inclusive"
+    assert len(results) == 1
+    assert 0.0 <= results[0].score <= 1.0, "Score must be between 0 and 1, inclusive"
 
 
 @pytest.mark.uses_gpu
@@ -162,10 +162,10 @@ def test_splice_transformer_intron_boundary_gpu():
         splice_transformer_config=SpliceTransformerConfig(device="cuda"),
     )
 
-    scores = splice_transformer_intron_boundary([(left_flank, intron_core, right_flank)], boundary_config)
+    results = splice_transformer_intron_boundary([(left_flank, intron_core, right_flank)], boundary_config)
 
-    assert len(scores) == 1
-    assert 0.0 <= scores[0] <= 1.0, "Score must be between 0 and 1, inclusive"
+    assert len(results) == 1
+    assert 0.0 <= results[0].score <= 1.0, "Score must be between 0 and 1, inclusive"
 
 
 # --- Metadata propagation ---
@@ -173,7 +173,7 @@ def test_splice_transformer_intron_boundary_gpu():
 
 @pytest.mark.skip_ci
 def test_boundary_metadata_propagation():
-    """Metadata should be propagated to all three input sequences."""
+    """Metadata should be carried on each ConstraintOutput."""
     left_flank = Sequence("A" * 200, sequence_type="dna")
     intron_core = Sequence("C" * 600, sequence_type="dna")
     right_flank = Sequence("G" * 200, sequence_type="dna")
@@ -186,17 +186,16 @@ def test_boundary_metadata_propagation():
         splice_transformer_config=SpliceTransformerConfig(device="cpu"),
     )
 
-    splice_transformer_intron_boundary([(left_flank, intron_core, right_flank)], config)
+    results = splice_transformer_intron_boundary([(left_flank, intron_core, right_flank)], config)
 
-    for seq in (left_flank, intron_core, right_flank):
-        assert "donor_score" in seq._metadata
-        assert "acceptor_score" in seq._metadata
-        assert "total_splice_score" in seq._metadata
+    assert "donor_score" in results[0].metadata
+    assert "acceptor_score" in results[0].metadata
+    assert "total_splice_score" in results[0].metadata
 
 
 @pytest.mark.skip_ci
 def test_specificity_metadata_propagation():
-    """Metadata should be propagated to all three input sequences."""
+    """Metadata should be carried on each ConstraintOutput."""
     left_flank = Sequence("A" * 200, sequence_type="dna")
     intron_core = Sequence("C" * 600, sequence_type="dna")
     right_flank = Sequence("G" * 200, sequence_type="dna")
@@ -210,11 +209,10 @@ def test_specificity_metadata_propagation():
         splice_transformer_config=SpliceTransformerConfig(device="cpu"),
     )
 
-    splice_transformer_specificity([(left_flank, intron_core, right_flank)], config)
+    results = splice_transformer_specificity([(left_flank, intron_core, right_flank)], config)
 
-    for seq in (left_flank, intron_core, right_flank):
-        assert "specificity_direction_BRAIN" in seq._metadata
-        assert "specificity_score_BRAIN" in seq._metadata
+    assert "specificity_direction_BRAIN" in results[0].metadata
+    assert "specificity_score_BRAIN" in results[0].metadata
 
 
 # --- Batched inference ---
@@ -248,12 +246,12 @@ def test_splice_transformer_specificity_batches():
         "proto_language.language.constraint.rna_splicing.splice_transformer_specificity.run_splice_transformer",
         return_value=SimpleNamespace(prediction=predictions.tolist()),
     ) as mock_run:
-        scores = splice_transformer_specificity(
+        results = splice_transformer_specificity(
             [(left_a, intron_a, right_a), (left_b, intron_b, right_b)],
             specificity_config,
         )
 
-    assert scores == pytest.approx([0.7, 0.3], abs=1e-6)
+    assert [r.score for r in results] == pytest.approx([0.7, 0.3], abs=1e-6)
     mock_run.assert_called_once()
     call_input = mock_run.call_args[0][0]
     assert len(call_input.target_seqs) == 2
@@ -285,12 +283,12 @@ def test_splice_transformer_intron_boundary_batches():
         "proto_language.language.constraint.rna_splicing.splice_transformer_intron_boundary.run_splice_transformer",
         return_value=SimpleNamespace(prediction=predictions.tolist()),
     ) as mock_run:
-        scores = splice_transformer_intron_boundary(
+        results = splice_transformer_intron_boundary(
             [(left_a, intron_a, right_a), (left_b, intron_b, right_b)],
             boundary_config,
         )
 
-    assert scores == pytest.approx([0.3, 0.7], abs=1e-6)
+    assert [r.score for r in results] == pytest.approx([0.3, 0.7], abs=1e-6)
     mock_run.assert_called_once()
     call_input = mock_run.call_args[0][0]
     assert len(call_input.target_seqs) == 2

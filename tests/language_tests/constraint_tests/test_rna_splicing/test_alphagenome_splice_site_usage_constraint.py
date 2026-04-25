@@ -292,12 +292,12 @@ def test_ag_ssu_batched_prediction_uses_single_call():
             ]
         ),
     ) as mock_batch:
-        scores = alphagenome_splice_site_usage(
+        results = alphagenome_splice_site_usage(
             [(left_a, intron_a, right_a), (left_b, intron_b, right_b)],
             config,
         )
 
-    assert scores == pytest.approx(expected, abs=1e-6)
+    assert [r.score for r in results] == pytest.approx(expected, abs=1e-6)
     mock_batch.assert_called_once()
 
 

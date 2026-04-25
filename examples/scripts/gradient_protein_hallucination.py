@@ -13,7 +13,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
 from proto_language.language.optimizer import GradientOptimizer, GradientOptimizerConfig
 
@@ -26,13 +26,13 @@ class _EmptyCfg(BaseModel):
 
 def mock_structure_backward(  # noqa: ARG001 -- params required by backward protocol
     inputs: tuple, *, config: BaseModel, temperature: float = 1.0, soft: float = 1.0, **kwargs: object
-) -> GradientResult:
+) -> GradientConstraintOutput:
     """Mock structural constraint: pushes logits toward a target distribution."""
     logits = inputs[0].logits
     target = np.zeros_like(logits)
     target[:, 0] = 1.0  # Prefer alanine
     grad = logits - target
-    return GradientResult(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
+    return GradientConstraintOutput(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
 
 
 # --- Pipeline setup ---

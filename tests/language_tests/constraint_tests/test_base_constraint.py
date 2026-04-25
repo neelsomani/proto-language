@@ -15,8 +15,8 @@ from constraint_tests.utils import (
     mock_single_input_scoring_function,
 )
 from proto_language.language.constraint.constraint_registry import InputSlot
-from proto_language.language.core import Constraint, Segment, Sequence
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core import Constraint, ConstraintOutput, Segment, Sequence
+from proto_language.language.core.constraint import GradientConstraintOutput
 from tests.helpers.mock_structure import MockStructure
 
 
@@ -39,10 +39,12 @@ def _make_segment_with_proposals(sequences: list[str], seq_type: str = "dna") ->
     return segment
 
 
-def _mock_backward(inputs: tuple, *, config: BaseModel, temperature: float = 1.0, **kwargs: Any) -> GradientResult:
+def _mock_backward(
+    inputs: tuple, *, config: BaseModel, temperature: float = 1.0, **kwargs: Any
+) -> GradientConstraintOutput:
     """Mock backward that reads logits from the first input Sequence."""
     logits = inputs[0].logits
-    return GradientResult(
+    return GradientConstraintOutput(
         gradient=(-logits * temperature,), loss=float(np.mean(logits**2)), metrics={"temperature": temperature}
     )
 
@@ -135,15 +137,15 @@ class TestConstraintEvaluation:
             assert "c_percent" in constraints_b["mock_multi_input_scoring_function_disjoint"]["data"]
 
     def test_structure_and_logits_propagate_to_original(self):
-        """Regression for #1180: fields set on the scored dummy must reach the original proposal."""
+        """Regression for #1180: structures/logits on the returned result reach the original proposal."""
         attached_structure = MockStructure.with_plddt([0.1, 0.95, 0.95])
         attached_logits = np.ones((3, 20))
 
-        def attaches(input_sequences: list[tuple[Sequence, ...]], config: BaseModel) -> list[float]:
-            for (seq,) in input_sequences:
-                seq.structure = attached_structure
-                seq.logits = attached_logits
-            return [0.0] * len(input_sequences)
+        def attaches(input_sequences: list[tuple[Sequence, ...]], config: BaseModel) -> list[ConstraintOutput]:
+            return [
+                ConstraintOutput(score=0.0, structures=(attached_structure,), logits=(attached_logits,))
+                for _ in input_sequences
+            ]
 
         attaches._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
 
@@ -153,17 +155,18 @@ class TestConstraintEvaluation:
         assert segment.proposal_sequences[0].structure is attached_structure
         assert np.array_equal(segment.proposal_sequences[0].logits, attached_logits)
 
-    def test_structure_and_logits_pass_through_when_constraint_leaves_them_alone(self):
-        """Constraint both sees the existing structure/logits (read path) and leaves the original references intact (no silent rebind)."""
+    def test_constraint_receives_original_proposal_by_identity(self):
+        """Forward constraints read the real proposal sequences (no defensive dummy copy)."""
         existing_structure = MockStructure.with_plddt([0.5, 0.5, 0.5])
         existing_logits = np.ones((3, 20))
         seen: dict[str, object] = {}
 
-        def inspects(input_sequences: list[tuple[Sequence, ...]], config: BaseModel) -> list[float]:
+        def inspects(input_sequences: list[tuple[Sequence, ...]], config: BaseModel) -> list[ConstraintOutput]:
             for (seq,) in input_sequences:
+                seen["sequence_obj"] = seq
                 seen["structure"] = seq.structure
                 seen["logits"] = seq.logits
-            return [0.0] * len(input_sequences)
+            return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
         inspects._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
 
@@ -173,10 +176,10 @@ class TestConstraintEvaluation:
 
         Constraint(inputs=[segment], function=inspects, function_config=MockConfig()).evaluate()
 
-        # Read path: constraint saw the exact objects on its dummy (not defensive copies).
+        assert seen["sequence_obj"] is segment.proposal_sequences[0]
         assert seen["structure"] is existing_structure
         assert seen["logits"] is existing_logits
-        # Write path: no silent rebind when the constraint doesn't touch the fields.
+        # Empty structures=()/logits=() on the returned result is a no-op.
         assert segment.proposal_sequences[0].structure is existing_structure
         assert segment.proposal_sequences[0].logits is existing_logits
 
@@ -328,11 +331,11 @@ class TestConstraintMask:
         )
 
         # Longer than pool
-        with pytest.raises(ValueError, match=r"Mask length .* does not match"):
+        with pytest.raises(ValueError, match=r"Mask length .* != num_proposals"):
             constraint.evaluate(mask=[True, False, True, True])
 
         # Shorter than pool
-        with pytest.raises(ValueError, match=r"Mask length .* does not match"):
+        with pytest.raises(ValueError, match=r"Mask length .* != num_proposals"):
             constraint.evaluate(mask=[True, True])
 
 
@@ -348,7 +351,7 @@ class TestConstraintThreshold:
         """Test that threshold converts float scores to boolean filters."""
 
         def mock_scoring(input_sequences, config=None):
-            return [len(seq_tuple[0].sequence) / 10.0 for seq_tuple in input_sequences]
+            return [ConstraintOutput(score=len(seq_tuple[0].sequence) / 10.0) for seq_tuple in input_sequences]
 
         mock_scoring._constraint_config_class = MockConfig
         mock_scoring._constraint_supported_sequence_types = ["dna"]
@@ -372,7 +375,7 @@ class TestConstraintThreshold:
         """Test that constraints without threshold return float scores."""
 
         def mock_scoring(input_sequences, config=None):
-            return [0.4, 0.8]
+            return [ConstraintOutput(score=s) for s in (0.4, 0.8)]
 
         mock_scoring._constraint_config_class = MockConfig
         mock_scoring._constraint_supported_sequence_types = ["dna"]
@@ -414,7 +417,7 @@ class TestConstraintWeight:
         """Test that weight correctly multiplies raw scores."""
 
         def mock_scoring(input_sequences, config=None):
-            return [0.2, 0.5]
+            return [ConstraintOutput(score=s) for s in (0.2, 0.5)]
 
         mock_scoring._constraint_config_class = MockConfig
         mock_scoring._constraint_supported_sequence_types = ["dna"]
@@ -454,34 +457,31 @@ class TestConstraintWeight:
 class TestConstraintEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    def test_reserved_key_collision_raises_error(self):
-        """Test that writing a reserved key to seq._metadata raises ValueError."""
+    def test_metadata_keys_matching_infrastructure_fields_are_allowed(self):
+        """Keys like "score"/"weight" in result.metadata land under ["data"]; no collision."""
 
-        def collision_scoring_function(input_sequences, config):
-            scores = []
-            for (seq,) in input_sequences:
-                # Write a reserved key (this should be caught)
-                seq._metadata["score"] = 0.5
-                scores.append(0.1)
-            return scores
+        def scoring_with_score_key(input_sequences, config):
+            return [ConstraintOutput(score=0.1, metadata={"score": 0.5, "weight": 9.0}) for _ in input_sequences]
 
-        collision_scoring_function._constraint_supported_sequence_types = {"dna"}
+        scoring_with_score_key._constraint_supported_sequence_types = {"dna"}
 
         segment = _make_segment_with_proposals(["ATCG"], "dna")
-        constraint = Constraint(
+        Constraint(
             inputs=[segment],
-            function=collision_scoring_function,
+            function=scoring_with_score_key,
             function_config=MockConfig(),
-        )
+        ).evaluate()
 
-        with pytest.raises(ValueError, match="reserved key"):
-            constraint.evaluate()
+        cdata = segment.proposal_sequences[0]._constraints_metadata["scoring_with_score_key"]
+        assert cdata["score"] == pytest.approx(0.1)  # infrastructure field (raw score)
+        assert cdata["data"]["score"] == 0.5  # user metadata, nested under "data"
+        assert cdata["data"]["weight"] == 9.0
 
     def test_out_of_range_scores_raise(self):
         """Constraint raw scores must be finite and within [0, 1]."""
 
         def negative_scoring(input_sequences, config=None):
-            return [-0.5, 1.5, 0.5]
+            return [ConstraintOutput(score=s) for s in (-0.5, 1.5, 0.5)]
 
         negative_scoring._constraint_config_class = MockConfig
         negative_scoring._constraint_supported_sequence_types = ["dna"]
@@ -495,19 +495,17 @@ class TestConstraintEdgeCases:
             function_config=MockConfig(),
         )
 
-        with pytest.raises(ValueError, match=r"raw score -0.5.*finite value in \[0.0, 1.0\]"):
+        with pytest.raises(ValueError, match=r"score -0\.5 not in \[0\.0, 1\.0\]"):
             constraint.evaluate()
 
-    def test_non_reserved_key_allowed(self):
-        """Test that writing non-reserved keys to seq._metadata works fine."""
+    def test_custom_metadata_is_stored_under_data(self):
+        """Metadata on ConstraintOutput populates _constraints_metadata[label]["data"]."""
 
         def safe_scoring_function(input_sequences, config):
-            scores = []
-            for (seq,) in input_sequences:
-                seq._metadata["gc_content"] = 50.0
-                seq._metadata["my_custom_metric"] = 42
-                scores.append(0.1)
-            return scores
+            return [
+                ConstraintOutput(score=0.1, metadata={"gc_content": 50.0, "my_custom_metric": 42})
+                for _ in input_sequences
+            ]
 
         safe_scoring_function._constraint_supported_sequence_types = {"dna"}
 
@@ -520,10 +518,50 @@ class TestConstraintEdgeCases:
 
         scores = constraint.evaluate()
         assert len(scores) == 1
-        # Custom data should be in constraints_metadata under "data"
         cdata = segment.proposal_sequences[0]._constraints_metadata["safe_scoring_function"]
         assert cdata["data"]["gc_content"] == 50.0
         assert cdata["data"]["my_custom_metric"] == 42
+
+    def test_wrong_return_type_raises(self):
+        """evaluate() requires functions to return ConstraintOutput instances."""
+
+        def returns_floats(input_sequences, config=None):
+            return [0.1 for _ in input_sequences]
+
+        returns_floats._constraint_supported_sequence_types = ["dna"]
+
+        segment = _make_segment_with_proposals(["ATCG"], "dna")
+        constraint = Constraint(inputs=[segment], function=returns_floats, function_config=MockConfig())
+        with pytest.raises(TypeError, match="expected ConstraintOutput"):
+            constraint.evaluate()
+
+    def test_structures_tuple_wrong_arity_raises(self):
+        """Structures on ConstraintOutput must match the number of input segments when non-empty."""
+        seg_a = _make_segment_with_proposals(["AAAA"], "dna")
+        seg_b = _make_segment_with_proposals(["TTTT"], "dna")
+
+        def wrong_arity(input_sequences, config=None):
+            return [ConstraintOutput(score=0.0, structures=(None,)) for _ in input_sequences]
+
+        wrong_arity._constraint_supported_sequence_types = ["dna"]
+
+        constraint = Constraint(inputs=[seg_a, seg_b], function=wrong_arity, function_config=MockConfig())
+        with pytest.raises(ValueError, match=r"1 structures, expected 2"):
+            constraint.evaluate()
+
+    def test_logits_tuple_wrong_arity_raises(self):
+        """Logits on ConstraintOutput must match the number of input segments when non-empty."""
+        seg_a = _make_segment_with_proposals(["AAAA"], "dna")
+        seg_b = _make_segment_with_proposals(["TTTT"], "dna")
+
+        def wrong_arity(input_sequences, config=None):
+            return [ConstraintOutput(score=0.0, logits=(np.zeros((4, 4)),)) for _ in input_sequences]
+
+        wrong_arity._constraint_supported_sequence_types = ["dna"]
+
+        constraint = Constraint(inputs=[seg_a, seg_b], function=wrong_arity, function_config=MockConfig())
+        with pytest.raises(ValueError, match=r"1 logits, expected 2"):
+            constraint.evaluate()
 
 
 # =============================================================================
@@ -531,7 +569,7 @@ class TestConstraintEdgeCases:
 # =============================================================================
 
 
-class TestGradientResult:
+class TestGradientConstraintOutput:
     @pytest.mark.parametrize(
         "shapes",
         [
@@ -540,14 +578,14 @@ class TestGradientResult:
         ],
     )
     def test_construction_preserves_gradient_shapes_and_default_metrics(self, shapes: list[tuple[int, int]]) -> None:
-        result = GradientResult(gradient=tuple(np.zeros(s) for s in shapes), loss=0.5)
+        result = GradientConstraintOutput(gradient=tuple(np.zeros(s) for s in shapes), loss=0.5)
         assert result.loss == 0.5
         assert result.metrics == {}
         assert result.structures == ()  # default: empty tuple, backward-compat for producers that omit it
         assert [g.shape for g in result.gradient] == shapes
 
     def test_custom_metrics_stored_and_repr_shows_shape_not_array(self) -> None:
-        result = GradientResult(gradient=(np.zeros((5, 20)),), loss=0.5, metrics={"plddt": 0.85})
+        result = GradientConstraintOutput(gradient=(np.zeros((5, 20)),), loss=0.5, metrics={"plddt": 0.85})
         assert result.metrics["plddt"] == pytest.approx(0.85)
         # repr must elide the array (huge) and surface the shape + loss for debugging.
         r = repr(result)
@@ -555,7 +593,7 @@ class TestGradientResult:
         assert "loss=0.5" in r
 
     def test_frozen(self) -> None:
-        result = GradientResult(gradient=(np.zeros((5, 20)),), loss=1.0)
+        result = GradientConstraintOutput(gradient=(np.zeros((5, 20)),), loss=1.0)
         with pytest.raises(AttributeError):
             result.loss = 2.0  # type: ignore[misc]
 
@@ -606,7 +644,7 @@ class TestConstraintGradientSupport:
         c = _make_gradient_constraint(segment=segment)
         results = c.compute_gradient(temperature=1.0)
         assert len(results) == 1
-        assert isinstance(results[0], GradientResult)
+        assert isinstance(results[0], GradientConstraintOutput)
         assert results[0].gradient[0].shape == (8, 4)
         np.testing.assert_array_almost_equal(results[0].gradient[0], -logits)
 
@@ -633,9 +671,9 @@ class TestConstraintGradientSupport:
     def test_backward_config_forwarded(self) -> None:
         received: list[BaseModel] = []
 
-        def capturing_backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientResult:
+        def capturing_backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientConstraintOutput:
             received.append(config)
-            return GradientResult(gradient=(np.zeros_like(inputs[0].logits),), loss=0.0)
+            return GradientConstraintOutput(gradient=(np.zeros_like(inputs[0].logits),), loss=0.0)
 
         segment = _make_segment_with_proposals(["ACTGACTG"])
         segment.proposal_sequences[0].logits = np.zeros((8, 4))
@@ -648,7 +686,7 @@ class TestConstraintGradientSupport:
         """compute_gradient raises when no segment has logits set."""
         segment = _make_segment_with_proposals(["ACTGACTG"])
         c = _make_gradient_constraint(segment=segment)
-        with pytest.raises(RuntimeError, match="no input has logits"):
+        with pytest.raises(RuntimeError, match=r"no input has logits"):
             c.compute_gradient(temperature=1.0)
 
     @pytest.mark.parametrize(
@@ -661,7 +699,7 @@ class TestConstraintGradientSupport:
                 ],
                 False,
                 True,
-                r"Constraint '.*' slot 0 'Binder Chain' requires logits.*swap",
+                r"'.*' proposal .* slot 0 'Binder Chain': missing logits",
             ),
             (
                 [
@@ -670,7 +708,7 @@ class TestConstraintGradientSupport:
                 ],
                 True,
                 False,
-                r"Constraint '.*' slot 1 'Target' requires a structure.*swap",
+                r"'.*' proposal .* slot 1 'Target': missing structure",
             ),
         ],
     )
@@ -679,8 +717,8 @@ class TestConstraintGradientSupport:
     ) -> None:
         """Slot ``requires_logits`` / ``requires_structure`` fire a swap-detection error when unmet."""
 
-        def backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientResult:
-            return GradientResult(gradient=(np.zeros((3, 20)), np.zeros((3, 20))), loss=0.0)
+        def backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientConstraintOutput:
+            return GradientConstraintOutput(gradient=(np.zeros((3, 20)), np.zeros((3, 20))), loss=0.0)
 
         binder = _make_segment_with_proposals(["ACD"], seq_type="protein")
         target = _make_segment_with_proposals(["GHI"], seq_type="protein")
@@ -705,28 +743,28 @@ class TestConstraintGradientSupport:
             (
                 lambda inputs, *, config, **kwargs: {"gradient": np.zeros_like(inputs[0].logits), "loss": 0.0},
                 TypeError,
-                r"must return GradientResult",
+                r"expected GradientConstraintOutput",
             ),
             (
-                lambda inputs, *, config, **kwargs: GradientResult(gradient=(np.zeros((4, 8)),), loss=0.0),
+                lambda inputs, *, config, **kwargs: GradientConstraintOutput(gradient=(np.zeros((4, 8)),), loss=0.0),
                 ValueError,
-                r"gradient 0 shape",
+                r"segment 0: gradient shape",
             ),
             (
-                lambda inputs, *, config, **kwargs: GradientResult(
+                lambda inputs, *, config, **kwargs: GradientConstraintOutput(
                     gradient=(np.zeros((8, 4)), np.zeros((8, 4))), loss=0.0
                 ),
                 ValueError,
-                r"got 2 gradient\(s\), expected 1",
+                r"2 gradients, expected 1",
             ),
             (
-                lambda inputs, *, config, **kwargs: GradientResult(
+                lambda inputs, *, config, **kwargs: GradientConstraintOutput(
                     gradient=(np.zeros_like(inputs[0].logits),),
                     loss=0.0,
                     structures=(MockStructure.with_plddt([0.5] * 8), MockStructure.with_plddt([0.5] * 8)),
                 ),
                 ValueError,
-                r"got 2 structure\(s\), expected 1",
+                r"2 structures, expected 1",
             ),
         ],
     )
@@ -751,8 +789,8 @@ class TestConstraintGradientSupport:
         seg_a.proposal_sequences[0].logits = np.zeros((3, 20))
         seg_b.proposal_sequences[0].structure = existing
 
-        def backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientResult:
-            return GradientResult(
+        def backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientConstraintOutput:
+            return GradientConstraintOutput(
                 gradient=(np.zeros_like(inputs[0].logits), np.zeros((3, 20))),
                 loss=0.0,
                 structures=(new_struct, None),
@@ -783,17 +821,17 @@ class TestConstraintCallableRequirements:
 
         results = c.compute_gradient(temperature=1.0)
         assert len(results) == 1
-        assert isinstance(results[0], GradientResult)
+        assert isinstance(results[0], GradientConstraintOutput)
         assert results[0].gradient[0].shape == (8, 4)
 
-        with pytest.raises(RuntimeError, match="does not support discrete evaluation"):
+        with pytest.raises(RuntimeError, match=r"has no scoring function"):
             c.evaluate()
 
     def test_function_only_gradient_raises(self) -> None:
         segment = _make_segment_with_proposals(["ACTGACTG"])
         segment.proposal_sequences[0].logits = np.zeros((8, 4))
         c = Constraint(inputs=[segment], function=mock_single_input_scoring_function, function_config=MockConfig())
-        with pytest.raises(RuntimeError, match="does not support gradient computation"):
+        with pytest.raises(RuntimeError, match=r"has no backward callable"):
             c.compute_gradient(temperature=1.0)
 
     def test_neither_callable_raises(self) -> None:

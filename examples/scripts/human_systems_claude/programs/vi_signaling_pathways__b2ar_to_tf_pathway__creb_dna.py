@@ -22,6 +22,7 @@ from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.language.core import (
     Constraint,
+    ConstraintOutput,
     Construct,
     Program,
     Segment,
@@ -123,9 +124,9 @@ class BorzoiDNADesignConfig(BaseConfig):
     category="epigenomic_sequence_scoring",
 )
 def _borzoi_creb_dna_design(
-    complexes: list[tuple[Sequence]],
+    input_sequences: list[tuple[Sequence, ...]],
     config: BorzoiDNADesignConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """
     Returns Borzoi-predicted activity of DNA sequence.
     """
@@ -136,8 +137,8 @@ def _borzoi_creb_dna_design(
     # For this constraint, always take the mean over all tracks.
     config.borzoi_config.avg_output_tracks = True
 
-    scores = []
-    for comp in complexes:
+    results: list[ConstraintOutput] = []
+    for comp in input_sequences:
         sequence = "".join(str(subseq) for subseq in comp)
 
         sequence = sequence.replace("N", "A")  # Hack as Borzoi does not accept Ns.
@@ -153,9 +154,9 @@ def _borzoi_creb_dna_design(
 
         assert activity_score >= 0.0
         score = 1.0 - (min(activity_score, config.activity_threshold) / config.activity_threshold)
-        scores.append(score)
+        results.append(ConstraintOutput(score=score, metadata={"borzoi_activity": float(activity_score)}))
 
-    return scores
+    return results
 
 
 def create_creb_dna_program() -> Program:

@@ -66,10 +66,14 @@ GCS credentials are resolved in order:
 
 ```python
 from proto_language.storage import store_file, FileType
+from proto_language.language.core import ConstraintOutput
 
 # Store a PDB file, get back a reference dict
 ref = store_file(structure.structure_pdb, FileType.PDB)
-seq._metadata["pdb_output"] = ref
+
+# Place the reference on the returned ConstraintOutput; the framework writes it to
+# seq._constraints_metadata[label]["data"]["pdb_output"] on the original proposal.
+return [ConstraintOutput(score=s, metadata={"pdb_output": ref}) for ...]
 ```
 
 `store_file()` returns a dictionary like:
@@ -91,8 +95,8 @@ The `__file_ref__` marker distinguishes file references from regular metadata di
 ```python
 from proto_language.storage import get_file_content
 
-# Works transparently with both inline strings and file references
-pdb_content = get_file_content(seq._metadata["pdb_output"])
+# Framework stores constraint-written refs under _constraints_metadata[label]["data"]
+pdb_content = get_file_content(seq._constraints_metadata["structure-plddt"]["data"]["pdb_output"])
 ```
 
 `get_file_content()` handles two cases:
@@ -106,7 +110,8 @@ For binary content, use `get_file_content_bytes()`.
 ```python
 from proto_language.storage import is_file_reference
 
-if is_file_reference(seq._metadata.get("pdb_output")):
+data = seq._constraints_metadata.get("structure-plddt", {}).get("data", {})
+if is_file_reference(data.get("pdb_output")):
     # It's stored externally
     ...
 ```

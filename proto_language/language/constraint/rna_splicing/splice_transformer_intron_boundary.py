@@ -2,7 +2,7 @@
 
 Accepts three segments (left_flank, intron_core, right_flank), concatenates
 them into a single 1-kb target sequence, and scores donor/acceptor splice
-sites. Metadata is propagated back to all three input segments.
+sites.
 """
 
 import logging
@@ -19,7 +19,7 @@ from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -128,18 +128,24 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
 def splice_transformer_intron_boundary(
     input_sequences: list[tuple[Sequence, ...]],
     config: SpliceTransformerIntronBoundaryConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Score donor/acceptor splice sites for three-segment intron boundaries.
 
     Accepts three segments (left_flank, intron_core, right_flank), concatenates
     them into a single 1-kb target sequence, and scores donor/acceptor splice
-    sites. Metadata is propagated back to all three input segments.
+    sites.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Mapping of segment IDs to
             their current sequences.
         config (SpliceTransformerIntronBoundaryConfig): Constraint configuration
             controlling evaluation parameters.
+
+    Returns:
+        list[ConstraintOutput]: One result per input. ``score`` is the combined
+            boundary penalty in ``[0.0, 1.0]``. ``metadata`` carries ``donor_pos``,
+            ``acceptor_pos``, ``donor_score``, ``acceptor_score``, and
+            ``total_splice_score``.
     """
     if not input_sequences:
         return []
@@ -176,8 +182,8 @@ def splice_transformer_intron_boundary(
             f"SpliceTransformer batch size mismatch: {output.shape[0]} outputs for {len(target_seqs)} inputs."
         )
 
-    scores = []
-    for batch_idx, (left_flank, intron_core, right_flank) in enumerate(input_sequences):
+    results: list[ConstraintOutput] = []
+    for batch_idx in range(len(input_sequences)):
         if output.shape[1] != len(target_seqs[batch_idx]):
             raise ValueError(
                 f"SpliceTransformer output length mismatch: {output.shape[1]} != {len(target_seqs[batch_idx])}."
@@ -194,9 +200,6 @@ def splice_transformer_intron_boundary(
             "acceptor_score": 1.0 - acceptor_prob,
             "total_splice_score": score,
         }
-        for seq in (left_flank, intron_core, right_flank):
-            seq._metadata.update(metadata)
+        results.append(ConstraintOutput(score=score, metadata=metadata))
 
-        scores.append(score)
-
-    return scores
+    return results

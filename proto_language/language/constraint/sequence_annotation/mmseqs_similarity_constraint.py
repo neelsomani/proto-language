@@ -19,7 +19,7 @@ from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import DNA_NUCLEOTIDES, Sequence
+from proto_language.language.core import DNA_NUCLEOTIDES, ConstraintOutput, Sequence
 from proto_language.storage import FileType, resolve_paths, store_file
 from proto_language.utils import (
     MAX_ENERGY,
@@ -156,7 +156,7 @@ class MMseqsSimilarityConfig(BaseConfig):
 )
 def mmseqs_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: MMseqsSimilarityConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate sequence similarity using MMseqs2 protein database search.
 
     This constraint function evaluates whether protein sequences (or proteins
@@ -184,48 +184,45 @@ def mmseqs_similarity_constraint(
         input_sequences (list[Tuple[Sequence, ...]]): Mapping of segment IDs to their current sequences.
 
     Returns:
-        List[float]: Constraint scores for each sequence. A score of 0.0 indicates
-            all database hits have percent identity within the acceptable range
-            [min_similarity, max_similarity]. Higher scores indicate violations, with
-            the score proportional to the average deviation from the acceptable
-            range. Maximum penalty (1.0) is returned if no ORFs are found or if
-            MMseqs2 search fails.
+        list[ConstraintOutput]: One result per sequence. Score 0.0 means all hits
+            fall within [min_similarity, max_similarity]; higher scores indicate
+            greater deviation. Score 1.0 (MAX_ENERGY) is returned if no ORFs are
+            found or MMseqs2 search fails. ``metadata`` carries:
+
+            **For DNA sequences (with Prodigal):**
+
+            - ``prodigal_orfs``: List of dictionaries containing predicted ORF information
+              (id, start, end, strand, protein_sequence, etc.)
+            - ``mmseqs_results``: List of dictionaries with MMseqs2 hit information
+              (target_id, pident, evalue)
+            - ``unique_orfs_with_hits``: Integer count of ORFs with database matches
+            - ``orfs_with_acceptable_similarity``: Integer count of ORFs with hits in
+              acceptable range
+            - ``total_orfs_with_hits``: Integer total number of ORF-hit pairs
+            - ``similarity_compliance_rate``: Float fraction of hits within acceptable
+              range (0.0-1.0)
+
+            **For DNA sequences (with ORFipy):**
+
+            - ``orfipy_orfs``: List of dictionaries with ORFipy ORF predictions
+            - Other fields same as Prodigal above
+
+            **For protein sequences:**
+
+            - ``direct_protein``: Dictionary with protein information (id, sequence, length)
+            - ``mmseqs_results``: List of MMseqs2 hit dictionaries
+            - ``unique_orfs_with_hits``: Count of hits (always 1 or 0 for single proteins)
+            - ``orfs_with_acceptable_similarity``: Count of acceptable hits
+            - ``total_orfs_with_hits``: Total hit count
+            - ``similarity_compliance_rate``: Fraction of hits in range
+
+            **Error metadata (when MMseqs2 fails):**
+
+            - ``mmseqs_error``: Boolean True
+            - ``mmseqs_error_messages``: List of error message strings
 
     Raises:
         ValueError: If sequences are of mixed types (some DNA, some protein).
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by
-        sequence type and ORF predictor:
-
-        **For DNA sequences (with Prodigal):**
-        - ``prodigal_orfs``: List of dictionaries containing predicted ORF information
-          (id, start, end, strand, protein_sequence, etc.)
-        - ``mmseqs_results``: List of dictionaries with MMseqs2 hit information
-          (target_id, pident, evalue)
-        - ``unique_orfs_with_hits``: Integer count of ORFs with database matches
-        - ``orfs_with_acceptable_similarity``: Integer count of ORFs with hits in
-          acceptable range
-        - ``total_orfs_with_hits``: Integer total number of ORF-hit pairs
-        - ``similarity_compliance_rate``: Float fraction of hits within acceptable
-          range (0.0-1.0)
-
-        **For DNA sequences (with ORFipy):**
-        - ``orfipy_orfs``: List of dictionaries with ORFipy ORF predictions
-        - Other fields same as Prodigal above
-
-        **For protein sequences:**
-        - ``direct_protein``: Dictionary with protein information (id, sequence, length)
-        - ``mmseqs_results``: List of MMseqs2 hit dictionaries
-        - ``unique_orfs_with_hits``: Count of hits (always 1 or 0 for single proteins)
-        - ``orfs_with_acceptable_similarity``: Count of acceptable hits
-        - ``total_orfs_with_hits``: Total hit count
-        - ``similarity_compliance_rate``: Fraction of hits in range
-
-        **Error metadata (when MMseqs2 fails):**
-        - ``mmseqs_error``: Boolean True
-        - ``mmseqs_error_messages``: List of error message strings
 
     Examples:
         Filtering for sequences with low similarity to existing proteins:
@@ -235,22 +232,9 @@ def mmseqs_similarity_constraint(
         >>> config = MMseqsSimilarityConfig(
         ...     min_similarity=10.0, max_similarity=30.0, mmseqs_db="/data/databases/uniref90"
         ... )
-        >>> scores = mmseqs_similarity_constraint([protein_seq], config)
-        >>> if scores[0] == 0.0:
-        ...     print("Novel protein (no high-similarity hits)")
-        >>> print(protein_seq._metadata["similarity_compliance_rate"])
-
-        Custom MMseqs2 configuration for sensitive search:
-
-        >>> from proto_tools import MmseqsSearchProteinsConfig
-        >>> mmseqs_cfg = MmseqsSearchProteinsConfig(
-        ...     threads=32,  # Use 32 CPU cores
-        ...     sensitivity=7.5,  # Most sensitive
-        ... )
-        >>> config = MMseqsSimilarityConfig(
-        ...     min_similarity=20.0, max_similarity=60.0, mmseqs_db="/data/databases/trembl", mmseqs_config=mmseqs_cfg
-        ... )
-        >>> scores = mmseqs_similarity_constraint([protein_seq], config)
+        >>> results = mmseqs_similarity_constraint([(protein_seq,)], config)
+        >>> print(results[0].score)  # 0.0 means no high-similarity hits
+        >>> print(results[0].metadata["similarity_compliance_rate"])
     """
     # Extract sequences from tuples
     sequences = [seq for (seq,) in input_sequences]
@@ -259,6 +243,9 @@ def mmseqs_similarity_constraint(
     # Validate all same type
     if not all(seq.sequence_type == sequence_type for seq in sequences):
         raise ValueError("All sequences must be same type (all DNA or all PROTEIN)")
+
+    # Per-sequence metadata accumulator (one dict per input sequence)
+    metadata_by_seq: list[dict[str, Any]] = [{} for _ in sequences]
 
     # Build protein list with mapping back to input sequences
     # protein_data: List of (seq_idx, protein_sequence) tuples
@@ -277,7 +264,7 @@ def mmseqs_similarity_constraint(
 
             for seq_idx, orfs_list in enumerate(result.predicted_orfs):
                 orf_dicts = [orf.model_dump() for orf in orfs_list]
-                sequences[seq_idx]._metadata["prodigal_orfs"] = (
+                metadata_by_seq[seq_idx]["prodigal_orfs"] = (
                     store_file(json.dumps(orf_dicts), FileType.JSON) if orf_dicts else None
                 )
                 protein_data.extend((seq_idx, orf.amino_acid_sequence) for orf in orfs_list)
@@ -289,7 +276,7 @@ def mmseqs_similarity_constraint(
 
             for seq_idx, orfs_list in enumerate(result.predicted_orfs):
                 orf_dicts = [orf.model_dump() for orf in orfs_list]
-                sequences[seq_idx]._metadata["orfipy_orfs"] = (
+                metadata_by_seq[seq_idx]["orfipy_orfs"] = (
                     store_file(json.dumps(orf_dicts), FileType.JSON) if orf_dicts else None
                 )
                 protein_data.extend((seq_idx, orf.amino_acid_sequence) for orf in orfs_list)
@@ -297,7 +284,7 @@ def mmseqs_similarity_constraint(
     else:  # PROTEIN sequences - use directly
         for seq_idx, seq in enumerate(sequences):
             protein_data.append((seq_idx, seq.sequence))
-            sequences[seq_idx]._metadata["direct_protein"] = {
+            metadata_by_seq[seq_idx]["direct_protein"] = {
                 "id": f"protein_{seq_idx}",
                 "sequence": seq.sequence,
                 "length": len(seq.sequence),
@@ -305,8 +292,8 @@ def mmseqs_similarity_constraint(
 
     # Handle case where no proteins were found
     if not protein_data:
-        for seq in sequences:
-            seq._metadata.update(
+        for meta in metadata_by_seq:
+            meta.update(
                 {
                     "mmseqs_results": None,
                     "unique_orfs_with_hits": 0,
@@ -315,7 +302,7 @@ def mmseqs_similarity_constraint(
                     "similarity_compliance_rate": 0.0,
                 }
             )
-        return [MAX_ENERGY] * len(sequences)
+        return [ConstraintOutput(score=MAX_ENERGY, metadata=meta) for meta in metadata_by_seq]
 
     # Extract protein sequences for MMseqs search
     protein_sequences = [prot_seq for _, prot_seq in protein_data]
@@ -332,8 +319,8 @@ def mmseqs_similarity_constraint(
     mmseqs_result = run_mmseqs_search_proteins(mmseqs_input, mmseqs_config)
 
     if not mmseqs_result.success:
-        for seq in sequences:
-            seq._metadata.update(
+        for meta in metadata_by_seq:
+            meta.update(
                 {
                     "mmseqs_error": True,
                     "mmseqs_error_messages": mmseqs_result.errors,
@@ -344,7 +331,7 @@ def mmseqs_similarity_constraint(
                     "similarity_compliance_rate": 0.0,
                 }
             )
-        return [MAX_ENERGY] * len(sequences)
+        return [ConstraintOutput(score=MAX_ENERGY, metadata=meta) for meta in metadata_by_seq]
 
     # Aggregate hits by input sequence
     # seq_hits[seq_idx] = list of all hits for that input sequence
@@ -362,12 +349,13 @@ def mmseqs_similarity_constraint(
             )
 
     # Score each sequence
-    scores = []
-    for seq_idx, seq in enumerate(sequences):
+    results: list[ConstraintOutput] = []
+    for seq_idx in range(len(sequences)):
         hits = seq_hits[seq_idx]
         num_hits = len(hits)
+        meta = metadata_by_seq[seq_idx]
 
-        seq._metadata.update(
+        meta.update(
             {
                 "mmseqs_results": store_file(json.dumps(hits), FileType.JSON) if hits else None,
                 "unique_orfs_with_hits": num_hits,
@@ -375,14 +363,14 @@ def mmseqs_similarity_constraint(
         )
 
         if num_hits == 0:
-            seq._metadata.update(
+            meta.update(
                 {
                     "orfs_with_acceptable_similarity": 0,
                     "total_orfs_with_hits": 0,
                     "similarity_compliance_rate": 0.0,
                 }
             )
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata=meta))
             continue
 
         # Score each hit
@@ -398,7 +386,7 @@ def mmseqs_similarity_constraint(
                     calculate_percentage_range_deviation(pident, config.min_similarity, config.max_similarity)
                 )
 
-        seq._metadata.update(
+        meta.update(
             {
                 "orfs_with_acceptable_similarity": acceptable,
                 "total_orfs_with_hits": num_hits,
@@ -406,6 +394,7 @@ def mmseqs_similarity_constraint(
             }
         )
 
-        scores.append(MIN_ENERGY if not violations else min(MAX_ENERGY, float(np.mean(violations))))
+        score = MIN_ENERGY if not violations else min(MAX_ENERGY, float(np.mean(violations)))
+        results.append(ConstraintOutput(score=score, metadata=meta))
 
-    return scores
+    return results

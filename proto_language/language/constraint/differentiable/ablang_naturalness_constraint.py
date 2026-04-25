@@ -18,8 +18,8 @@ from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
-from proto_language.language.core import Sequence
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core import ConstraintOutput, Sequence
+from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.utils import one_hot_protein_matrix
 
 
@@ -103,7 +103,7 @@ def ablang_naturalness_gradient_backward(
     *,
     config: AbLangConstraintConfig,
     **kwargs: Any,  # noqa: ARG001
-) -> GradientResult:
+) -> GradientConstraintOutput:
     """Compute AbLang naturalness gradient w.r.t. binder logits.
 
     VHH mode (no slices): the whole binder is one heavy chain. scFv mode (slices set):
@@ -122,7 +122,7 @@ def ablang_naturalness_gradient_backward(
         )
         assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
         grad = np.array(output.gradient, dtype=np.float64) * config.logit_scale
-        return GradientResult(gradient=(grad,), loss=output.loss, metrics=output.metrics)
+        return GradientConstraintOutput(gradient=(grad,), loss=output.loss, metrics=output.metrics)
 
     assert config.light_slice is not None  # noqa: S101 -- validator guarantees both-or-neither
     h_start, h_end = config.heavy_slice
@@ -144,7 +144,7 @@ def ablang_naturalness_gradient_backward(
     full_grad = np.zeros_like(raw_logits, dtype=np.float64)
     full_grad[h_start:h_end] = paired_grad[: h_end - h_start]
     full_grad[l_start:l_end] = paired_grad[h_end - h_start :]
-    return GradientResult(gradient=(full_grad,), loss=output.loss, metrics=output.metrics)
+    return GradientConstraintOutput(gradient=(full_grad,), loss=output.loss, metrics=output.metrics)
 
 
 @constraint(
@@ -164,7 +164,7 @@ def ablang_naturalness_forward(
     input_sequences: list[tuple[Sequence, ...]],
     *,
     config: AbLangConstraintConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Forward AbLang naturalness scoring via masked pseudo-log-likelihood.
 
     Args:
@@ -172,9 +172,10 @@ def ablang_naturalness_forward(
         config (AbLangConstraintConfig): Forward-mode config; slice fields control mode.
 
     Returns:
-        list[float]: Per-proposal raw AbLang loss; lower is better.
+        list[ConstraintOutput]: Per-proposal raw AbLang loss (lower is better) with
+            ``ablang_log_likelihood`` and ``ablang_loss`` metadata.
     """
-    scores: list[float] = []
+    results: list[ConstraintOutput] = []
     for (binder_seq,) in input_sequences:
         if config.heavy_slice is None:
             antibody = AntibodyLogits(heavy_chain=one_hot_protein_matrix(binder_seq.sequence))
@@ -194,10 +195,16 @@ def ablang_naturalness_forward(
             AbLangGradientInput(antibody=antibody, temperature=config.temperature),
             AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=False, device=config.device),
         )
-        binder_seq._metadata["ablang_log_likelihood"] = output.metrics["log_likelihood"]
-        binder_seq._metadata["ablang_loss"] = output.loss
-        scores.append(output.loss)
-    return scores
+        results.append(
+            ConstraintOutput(
+                score=output.loss,
+                metadata={
+                    "ablang_log_likelihood": output.metrics["log_likelihood"],
+                    "ablang_loss": output.loss,
+                },
+            )
+        )
+    return results
 
 
 # Germinal semigreedy ranks proposals on the raw antibody-LM loss, so this

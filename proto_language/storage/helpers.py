@@ -25,8 +25,14 @@ def store_file(
 
     Example:
         >>> from proto_language.storage import store_file, FileType
-        >>> # In a constraint:
-        >>> seq._metadata["pdb_output"] = store_file(structure.structure_pdb, FileType.PDB)
+        >>> # In a forward constraint, place the reference on the returned result:
+        >>> return [
+        ...     ConstraintOutput(
+        ...         score=score,
+        ...         metadata={"pdb_output": store_file(structure.structure_pdb, FileType.PDB)},
+        ...     )
+        ...     for ...
+        ... ]
     """
     store = get_file_store()
     ref = store.put(content, file_type)
@@ -50,8 +56,8 @@ def get_file_content(ref_or_content: dict[str, Any] | str) -> str:
 
     Example:
         >>> from proto_language.storage import get_file_content
-        >>> # Works with both inline content and file references:
-        >>> pdb_content = get_file_content(seq._metadata["pdb_output"])
+        >>> # Framework stores constraint-written refs under ``_constraints_metadata[label]["data"]``:
+        >>> pdb_content = get_file_content(seq._constraints_metadata["structure-plddt"]["data"]["pdb_output"])
     """
     # If it's already a string, return it directly
     if isinstance(ref_or_content, str):

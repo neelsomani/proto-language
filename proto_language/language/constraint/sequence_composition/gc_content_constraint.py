@@ -4,7 +4,7 @@ from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import (
     MAX_ENERGY,
     MAX_GC_CONTENT,
@@ -58,7 +58,9 @@ class GCContentConfig(BaseConfig):
     category="sequence_composition",
     supported_sequence_types=["dna", "rna"],
 )
-def gc_content_constraint(input_sequences: list[tuple[Sequence, ...]], config: GCContentConfig) -> list[float]:
+def gc_content_constraint(
+    input_sequences: list[tuple[Sequence, ...]], config: GCContentConfig
+) -> list[ConstraintOutput]:
     """Enforce GC content within specified range.
 
     This constraint function calculates the percentage of guanine (G) and cytosine
@@ -77,10 +79,11 @@ def gc_content_constraint(input_sequences: list[tuple[Sequence, ...]], config: G
             GC percentage). Both values must be between 0 and 100.
 
     Returns:
-        list[float]: Constraint scores for each sequence. A score of 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             GC content is within the acceptable range [min_gc, max_gc]. Higher
             scores indicate greater deviation from the acceptable range, with
-            penalties scaling linearly with the deviation distance.
+            penalties scaling linearly with the deviation distance. The ``metadata``
+            field carries ``gc_content``.
 
     Raises:
         ValueError: If the input list is empty, if min_gc or max_gc are
@@ -91,25 +94,21 @@ def gc_content_constraint(input_sequences: list[tuple[Sequence, ...]], config: G
 
         >>> seq = Sequence("ATCGATCG", "dna")
         >>> cfg = GCContentConfig(min_gc=40.0, max_gc=60.0)
-        >>> score = gc_content_constraint([(seq,)], config=cfg)
-        >>> print(score[0])  # 0.0 (50% GC content is within acceptable range)
+        >>> result = gc_content_constraint([(seq,)], config=cfg)
+        >>> print(result[0].score)  # 0.0 (50% GC content is within acceptable range)
     """
     validate_range(config.min_gc, MIN_GC_CONTENT, MAX_GC_CONTENT, "min_gc")
     validate_range(config.max_gc, MIN_GC_CONTENT, MAX_GC_CONTENT, "max_gc")
 
-    scores = []
+    results = []
 
     for (seq,) in input_sequences:
         if len(seq.sequence) == 0:
-            seq._metadata["gc_content"] = 0.0
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={"gc_content": 0.0}))
             continue
 
         gc_content = 100.0 * sum(nt in "GC" for nt in seq.sequence.upper()) / max(len(seq.sequence), 1)
-
-        seq._metadata["gc_content"] = gc_content
-
         deviation = calculate_percentage_range_deviation(gc_content, config.min_gc, config.max_gc)
-        scores.append(min(MAX_ENERGY, deviation))
+        results.append(ConstraintOutput(score=min(MAX_ENERGY, deviation), metadata={"gc_content": gc_content}))
 
-    return scores
+    return results

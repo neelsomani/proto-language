@@ -7,7 +7,7 @@ import pytest
 from proto_tools import InverseFoldingStructureInput, Structure
 from pydantic import BaseModel, ValidationError
 
-from proto_language.language.core import Constraint, Construct, Segment, Sequence
+from proto_language.language.core import Constraint, ConstraintOutput, Construct, Segment, Sequence
 from proto_language.language.generator import (
     LigandMPNNGenerator,
     LigandMPNNGeneratorConfig,
@@ -68,7 +68,7 @@ def _setup_cycling_components(
     if include_constraint:
 
         def filter_func(input_sequences, config=None):
-            return [0.0 if constraint_passes else 1.0 for _ in input_sequences]
+            return [ConstraintOutput(score=(0.0 if constraint_passes else 1.0)) for _ in input_sequences]
 
         filter_func._constraint_config_class = EmptyConfig
         filter_func._constraint_supported_sequence_types = ["protein"]
@@ -174,7 +174,7 @@ class TestCyclingOptimizerValidation:
         components = _setup_cycling_components()
 
         def scoring_func(input_sequences, config=None):
-            return [0.5 for _ in input_sequences]
+            return [ConstraintOutput(score=0.5) for _ in input_sequences]
 
         scoring_func._constraint_config_class = EmptyConfig
         scoring_func._constraint_supported_sequence_types = ["protein"]
@@ -202,7 +202,7 @@ class TestCyclingOptimizerValidation:
         construct = Construct([components["target_segment"], context_segment])
 
         def filter_func(input_sequences, config=None):
-            return [0.0 for _ in input_sequences]
+            return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
         filter_func._constraint_config_class = EmptyConfig
         filter_func._constraint_supported_sequence_types = ["protein"]
@@ -229,7 +229,7 @@ class TestCyclingOptimizerValidation:
         components = _setup_cycling_components()
 
         def filter_func(input_sequences, config=None):
-            return [0.0 for _ in input_sequences]
+            return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
         filter_func._constraint_config_class = EmptyConfig
         filter_func._constraint_supported_sequence_types = ["protein"]
@@ -337,7 +337,7 @@ class TestCyclingOptimizerRun:
         generator.assign(target_segment)
 
         def partial_filter(input_sequences, config=None):
-            return [1.0 if "FAIL" in seq.sequence else 0.0 for (seq,) in input_sequences]
+            return [ConstraintOutput(score=(1.0 if "FAIL" in seq.sequence else 0.0)) for (seq,) in input_sequences]
 
         partial_filter._constraint_config_class = EmptyConfig
         partial_filter._constraint_supported_sequence_types = ["protein"]
@@ -464,7 +464,7 @@ class TestAcceptPatternBehavior:
         generator.assign(target_segment)
 
         def always_fail_filter(input_sequences, config=None):
-            return [1.0 for _ in input_sequences]
+            return [ConstraintOutput(score=1.0) for _ in input_sequences]
 
         always_fail_filter._constraint_config_class = EmptyConfig
         always_fail_filter._constraint_supported_sequence_types = ["protein"]
@@ -524,7 +524,7 @@ class TestAcceptPatternBehavior:
 
         # Filter that passes proposal 0, rejects proposal 1
         def partial_filter(input_sequences, config=None):
-            return [0.0 if idx == 0 else 1.0 for idx, _ in enumerate(input_sequences)]
+            return [ConstraintOutput(score=(0.0 if idx == 0 else 1.0)) for idx, _ in enumerate(input_sequences)]
 
         partial_filter._constraint_config_class = EmptyConfig
         partial_filter._constraint_supported_sequence_types = ["protein"]
@@ -635,8 +635,8 @@ class TestAcceptPatternBehavior:
         def step_dependent_filter(input_sequences, config=None):
             filter_call_count[0] += 1
             if filter_call_count[0] == 1:
-                return [0.0 for _ in input_sequences]  # Pass
-            return [1.0 for _ in input_sequences]  # Fail
+                return [ConstraintOutput(score=0.0) for _ in input_sequences]  # Pass
+            return [ConstraintOutput(score=1.0) for _ in input_sequences]  # Fail
 
         step_dependent_filter._constraint_config_class = EmptyConfig
         step_dependent_filter._constraint_supported_sequence_types = ["protein"]
@@ -821,7 +821,7 @@ class TestCyclingOptimizerGPU:
         generator.assign(target_segment)
 
         def length_filter(input_sequences, config=None):
-            return [0.0 if len(seq.sequence) > 10 else 1.0 for (seq,) in input_sequences]
+            return [ConstraintOutput(score=(0.0 if len(seq.sequence) > 10 else 1.0)) for (seq,) in input_sequences]
 
         length_filter._constraint_config_class = EmptyConfig
         length_filter._constraint_supported_sequence_types = ["protein"]

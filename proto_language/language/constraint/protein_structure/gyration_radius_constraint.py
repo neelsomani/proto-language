@@ -12,7 +12,7 @@ from proto_tools import (
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY
 
 
@@ -54,7 +54,7 @@ class GyrationRadiusConfig(BaseConfig):
 def gyration_radius_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: GyrationRadiusConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Filter structures by radius of gyration.
 
     Computes the radius of gyration for each input structure and returns
@@ -68,7 +68,8 @@ def gyration_radius_constraint(
         config (GyrationRadiusConfig): Configuration with max_gyration_radius threshold.
 
     Returns:
-        list[float]: List of float scores in [0.0, 1.0]. 0.0 = within threshold, 1.0 = worst.
+        list[ConstraintOutput]: Per-proposal score in ``[0.0, 1.0]`` with
+            ``gyration_radius`` and ``longest_alpha_helix`` metadata.
     """
     sequences = [seq for (seq,) in input_sequences]
 
@@ -94,24 +95,20 @@ def gyration_radius_constraint(
         )
         metrics_map = dict(zip(valid_indices, metrics_result.metrics, strict=False))
 
-    # Compute scores
-    scores = []
-    for i, seq in enumerate(sequences):
+    results: list[ConstraintOutput] = []
+    for i in range(len(sequences)):
         if i not in metrics_map:
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY))
             continue
 
         metrics = metrics_map[i]
         radius = metrics.gyration_radius
-
-        seq._metadata["gyration_radius"] = radius
-        seq._metadata["longest_alpha_helix"] = metrics.longest_alpha_helix
+        metadata = {"gyration_radius": radius, "longest_alpha_helix": metrics.longest_alpha_helix}
 
         if radius <= config.max_gyration_radius:
-            scores.append(0.0)
+            results.append(ConstraintOutput(score=0.0, metadata=metadata))
         else:
-            # Linear penalty, clamped to [0, 1]
             deviation = (radius - config.max_gyration_radius) / config.max_gyration_radius
-            scores.append(min(1.0, deviation))
+            results.append(ConstraintOutput(score=min(1.0, deviation), metadata=metadata))
 
-    return scores
+    return results

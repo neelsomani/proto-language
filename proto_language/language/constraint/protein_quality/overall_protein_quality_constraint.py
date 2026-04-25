@@ -1,6 +1,7 @@
 """Overall protein quality constraint function."""
 
 import json
+from typing import Any
 
 import numpy as np
 from proto_tools import ProdigalConfig, ProdigalInput, run_prodigal_prediction
@@ -28,7 +29,7 @@ from proto_language.language.constraint.sequence_composition.sequence_length_con
     SequenceLengthConfig,
     sequence_length_constraint,
 )
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.storage import FileType, store_file
 
 
@@ -358,7 +359,7 @@ class OverallProteinQualityConfig(BaseConfig):
 )
 def overall_protein_quality_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: OverallProteinQualityConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate overall protein quality using multiple configurable sub-constraints.
 
     This constraint function provides a comprehensive assessment of protein quality
@@ -423,48 +424,41 @@ def overall_protein_quality_constraint(
             during configuration validation.
 
     Returns:
-        List[float]: Constraint scores for each sequence, ranging from 0.0 (best)
-            to 1.0 (worst). Scores are the average of all enabled sub-constraint
+        list[ConstraintOutput]: One result per sequence. Scores range from 0.0 (best)
+            to 1.0 (worst) and represent the average of all enabled sub-constraint
             scores, clipped to [0.0, 1.0]. For DNA sequences, the score reflects
-            the average quality across all predicted proteins.
+            the average quality across all predicted proteins. ``metadata`` carries:
+
+            **For DNA sequences:**
+
+            - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal,
+              containing columns for protein ID, sequence, length, etc.
+            - ``prodigal_protein_count``: Integer count of predicted ORFs
+            - ``predicted_protein_count``: Integer count of proteins (same as
+              prodigal_protein_count)
+            - ``avg_constraint_score``: Float average quality score across all
+              predicted proteins
+            - ``protein_quality_details``: List of dictionaries, one per predicted
+              protein, each containing:
+
+              - ``protein_id``: String identifier from Prodigal
+              - ``length``: Integer protein length in amino acids
+              - ``avg_constraint_score``: Float average across enabled constraints
+              - ``quality_scores``: Dictionary mapping constraint names to scores
+              - ``metadata``: Dictionary of additional constraint-specific metadata
+
+            **For protein sequences:**
+
+            - ``protein_quality_scores``: Dictionary mapping constraint names (e.g.,
+              "length", "complexity", "repetitiveness", "diversity", "balanced_aas")
+              to their individual scores
+            - ``avg_constraint_score``: Float average across all enabled constraints
 
     Raises:
         ValueError: If no sub-constraints are enabled in the configuration, or if
             length constraint is enabled but no min/max or target values are provided.
         AssertionError: If any sequence in the input list is not a DNA or PROTEIN
             sequence type.
-
-    Note:
-        This function modifies the input sequences by adding metadata to
-        each ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by
-        sequence type:
-
-        **For DNA sequences:**
-        - ``prodigal_proteins``: DataFrame of predicted proteins from Prodigal,
-          containing columns for protein ID, sequence, length, etc.
-        - ``prodigal_protein_count``: Integer count of predicted ORFs
-        - ``predicted_protein_count``: Integer count of proteins (same as
-          prodigal_protein_count)
-        - ``avg_constraint_score``: Float average quality score across all
-          predicted proteins
-        - ``protein_quality_details``: List of dictionaries, one per predicted
-          protein, each containing:
-
-          - ``protein_id``: String identifier from Prodigal
-          - ``length``: Integer protein length in amino acids
-          - ``avg_constraint_score``: Float average across enabled constraints
-          - ``quality_scores``: Dictionary mapping constraint names to scores
-          - ``metadata``: Dictionary of additional constraint-specific metadata
-
-        **For protein sequences:**
-        - ``protein_quality_scores``: Dictionary mapping constraint names (e.g.,
-          "length", "complexity", "repetitiveness", "diversity", "balanced_aas")
-          to their individual scores
-        - ``avg_constraint_score``: Float average across all enabled constraints
-
-        Each enabled sub-constraint may also add its own specific metadata fields
-        to individual proteins, such as amino acid counts, low-complexity regions,
-        repeat patterns, etc.
 
     Examples:
         Using all available constraints with custom thresholds:
@@ -485,9 +479,8 @@ def overall_protein_quality_constraint(
         ... )
         >>> overall_cfg = OverallProteinQualityConfig(protein_quality_config=quality_config)
         >>> protein_seq = Sequence("MKYIVAVAG...", "protein")
-        >>> scores = overall_protein_quality_constraint([(protein_seq,)], overall_cfg)
+        >>> results = overall_protein_quality_constraint([(protein_seq,)], overall_cfg)
     """
-    # Extract config parameters
     protein_quality_config = config.protein_quality_config
     length_config = protein_quality_config.get_length_config()
     complexity_config = protein_quality_config.get_complexity_config()
@@ -495,146 +488,127 @@ def overall_protein_quality_constraint(
     diversity_config = protein_quality_config.get_diversity_config()
     balanced_config = protein_quality_config.get_balanced_config()
 
-    # Separate DNA and protein sequences (validated by Constraint._validate_sequence_types)
-    dna_sequences = [seq for (seq,) in input_sequences if seq.sequence_type == "dna"]
-    protein_sequences = [seq for (seq,) in input_sequences if seq.sequence_type == "protein"]
+    # Build per-index result placeholders to preserve original order
+    final_results: list[ConstraintOutput | None] = [None] * len(input_sequences)
 
-    dna_scores = []
-    protein_scores = []
+    dna_indices = [i for i, (seq,) in enumerate(input_sequences) if seq.sequence_type == "dna"]
+    protein_indices = [i for i, (seq,) in enumerate(input_sequences) if seq.sequence_type == "protein"]
 
-    if dna_sequences:
-        # For DNA sequences: predict proteins first, get predicted proteins using Prodigal
+    if dna_indices:
+        dna_sequences = [input_sequences[i][0] for i in dna_indices]
         prodigal_input = ProdigalInput(input_sequences=[seq.sequence for seq in dna_sequences])
         prodigal_config = ProdigalConfig()
         batch_result = run_prodigal_prediction(inputs=prodigal_input, config=prodigal_config)
 
-        # Process each DNA sequence's results
-        for input_sequence, proteins_list, num_genes in zip(
-            dna_sequences, batch_result.predicted_orfs, batch_result.num_orfs_per_sequence, strict=False
+        for original_idx, proteins_list, num_genes in zip(
+            dna_indices, batch_result.predicted_orfs, batch_result.num_orfs_per_sequence, strict=False
         ):
             orf_dicts = [orf.model_dump() for orf in proteins_list]
-            input_sequence._metadata["prodigal_proteins"] = (
-                store_file(json.dumps(orf_dicts), FileType.JSON) if orf_dicts else None
-            )
-            input_sequence._metadata["prodigal_protein_count"] = num_genes
+            metadata: dict[str, Any] = {
+                "prodigal_proteins": store_file(json.dumps(orf_dicts), FileType.JSON) if orf_dicts else None,
+                "prodigal_protein_count": num_genes,
+            }
 
             if len(proteins_list) == 0:
-                input_sequence._metadata["predicted_protein_count"] = 0
-                input_sequence._metadata["protein_quality_details"] = []
-                dna_scores.append(1.0)
+                metadata["predicted_protein_count"] = 0
+                metadata["protein_quality_details"] = []
+                final_results[original_idx] = ConstraintOutput(score=1.0, metadata=metadata)
                 continue
 
-            # Convert to Sequence objects for batch constraint evaluation
             predicted_protein_seqs = [Sequence(orf.amino_acid_sequence, "protein") for orf in proteins_list]
-            # Convert to input_sequences format for sub-constraints
-            predicted_protein_input_seqs = [(seq,) for seq in predicted_protein_seqs]
+            predicted_protein_input_seqs: list[tuple[Sequence, ...]] = [(seq,) for seq in predicted_protein_seqs]
 
-            quality_scores = {}
+            sub_results = _run_sub_constraints(
+                predicted_protein_input_seqs,
+                length_config,
+                complexity_config,
+                repetitiveness_config,
+                diversity_config,
+                balanced_config,
+            )
 
-            if length_config:
-                quality_scores["length"] = sequence_length_constraint(
-                    predicted_protein_input_seqs, config=length_config
-                )
-
-            if complexity_config:
-                quality_scores["complexity"] = protein_complexity_constraint(
-                    predicted_protein_input_seqs, config=complexity_config
-                )
-
-            if repetitiveness_config:
-                quality_scores["repetitiveness"] = protein_repetitiveness_constraint(
-                    predicted_protein_input_seqs, config=repetitiveness_config
-                )
-
-            if diversity_config:
-                quality_scores["diversity"] = protein_diversity_constraint(
-                    predicted_protein_input_seqs, config=diversity_config
-                )
-
-            if balanced_config:
-                quality_scores["balanced_aas"] = balanced_aa_constraint(
-                    predicted_protein_input_seqs, config=balanced_config
-                )
-
-            # batched averaging
-            if quality_scores:
-                constraint_score_matrix = np.array(list(quality_scores.values()))
+            if sub_results:
+                constraint_score_matrix = np.array([[r.score for r in rs] for rs in sub_results.values()])
                 avg_scores = constraint_score_matrix.mean(axis=0)
             else:
                 avg_scores = np.zeros(len(predicted_protein_seqs))
 
-            # Build details
             protein_quality_details = []
-            for prot_idx, (orf, protein_seq) in enumerate(zip(proteins_list, predicted_protein_seqs, strict=False)):
-                individual_scores = {name: scores[prot_idx] for name, scores in quality_scores.items()}
-
+            for prot_idx, orf in enumerate(proteins_list):
+                individual_scores = {name: rs[prot_idx].score for name, rs in sub_results.items()}
+                protein_metadata: dict[str, Any] = {}
+                for rs in sub_results.values():
+                    protein_metadata.update(rs[prot_idx].metadata)
                 protein_quality_details.append(
                     {
                         "protein_id": orf.id,
                         "length": orf.amino_acid_length,
                         "avg_constraint_score": float(avg_scores[prot_idx]),
                         "quality_scores": individual_scores,
-                        "metadata": protein_seq._metadata.copy(),
+                        "metadata": protein_metadata,
                     }
                 )
 
             overall_avg_protein_score = float(avg_scores.mean())
+            metadata["predicted_protein_count"] = len(proteins_list)
+            metadata["avg_constraint_score"] = overall_avg_protein_score
+            metadata["protein_quality_details"] = protein_quality_details
 
-            # Store metadata
-            input_sequence._metadata["predicted_protein_count"] = len(proteins_list)
-            input_sequence._metadata["avg_constraint_score"] = overall_avg_protein_score
-            input_sequence._metadata["protein_quality_details"] = protein_quality_details
-
-            dna_scores.append(float(np.clip(overall_avg_protein_score, 0.0, 1.0)))
-
-    if protein_sequences:
-        # Convert to input_sequences format for sub-constraints
-        protein_input_seqs = [(seq,) for seq in protein_sequences]
-
-        quality_scores = {}
-
-        if length_config:
-            quality_scores["length"] = sequence_length_constraint(protein_input_seqs, config=length_config)
-
-        if complexity_config:
-            quality_scores["complexity"] = protein_complexity_constraint(protein_input_seqs, config=complexity_config)
-
-        if repetitiveness_config:
-            quality_scores["repetitiveness"] = protein_repetitiveness_constraint(
-                protein_input_seqs, config=repetitiveness_config
+            final_results[original_idx] = ConstraintOutput(
+                score=float(np.clip(overall_avg_protein_score, 0.0, 1.0)),
+                metadata=metadata,
             )
 
-        if diversity_config:
-            quality_scores["diversity"] = protein_diversity_constraint(protein_input_seqs, config=diversity_config)
+    if protein_indices:
+        protein_input_seqs = [input_sequences[i] for i in protein_indices]
+        sub_results = _run_sub_constraints(
+            protein_input_seqs,
+            length_config,
+            complexity_config,
+            repetitiveness_config,
+            diversity_config,
+            balanced_config,
+        )
 
-        if balanced_config:
-            quality_scores["balanced_aas"] = balanced_aa_constraint(protein_input_seqs, config=balanced_config)
-
-        if quality_scores:
-            constraint_score_matrix = np.array(list(quality_scores.values()))
+        if sub_results:
+            constraint_score_matrix = np.array([[r.score for r in rs] for rs in sub_results.values()])
             avg_scores = constraint_score_matrix.mean(axis=0)
         else:
-            avg_scores = np.zeros(len(protein_sequences))
+            avg_scores = np.zeros(len(protein_input_seqs))
 
-        protein_scores = np.clip(avg_scores, 0.0, 1.0).tolist()
+        clipped_scores = np.clip(avg_scores, 0.0, 1.0)
+        for local_idx, original_idx in enumerate(protein_indices):
+            individual_scores = {name: rs[local_idx].score for name, rs in sub_results.items()}
+            final_results[original_idx] = ConstraintOutput(
+                score=float(clipped_scores[local_idx]),
+                metadata={
+                    "protein_quality_scores": individual_scores,
+                    "avg_constraint_score": float(avg_scores[local_idx]),
+                },
+            )
 
-        # Store metadata
-        for seq_idx, input_sequence in enumerate(protein_sequences):
-            individual_scores = {name: scores[seq_idx] for name, scores in quality_scores.items()}
+    assert all(r is not None for r in final_results)  # noqa: S101 -- mypy narrowing
+    return [r for r in final_results if r is not None]
 
-            input_sequence._metadata["protein_quality_scores"] = individual_scores
-            input_sequence._metadata["avg_constraint_score"] = float(avg_scores[seq_idx])
 
-    final_scores = []
-    dna_idx = 0
-    protein_idx = 0
-
-    for (seq,) in input_sequences:
-        if seq.sequence_type == "dna":
-            final_scores.append(dna_scores[dna_idx])
-            dna_idx += 1
-        else:
-            final_scores.append(protein_scores[protein_idx])
-            protein_idx += 1
-
-    return final_scores
+def _run_sub_constraints(
+    input_seqs: list[tuple[Sequence, ...]],
+    length_config: SequenceLengthConfig | None,
+    complexity_config: ProteinComplexityConfig | None,
+    repetitiveness_config: ProteinRepetitivenessConfig | None,
+    diversity_config: ProteinDiversityConfig | None,
+    balanced_config: BalancedAaConfig | None,
+) -> dict[str, list[ConstraintOutput]]:
+    """Invoke enabled sub-constraints on the given inputs and return results per name."""
+    sub_results: dict[str, list[ConstraintOutput]] = {}
+    if length_config:
+        sub_results["length"] = sequence_length_constraint(input_seqs, config=length_config)
+    if complexity_config:
+        sub_results["complexity"] = protein_complexity_constraint(input_seqs, config=complexity_config)
+    if repetitiveness_config:
+        sub_results["repetitiveness"] = protein_repetitiveness_constraint(input_seqs, config=repetitiveness_config)
+    if diversity_config:
+        sub_results["diversity"] = protein_diversity_constraint(input_seqs, config=diversity_config)
+    if balanced_config:
+        sub_results["balanced_aas"] = balanced_aa_constraint(input_seqs, config=balanced_config)
+    return sub_results

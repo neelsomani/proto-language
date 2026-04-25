@@ -51,7 +51,7 @@ from proto_language.language.core import (
     PROTEIN_AMINO_ACIDS,
     Constraint,
     Construct,
-    GradientResult,
+    GradientConstraintOutput,
     Program,
     Segment,
     Sequence,
@@ -688,7 +688,7 @@ def make_cdr_masked_ablang_backward(cdr_positions: list[int]) -> Any:
         mask = np.zeros(gradient.shape[0], dtype=bool)
         mask[cdr_index] = True
         gradient[~mask] = 0.0
-        return GradientResult(
+        return GradientConstraintOutput(
             gradient=(gradient,),
             loss=result.loss,
             metrics=result.metrics,

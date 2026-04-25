@@ -95,8 +95,8 @@ class TestScoreCalculations:
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=metric_value, ptm=0.8)])
 
-            scores = structure_plddt_constraint(proposals, config)
-            assert abs(scores[0] - expected_score) < 1e-9
+            results = structure_plddt_constraint(proposals, config)
+            assert abs(results[0].score - expected_score) < 1e-9
 
     @pytest.mark.parametrize(
         "metric_value,expected_score",
@@ -118,8 +118,8 @@ class TestScoreCalculations:
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=metric_value, ptm=0.8)])
 
-            scores = structure_plddt_constraint(proposals, config)
-            assert abs(scores[0] - expected_score) < 1e-9
+            results = structure_plddt_constraint(proposals, config)
+            assert abs(results[0].score - expected_score) < 1e-9
 
     @pytest.mark.parametrize(
         "metric_value,expected_score",
@@ -140,8 +140,8 @@ class TestScoreCalculations:
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=metric_value)])
 
-            scores = structure_ptm_constraint(proposals, config)
-            assert abs(scores[0] - expected_score) < 1e-9
+            results = structure_ptm_constraint(proposals, config)
+            assert abs(results[0].score - expected_score) < 1e-9
 
     @pytest.mark.parametrize(
         "metric_value,expected_score",
@@ -164,8 +164,8 @@ class TestScoreCalculations:
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)]
             )
 
-            scores = structure_iptm_constraint(proposals, config)
-            assert abs(scores[0] - expected_score) < 1e-9
+            results = structure_iptm_constraint(proposals, config)
+            assert abs(results[0].score - expected_score) < 1e-9
 
     @pytest.mark.parametrize(
         "metric_value,expected_score",
@@ -188,8 +188,8 @@ class TestScoreCalculations:
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)]
             )
 
-            scores = structure_iptm_constraint(proposals, config)
-            assert abs(scores[0] - expected_score) < 1e-9
+            results = structure_iptm_constraint(proposals, config)
+            assert abs(results[0].score - expected_score) < 1e-9
 
     @pytest.mark.parametrize(
         "metric_value,expected_score",
@@ -212,8 +212,8 @@ class TestScoreCalculations:
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)]
             )
 
-            scores = structure_iptm_constraint(proposals, config)
-            assert abs(scores[0] - expected_score) < 1e-9
+            results = structure_iptm_constraint(proposals, config)
+            assert abs(results[0].score - expected_score) < 1e-9
 
     @pytest.mark.parametrize(
         "metric_value,expected_score",
@@ -235,8 +235,8 @@ class TestScoreCalculations:
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=metric_value)]
             )
 
-            scores = structure_pae_constraint(proposals, config)
-            assert abs(scores[0] - expected_score) < 1e-9
+            results = structure_pae_constraint(proposals, config)
+            assert abs(results[0].score - expected_score) < 1e-9
 
 
 # ============================================================================
@@ -307,10 +307,10 @@ class TestToolDispatching:
                 [make_mock_structure(avg_plddt=90.0, ptm=0.8, iptm=0.7, avg_pae=8.5)]
             )
 
-            scores = structure_plddt_constraint(proposals, config)
+            results = structure_plddt_constraint(proposals, config)
 
             mock_predict.assert_called_once()
-            assert scores[0] == pytest.approx(0.1)
+            assert results[0].score == pytest.approx(0.1)
 
 
 # ============================================================================
@@ -512,12 +512,12 @@ class TestMultimerSupport:
                 ]
             )
 
-            scores = structure_plddt_constraint(proposals, config)
+            results = structure_plddt_constraint(proposals, config)
 
-            assert len(scores) == 3
-            assert scores[0] == pytest.approx(0.1)  # 1 - 0.9
-            assert scores[1] == pytest.approx(0.15)  # 1 - 0.85
-            assert scores[2] == pytest.approx(0.12)  # 1 - 0.88
+            assert len(results) == 3
+            assert results[0].score == pytest.approx(0.1)  # 1 - 0.9
+            assert results[1].score == pytest.approx(0.15)  # 1 - 0.85
+            assert results[2].score == pytest.approx(0.12)  # 1 - 0.88
 
     def test_entity_types_correctly_set(self, protein_sequence):
         """Test that entity types are correctly inferred from sequences."""
@@ -635,7 +635,7 @@ class TestMetadataStorage:
     """Test that results are correctly stored in sequence metadata."""
 
     def test_plddt_metadata_storage(self, protein_sequence):
-        """Test that pLDDT and related metadata is stored."""
+        """Test that pLDDT and related metadata is carried on the result."""
         proposals = [(protein_sequence,)]
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
@@ -644,9 +644,7 @@ class TestMetadataStorage:
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.92, ptm=0.88)])
 
-            structure_plddt_constraint(proposals, config)
-
-            metadata = protein_sequence._metadata
+            metadata = structure_plddt_constraint(proposals, config)[0].metadata
             assert metadata["avg_plddt"] == 0.92
             # pdb_output is now a file reference
             assert is_file_reference(metadata["pdb_output"])
@@ -654,7 +652,7 @@ class TestMetadataStorage:
             assert metadata["structure_tool"] == "esmfold"
 
     def test_ptm_metadata_storage(self, protein_sequence):
-        """Test that pTM constraint stores ptm in metadata."""
+        """Test that pTM constraint carries ptm in result metadata."""
         proposals = [(protein_sequence,)]
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
@@ -663,14 +661,12 @@ class TestMetadataStorage:
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=0.85)])
 
-            structure_ptm_constraint(proposals, config)
-
-            metadata = protein_sequence._metadata
+            metadata = structure_ptm_constraint(proposals, config)[0].metadata
             assert metadata["ptm"] == 0.85
             assert metadata["structure_tool"] == "esmfold"
 
     def test_iptm_metadata_storage(self, protein_sequence, protein_sequence_b):
-        """Test that ipTM constraint stores iptm in metadata."""
+        """Test that ipTM constraint carries iptm in result metadata."""
         proposals = [(protein_sequence, protein_sequence_b)]
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
@@ -681,15 +677,12 @@ class TestMetadataStorage:
                 [make_mock_structure(avg_plddt=90.0, ptm=0.85, iptm=0.78, avg_pae=8.2)]
             )
 
-            structure_iptm_constraint(proposals, config)
-
-            # Metadata should be on first sequence in tuple
-            metadata = protein_sequence._metadata
+            metadata = structure_iptm_constraint(proposals, config)[0].metadata
             assert metadata["iptm"] == 0.78
             assert metadata["structure_tool"] == "alphafold3"
 
     def test_pae_metadata_storage(self, protein_sequence):
-        """Test that pAE constraint stores avg_pae in metadata."""
+        """Test that pAE constraint carries avg_pae in result metadata."""
         proposals = [(protein_sequence,)]
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
@@ -700,19 +693,16 @@ class TestMetadataStorage:
                 [make_mock_structure(avg_plddt=90.0, ptm=0.85, iptm=0.78, avg_pae=8.8)]
             )
 
-            structure_pae_constraint(proposals, config)
-
-            metadata = protein_sequence._metadata
+            metadata = structure_pae_constraint(proposals, config)[0].metadata
             assert metadata["avg_pae"] == 8.8
 
-    def test_metadata_on_first_sequence_in_tuple(self, protein_sequence, protein_sequence_b):
-        """Test that metadata is attached to first sequence in tuple only."""
-        proposals = [(protein_sequence, protein_sequence_b)]
-        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
+    def test_structure_attached_to_first_input_only(self, protein_sequence, protein_sequence_b):
+        """Test that predicted structure is attached to slot 0 only via Constraint.evaluate()."""
+        from proto_language.language.core import Constraint, Segment
 
-        # Clear any existing metadata
-        protein_sequence._metadata = {}
-        protein_sequence_b._metadata = {}
+        seg_a = Segment(sequence=protein_sequence.sequence, sequence_type="protein")
+        seg_b = Segment(sequence=protein_sequence_b.sequence, sequence_type="protein")
+        config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
             "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
@@ -720,15 +710,15 @@ class TestMetadataStorage:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, ptm=0.85, iptm=0.78, avg_pae=8.2)]
             )
+            Constraint(
+                inputs=[seg_a, seg_b],
+                function=structure_plddt_constraint,
+                function_config=config,
+            ).evaluate()
 
-            structure_plddt_constraint(proposals, config)
-
-            # First sequence should have metadata
-            assert "avg_plddt" in protein_sequence._metadata
-            assert "pdb_output" in protein_sequence._metadata
-
-            # Second sequence should NOT have metadata (or have empty)
-            assert "avg_plddt" not in protein_sequence_b._metadata
+            # Slot 0 got the predicted structure; slot 1 did not.
+            assert seg_a.proposal_sequences[0].structure is not None
+            assert seg_b.proposal_sequences[0].structure is None
 
 
 # ============================================================================
@@ -780,9 +770,9 @@ class TestErrorHandling:
             with caplog.at_level(
                 "WARNING", logger="proto_language.language.constraint.protein_structure.structure_confidence_constraint"
             ):
-                scores = structure_plddt_constraint(proposals, config)
+                results = structure_plddt_constraint(proposals, config)
 
-            assert scores[0] == 1.0
+            assert results[0].score == 1.0
             assert "Metric 'avg_plddt' not found in structure output" in caplog.text
 
     def test_empty_proposals_returns_empty_scores(self):
@@ -795,9 +785,9 @@ class TestErrorHandling:
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([])
 
-            scores = structure_plddt_constraint(proposals, config)
+            results = structure_plddt_constraint(proposals, config)
 
-            assert scores == []
+            assert results == []
 
     def test_batch_with_partial_failure(self, protein_sequence, protein_sequence_b, caplog):
         """Test batch where some predictions have missing metrics."""
@@ -820,11 +810,11 @@ class TestErrorHandling:
             with caplog.at_level(
                 "WARNING", logger="proto_language.language.constraint.protein_structure.structure_confidence_constraint"
             ):
-                scores = structure_plddt_constraint(proposals, config)
+                results = structure_plddt_constraint(proposals, config)
 
-            assert len(scores) == 2
-            assert scores[0] == pytest.approx(0.1)  # Good result
-            assert scores[1] == 1.0  # Missing metric
+            assert len(results) == 2
+            assert results[0].score == pytest.approx(0.1)  # Good result
+            assert results[1].score == 1.0  # Missing metric
             assert "Metric 'avg_plddt' not found in structure output" in caplog.text
 
 
@@ -889,16 +879,16 @@ class TestIntegrationScenarios:
             )
 
             # Get ipTM score for interface quality
-            iptm_scores = structure_iptm_constraint(proposals, config)
+            iptm_results = structure_iptm_constraint(proposals, config)
 
-            assert iptm_scores[0] == pytest.approx(0.25)  # 1 - 0.75
-            assert protein_sequence._metadata["iptm"] == 0.75
+            assert iptm_results[0].score == pytest.approx(0.25)  # 1 - 0.75
+            assert iptm_results[0].metadata["iptm"] == 0.75
 
     def test_compare_multiple_tools_same_sequence(self, protein_sequence):
         """Test comparing predictions from different tools."""
         proposals = [(protein_sequence,)]
 
-        results = {}
+        scores_by_tool: dict[str, float] = {}
         for tool in ["esmfold", "alphafold3", "boltz2", "chai1"]:
             config = StructureBasedConstraintConfig(structure_tool=tool)
 
@@ -911,14 +901,14 @@ class TestIntegrationScenarios:
                     [make_mock_structure(avg_plddt=plddt, ptm=0.8, iptm=0.7, avg_pae=8.2)]
                 )
 
-                scores = structure_plddt_constraint(proposals, config)
-                results[tool] = scores[0]
+                results = structure_plddt_constraint(proposals, config)
+                scores_by_tool[tool] = results[0].score
 
         # Verify different tools give different scores
-        assert results["esmfold"] == pytest.approx(0.15)
-        assert results["alphafold3"] == pytest.approx(0.08)
-        assert results["boltz2"] == pytest.approx(0.12)
-        assert results["chai1"] == pytest.approx(0.10)
+        assert scores_by_tool["esmfold"] == pytest.approx(0.15)
+        assert scores_by_tool["alphafold3"] == pytest.approx(0.08)
+        assert scores_by_tool["boltz2"] == pytest.approx(0.12)
+        assert scores_by_tool["chai1"] == pytest.approx(0.10)
 
     def test_screening_multiple_proposals(self, protein_sequence, protein_sequence_b):
         """Test screening multiple proposal complexes."""
@@ -954,11 +944,11 @@ class TestIntegrationScenarios:
                 ]
             )
 
-            scores = structure_iptm_constraint(proposals, config)
+            results = structure_iptm_constraint(proposals, config)
 
-            assert len(scores) == 5
+            assert len(results) == 5
             # Best proposal (highest ipTM = lowest score)
-            best_idx = scores.index(min(scores))
+            best_idx = [r.score for r in results].index(min(r.score for r in results))
             assert best_idx == 0  # First proposal had ipTM=0.85
 
 
@@ -994,8 +984,8 @@ class TestStructureComposite:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=plddt, iptm=iptm, ptm=ptm, avg_pae=pae)]
             )
-            [score] = structure_composite_constraint(proposals, config)
-            assert abs(score - expected) < 1e-9
+            [result] = structure_composite_constraint(proposals, config)
+            assert abs(result.score - expected) < 1e-9
 
     def test_composite_missing_metric_returns_worst(self, protein_sequence, protein_sequence_b):
         """If the tool omits any of the four metrics (e.g. degenerate single-chain input, missing ``iptm``)."""
@@ -1008,8 +998,8 @@ class TestStructureComposite:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.7, avg_pae=3.0)]  # iptm absent
             )
-            [score] = structure_composite_constraint(proposals, config)
-            assert score == 1.0
+            [result] = structure_composite_constraint(proposals, config)
+            assert result.score == 1.0
 
     def test_composite_exposes_normalized_metrics_for_post_hoc_thresholding(self, protein_sequence, protein_sequence_b):
         """All four metadata metrics are normalized to ``[0, 1]`` so downstream threshold code is tool-agnostic.
@@ -1025,9 +1015,9 @@ class TestStructureComposite:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, iptm=0.8, ptm=0.7, avg_pae=3.175)]
             )
-            structure_composite_constraint(proposals, config)
+            [result] = structure_composite_constraint(proposals, config)
 
-            meta = protein_sequence._metadata
+            meta = result.metadata
             # AF3 plddt 90.0 -> 0.9; pae 3.175 Å -> 0.1; others already in [0, 1].
             assert meta["composite_avg_plddt"] == pytest.approx(0.9)
             assert meta["composite_iptm"] == pytest.approx(0.8)
@@ -1056,5 +1046,5 @@ class TestStructureComposite:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, iptm=0.8, ptm=0.7, avg_pae=3.0) for _ in range(n)]
             )
-            scores = structure_composite_constraint(proposals, config)
-            assert len(scores) == n and mock_predict.call_count == 1
+            results = structure_composite_constraint(proposals, config)
+            assert len(results) == n and mock_predict.call_count == 1

@@ -8,7 +8,7 @@ from proto_tools import (
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
 
 
@@ -50,7 +50,7 @@ class ProteinComplexityConfig(BaseConfig):
 )
 def protein_complexity_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinComplexityConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate protein sequence complexity using segmasker to detect low-complexity regions.
 
     This constraint function uses NCBI's segmasker tool to identify low-complexity
@@ -73,27 +73,21 @@ def protein_complexity_constraint(
             default: 0.3).
 
     Returns:
-        List[float]: Constraint scores for each sequence, where 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             acceptable complexity (low-complexity fraction at or below threshold)
             and higher values indicate excessive low-complexity content. Scores
             scale linearly with excess low-complexity beyond the threshold, capped
-            at 1.0.
+            at 1.0. ``metadata`` carries:
+
+            - ``low_complexity_fraction``: Float fraction of sequence identified as
+              low-complexity (0.0-1.0)
+            - ``segmasker_lowercase_count``: Integer count of positions masked as low-complexity
+            - ``segmasker_error``: Boolean indicating if segmasker execution failed
 
     Raises:
         AssertionError: If any sequence in the input list is not a protein sequence.
         ValueError: If segmasker execution fails (e.g., segmasker not found in PATH,
             invalid sequence format, or tool error).
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
-
-        - ``low_complexity_fraction``: Float fraction of sequence identified as
-          low-complexity (0.0-1.0)
-        - ``segmasker_lowercase_count``: Integer count of positions masked as low-complexity
-        - ``segmasker_error``: Boolean indicating if segmasker execution failed
-        - ``segmasker_error_message``: Error message if execution failed (only
-          present when segmasker_error is True)
 
     Examples:
         Evaluating protein complexity:
@@ -101,37 +95,23 @@ def protein_complexity_constraint(
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinComplexityConfig(max_low_complexity=0.3)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_complexity_constraint([(seq,)], config)
-        >>> print(scores[0])  # 0.0 if low-complexity < 30%
-        >>> print(seq._metadata["low_complexity_fraction"])  # e.g., 0.15
-        >>> print(seq._metadata["segmasker_lowercase_count"])  # e.g., 5
+        >>> results = protein_complexity_constraint([(seq,)], config)
+        >>> print(results[0].score)  # 0.0 if low-complexity < 30%
+        >>> print(results[0].metadata["low_complexity_fraction"])  # e.g., 0.15
+        >>> print(results[0].metadata["segmasker_lowercase_count"])  # e.g., 5
     """
-    # Extract sequence strings from tuples
     segmasker_inputs = SegmaskerInput(sequences=[seq.sequence for (seq,) in input_sequences])
     segmasker_config = SegmaskerConfig()
 
     result = run_segmasker(inputs=segmasker_inputs, config=segmasker_config)
 
     if not result.success:
-        # Tool failed - store error metadata in all sequences and raise
-        scores = []
         error_msg = result.errors[0] if result.errors else "Unknown segmasker error"
-
-        for (seq,) in input_sequences:
-            seq._metadata["low_complexity_fraction"] = 0.0
-            seq._metadata["segmasker_lowercase_count"] = 0
-            seq._metadata["segmasker_error"] = True
-            seq._metadata["segmasker_error_message"] = error_msg
-            scores.append(MAX_ENERGY)
-
         raise ValueError(f"Segmasker analysis failed: {error_msg}")
 
-    scores = []
+    results = []
     for (seq,), metrics in zip(input_sequences, result.results, strict=False):
         low_complexity_fraction = metrics.low_complexity_fraction
-        seq._metadata["low_complexity_fraction"] = low_complexity_fraction
-        seq._metadata["segmasker_lowercase_count"] = int(low_complexity_fraction * len(seq))
-        seq._metadata["segmasker_error"] = False
 
         if low_complexity_fraction <= config.max_low_complexity:
             score = MIN_ENERGY
@@ -139,6 +119,15 @@ def protein_complexity_constraint(
             excess = low_complexity_fraction - config.max_low_complexity
             score = min(MAX_ENERGY, excess / (1.0 - config.max_low_complexity))
 
-        scores.append(score)
+        results.append(
+            ConstraintOutput(
+                score=score,
+                metadata={
+                    "low_complexity_fraction": low_complexity_fraction,
+                    "segmasker_lowercase_count": int(low_complexity_fraction * len(seq)),
+                    "segmasker_error": False,
+                },
+            )
+        )
 
-    return scores
+    return results

@@ -49,7 +49,7 @@ def _match(
         score = structure_rmsd_constraint(
             [(Sequence(proposal_seq, "protein"),)],
             config,
-        )[0]
+        )[0].score
 
     elif constraint == "tmscore":
         config = StructureTMScoreConfig(
@@ -59,7 +59,7 @@ def _match(
         score = structure_tmscore_constraint(
             [(Sequence(proposal_seq, "protein"),)],
             config,
-        )[0]
+        )[0].score
 
     return score
 
@@ -104,7 +104,7 @@ class TestESMFoldRMSDConstraint:
         rmsd = structure_rmsd_constraint(
             [(Sequence(CRO_SEQ, "protein"),)],
             config,
-        )[0]
+        )[0].score
         assert rmsd < EPSILON
 
     def test_pdb_content_target(self):
@@ -122,7 +122,7 @@ class TestESMFoldRMSDConstraint:
         rmsd = structure_rmsd_constraint(
             [(Sequence(CRO_SEQ, "protein"),)],
             config,
-        )[0]
+        )[0].score
         assert rmsd < EPSILON
 
     def test_multichain(self):
@@ -139,7 +139,7 @@ class TestESMFoldRMSDConstraint:
                 )
             ],
             config,
-        )[0]
+        )[0].score
         assert rmsd < EPSILON
 
 
@@ -205,7 +205,7 @@ class TestESMFoldTMscoreConstraint:
         score_raw = structure_tmscore_constraint(
             [(Sequence(CRO_SEQ, "protein"),)],
             config_raw,
-        )[0]
+        )[0].score
 
         assert score_raw < EPSILON
 
@@ -220,7 +220,7 @@ class TestESMFoldTMscoreConstraint:
         score_strict = structure_tmscore_constraint(
             [(Sequence(CRO_SEQ, "protein"),)],
             config_strict,
-        )[0]
+        )[0].score
 
         assert score_strict == 1.0
 
@@ -240,7 +240,7 @@ class TestESMFoldTMscoreConstraint:
                 )
             ],
             config,
-        )[0]
+        )[0].score
 
         assert score < EPSILON
 
@@ -261,7 +261,7 @@ class TestESMFoldTMscoreConstraint:
         score = structure_tmscore_constraint(
             [(Sequence(ROP_SEQ, "protein"),)],
             config,
-        )[0]
+        )[0].score
 
         assert 0.5 - EPSILON < score < 0.5 + EPSILON
 
@@ -299,11 +299,11 @@ class TestESMFoldTMscoreConstraint:
                 tm_score_normalization=mode,
             )
 
-            scores = structure_tmscore_constraint([(Sequence("AAA", "protein"),)], config)
+            results = structure_tmscore_constraint([(Sequence("AAA", "protein"),)], config)
 
             # Constraint returns 1.0 - TMscore
             expected_constraint_score = 1.0 - expected_tm
-            assert scores[0] == pytest.approx(expected_constraint_score), f"Failed for mode: {mode}"
+            assert results[0].score == pytest.approx(expected_constraint_score), f"Failed for mode: {mode}"
 
 
 @pytest.mark.slow
@@ -340,5 +340,5 @@ class TestSlowStructurePredictorSimilarityConstraint:
                 )
             ],
             config,
-        )[0]
+        )[0].score
         assert rmsd < EPSILON

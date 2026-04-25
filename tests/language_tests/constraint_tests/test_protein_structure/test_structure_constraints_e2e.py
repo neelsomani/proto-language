@@ -143,19 +143,21 @@ class TestStructureConstraintsProteinLigandComplex:
             )
 
         # Run constraint
-        scores = constraint_fn(proposals, config)
+        results = constraint_fn(proposals, config)
 
         # Verify score structure
-        assert len(scores) == 1, f"{constraint_name}: Expected 1 score"
-        assert isinstance(scores[0], float), f"{constraint_name}: Score should be float"
-        assert 0.0 <= scores[0] <= 1.0, f"{constraint_name}: Score should be in [0, 1]"
+        assert len(results) == 1, f"{constraint_name}: Expected 1 result"
+        assert isinstance(results[0].score, float), f"{constraint_name}: Score should be float"
+        assert 0.0 <= results[0].score <= 1.0, f"{constraint_name}: Score should be in [0, 1]"
 
         # For self-similarity tests (RMSD and TM-score), expect near-perfect scores
         if constraint_name in ["rmsd", "tmscore"]:
-            assert scores[0] < 0.1, f"{constraint_name}: Self-similarity should yield score < 0.1, got {scores[0]}"
+            assert results[0].score < 0.1, (
+                f"{constraint_name}: Self-similarity should yield score < 0.1, got {results[0].score}"
+            )
 
-        # Verify metadata was stored (on first sequence in tuple)
-        metadata = protein_sequence._metadata
+        # Verify metadata was stored on the returned result
+        metadata = results[0].metadata
         for key in expected_metadata_keys:
             assert key in metadata, f"{constraint_name}: Missing metadata key '{key}'"
 

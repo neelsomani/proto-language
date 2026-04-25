@@ -4,7 +4,7 @@ import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY
 
 
@@ -51,7 +51,7 @@ class ProteinDiversityConfig(BaseConfig):
 )
 def protein_diversity_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinDiversityConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate amino acid diversity in protein sequences.
 
     This constraint function measures the diversity of amino acid types present
@@ -68,26 +68,23 @@ def protein_diversity_constraint(
             ``min_diversity`` (minimum acceptable amino acid diversity, default: 0.5).
 
     Returns:
-        List[float]: Constraint scores for each sequence, where 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             sufficient diversity (diversity at or above threshold) and higher
             values indicate insufficient amino acid diversity. Scores scale
             linearly with the deficit below the threshold (e.g., if min_diversity
             is 0.5 and actual diversity is 0.25, the score is 0.5), capped at 1.0.
+            ``metadata`` carries:
+
+            - ``aa_diversity_score``: Float diversity score (0.0-1.0) calculated as
+              (unique amino acids) / 20
+            - ``unique_amino_acid_count``: Integer count of unique amino acid types
+              present in the sequence (0-20)
+            - ``unique_amino_acids``: Sorted list of amino acid characters present
+              in the sequence
 
     Raises:
         AssertionError: If any sequence in the input list is not a protein sequence.
         ValueError: If any sequence has length 0 (empty sequence).
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary with the following keys:
-
-        - ``aa_diversity_score``: Float diversity score (0.0-1.0) calculated as
-          (unique amino acids) / 20
-        - ``unique_amino_acid_count``: Integer count of unique amino acid types
-          present in the sequence (0-20)
-        - ``unique_amino_acids``: Sorted list of amino acid characters present
-          in the sequence
 
     Examples:
         Evaluating protein diversity:
@@ -95,11 +92,11 @@ def protein_diversity_constraint(
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> config = ProteinDiversityConfig(min_diversity=0.5)
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
-        >>> scores = protein_diversity_constraint([(seq,)], config)
-        >>> print(scores[0])  # 0.0 if diversity >= 0.5
-        >>> print(seq._metadata["aa_diversity_score"])  # e.g., 0.65
-        >>> print(seq._metadata["unique_amino_acid_count"])  # e.g., 13
-        >>> print(seq._metadata["unique_amino_acids"])  # e.g., ['A', 'D', 'E', 'F', ...]
+        >>> results = protein_diversity_constraint([(seq,)], config)
+        >>> print(results[0].score)  # 0.0 if diversity >= 0.5
+        >>> print(results[0].metadata["aa_diversity_score"])  # e.g., 0.65
+        >>> print(results[0].metadata["unique_amino_acid_count"])  # e.g., 13
+        >>> print(results[0].metadata["unique_amino_acids"])  # e.g., ['A', 'D', 'E', 'F', ...]
     """
     # Extract sequence strings from tuples
     seq_strings = [seq.sequence for (seq,) in input_sequences]
@@ -118,10 +115,14 @@ def protein_diversity_constraint(
         below_threshold = diversity_scores < config.min_diversity
         scores_array[below_threshold] = np.minimum(MAX_ENERGY, deficits[below_threshold] / config.min_diversity)
 
-    # Store metadata
-    for i, (input_sequence,) in enumerate(input_sequences):
-        input_sequence._metadata["aa_diversity_score"] = float(diversity_scores[i])
-        input_sequence._metadata["unique_amino_acid_count"] = int(unique_aa_counts[i])
-        input_sequence._metadata["unique_amino_acids"] = sorted(set(seq_strings[i]))
-
-    return scores_array.tolist()  # type: ignore[no-any-return]
+    return [
+        ConstraintOutput(
+            score=float(scores_array[i]),
+            metadata={
+                "aa_diversity_score": float(diversity_scores[i]),
+                "unique_amino_acid_count": int(unique_aa_counts[i]),
+                "unique_amino_acids": sorted(set(seq_strings[i])),
+            },
+        )
+        for i in range(len(input_sequences))
+    ]

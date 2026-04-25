@@ -21,6 +21,7 @@ from proto_language.language.constraint.rna_secondary_structure import (
 )
 from proto_language.language.core import (
     Constraint,
+    ConstraintOutput,
     Construct,
     Program,
     Segment,
@@ -90,33 +91,21 @@ class Evo2RNAConstraintConfig(BaseConfig):
     category="rna_secondary_structure",
 )
 def _evo2_rna_constraint_wrapper(
-    sequences: list[Sequence],
+    input_sequences: list[tuple[Sequence, ...]],
     config: Evo2RNAConstraintConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """
     Wrap the RNA secondary structure constraints to ensure that the outputs of
     Evo 2 are compatible. For example, remove the ICL sep tokens and turn the DNA
     into an RNA sequence ('T' -> 'U').
     """
     # Process Evo 2 output into RNA.
-    new_sequences = []
-    for idx, sequence in enumerate(sequences):
+    new_inputs: list[tuple[Sequence, ...]] = []
+    for (sequence,) in input_sequences:
         new_seq = sequence.sequence.split(SEP_SEQUENCE)[0].upper().replace("T", "U")
-        new_sequences.append(
-            Sequence(
-                sequence=new_seq,
-                sequence_type="rna",
-            )
-        )
+        new_inputs.append((Sequence(sequence=new_seq, sequence_type="rna"),))
 
-    # Actually evaluate the constraint.
-    results = config.constraint_func(new_sequences, config.constraint_config)
-
-    # Propagate metadata.
-    for sequence, new_sequence in zip(sequences, new_sequences):
-        sequence.metadata.update(new_sequence.metadata)
-
-    return results
+    return config.constraint_func(new_inputs, config.constraint_config)
 
 
 class RNAPairwiseSimilarityConfig(BaseConfig):
@@ -146,21 +135,19 @@ class RNAPairwiseSimilarityConfig(BaseConfig):
     category="sequence_composition",
 )
 def rna_pairwise_similarity_constraint(
-    sequences: list[Sequence],
+    input_sequences: list[tuple[Sequence, ...]],
     config: RNAPairwiseSimilarityConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """
     Compute similarity of proposal RNA sequences to a reference.
 
     Greater novelty (lower similarity) is considered better.
     """
-    results = []
-    for sequence in sequences:
+    results: list[ConstraintOutput] = []
+    for (sequence,) in input_sequences:
         similarity = _compute_rna_similarity(sequence.sequence, config.reference_sequence)
-        if similarity < 0.7:
-            results.append(float("inf"))
-        else:
-            results.append(similarity)
+        score = float("inf") if similarity < 0.7 else similarity
+        results.append(ConstraintOutput(score=score, metadata={"pairwise_similarity": similarity}))
     return results
 
 

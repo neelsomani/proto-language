@@ -4,7 +4,7 @@ from pydantic import model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import (
     calculate_normalized_deviation,
     calculate_range_deviation,
@@ -98,7 +98,7 @@ class SequenceLengthConfig(BaseConfig):
 )
 def sequence_length_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: SequenceLengthConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate sequence length against target value or acceptable range.
 
     This constraint function evaluates whether sequences have appropriate lengths.
@@ -114,65 +114,66 @@ def sequence_length_constraint(
             for target mode. Cannot specify both modes simultaneously.
 
     Returns:
-        List[float]: Constraint scores for each sequence. A score of 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             the sequence meets the length requirement (within range or at target).
             Higher scores indicate greater deviation:
+
             - **Range mode**: Linear penalty based on distance outside [min, max].
               Score = 0.0 if within range, else proportional to deviation distance.
             - **Target mode**: Normalized penalty as |actual - target| / target.
               For example, 10% deviation from target yields score ~0.1.
 
+            ``metadata`` carries:
+
+            **For range mode:**
+
+            - ``length``: Integer actual sequence length
+            - ``length_mode``: String "range"
+            - ``length_min``: Integer minimum acceptable length
+            - ``length_max``: Integer maximum acceptable length
+
+            **For target mode:**
+
+            - ``length``: Integer actual sequence length
+            - ``length_mode``: String "target"
+            - ``length_target``: Integer target length
+
     Raises:
         ValueError: If the input list is empty, or if configuration is
             invalid (neither mode specified, both modes specified, or min > max).
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by mode:
-
-        **For range mode:**
-        - ``length``: Integer actual sequence length
-        - ``length_mode``: String "range"
-        - ``length_min``: Integer minimum acceptable length
-        - ``length_max``: Integer maximum acceptable length
-
-        **For target mode:**
-        - ``length``: Integer actual sequence length
-        - ``length_mode``: String "target"
-        - ``length_target``: Integer target length
 
     Examples:
         Range mode (protein):
         >>> seqs = [(Sequence("MVLSP", "protein"),)]
         >>> cfg = SequenceLengthConfig(min_length=4, max_length=10)
-        >>> scores = sequence_length_constraint(seqs, cfg)
+        >>> results = sequence_length_constraint(seqs, cfg)
 
         Target mode (DNA):
         >>> seqs = [(Sequence("ATCGATCG", "dna"),)]
         >>> cfg = SequenceLengthConfig(target_length=8)
-        >>> scores = sequence_length_constraint(seqs, cfg)
+        >>> results = sequence_length_constraint(seqs, cfg)
     """
-    scores = []
+    results = []
     use_range_mode = config.min_length is not None
 
     for (seq,) in input_sequences:
         actual_length = len(seq.sequence)
-        seq._metadata["length"] = actual_length
+        metadata: dict[str, int | str] = {"length": actual_length}
 
         if use_range_mode:
             # Range mode: check if within [min, max]
             assert config.min_length is not None and config.max_length is not None  # noqa: S101 -- mypy type narrowing
             score = calculate_range_deviation(actual_length, config.min_length, config.max_length)
-            seq._metadata["length_mode"] = "range"
-            seq._metadata["length_min"] = config.min_length
-            seq._metadata["length_max"] = config.max_length
+            metadata["length_mode"] = "range"
+            metadata["length_min"] = config.min_length
+            metadata["length_max"] = config.max_length
         else:
             # Target mode: penalize deviation from exact target
             assert config.target_length is not None  # noqa: S101 -- mypy type narrowing
             score = calculate_normalized_deviation(actual_length, config.target_length)
-            seq._metadata["length_mode"] = "target"
-            seq._metadata["length_target"] = config.target_length
+            metadata["length_mode"] = "target"
+            metadata["length_target"] = config.target_length
 
-        scores.append(score)
+        results.append(ConstraintOutput(score=score, metadata=metadata))
 
-    return scores
+    return results

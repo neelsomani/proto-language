@@ -6,7 +6,7 @@ import numpy as np
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import (
     LOG_BASE,
     MAX_ENERGY,
@@ -53,7 +53,7 @@ class MaxHomopolymerConfig(BaseConfig):
 )
 def max_homopolymer_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: MaxHomopolymerConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Penalize sequences containing homopolymers longer than specified maximum.
 
     This constraint function identifies the longest homopolymer (consecutive run
@@ -73,20 +73,16 @@ def max_homopolymer_constraint(
             (maximum allowed homopolymer length).
 
     Returns:
-        List[float]: Constraint scores for each sequence. A score of 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             no homopolymers exceed the maximum length (pass). Higher scores indicate
-            longer homopolymers with logarithmic scaling.
+            longer homopolymers with logarithmic scaling. ``metadata`` carries:
+
+            - ``max_homopolymer_length``: Integer length of the longest homopolymer
+              found in the sequence. For example, "ATCGAAAAAGTC" would have value 5
+              (for the "AAAAA" run).
 
     Raises:
         ValueError: If the input list is empty.
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary with the following key:
-
-        - ``max_homopolymer_length``: Integer length of the longest homopolymer
-          found in the sequence. For example, "ATCGAAAAAGTC" would have value 5
-          (for the "AAAAA" run).
 
     Examples:
         Avoiding long A/T runs for DNA synthesis:
@@ -94,11 +90,11 @@ def max_homopolymer_constraint(
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> seq = Sequence("ATCGATCGTAGC", "dna")
         >>> config = MaxHomopolymerConfig(max_length=4)
-        >>> scores = max_homopolymer_constraint([(seq,)], config)
-        >>> print(scores[0])  # 0.0 (no runs >4)
-        >>> print(seq._metadata["max_homopolymer_length"])
+        >>> results = max_homopolymer_constraint([(seq,)], config)
+        >>> print(results[0].score)  # 0.0 (no runs >4)
+        >>> print(results[0].metadata["max_homopolymer_length"])
     """
-    scores = []
+    results = []
     for (seq,) in input_sequences:
         if len(seq.sequence) <= 1:
             longest_homopolymer = len(seq.sequence)
@@ -106,13 +102,13 @@ def max_homopolymer_constraint(
             homopolymer_lengths = [len(list(group)) for _, group in itertools.groupby(seq.sequence)]
             longest_homopolymer = max(homopolymer_lengths)
 
-        seq._metadata["max_homopolymer_length"] = longest_homopolymer
-
         if longest_homopolymer <= config.max_length:
-            scores.append(MIN_ENERGY)
+            score = MIN_ENERGY
         else:
             excess_length = longest_homopolymer - config.max_length
             log_ratio = np.log(1 + excess_length / config.max_length) / np.log(LOG_BASE)
-            scores.append(min(MAX_ENERGY, log_ratio))
+            score = min(MAX_ENERGY, log_ratio)
 
-    return scores
+        results.append(ConstraintOutput(score=score, metadata={"max_homopolymer_length": longest_homopolymer}))
+
+    return results

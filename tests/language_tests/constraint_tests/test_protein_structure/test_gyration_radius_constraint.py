@@ -55,10 +55,10 @@ class TestGyrationRadiusConstraint:
 
         with patch(PATCH_TARGET) as mock_run:
             mock_run.return_value = _mock_metrics_output(gyration_radius=30.0)
-            scores = gyration_radius_constraint([(seq,)], config)
+            results = gyration_radius_constraint([(seq,)], config)
 
-        assert len(scores) == 1
-        assert scores[0] == 0.0
+        assert len(results) == 1
+        assert results[0].score == 0.0
 
     def test_above_threshold_penalized(self):
         """Structures above threshold get a proportional penalty."""
@@ -67,11 +67,11 @@ class TestGyrationRadiusConstraint:
 
         with patch(PATCH_TARGET) as mock_run:
             mock_run.return_value = _mock_metrics_output(gyration_radius=60.0)
-            scores = gyration_radius_constraint([(seq,)], config)
+            results = gyration_radius_constraint([(seq,)], config)
 
-        assert len(scores) == 1
+        assert len(results) == 1
         # deviation = (60 - 40) / 40 = 0.5
-        assert scores[0] == 0.5
+        assert results[0].score == 0.5
 
     def test_penalty_clamped_to_one(self):
         """Penalty is clamped to 1.0 for very large radii."""
@@ -81,20 +81,20 @@ class TestGyrationRadiusConstraint:
         with patch(PATCH_TARGET) as mock_run:
             mock_run.return_value = _mock_metrics_output(gyration_radius=60.0)
             # deviation = (60 - 20) / 20 = 2.0, clamped to 1.0
-            scores = gyration_radius_constraint([(seq,)], config)
+            results = gyration_radius_constraint([(seq,)], config)
 
-        assert len(scores) == 1
-        assert scores[0] == 1.0
+        assert len(results) == 1
+        assert results[0].score == 1.0
 
     def test_missing_pdb_path_gets_max_energy(self):
         """Sequences without pdb_path metadata get MAX_ENERGY score."""
         seq = _make_sequence(pdb_path=None)
         config = GyrationRadiusConfig()
 
-        scores = gyration_radius_constraint([(seq,)], config)
+        results = gyration_radius_constraint([(seq,)], config)
 
-        assert len(scores) == 1
-        assert scores[0] == MAX_ENERGY
+        assert len(results) == 1
+        assert results[0].score == MAX_ENERGY
 
     def test_explicit_pdb_paths_config(self):
         """Config-provided pdb_paths override sequence metadata."""
@@ -106,25 +106,25 @@ class TestGyrationRadiusConstraint:
 
         with patch(PATCH_TARGET) as mock_run:
             mock_run.return_value = _mock_metrics_output(gyration_radius=25.0)
-            scores = gyration_radius_constraint([(seq,)], config)
+            results = gyration_radius_constraint([(seq,)], config)
 
-        assert len(scores) == 1
-        assert scores[0] == 0.0
+        assert len(results) == 1
+        assert results[0].score == 0.0
         # Verify the explicit path was used
         call_input = mock_run.call_args[0][0]
         assert call_input.pdb_paths == ["/mock/explicit.pdb"]
 
     def test_stores_metadata(self):
-        """Constraint stores gyration_radius and longest_alpha_helix in metadata."""
+        """Constraint returns gyration_radius and longest_alpha_helix on the result."""
         seq = _make_sequence()
         config = GyrationRadiusConfig(max_gyration_radius=50.0)
 
         with patch(PATCH_TARGET) as mock_run:
             mock_run.return_value = _mock_metrics_output(gyration_radius=30.0, longest_alpha_helix=12)
-            gyration_radius_constraint([(seq,)], config)
+            results = gyration_radius_constraint([(seq,)], config)
 
-        assert seq._metadata["gyration_radius"] == 30.0
-        assert seq._metadata["longest_alpha_helix"] == 12
+        assert results[0].metadata["gyration_radius"] == 30.0
+        assert results[0].metadata["longest_alpha_helix"] == 12
 
     def test_multiple_sequences(self):
         """Constraint handles multiple sequences correctly."""
@@ -152,8 +152,8 @@ class TestGyrationRadiusConstraint:
                 warnings=[],
                 metadata={},
             )
-            scores = gyration_radius_constraint([(seq1,), (seq2,)], config)
+            results = gyration_radius_constraint([(seq1,), (seq2,)], config)
 
-        assert len(scores) == 2
-        assert scores[0] == 0.0  # 30 <= 40
-        assert scores[1] == 0.25  # (50 - 40) / 40 = 0.25
+        assert len(results) == 2
+        assert results[0].score == 0.0  # 30 <= 40
+        assert results[1].score == 0.25  # (50 - 40) / 40 = 0.25

@@ -12,8 +12,8 @@ from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
-from proto_language.language.core import PROTEIN_AMINO_ACIDS, Sequence
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core import PROTEIN_AMINO_ACIDS, ConstraintOutput, Sequence
+from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.utils import one_hot_protein_matrix
 
 
@@ -245,7 +245,7 @@ def af2_binder_backward(
     soft: float,
     hard: float = 0.0,
     **kwargs: Any,  # noqa: ARG001
-) -> GradientResult:
+) -> GradientConstraintOutput:
     """Compute AlphaFold2 binder-design gradient w.r.t. binder logits."""
     binder_seq, target_seq = inputs[0], inputs[1]
     logits = binder_seq.logits
@@ -286,7 +286,7 @@ def af2_binder_backward(
     binder_gradient = np.array(output.gradient, dtype=np.float64)
     target_gradient = np.zeros((len(target_seq.sequence), len(PROTEIN_AMINO_ACIDS)), dtype=np.float64)
     # Each slot gets its own predicted chain — rejoin via Structure.concat (shared AF2 frame).
-    return GradientResult(
+    return GradientConstraintOutput(
         gradient=(binder_gradient, target_gradient),
         loss=output.loss,
         metrics=output.metrics,
@@ -317,7 +317,7 @@ def af2_binder_forward(
     input_sequences: list[tuple[Sequence, ...]],
     *,
     config: AF2BinderForwardConstraintConfig,
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Forward AF2 binder scoring for discrete optimizers.
 
     Args:
@@ -325,10 +325,11 @@ def af2_binder_forward(
         config (AF2BinderForwardConstraintConfig): Binder-design config.
 
     Returns:
-        list[float]: Per-proposal raw AF2 loss; lower is better.
+        list[ConstraintOutput]: Per-proposal raw AF2 loss (lower is better) with AF2 metrics,
+            ``complex_pdb``, and ``loss`` metadata, plus per-slot predicted chains.
     """
-    scores: list[float] = []
-    for binder_seq, target_seq in input_sequences:
+    results: list[ConstraintOutput] = []
+    for binder_seq, _target_seq in input_sequences:
         # Forward-only scoring evaluates AF2 on the exact discrete proposal. Pass a true one-hot
         # matrix and force ColabDesign's STE (hard=1) so the argmax gets through unchanged.
         evaluation_seed = _next_af2_seed(config)
@@ -360,16 +361,20 @@ def af2_binder_forward(
                 compute_gradient=False,
             ),
         )
-
-        binder_seq.structure = output.structure.select_chain(config.binder_chain)
-        target_seq.structure = output.structure.select_chains(config.target_chains)
         # Metrics first so our explicit keys below win on collision.
-        binder_seq._metadata.update(output.metrics)
-        binder_seq._metadata["complex_pdb"] = output.structure.structure_pdb
-        binder_seq._metadata["loss"] = output.loss
-        scores.append(output.loss)
+        metadata = {**output.metrics, "complex_pdb": output.structure.structure_pdb, "loss": output.loss}
+        results.append(
+            ConstraintOutput(
+                score=output.loss,
+                metadata=metadata,
+                structures=(
+                    output.structure.select_chain(config.binder_chain),
+                    output.structure.select_chains(config.target_chains),
+                ),
+            )
+        )
 
-    return scores
+    return results
 
 
 # Germinal semigreedy ranks proposals on the raw AF2 loss, so this intentional

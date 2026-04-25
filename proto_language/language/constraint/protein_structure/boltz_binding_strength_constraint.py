@@ -12,7 +12,7 @@ from proto_tools import (
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 
 # Default target values and tolerances for binding strength metrics
 DEFAULT_DESIRED_HIGHER = {
@@ -223,73 +223,35 @@ class BoltzBindingStrengthConfig(BaseConfig):
 )
 def boltz_binding_strength_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: BoltzBindingStrengthConfig
-) -> float | list[float]:
+) -> list[ConstraintOutput]:
     """Evaluate binding strength and quality using Boltz structure prediction.
 
-    This constraint function uses Boltz to predict complex structures and evaluate
-    binding quality. Boltz predicts structures for protein-protein, protein-ligand,
-    protein-DNA, and protein-RNA complexes, providing confidence metrics that assess
-    interface quality, binding strength, and overall structural accuracy.
-
-    The constraint evaluates multiple Boltz output metrics (iptm, iplddt, ipde,
-    plddt, ptm, confidence_score) against configurable target values and tolerances.
-    Each metric is scored as a penalty (0.0 = meets target, 1.0 = at tolerance limit),
-    then penalties are combined using weighted averaging. Default weights are
-    automatically selected based on complex type (monomer, protein-ligand, or
-    protein-protein).
-
-    Structure prediction is GPU-intensive and may take several minutes per complex
-    depending on size and hardware.
+    Boltz predicts protein-protein, protein-ligand, protein-DNA, and protein-RNA
+    complex structures and returns confidence metrics (iptm, iplddt, ipde, plddt,
+    ptm, confidence_score). Each metric is scored as a penalty in ``[0.0, 1.0]``
+    against configurable targets/tolerances and combined via weighted averaging;
+    default weights are chosen by complex type.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): List of complexes to evaluate,
             where each complex is a tuple of Sequence objects representing the
-            chains/molecules. Examples:
-            - (protein_seq,): Single monomer
-            - (protein_A, protein_B): Protein-protein complex
-            - (protein, dna_seq, protein): Multi-component complex
-            Each Sequence must have appropriate sequence_type (PROTEIN, DNA, or RNA).
+            chains/molecules. Each Sequence must have an appropriate ``sequence_type``.
         config (BoltzBindingStrengthConfig): Configuration object containing target
-            values, tolerances, weights, and Boltz parameters. Uses complex-type-specific
-            defaults if not customized.
+            values, tolerances, weights, and Boltz parameters.
 
     Returns:
-        float | list[float]: Constraint scores for each complex, ranging from 0.0 (perfect
-            binding, all metrics meet targets) to 1.0 (poor binding, metrics at or
-            beyond tolerance limits). The score is either:
-            - Weighted combination of all metric penalties (return_component="total_penalty")
-            - Specific metric penalty (return_component set to metric name)
-            Lower scores indicate stronger, higher-quality predicted binding.
+        list[ConstraintOutput]: Per-complex score in ``[0.0, 1.0]`` (0 = perfect
+            binding). Predicted Boltz structure is attached to the first slot of
+            each complex. ``metadata`` carries ``boltz2_binding`` (a list of
+            dictionaries, one per evaluation):
+
+            - ``penalty``: Float overall constraint score (0.0-1.0)
+            - ``metrics``: Dictionary of all raw Boltz metrics (iptm, iplddt, etc.)
+            - ``penalties``: Dictionary of individual metric penalties before weighting
 
     Raises:
         ValueError: If return_component specifies a metric not available for the
             complex type, or if a metric appears in both desired_higher and desired_lower.
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary. Since complexes contain
-        multiple chains, all sequences in a complex receive the same metadata
-        under the key ``boltz2_binding`` (a list of dictionaries, one per evaluation):
-
-        - ``penalty``: Float overall constraint score (0.0-1.0)
-        - ``metrics``: Dictionary of all raw Boltz metrics (iptm, iplddt, etc.)
-        - ``penalties``: Dictionary of individual metric penalties before weighting
-
-        Multiple evaluations on the same sequence (e.g., in different complexes)
-        append to the list.
-
-    Examples:
-        Evaluating protein complex binding:
-
-        >>> from proto_language.language.core import Sequence, SequenceType
-        >>> protein_a = Sequence("MVLSPADKTNVKAAWGKV", "protein")
-        >>> protein_b = Sequence("QFSKPQRTVLMKALNE", "protein")
-        >>> config = BoltzBindingStrengthConfig()  # Use defaults
-        >>> scores = boltz_binding_strength_constraint([[protein_a, protein_b]], config)
-        >>> print(scores[0])  # e.g., 0.15 (good binding)
-        >>> metadata = protein_a._metadata["boltz2_binding"][0]
-        >>> print(f"iptm: {metadata['metrics']['iptm']:.3f}")
-        >>> print(f"complex_iplddt: {metadata['metrics']['complex_iplddt']:.3f}")
     """
     boltz_complexes = [
         StructurePredictionComplex(
@@ -305,7 +267,7 @@ def boltz_binding_strength_constraint(
     outputs = run_boltz2(inputs=inputs, config=config.boltz2_config)
 
     # Scoring each complex
-    penalties = []
+    results: list[ConstraintOutput] = []
     for seq_obj_tuple, comp, structure in zip(input_sequences, inputs.complexes, outputs.structures, strict=False):
         # Determine complex type
         n_chains = comp.num_chains()
@@ -445,21 +407,18 @@ def boltz_binding_strength_constraint(
                 1.0,
             )
 
-        # Attach structure to first sequence and store metadata for all Sequences in complex
-        if seq_obj_tuple:
-            seq_obj_tuple[0].structure = structure
-        for seq_obj in seq_obj_tuple:
-            seq_obj._metadata.setdefault("boltz2_binding", []).append(
-                {
-                    "penalty": penalty,
-                    "metrics": structure.metrics,
-                    "penalties": penalties_dict,
-                }
+        n = len(seq_obj_tuple)
+        results.append(
+            ConstraintOutput(
+                score=penalty,
+                metadata={
+                    "boltz2_binding": [{"penalty": penalty, "metrics": structure.metrics, "penalties": penalties_dict}]
+                },
+                structures=(structure,) + (None,) * (n - 1),
             )
+        )
 
-        penalties.append(penalty)
-
-    return penalties
+    return results
 
 
 def get_penalty_for_metric(metric_name: str, metric_value: float, config: BoltzBindingStrengthConfig) -> float:

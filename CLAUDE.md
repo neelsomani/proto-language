@@ -12,7 +12,7 @@ proto-language: constraint-based optimization framework for designing biological
 All three language components (constraints, generators, optimizers) use a registry pattern:
 ```python
 @constraint(key="gc-content", label="GC Content", config=GCContentConfig, ...)
-def gc_content_constraint(input_sequences, config) -> List[float]: ...
+def gc_content_constraint(input_sequences, config) -> list[ConstraintOutput]: ...
 
 # Discovery: ConstraintRegistry.list_all(), .get(key), .get_schema(key)
 # Factory:   ConstraintRegistry.create(key, segments, config_dict)
@@ -122,7 +122,7 @@ Google style everywhere. Enforced by `tests/test_docstring_consistency.py`.
       min_gc (float): Minimum acceptable GC content percentage.
 
   Returns:
-      list[float]: Constraint scores for each sequence.
+      list[ConstraintOutput]: One result per input sequence.
   ```
 - **Pydantic classes**: Always include `Attributes:` section with full descriptions. These intentionally duplicate the short `ConfigField(description=...)` strings; field descriptions are short tooltips for the client UI, while docstring descriptions are longer developer-facing explanations.
 

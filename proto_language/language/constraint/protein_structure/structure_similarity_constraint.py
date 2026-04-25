@@ -26,7 +26,7 @@ from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.protein_structure.structure_constraint_config import (
     StructureBasedConstraintConfig,
 )
-from proto_language.language.core import Sequence
+from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.storage import FileType, store_file
 from proto_language.utils import MAX_ENERGY, sigmoid_score
 
@@ -331,7 +331,9 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> str | None:
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
     input_labels=None,
 )
-def structure_rmsd_constraint(input_sequences: list[tuple[Sequence, ...]], config: StructureRMSDConfig) -> list[float]:
+def structure_rmsd_constraint(
+    input_sequences: list[tuple[Sequence, ...]], config: StructureRMSDConfig
+) -> list[ConstraintOutput]:
     """Predicts structure of input proposals and compares RMSD against a target.
 
     Returns a score 0-1 (0 is perfect match).
@@ -340,44 +342,41 @@ def structure_rmsd_constraint(input_sequences: list[tuple[Sequence, ...]], confi
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
         logger.warning("Target preparation failed, returning worst score.")
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
 
     # Prepare proposals.
     structure_complexes = []
     for proposal_tuple in input_sequences:
-        # Extract sequences and types
         chains = [{"sequence": s.sequence, "entity_type": s.sequence_type} for s in proposal_tuple]
         structure_complexes.append(StructurePredictionComplex(chains=chains))
 
-    # Run prediction on proposals.
     try:
-        results = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
+        prediction = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
     except Exception as e:
         logger.error(f"Structure prediction failed: {e}")
-        return [MAX_ENERGY] * len(input_sequences)
+        return [ConstraintOutput(score=MAX_ENERGY) for _ in input_sequences]
 
-    # Compute RMSD scores.
-    scores = []
-    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences, strict=False):
+    results: list[ConstraintOutput] = []
+    for proposal_structure, proposal_tuple in zip(prediction.structures, input_sequences, strict=False):
         rmsd_data = _compute_ce_aligned_rmsd(target_pdb, proposal_structure.structure_pdb)
         rmsd_val = rmsd_data["rmsd"]
 
         score = sigmoid_score(rmsd_val, config.inflection_point_angstroms, config.sigmoid_slope)
 
-        # Attach structure and metadata to the first sequence in the tuple for visibility.
-        if proposal_tuple:
-            proposal_tuple[0].structure = proposal_structure
-            proposal_tuple[0]._metadata.update(
-                {
+        n = len(proposal_tuple)
+        results.append(
+            ConstraintOutput(
+                score=score,
+                metadata={
                     "rmsd_val": rmsd_val,
                     "rmsd_score": score,
                     "pdb_output": store_file(proposal_structure.structure_pdb, FileType.PDB),
-                }
+                },
+                structures=(proposal_structure,) + (None,) * (n - 1),
             )
+        )
 
-        scores.append(score)
-
-    return scores
+    return results
 
 
 def _count_pdb_chains(pdb_text: str) -> int:
@@ -410,7 +409,7 @@ def _count_pdb_chains(pdb_text: str) -> int:
 )
 def structure_tmscore_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureTMScoreConfig
-) -> list[float]:
+) -> list[ConstraintOutput]:
     """Predicts structure and compares TM-score. Returns (1.0 - TMscore).
 
     This constraint automatically selects the appropriate alignment tool based on
@@ -431,26 +430,23 @@ def structure_tmscore_constraint(
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
         logger.warning("Target preparation failed, returning worst score.")
-        return [1.0] * len(input_sequences)
+        return [ConstraintOutput(score=1.0) for _ in input_sequences]
 
     n_target_chains = _count_pdb_chains(target_pdb)
 
-    # Prepare proposals.
     structure_complexes = []
     for proposal_tuple in input_sequences:
         chains = [{"sequence": s.sequence, "entity_type": s.sequence_type} for s in proposal_tuple]
         structure_complexes.append(StructurePredictionComplex(chains=chains))
 
-    # Run prediction on proposals.
     try:
-        results = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
+        prediction = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
     except Exception as e:
         logger.error(f"Structure prediction failed: {e}")
-        return [MAX_ENERGY] * len(input_sequences)
+        return [ConstraintOutput(score=MAX_ENERGY) for _ in input_sequences]
 
-    # Compute TMscores.
-    scores = []
-    for proposal_structure, proposal_tuple in zip(results.structures, input_sequences, strict=False):
+    results: list[ConstraintOutput] = []
+    for proposal_structure, proposal_tuple in zip(prediction.structures, input_sequences, strict=False):
         n_cand_chains = len(proposal_tuple)
 
         # Apply pLDDT filtering at the constraint level before alignment.
@@ -458,7 +454,7 @@ def structure_tmscore_constraint(
         if config.plddt_threshold is not None:
             proposal_pdb = _filter_pdb_by_plddt(proposal_pdb, config.plddt_threshold)
             if not any(line.startswith("ATOM") for line in proposal_pdb.splitlines()):
-                scores.append(1.0)
+                results.append(ConstraintOutput(score=1.0))
                 continue
 
         if n_target_chains == 1 and n_cand_chains == 1:
@@ -471,7 +467,7 @@ def structure_tmscore_constraint(
             )
             if _tmalign_out.success is False:
                 logger.warning(f"TMalign failed: {_tmalign_out.errors}")
-                scores.append(1.0)
+                results.append(ConstraintOutput(score=1.0))
                 continue
             s1, s2 = _tmalign_out.tm_score_chain_1, _tmalign_out.tm_score_chain_2
         else:
@@ -484,7 +480,7 @@ def structure_tmscore_constraint(
             )
             if _usalign_out.success is False:
                 logger.warning(f"USalign failed: {_usalign_out.errors}")
-                scores.append(1.0)
+                results.append(ConstraintOutput(score=1.0))
                 continue
             s1, s2 = _usalign_out.tm_score_structure_1, _usalign_out.tm_score_structure_2
 
@@ -503,16 +499,17 @@ def structure_tmscore_constraint(
 
         score = 1.0 - tm_val
 
-        if proposal_tuple:
-            proposal_tuple[0].structure = proposal_structure
-            proposal_tuple[0]._metadata.update(
-                {
+        n = len(proposal_tuple)
+        results.append(
+            ConstraintOutput(
+                score=score,
+                metadata={
                     "tm_score_raw": tm_val,
                     "tm_score_inverted": score,
                     "pdb_output": store_file(proposal_structure.structure_pdb, FileType.PDB),
-                }
+                },
+                structures=(proposal_structure,) + (None,) * (n - 1),
             )
+        )
 
-        scores.append(score)
-
-    return scores
+    return results

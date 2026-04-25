@@ -12,6 +12,7 @@ from proto_language.language.core import (
     DNA_NUCLEOTIDES,
     PROTEIN_AMINO_ACIDS,
     RNA_NUCLEOTIDES,
+    ConstraintOutput,
     Sequence,
 )
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
@@ -119,7 +120,9 @@ class KmerFrequencyConfig(BaseConfig):
     category="sequence_composition",
     supported_sequence_types=["dna", "rna", "protein"],
 )
-def kmer_frequency_constraint(input_sequences: list[tuple[Sequence, ...]], config: KmerFrequencyConfig) -> list[float]:
+def kmer_frequency_constraint(
+    input_sequences: list[tuple[Sequence, ...]], config: KmerFrequencyConfig
+) -> list[ConstraintOutput]:
     """Evaluate k-mer frequencies or usage deviations with configurable mer length and scoring modes.
 
     This constraint function analyzes k-mer (subsequences of length k) composition
@@ -147,31 +150,29 @@ def kmer_frequency_constraint(input_sequences: list[tuple[Sequence, ...]], confi
             and ``max_value``.
 
     Returns:
-        list[float]: Constraint scores for each sequence. A score of 0.0 indicates
+        list[ConstraintOutput]: One result per sequence. A score of 0.0 indicates
             all k-mer metrics are within the acceptable range [min_value, max_value].
             Higher scores indicate the maximum deviation across all k-mers. The
             penalty scales linearly with deviation distance from the acceptable
-            range, capped at 1.0.
+            range, capped at 1.0. ``metadata`` carries:
+
+            **For frequency mode:**
+
+            - ``{k}mer_frequencies``: Dictionary mapping each k-mer to its frequency
+              (0.0-1.0). For example, ``2mer_frequencies`` for dinucleotides.
+
+            **For usage_deviation mode:**
+
+            - ``{k}mer_usage_deviations``: Dictionary mapping each k-mer to its
+              observed/expected ratio
+
+            **For sequences too short (<k length):**
+
+            - ``{k}mer_data``: Empty dictionary
 
     Raises:
         ValueError: If the input list is empty, or if a sequence is not
             DNA, RNA, or PROTEIN type.
-
-    Note:
-        This function modifies the input sequences by adding metadata to each
-        ``Sequence`` object's ``_metadata`` dictionary. Metadata varies by
-        scoring_mode:
-
-        **For frequency mode:**
-        - ``{k}mer_frequencies``: Dictionary mapping each k-mer to its frequency
-          (0.0-1.0). For example, ``2mer_frequencies`` for dinucleotides.
-
-        **For usage_deviation mode:**
-        - ``{k}mer_usage_deviations``: Dictionary mapping each k-mer to its
-          observed/expected ratio
-
-        **For sequences too short (<k length):**
-        - ``{k}mer_data``: Empty dictionary
 
     Examples:
         Analyzing codon usage (all trinucleotides):
@@ -183,18 +184,17 @@ def kmer_frequency_constraint(input_sequences: list[tuple[Sequence, ...]], confi
         ...     min_value=0.5,  # Allow some underrepresentation
         ...     max_value=2.0,  # Allow some overrepresentation
         ... )
-        >>> scores = kmer_frequency_constraint([(coding_seq,)], config)
-        >>> deviations = coding_seq._metadata["3mer_usage_deviations"]
+        >>> results = kmer_frequency_constraint([(coding_seq,)], config)
+        >>> deviations = results[0].metadata["3mer_usage_deviations"]
         >>> for codon, ratio in sorted(deviations.items(), key=lambda x: x[1], reverse=True):
         ...     print(f"{codon}: {ratio:.2f}x expected")
     """
-    scores = []
+    results: list[ConstraintOutput] = []
 
     for (seq,) in input_sequences:
         # Handle sequences shorter than k
         if len(seq) < config.k:
-            seq._metadata[f"{config.k}mer_data"] = {}
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={f"{config.k}mer_data": {}}))
             continue
 
         # Determine valid characters based on sequence type
@@ -226,8 +226,7 @@ def kmer_frequency_constraint(input_sequences: list[tuple[Sequence, ...]], confi
         valid_kmers = extracted_kmers[valid_mask]
 
         if len(valid_kmers) == 0:
-            seq._metadata[f"{config.k}mer_data"] = {}
-            scores.append(MAX_ENERGY)
+            results.append(ConstraintOutput(score=MAX_ENERGY, metadata={f"{config.k}mer_data": {}}))
             continue
 
         # Count k-mer occurrences
@@ -254,8 +253,7 @@ def kmer_frequency_constraint(input_sequences: list[tuple[Sequence, ...]], confi
             max_dev = deviations.max() if deviations.size > 0 else MAX_ENERGY
             score = float(max_dev)
 
-            # Store frequency metadata
-            seq._metadata[f"{config.k}mer_frequencies"] = {kmers[i]: float(freqs[i]) for i in range(len(kmers))}
+            metadata = {f"{config.k}mer_frequencies": {kmers[i]: float(freqs[i]) for i in range(len(kmers))}}
 
         else:
             # USAGE DEVIATION MODE: usage deviation evaluation
@@ -294,11 +292,10 @@ def kmer_frequency_constraint(input_sequences: list[tuple[Sequence, ...]], confi
             max_dev = deviations.max() if deviations.size > 0 else MAX_ENERGY
             score = float(max_dev)
 
-            # Store usage_deviation metadata for all k-mers
-            seq._metadata[f"{config.k}mer_usage_deviations"] = {
-                kmers[i]: float(usage_deviations[i]) for i in range(len(kmers))
+            metadata = {
+                f"{config.k}mer_usage_deviations": {kmers[i]: float(usage_deviations[i]) for i in range(len(kmers))}
             }
 
-        scores.append(score)
+        results.append(ConstraintOutput(score=score, metadata=metadata))
 
-    return scores
+    return results

@@ -23,13 +23,14 @@ from pydantic import BaseModel
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.core import (
     Constraint,
+    ConstraintOutput,
     Construct,
     Generator,
     Program,
     Segment,
     Sequence,
 )
-from proto_language.language.core.constraint import GradientResult
+from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
@@ -578,18 +579,21 @@ class _GradCfg(BaseModel):
     """Empty config for gradient mock backward."""
 
 
-def _grad_backward(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientResult:
+def _grad_backward(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientConstraintOutput:
     """Mock backward that pushes logits toward alanine."""
     logits = inputs[0].logits
     target = np.zeros_like(logits)
     target[:, 0] = 1.0
     grad = logits - target
-    return GradientResult(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
+    return GradientConstraintOutput(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
 
 
-def _protein_scorer(input_sequences: list[tuple], config: BaseModel) -> list[float]:
+def _protein_scorer(input_sequences: list[tuple], config: BaseModel) -> list[ConstraintOutput]:
     """Mock scorer: fraction of non-A residues (lower is better for A-seeking)."""
-    return [sum(c != "A" for c in seq.sequence) / max(len(seq.sequence), 1) for (seq,) in input_sequences]
+    return [
+        ConstraintOutput(score=sum(c != "A" for c in seq.sequence) / max(len(seq.sequence), 1))
+        for (seq,) in input_sequences
+    ]
 
 
 _protein_scorer._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]

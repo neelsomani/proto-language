@@ -12,7 +12,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Constraint, Segment
-from proto_language.language.core.constraint import GradientResult, InputSlot
+from proto_language.language.core.constraint import GradientConstraintOutput, InputSlot
 
 __all__ = ["ConstraintRegistry", "ConstraintSpec", "InputSlot", "constraint"]
 
@@ -63,8 +63,8 @@ class ConstraintSpec(BaseSpec):
 class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     """Registry for constraint discovery and API/client integration.
 
-    All constraint functions use a standardized signature:
-        (input_sequences: List[Tuple[Sequence, ...]], config) -> List[float]
+    All forward constraint functions use a standardized signature:
+        (input_sequences: list[tuple[Sequence, ...]], config) -> list[ConstraintOutput]
 
     Public Methods:
     - register(): Decorator to register constraint functions
@@ -84,9 +84,11 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         ...     supported_sequence_types=["dna", "rna"],
         ... )
         ... def gc_content_constraint(
-        ...     input_sequences: List[Tuple[Sequence, ...]], config: GCContentConfig
-        ... ) -> List[float]:
-        ...     return [calculate_penalty(seq_tuple[0], config) for seq_tuple in input_sequences]
+        ...     input_sequences: list[tuple[Sequence, ...]], config: GCContentConfig
+        ... ) -> list[ConstraintOutput]:
+        ...     return [
+        ...         ConstraintOutput(score=calculate_penalty(seq_tuple[0], config)) for seq_tuple in input_sequences
+        ...     ]
 
         API/Client Usage:
         >>> # List all available constraints
@@ -128,7 +130,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         """Decorator to register a constraint function or backward callable.
 
         The decorated function's role is auto-detected from its return type
-        annotation: ``-> GradientResult`` registers as the backward callable,
+        annotation: ``-> GradientConstraintOutput`` registers as the backward callable,
         anything else registers as the scoring function.
 
         Args:
@@ -146,44 +148,44 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 of interchangeable inputs.
             backward (Callable[..., Any] | None): Explicit backward callable to pair with
                 a scoring function. Cannot be used when the decorated function itself
-                returns ``GradientResult``.
+                returns ``GradientConstraintOutput``.
             backward_config (type[BaseModel] | None): Pydantic model class for backward
                 configuration. If None, the backward callable uses ``config`` instead.
                 Only meaningful when ``backward`` is provided or the decorated function
-                returns ``GradientResult``.
+                returns ``GradientConstraintOutput``.
 
         Returns:
             Callable[[Callable[..., Any]], Callable[..., Any]]: Decorator that registers the function.
 
         Raises:
-            ValueError: If the decorated function returns ``GradientResult`` and
+            ValueError: If the decorated function returns ``GradientConstraintOutput`` and
                 ``backward`` is also provided.
 
         Examples:
             Scoring function (single segment, default label):
 
             >>> @constraint(key="gc-content", ...)
-            ... def gc_content(input_sequences, config) -> list[float]: ...
+            ... def gc_content(input_sequences, config) -> list[ConstraintOutput]: ...
 
             Multi-segment with labeled slots:
 
             >>> @constraint(key="gap-gini", input_labels=["Query", "Reference"], ...)
-            ... def gap_gini(input_sequences, config) -> list[float]: ...
+            ... def gap_gini(input_sequences, config) -> list[ConstraintOutput]: ...
 
             Gradient constraint (auto-detected from return type):
 
             >>> @constraint(key="af2-binder", ...)
-            ... def af2_backward(inputs, *, config, temperature, **kwargs) -> GradientResult: ...
+            ... def af2_backward(inputs, *, config, temperature, **kwargs) -> GradientConstraintOutput: ...
 
             Scoring function with explicit backward callable:
 
             >>> @constraint(key="ablang", backward=ablang_backward, ...)
-            ... def ablang_score(input_sequences, config) -> list[float]: ...
+            ... def ablang_score(input_sequences, config) -> list[ConstraintOutput]: ...
 
             Scoring + backward with separate config models:
 
             >>> @constraint(key="ablang", backward=ablang_backward, backward_config=AbLangGradientConfig, ...)
-            ... def ablang_score(input_sequences, config) -> list[float]: ...
+            ... def ablang_score(input_sequences, config) -> list[ConstraintOutput]: ...
         """
         if supported_sequence_types is None:
             supported_sequence_types = []
@@ -200,14 +202,16 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             if not supported_sequence_types:
                 raise ValueError(f"supported_sequence_types must be non-empty for constraint '{key}'")
 
-            # Auto-detect: if return type is GradientResult, this is a backward callable
-            is_backward_fn = typing.get_type_hints(func).get("return") is GradientResult
+            # Auto-detect: if return type is GradientConstraintOutput, this is a backward callable
+            is_backward_fn = typing.get_type_hints(func).get("return") is GradientConstraintOutput
             if is_backward_fn and backward is not None:
                 raise ValueError(
-                    f"Constraint '{key}': decorated function returns GradientResult but backward= was also provided"
+                    f"Constraint '{key}': decorated function returns GradientConstraintOutput but backward= was also provided"
                 )
             if backward_config is not None and not (is_backward_fn or backward is not None):
-                raise ValueError(f"Constraint '{key}': backward_config= requires backward= or -> GradientResult")
+                raise ValueError(
+                    f"Constraint '{key}': backward_config= requires backward= or -> GradientConstraintOutput"
+                )
 
             # Store metadata as function attributes for Constraint class to use
             func._constraint_config_class = config  # type: ignore[attr-defined]
@@ -291,13 +295,13 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             ...     config_dict={"min_gc": 40, "max_gc": 60},
             ...     label="promoter_gc",
             ... )
-            >>> scores = constraint.evaluate()  # Returns List[float]
+            >>> scores = constraint.evaluate()  # Returns list[float]
             >>>
             >>> # Filtering mode (with threshold)
             >>> filter_constraint = ConstraintRegistry.create(
             ...     key="gc-content", segments=[dna_segment], config_dict={"min_gc": 40, "max_gc": 60}, threshold=0.5
             ... )
-            >>> passed = filter_constraint.evaluate()  # Returns List[bool]
+            >>> passed = filter_constraint.evaluate()  # Returns list[bool]
         """
         spec = cls.get(key)
 

@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from proto_tools import StructureMetricsOutput, StructureQualityMetrics
+from proto_tools import Structure, StructureMetricsOutput, StructureQualityMetrics
 
 from proto_language.language.constraint.protein_structure.gyration_radius_constraint import (
     GyrationRadiusConfig,
@@ -11,14 +11,17 @@ from proto_language.language.constraint.protein_structure.gyration_radius_constr
 from proto_language.language.core import Sequence
 from proto_language.utils import MAX_ENERGY
 
+# Minimal valid PDB content; the constraint writes this to a temp file and the
+# structure_metrics tool is mocked, so the file content isn't actually parsed.
+_PDB_STUB = "ATOM      1  N   ALA A   1       0.000   0.000   0.000  1.00  0.00           N\nEND\n"
 
-def _make_sequence(sequence="MKTAYIAK", pdb_path="/mock/test.pdb"):
-    """Helper to create a Sequence with pdb_path metadata."""
-    return Sequence(
-        sequence=sequence,
-        sequence_type="protein",
-        metadata={"pdb_path": pdb_path} if pdb_path else None,
-    )
+
+def _make_sequence(sequence="MKTAYIAK", with_structure=True):
+    """Helper to create a Sequence with an attached Structure (or none)."""
+    seq = Sequence(sequence=sequence, sequence_type="protein")
+    if with_structure:
+        seq.structure = Structure(structure=_PDB_STUB)
+    return seq
 
 
 def _mock_metrics_output(gyration_radius, longest_alpha_helix=5):
@@ -86,33 +89,15 @@ class TestGyrationRadiusConstraint:
         assert len(results) == 1
         assert results[0].score == 1.0
 
-    def test_missing_pdb_path_gets_max_energy(self):
-        """Sequences without pdb_path metadata get MAX_ENERGY score."""
-        seq = _make_sequence(pdb_path=None)
+    def test_missing_structure_gets_max_energy(self):
+        """Sequences without a predicted Structure get MAX_ENERGY score."""
+        seq = _make_sequence(with_structure=False)
         config = GyrationRadiusConfig()
 
         results = gyration_radius_constraint([(seq,)], config)
 
         assert len(results) == 1
         assert results[0].score == MAX_ENERGY
-
-    def test_explicit_pdb_paths_config(self):
-        """Config-provided pdb_paths override sequence metadata."""
-        seq = _make_sequence(pdb_path=None)
-        config = GyrationRadiusConfig(
-            max_gyration_radius=50.0,
-            pdb_paths=["/mock/explicit.pdb"],
-        )
-
-        with patch(PATCH_TARGET) as mock_run:
-            mock_run.return_value = _mock_metrics_output(gyration_radius=25.0)
-            results = gyration_radius_constraint([(seq,)], config)
-
-        assert len(results) == 1
-        assert results[0].score == 0.0
-        # Verify the explicit path was used
-        call_input = mock_run.call_args[0][0]
-        assert call_input.pdb_paths == ["/mock/explicit.pdb"]
 
     def test_stores_metadata(self):
         """Constraint returns gyration_radius and longest_alpha_helix on the result."""
@@ -128,8 +113,8 @@ class TestGyrationRadiusConstraint:
 
     def test_multiple_sequences(self):
         """Constraint handles multiple sequences correctly."""
-        seq1 = _make_sequence(pdb_path="/mock/a.pdb")
-        seq2 = _make_sequence(pdb_path="/mock/b.pdb")
+        seq1 = _make_sequence()
+        seq2 = _make_sequence()
         config = GyrationRadiusConfig(max_gyration_radius=40.0)
 
         with patch(PATCH_TARGET) as mock_run:

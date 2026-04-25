@@ -1,8 +1,7 @@
-"""Radius of gyration constraint using structure_metrics tool.
+"""Radius of gyration constraint using structure_metrics tool."""
 
-Computes radius of gyration from PDB files, then scores based on deviation
-from a maximum acceptable radius.
-"""
+import tempfile
+from contextlib import ExitStack
 
 from proto_tools import (
     StructureMetricsConfig,
@@ -21,10 +20,8 @@ class GyrationRadiusConfig(BaseConfig):
 
     Attributes:
         max_gyration_radius (float): Maximum acceptable gyration radius in Angstroms.
-            Structures at or below this threshold receive a score of 0.0 (perfect).
-            Structures above are penalized proportionally.
-        pdb_paths (list[str] | None): Optional list of PDB file paths. If not provided, the constraint
-            reads PDB paths from sequence metadata (key ``pdb_path``).
+            Structures at or below score 0.0; larger radii are penalized linearly,
+            clamped to 1.0.
     """
 
     max_gyration_radius: float = ConfigField(
@@ -32,12 +29,6 @@ class GyrationRadiusConfig(BaseConfig):
         default=45.0,
         gt=0.0,
         description="Maximum acceptable gyration radius in Angstroms",
-    )
-    pdb_paths: list[str] | None = ConfigField(
-        title="PDB Paths",
-        default=None,
-        description="Optional explicit PDB paths (otherwise reads from sequence metadata)",
-        hidden=True,
     )
 
 
@@ -57,58 +48,51 @@ def gyration_radius_constraint(
 ) -> list[ConstraintOutput]:
     """Filter structures by radius of gyration.
 
-    Computes the radius of gyration for each input structure and returns
-    a penalty score. Structures with gyration radius <= max_gyration_radius
-    score 0.0, with penalty scaling linearly for larger radii, clamped to [0, 1].
-
     Args:
-        input_sequences (list[tuple[Sequence, ...]]): List of single-sequence tuples to evaluate.
-            Each sequence should have ``pdb_path`` in its metadata, or
-            PDB paths should be provided via config.
+        input_sequences (list[tuple[Sequence, ...]]): Single-sequence tuples to evaluate.
+            Each sequence must carry a predicted ``Sequence.structure``.
         config (GyrationRadiusConfig): Configuration with max_gyration_radius threshold.
 
     Returns:
         list[ConstraintOutput]: Per-proposal score in ``[0.0, 1.0]`` with
-            ``gyration_radius`` and ``longest_alpha_helix`` metadata.
+            ``gyration_radius`` and ``longest_alpha_helix`` metadata. Sequences
+            without a structure receive ``MAX_ENERGY`` and no metadata.
     """
     sequences = [seq for (seq,) in input_sequences]
 
-    # Resolve PDB paths from config or sequence metadata
-    pdb_paths: list[str | None]
-    if config.pdb_paths is not None:
-        pdb_paths = list(config.pdb_paths)
-    else:
-        pdb_paths = []
-        for seq in sequences:
-            pdb_path = seq._metadata.get("pdb_path") or seq._metadata.get("pdb_output")
-            pdb_paths.append(str(pdb_path) if pdb_path is not None else None)
+    with ExitStack() as stack:
+        indexed_paths: list[tuple[int, str]] = []
+        for i, seq in enumerate(sequences):
+            if seq.structure is None:
+                continue
+            tmp = stack.enter_context(tempfile.NamedTemporaryFile(mode="w", suffix=".pdb", delete=True))
+            tmp.write(seq.structure.structure_pdb)
+            tmp.flush()
+            indexed_paths.append((i, tmp.name))
 
-    # Compute structure metrics for sequences that have PDB paths
-    valid_paths: list[str] = [p for p in pdb_paths if p is not None]
-    valid_indices = [i for i, p in enumerate(pdb_paths) if p is not None]
+        metrics_by_idx = {}
+        if indexed_paths:
+            metrics_result = run_structure_metrics(
+                StructureMetricsInput(pdb_paths=[p for _, p in indexed_paths]),
+                StructureMetricsConfig(),
+            )
+            metrics_by_idx = {idx: m for (idx, _), m in zip(indexed_paths, metrics_result.metrics, strict=False)}
 
-    metrics_map = {}
-    if valid_paths:
-        metrics_result = run_structure_metrics(
-            StructureMetricsInput(pdb_paths=valid_paths),
-            StructureMetricsConfig(),
-        )
-        metrics_map = dict(zip(valid_indices, metrics_result.metrics, strict=False))
-
+    threshold = config.max_gyration_radius
     results: list[ConstraintOutput] = []
     for i in range(len(sequences)):
-        if i not in metrics_map:
+        m = metrics_by_idx.get(i)
+        if m is None:
             results.append(ConstraintOutput(score=MAX_ENERGY))
             continue
-
-        metrics = metrics_map[i]
-        radius = metrics.gyration_radius
-        metadata = {"gyration_radius": radius, "longest_alpha_helix": metrics.longest_alpha_helix}
-
-        if radius <= config.max_gyration_radius:
-            results.append(ConstraintOutput(score=0.0, metadata=metadata))
-        else:
-            deviation = (radius - config.max_gyration_radius) / config.max_gyration_radius
-            results.append(ConstraintOutput(score=min(1.0, deviation), metadata=metadata))
-
+        score = min(1.0, max(0.0, (m.gyration_radius - threshold) / threshold))
+        results.append(
+            ConstraintOutput(
+                score=score,
+                metadata={
+                    "gyration_radius": m.gyration_radius,
+                    "longest_alpha_helix": m.longest_alpha_helix,
+                },
+            )
+        )
     return results

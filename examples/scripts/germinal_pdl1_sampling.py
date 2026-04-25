@@ -682,18 +682,23 @@ def make_cdr_masked_ablang_backward(cdr_positions: list[int]) -> Any:
     """
     cdr_index = np.asarray(sorted(set(cdr_positions)), dtype=int)
 
-    def backward(inputs: tuple[Sequence, ...], *, config: AbLangConstraintConfig, **kwargs: Any) -> Any:
-        result = ablang_naturalness_gradient_backward(inputs, config=config, **kwargs)
-        gradient = np.array(result.gradient[0], dtype=np.float64, copy=True)
-        mask = np.zeros(gradient.shape[0], dtype=bool)
-        mask[cdr_index] = True
-        gradient[~mask] = 0.0
-        return GradientConstraintOutput(
-            gradient=(gradient,),
-            loss=result.loss,
-            metrics=result.metrics,
-            structures=result.structures,
-        )
+    def backward(input_sequences: list[tuple[Sequence, ...]], *, config: AbLangConstraintConfig, **kwargs: Any) -> Any:
+        batch_results = ablang_naturalness_gradient_backward(input_sequences, config=config, **kwargs)
+        masked_results: list[GradientConstraintOutput] = []
+        for result in batch_results:
+            gradient = np.array(result.gradient[0], dtype=np.float64, copy=True)
+            mask = np.zeros(gradient.shape[0], dtype=bool)
+            mask[cdr_index] = True
+            gradient[~mask] = 0.0
+            masked_results.append(
+                GradientConstraintOutput(
+                    gradient=(gradient,),
+                    loss=result.loss,
+                    metrics=result.metrics,
+                    structures=result.structures,
+                )
+            )
+        return masked_results
 
     backward.__name__ = "ablang_naturalness_cdr_gradient_backward"
     backward._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]

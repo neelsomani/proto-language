@@ -99,52 +99,58 @@ class AbLangConstraintConfig(BaseConfig):
 
 
 def ablang_naturalness_gradient_backward(
-    inputs: tuple[Sequence, ...],
+    input_sequences: list[tuple[Sequence, ...]],
     *,
     config: AbLangConstraintConfig,
     **kwargs: Any,  # noqa: ARG001
-) -> GradientConstraintOutput:
-    """Compute AbLang naturalness gradient w.r.t. binder logits.
+) -> list[GradientConstraintOutput]:
+    """Compute AbLang naturalness gradient w.r.t. binder logits (batched).
 
     VHH mode (no slices): the whole binder is one heavy chain. scFv mode (slices set):
     slice VH and VL out of the binder, call AbLang paired, scatter per-chain gradients
     back into a full-binder-shaped array with linker rows zero.
     """
-    raw_logits = inputs[0].logits
-    assert raw_logits is not None  # noqa: S101 -- input_labels slot check guarantees it
-    bias = np.asarray(config.logit_bias, dtype=np.float64) if config.logit_bias is not None else 0.0
-    logits = config.logit_scale * raw_logits + bias
+    results: list[GradientConstraintOutput] = []
+    for (binder_seq,) in input_sequences:
+        raw_logits = binder_seq.logits
+        assert raw_logits is not None  # noqa: S101 -- input_labels slot check guarantees it
+        bias = np.asarray(config.logit_bias, dtype=np.float64) if config.logit_bias is not None else 0.0
+        logits = config.logit_scale * raw_logits + bias
 
-    if config.heavy_slice is None:
+        if config.heavy_slice is None:
+            output = run_ablang_gradient(
+                AbLangGradientInput(
+                    antibody=AntibodyLogits(heavy_chain=logits.tolist()), temperature=config.temperature
+                ),
+                AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
+            )
+            assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
+            grad = np.array(output.gradient, dtype=np.float64) * config.logit_scale
+            results.append(GradientConstraintOutput(gradient=(grad,), loss=output.loss, metrics=output.metrics))
+            continue
+
+        assert config.light_slice is not None  # noqa: S101 -- validator guarantees both-or-neither
+        h_start, h_end = config.heavy_slice
+        l_start, l_end = config.light_slice
+        if max(h_end, l_end) > logits.shape[0]:
+            raise ValueError(
+                f"slices (heavy={config.heavy_slice}, light={config.light_slice}) extend past binder length {logits.shape[0]}."
+            )
+        vh_logits, vl_logits = logits[h_start:h_end], logits[l_start:l_end]
         output = run_ablang_gradient(
-            AbLangGradientInput(antibody=AntibodyLogits(heavy_chain=logits.tolist()), temperature=config.temperature),
+            AbLangGradientInput(
+                antibody=AntibodyLogits(heavy_chain=vh_logits.tolist(), light_chain=vl_logits.tolist()),
+                temperature=config.temperature,
+            ),
             AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
         )
         assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
-        grad = np.array(output.gradient, dtype=np.float64) * config.logit_scale
-        return GradientConstraintOutput(gradient=(grad,), loss=output.loss, metrics=output.metrics)
-
-    assert config.light_slice is not None  # noqa: S101 -- validator guarantees both-or-neither
-    h_start, h_end = config.heavy_slice
-    l_start, l_end = config.light_slice
-    if max(h_end, l_end) > logits.shape[0]:
-        raise ValueError(
-            f"slices (heavy={config.heavy_slice}, light={config.light_slice}) extend past binder length {logits.shape[0]}."
-        )
-    vh_logits, vl_logits = logits[h_start:h_end], logits[l_start:l_end]
-    output = run_ablang_gradient(
-        AbLangGradientInput(
-            antibody=AntibodyLogits(heavy_chain=vh_logits.tolist(), light_chain=vl_logits.tolist()),
-            temperature=config.temperature,
-        ),
-        AbLangGradientConfig(use_ste=config.use_ste, compute_gradient=True, device=config.device),
-    )
-    assert output.gradient is not None  # noqa: S101 -- compute_gradient=True guarantees it
-    paired_grad = np.array(output.gradient, dtype=np.float64) * config.logit_scale
-    full_grad = np.zeros_like(raw_logits, dtype=np.float64)
-    full_grad[h_start:h_end] = paired_grad[: h_end - h_start]
-    full_grad[l_start:l_end] = paired_grad[h_end - h_start :]
-    return GradientConstraintOutput(gradient=(full_grad,), loss=output.loss, metrics=output.metrics)
+        paired_grad = np.array(output.gradient, dtype=np.float64) * config.logit_scale
+        full_grad = np.zeros_like(raw_logits, dtype=np.float64)
+        full_grad[h_start:h_end] = paired_grad[: h_end - h_start]
+        full_grad[l_start:l_end] = paired_grad[h_end - h_start :]
+        results.append(GradientConstraintOutput(gradient=(full_grad,), loss=output.loss, metrics=output.metrics))
+    return results
 
 
 @constraint(

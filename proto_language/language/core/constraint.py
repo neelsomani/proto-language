@@ -8,7 +8,7 @@ They support two evaluation modes, both optional (at least one required):
   typed per-proposal record carrying score, metadata, and optional per-segment
   predicted structures / logits. Supports threshold-based filtering on the score.
 - **Gradient** (``backward``): computes gradients via ``compute_gradient()``,
-  returning a ``GradientConstraintOutput`` with per-segment gradients, scalar
+  returning ``list[GradientConstraintOutput]`` with per-segment gradients, scalar
   loss, metrics, and optional structures for gradient-based optimizers.
 
 Key Features:
@@ -137,7 +137,7 @@ class Constraint:
         (input_sequences: list[tuple[Sequence, ...]], config) -> list[ConstraintOutput]
 
     Gradient computation uses a backward callable:
-        (inputs: tuple[Sequence, ...], *, config, **kwargs) -> GradientConstraintOutput
+        (input_sequences: list[tuple[Sequence, ...]], *, config, **kwargs) -> list[GradientConstraintOutput]
 
     Examples:
         Discrete-only constraint:
@@ -180,7 +180,7 @@ class Constraint:
         inputs: list[Segment],
         function: Callable[..., Any] | None = None,
         function_config: BaseModel | dict[str, Any] | None = None,
-        backward: Callable[..., GradientConstraintOutput] | None = None,
+        backward: Callable[..., list[GradientConstraintOutput]] | None = None,
         backward_config: BaseModel | dict[str, Any] | None = None,
         label: str | None = None,
         threshold: float | None = None,
@@ -202,11 +202,12 @@ class Constraint:
                 ``_constraint_allow_raw_scores = True``. Required for discrete evaluation
                 via ``evaluate()``.
             function_config (BaseModel | dict[str, Any] | None): Configuration for the scoring function.
-            backward (Callable[..., GradientConstraintOutput] | None): Gradient computation callable with signature
-                ``(inputs: tuple[Sequence, ...], *, config: BaseModel, **kwargs) -> GradientConstraintOutput``.
-                Receives a tuple of Sequences from input segments (parallel with the scoring function).
-                Reads ``.logits`` from optimized segments, ``.sequence`` from context segments.
-                Additional kwargs (e.g., ``temperature``, ``soft``, ``hard``) are forwarded from ``compute_gradient()``.
+            backward (Callable[..., list[GradientConstraintOutput]] | None): Batched gradient callable
+                with signature ``(input_sequences: list[tuple[Sequence, ...]], *, config: BaseModel, **kwargs) ->
+                list[GradientConstraintOutput]``. Receives all proposals at once and returns one result
+                per proposal. Reads ``.logits`` from optimized segments, ``.sequence`` from context
+                segments. Additional kwargs (e.g., ``temperature``, ``soft``, ``hard``) are forwarded
+                from ``compute_gradient()``.
             backward_config (BaseModel | dict[str, Any] | None): Configuration for the backward callable.
             label (str | None): Optional label for metadata tracking. Defaults to
                 ``function.__name__`` or ``backward.__name__``.
@@ -281,7 +282,7 @@ class Constraint:
         return self._function_config
 
     @property
-    def backward(self) -> Callable[..., GradientConstraintOutput] | None:
+    def backward(self) -> Callable[..., list[GradientConstraintOutput]] | None:
         """Backward callable used to compute gradients (read-only). None for discrete-only constraints."""
         return self._backward_fn
 
@@ -551,19 +552,19 @@ class Constraint:
                 )
 
     def compute_gradient(self, **kwargs: Any) -> list[GradientConstraintOutput]:
-        """Compute gradients for all proposals, parallel with ``evaluate()``.
+        """Compute gradients for all proposals as a batch, parallel with ``evaluate()``.
 
-        Iterates over all proposals in the input segments. For each proposal,
-        passes a ``tuple[Sequence, ...]`` to the backward callable and propagates
-        metrics to ``_constraints_metadata``. The backward reads ``.logits`` from
-        optimized segments and ``.sequence`` from context segments.
+        Builds a batched input list from all proposals and passes it to the backward
+        callable in a single batched call. Validates per-proposal slot requirements
+        before the call, then validates per-result shape and propagates structures /
+        metadata after.
 
         Args:
             **kwargs (Any): Forwarded to the backward callable (e.g. ``temperature``, ``soft``, ``hard``).
 
         Returns:
             list[GradientConstraintOutput]: One result per proposal. Raw gradient, loss, and
-                metrics from each backward pass. Weight is NOT applied — the
+                metrics from the backward pass. Weight is NOT applied — the
                 optimizer reads ``constraint.weight`` and handles weighting during
                 gradient merging.
 
@@ -571,48 +572,53 @@ class Constraint:
             RuntimeError: If this constraint has no backward callable, any declared slot's
                 ``requires_logits`` / ``requires_structure`` is unmet, or (fallback) no input
                 has logits on a proposal.
-            TypeError: If the backward callable does not return ``GradientConstraintOutput``.
-            ValueError: If a returned gradient shape does not match the logits shape.
+            TypeError: If a returned element is not ``GradientConstraintOutput``.
+            ValueError: If result count, gradient shape, or structure arity is invalid.
         """
         if self._backward_fn is None:
             raise RuntimeError(f"Constraint '{self.label}' has no backward callable; use evaluate() instead.")
 
         num_proposals = self._inputs[0].num_proposals
-        results: list[GradientConstraintOutput] = []
-
         has_declared_logits_slot = any(s.requires_logits for s in self._input_slots)
 
-        for idx in range(num_proposals):
-            inputs = tuple(seg.proposal_sequences[idx] for seg in self._inputs)
+        all_input_tuples: list[tuple[Sequence, ...]] = [
+            tuple(seg.proposal_sequences[idx] for seg in self._inputs) for idx in range(num_proposals)
+        ]
 
+        for idx, inputs_tuple in enumerate(all_input_tuples):
             if self._input_slots:
-                for slot_idx, (slot, seq) in enumerate(zip(self._input_slots, inputs, strict=True)):
+                for slot_idx, (slot, seq) in enumerate(zip(self._input_slots, inputs_tuple, strict=True)):
                     if slot.requires_logits and seq.logits is None:
                         raise RuntimeError(f"'{self.label}' proposal {idx} slot {slot_idx} '{slot.label}': missing logits")  # fmt: skip
                     if slot.requires_structure and seq.structure is None:
                         raise RuntimeError(f"'{self.label}' proposal {idx} slot {slot_idx} '{slot.label}': missing structure")  # fmt: skip
-            if not has_declared_logits_slot and all(seq.logits is None for seq in inputs):
+            if not has_declared_logits_slot and all(seq.logits is None for seq in inputs_tuple):
                 raise RuntimeError(f"'{self.label}' proposal {idx}: no input has logits")
 
-            result = self._backward_fn(inputs, config=self._backward_config, **kwargs)
+        results = self._backward_fn(all_input_tuples, config=self._backward_config, **kwargs)
+
+        if len(results) != num_proposals:
+            raise ValueError(f"'{self.label}' returned {len(results)} gradient results, expected {num_proposals}")
+
+        n_inputs = len(self._inputs)
+        for idx, (result, inputs_tuple) in enumerate(zip(results, all_input_tuples, strict=True)):
             if not isinstance(result, GradientConstraintOutput):
                 raise TypeError(f"'{self.label}': expected GradientConstraintOutput, got {type(result).__name__}")
-            if len(result.gradient) != len(inputs):
-                raise ValueError(f"'{self.label}': {len(result.gradient)} gradients, expected {len(inputs)}")
-            for seg_idx, (grad, seq) in enumerate(zip(result.gradient, inputs, strict=True)):
+            if len(result.gradient) != n_inputs:
+                raise ValueError(f"'{self.label}': {len(result.gradient)} gradients, expected {n_inputs}")
+            for seg_idx, (grad, seq) in enumerate(zip(result.gradient, inputs_tuple, strict=True)):
                 if seq.logits is not None and grad.shape != seq.logits.shape:
                     raise ValueError(
                         f"'{self.label}' segment {seg_idx}: gradient shape {grad.shape} != logits shape {seq.logits.shape}"
                     )
 
             if result.structures:
-                if len(result.structures) != len(inputs):
-                    raise ValueError(f"'{self.label}': {len(result.structures)} structures, expected {len(inputs)}")
-                for seq, struct in zip(inputs, result.structures, strict=True):
+                if len(result.structures) != n_inputs:
+                    raise ValueError(f"'{self.label}': {len(result.structures)} structures, expected {n_inputs}")
+                for seq, struct in zip(inputs_tuple, result.structures, strict=True):
                     if struct is not None:
                         seq.structure = struct
 
             self._write_constraint_metadata(idx, result.loss, result.metrics)
-            results.append(result)
 
         return results

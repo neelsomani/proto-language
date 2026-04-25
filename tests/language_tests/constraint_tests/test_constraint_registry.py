@@ -137,8 +137,10 @@ class TestRegistration:
         class TestConfig(BaseModel):
             pass
 
-        def external_backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientConstraintOutput:
-            return GradientConstraintOutput(gradient=(np.zeros((3, 20)),), loss=0.0)
+        def external_backward(
+            input_sequences: list[tuple], *, config: BaseModel, **kwargs: Any
+        ) -> list[GradientConstraintOutput]:
+            return [GradientConstraintOutput(gradient=(np.zeros((3, 20)),), loss=0.0) for _ in input_sequences]
 
         @constraint(
             key="test-external-backward",
@@ -412,8 +414,8 @@ class TestFactoryMethod:
             description="test",
             supported_sequence_types=["dna"],
         )
-        def _my_backward(logits: np.ndarray, *, config: _Cfg, **kwargs: Any) -> GradientConstraintOutput:
-            return GradientConstraintOutput(gradient=(-logits,), loss=float(np.mean(logits**2)))
+        def _my_backward(logits: np.ndarray, *, config: _Cfg, **kwargs: Any) -> list[GradientConstraintOutput]:
+            return [GradientConstraintOutput(gradient=(-logits,), loss=float(np.mean(logits**2)))]
 
         try:
             spec = ConstraintRegistry.get("_test-backward-auto")
@@ -440,7 +442,7 @@ class TestFactoryMethod:
         def _other_backward(logits, *, config, **kwargs):
             return GradientConstraintOutput(gradient=(np.zeros_like(logits),), loss=0.0)
 
-        with pytest.raises(ValueError, match="decorated function returns GradientConstraintOutput"):
+        with pytest.raises(ValueError, match="decorated function returns list\\[GradientConstraintOutput\\]"):
 
             @ConstraintRegistry.register(
                 key="_test-backward-conflict",
@@ -450,8 +452,8 @@ class TestFactoryMethod:
                 supported_sequence_types=["dna"],
                 backward=_other_backward,
             )
-            def _my_backward(logits: np.ndarray, *, config: _Cfg, **kwargs: Any) -> GradientConstraintOutput:
-                return GradientConstraintOutput(gradient=(-logits,), loss=0.0)
+            def _my_backward(logits: np.ndarray, *, config: _Cfg, **kwargs: Any) -> list[GradientConstraintOutput]:
+                return [GradientConstraintOutput(gradient=(-logits,), loss=0.0)]
 
         ConstraintRegistry._registry.pop("_test-backward-conflict", None)
 
@@ -491,8 +493,8 @@ class TestModeAndBackwardConfig:
             pass
 
         @constraint(key="_test-m2a", label="T", config=_Cfg, description="t", supported_sequence_types=["dna"])
-        def _bw(logits: np.ndarray, *, config: _Cfg, **kwargs: Any) -> GradientConstraintOutput:
-            return GradientConstraintOutput(gradient=(-logits,), loss=0.0)
+        def _bw(logits: np.ndarray, *, config: _Cfg, **kwargs: Any) -> list[GradientConstraintOutput]:
+            return [GradientConstraintOutput(gradient=(-logits,), loss=0.0)]
 
         def _bw_fn(logits, *, config, **kwargs):
             return GradientConstraintOutput(gradient=(np.zeros_like(logits),), loss=0.0)
@@ -654,7 +656,9 @@ class TestModeAndBackwardConfig:
         class _GradCfg(BaseModel):
             lr: float = 0.01
 
-        with pytest.raises(ValueError, match="backward_config= requires backward= or -> GradientConstraintOutput"):
+        with pytest.raises(
+            ValueError, match="backward_config= requires backward= or -> list\\[GradientConstraintOutput\\]"
+        ):
 
             @constraint(
                 key="_test-m6",

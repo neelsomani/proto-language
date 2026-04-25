@@ -238,63 +238,66 @@ def _next_af2_seed(config: AF2BinderConstraintConfig) -> int | None:
 
 
 def af2_binder_backward(
-    inputs: tuple[Sequence, ...],
+    input_sequences: list[tuple[Sequence, ...]],
     *,
     config: AF2BinderBackwardConstraintConfig,
     temperature: float,
     soft: float,
     hard: float = 0.0,
     **kwargs: Any,  # noqa: ARG001
-) -> GradientConstraintOutput:
-    """Compute AlphaFold2 binder-design gradient w.r.t. binder logits."""
-    binder_seq, target_seq = inputs[0], inputs[1]
-    logits = binder_seq.logits
-    assert logits is not None  # noqa: S101 -- input_labels slot check guarantees logits on the binder
-    evaluation_seed = _next_af2_seed(config)
+) -> list[GradientConstraintOutput]:
+    """Compute AlphaFold2 binder-design gradient w.r.t. binder logits (batched)."""
+    results: list[GradientConstraintOutput] = []
+    for binder_seq, target_seq in input_sequences:
+        logits = binder_seq.logits
+        assert logits is not None  # noqa: S101 -- input_labels slot check guarantees logits on the binder
+        evaluation_seed = _next_af2_seed(config)
 
-    output = run_alphafold2_binder(
-        AlphaFold2BinderInput(
-            logits=logits.tolist(),
-            temperature=temperature,
-            target_pdb=config.target_pdb,
-            target_chain=",".join(config.target_chains),
-            target_hotspot=config.target_hotspot,
-            binder_chain=config.binder_chain,
-            design_positions=config.design_positions,
-        ),
-        AlphaFold2BinderConfig(
-            omit_aas=config.omit_aas,
-            num_recycles=config.num_recycles,
-            model_num=config.model_num,
-            loss_weights=config.loss_weights,
-            intra_contact_num=config.intra_contact_num,
-            intra_contact_cutoff=config.intra_contact_cutoff,
-            inter_contact_num=config.inter_contact_num,
-            inter_contact_cutoff=config.inter_contact_cutoff,
-            framework_contact_offset=config.framework_contact_offset,
-            bias_redesign=config.bias_redesign,
-            sample_models=config.sample_models,
-            backend=config.backend,
-            seed=evaluation_seed,
-            soft=soft,
-            hard=hard,
-            compute_gradient=True,
-        ),
-    )
-    if output.gradient is None:
-        raise RuntimeError("compute_gradient=True must populate output.gradient")
-    binder_gradient = np.array(output.gradient, dtype=np.float64)
-    target_gradient = np.zeros((len(target_seq.sequence), len(PROTEIN_AMINO_ACIDS)), dtype=np.float64)
-    # Each slot gets its own predicted chain — rejoin via Structure.concat (shared AF2 frame).
-    return GradientConstraintOutput(
-        gradient=(binder_gradient, target_gradient),
-        loss=output.loss,
-        metrics=output.metrics,
-        structures=(
-            output.structure.select_chain(config.binder_chain),
-            output.structure.select_chains(config.target_chains),
-        ),
-    )
+        output = run_alphafold2_binder(
+            AlphaFold2BinderInput(
+                logits=logits.tolist(),
+                temperature=temperature,
+                target_pdb=config.target_pdb,
+                target_chain=",".join(config.target_chains),
+                target_hotspot=config.target_hotspot,
+                binder_chain=config.binder_chain,
+                design_positions=config.design_positions,
+            ),
+            AlphaFold2BinderConfig(
+                omit_aas=config.omit_aas,
+                num_recycles=config.num_recycles,
+                model_num=config.model_num,
+                loss_weights=config.loss_weights,
+                intra_contact_num=config.intra_contact_num,
+                intra_contact_cutoff=config.intra_contact_cutoff,
+                inter_contact_num=config.inter_contact_num,
+                inter_contact_cutoff=config.inter_contact_cutoff,
+                framework_contact_offset=config.framework_contact_offset,
+                bias_redesign=config.bias_redesign,
+                sample_models=config.sample_models,
+                backend=config.backend,
+                seed=evaluation_seed,
+                soft=soft,
+                hard=hard,
+                compute_gradient=True,
+            ),
+        )
+        if output.gradient is None:
+            raise RuntimeError("compute_gradient=True must populate output.gradient")
+        binder_gradient = np.array(output.gradient, dtype=np.float64)
+        target_gradient = np.zeros((len(target_seq.sequence), len(PROTEIN_AMINO_ACIDS)), dtype=np.float64)
+        results.append(
+            GradientConstraintOutput(
+                gradient=(binder_gradient, target_gradient),
+                loss=output.loss,
+                metrics=output.metrics,
+                structures=(
+                    output.structure.select_chain(config.binder_chain),
+                    output.structure.select_chains(config.target_chains),
+                ),
+            )
+        )
+    return results
 
 
 @constraint(

@@ -579,13 +579,18 @@ class _GradCfg(BaseModel):
     """Empty config for gradient mock backward."""
 
 
-def _grad_backward(inputs: tuple, *, config: BaseModel, **kwargs: object) -> GradientConstraintOutput:
+def _grad_backward(
+    input_sequences: list[tuple], *, config: BaseModel, **kwargs: object
+) -> list[GradientConstraintOutput]:
     """Mock backward that pushes logits toward alanine."""
-    logits = inputs[0].logits
-    target = np.zeros_like(logits)
-    target[:, 0] = 1.0
-    grad = logits - target
-    return GradientConstraintOutput(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={})
+    results: list[GradientConstraintOutput] = []
+    for (seq,) in input_sequences:
+        logits = seq.logits
+        target = np.zeros_like(logits)
+        target[:, 0] = 1.0
+        grad = logits - target
+        results.append(GradientConstraintOutput(gradient=(grad,), loss=float(np.mean(grad**2)), metrics={}))
+    return results
 
 
 def _protein_scorer(input_sequences: list[tuple], config: BaseModel) -> list[ConstraintOutput]:

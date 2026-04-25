@@ -38,8 +38,8 @@ class TestVHHMode:
         mock_run.return_value = _mock_gradient_output(gradient=[[0.1] * 20] * 5, loss=0.5)
         binder = _seq_with_logits(np.ones((5, 20)) / 20.0)
 
-        result = ablang_naturalness_gradient_backward(
-            (binder,), config=AbLangConstraintConfig(temperature=0.8, use_ste=False, device="cpu")
+        (result,) = ablang_naturalness_gradient_backward(
+            [(binder,)], config=AbLangConstraintConfig(temperature=0.8, use_ste=False, device="cpu")
         )
 
         tool_input, tool_config = mock_run.call_args[0]
@@ -82,8 +82,8 @@ class TestScFvMode:
         mock_run.return_value = _mock_gradient_output(gradient=full_paired, loss=0.3)
         binder = _seq_with_logits(np.zeros((total, 20)))
 
-        result = ablang_naturalness_gradient_backward(
-            (binder,),
+        (result,) = ablang_naturalness_gradient_backward(
+            [(binder,)],
             config=AbLangConstraintConfig(temperature=0.6, device="cpu", heavy_slice=(0, 8), light_slice=(12, 20)),
         )
 
@@ -115,7 +115,7 @@ class TestScFvMode:
         config = AbLangConstraintConfig(temperature=0.6, heavy_slice=(0, 4), light_slice=(6, 12))
         with pytest.raises(ValueError, match="extend past binder length"):
             if mode == "backward":
-                ablang_naturalness_gradient_backward((_seq_with_logits(np.zeros((10, 20))),), config=config)
+                ablang_naturalness_gradient_backward([(_seq_with_logits(np.zeros((10, 20))),)], config=config)
             else:
                 ablang_naturalness_forward([(Sequence("A" * 10, "protein"),)], config=config)
 
@@ -172,8 +172,8 @@ class TestGPU:
         biased = _seq_with_logits(np.zeros((20, 20), dtype=np.float64))
         biased.logits[:, 0] = 5.0
 
-        r1 = ablang_naturalness_gradient_backward((uniform,), config=AbLangConstraintConfig(temperature=0.6))
-        r2 = ablang_naturalness_gradient_backward((biased,), config=AbLangConstraintConfig(temperature=0.6))
+        (r1,) = ablang_naturalness_gradient_backward([(uniform,)], config=AbLangConstraintConfig(temperature=0.6))
+        (r2,) = ablang_naturalness_gradient_backward([(biased,)], config=AbLangConstraintConfig(temperature=0.6))
 
         assert np.isfinite(r1.gradient[0]).all() and np.isfinite(r2.gradient[0]).all()
         assert r1.loss != r2.loss and not np.allclose(r1.gradient[0], r2.gradient[0])
@@ -187,7 +187,7 @@ class TestGPU:
         for i, aa in enumerate(sequence):
             logits[i, aa_order.index(aa)] = 1.0
 
-        backward = ablang_naturalness_gradient_backward((_seq_with_logits(logits),), config=config)
+        (backward,) = ablang_naturalness_gradient_backward([(_seq_with_logits(logits),)], config=config)
         forward_score = ablang_naturalness_forward([(Sequence(sequence, "protein"),)], config=config)[0].score
 
         assert np.isfinite(forward_score) and forward_score > 0
@@ -195,8 +195,8 @@ class TestGPU:
 
     def test_scfv_mode_produces_full_binder_gradient_with_zero_linker(self) -> None:
         binder = _seq_with_logits(np.zeros((30, 20), dtype=np.float64))
-        result = ablang_naturalness_gradient_backward(
-            (binder,),
+        (result,) = ablang_naturalness_gradient_backward(
+            [(binder,)],
             config=AbLangConstraintConfig(temperature=0.6, heavy_slice=(0, 12), light_slice=(18, 30)),
         )
         full = result.gradient[0]

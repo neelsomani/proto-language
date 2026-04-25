@@ -108,7 +108,7 @@ class TestBackward:
             backend="germinal",
         )
 
-        result = af2_binder_backward((binder, target), temperature=1.0, soft=1.0, config=config)
+        (result,) = af2_binder_backward([(binder, target)], temperature=1.0, soft=1.0, config=config)
 
         tool_input, tool_config = mock_run.call_args[0]
         assert tool_input.binder_chain == "B"
@@ -139,7 +139,7 @@ class TestBackward:
         target = Sequence("A" * 4, "protein")
         config = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, target_chains="A,B", binder_chain="H")
 
-        result = af2_binder_backward((binder, target), temperature=1.0, soft=1.0, config=config)
+        (result,) = af2_binder_backward([(binder, target)], temperature=1.0, soft=1.0, config=config)
 
         assert mock_run.call_args[0][0].target_chain == "A,B"
         assert result.structures[0].get_chain_ids() == ["H"]
@@ -153,7 +153,7 @@ class TestBackward:
         target = _target_sequence()
         cfg = AF2BinderConstraintConfig(target_pdb=_PDL1_PDB_TEXT, binder_chain="B")
 
-        af2_binder_backward((binder, target), temperature=1.0, config=cfg, soft=0.5, hard=0.7)
+        af2_binder_backward([(binder, target)], temperature=1.0, config=cfg, soft=0.5, hard=0.7)
         assert mock_run.call_args[0][1].soft == 0.5
         assert mock_run.call_args[0][1].hard == 0.7
 
@@ -270,8 +270,8 @@ class TestGPU:
         biased = _binder_with_logits(np.zeros((10, 20), dtype=np.float64))
         biased.logits[:, 0] = 5.0
 
-        r1 = af2_binder_backward((uniform, target), temperature=1.0, soft=1.0, config=config)
-        r2 = af2_binder_backward((biased, target), temperature=1.0, soft=1.0, config=config)
+        (r1,) = af2_binder_backward([(uniform, target)], temperature=1.0, soft=1.0, config=config)
+        (r2,) = af2_binder_backward([(biased, target)], temperature=1.0, soft=1.0, config=config)
 
         assert np.isfinite(r1.gradient[0]).all() and np.isfinite(r2.gradient[0]).all()
         assert r1.loss != r2.loss
@@ -281,14 +281,14 @@ class TestGPU:
         binder = _binder_with_logits(np.random.RandomState(42).randn(10, 20).astype(np.float64))
         base = {"target_pdb": _PDL1_PDB_TEXT, "target_chains": "A", "binder_chain": "B", "num_recycles": 1}
 
-        r_plddt = af2_binder_backward(
-            (binder, target),
+        (r_plddt,) = af2_binder_backward(
+            [(binder, target)],
             temperature=1.0,
             soft=1.0,
             config=AF2BinderConstraintConfig(**base, loss_weights={"plddt": 1.0}),
         )
-        r_con = af2_binder_backward(
-            (binder, target),
+        (r_con,) = af2_binder_backward(
+            [(binder, target)],
             temperature=1.0,
             soft=1.0,
             config=AF2BinderConstraintConfig(**base, loss_weights={"con": 1.0}),
@@ -299,8 +299,8 @@ class TestGPU:
         config = AF2BinderConstraintConfig(
             target_pdb=_PDL1_PDB_TEXT, target_chains="A", binder_chain="B", num_recycles=1, loss_weights={"plddt": 1.0}
         )
-        result = af2_binder_backward(
-            (_binder_with_logits(np.zeros((10, 20), dtype=np.float64)), _target_sequence()),
+        (result,) = af2_binder_backward(
+            [(_binder_with_logits(np.zeros((10, 20), dtype=np.float64)), _target_sequence())],
             temperature=1.0,
             soft=1.0,
             config=config,

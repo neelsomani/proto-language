@@ -40,13 +40,18 @@ def _make_segment_with_proposals(sequences: list[str], seq_type: str = "dna") ->
 
 
 def _mock_backward(
-    inputs: tuple, *, config: BaseModel, temperature: float = 1.0, **kwargs: Any
-) -> GradientConstraintOutput:
-    """Mock backward that reads logits from the first input Sequence."""
-    logits = inputs[0].logits
-    return GradientConstraintOutput(
-        gradient=(-logits * temperature,), loss=float(np.mean(logits**2)), metrics={"temperature": temperature}
-    )
+    input_sequences: list[tuple[Sequence, ...]], *, config: BaseModel, temperature: float = 1.0, **kwargs: Any
+) -> list[GradientConstraintOutput]:
+    """Mock backward that reads logits from each input Sequence."""
+    results: list[GradientConstraintOutput] = []
+    for (seq,) in input_sequences:
+        logits = seq.logits
+        results.append(
+            GradientConstraintOutput(
+                gradient=(-logits * temperature,), loss=float(np.mean(logits**2)), metrics={"temperature": temperature}
+            )
+        )
+    return results
 
 
 def _make_gradient_constraint(segment: Segment | None = None, **kwargs: object) -> Constraint:
@@ -673,7 +678,7 @@ class TestConstraintGradientSupport:
         segment.proposal_sequences[0].logits = logits
         c = _make_gradient_constraint(segment=segment, weight=2.0)
         results = c.compute_gradient(temperature=1.0)
-        raw = _mock_backward((segment.proposal_sequences[0],), config=MockConfig(), temperature=1.0)
+        (raw,) = _mock_backward([(segment.proposal_sequences[0],)], config=MockConfig(), temperature=1.0)
         np.testing.assert_array_almost_equal(results[0].gradient, raw.gradient)
         assert results[0].loss == pytest.approx(raw.loss)
 
@@ -723,9 +728,13 @@ class TestConstraintGradientSupport:
     def test_backward_config_forwarded(self) -> None:
         received: list[BaseModel] = []
 
-        def capturing_backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientConstraintOutput:
+        def capturing_backward(
+            input_sequences: list[tuple[Sequence, ...]], *, config: BaseModel, **kwargs: Any
+        ) -> list[GradientConstraintOutput]:
             received.append(config)
-            return GradientConstraintOutput(gradient=(np.zeros_like(inputs[0].logits),), loss=0.0)
+            return [
+                GradientConstraintOutput(gradient=(np.zeros_like(seq.logits),), loss=0.0) for (seq,) in input_sequences
+            ]
 
         segment = _make_segment_with_proposals(["ACTGACTG"])
         segment.proposal_sequences[0].logits = np.zeros((8, 4))
@@ -769,8 +778,13 @@ class TestConstraintGradientSupport:
     ) -> None:
         """Slot ``requires_logits`` / ``requires_structure`` fire a swap-detection error when unmet."""
 
-        def backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientConstraintOutput:
-            return GradientConstraintOutput(gradient=(np.zeros((3, 20)), np.zeros((3, 20))), loss=0.0)
+        def backward(
+            input_sequences: list[tuple[Sequence, ...]], *, config: BaseModel, **kwargs: Any
+        ) -> list[GradientConstraintOutput]:
+            return [
+                GradientConstraintOutput(gradient=(np.zeros((3, 20)), np.zeros((3, 20))), loss=0.0)
+                for _ in input_sequences
+            ]
 
         binder = _make_segment_with_proposals(["ACD"], seq_type="protein")
         target = _make_segment_with_proposals(["GHI"], seq_type="protein")
@@ -793,28 +807,41 @@ class TestConstraintGradientSupport:
         ("backward", "expected_exception", "match"),
         [
             (
-                lambda inputs, *, config, **kwargs: {"gradient": np.zeros_like(inputs[0].logits), "loss": 0.0},
+                lambda input_sequences, *, config, **kwargs: [],
+                ValueError,
+                r"returned 0 gradient results, expected 1",
+            ),
+            (
+                lambda input_sequences, *, config, **kwargs: [
+                    {"gradient": np.zeros_like(s[0].logits), "loss": 0.0} for s in input_sequences
+                ],
                 TypeError,
                 r"expected GradientConstraintOutput",
             ),
             (
-                lambda inputs, *, config, **kwargs: GradientConstraintOutput(gradient=(np.zeros((4, 8)),), loss=0.0),
+                lambda input_sequences, *, config, **kwargs: [
+                    GradientConstraintOutput(gradient=(np.zeros((4, 8)),), loss=0.0) for _ in input_sequences
+                ],
                 ValueError,
                 r"segment 0: gradient shape",
             ),
             (
-                lambda inputs, *, config, **kwargs: GradientConstraintOutput(
-                    gradient=(np.zeros((8, 4)), np.zeros((8, 4))), loss=0.0
-                ),
+                lambda input_sequences, *, config, **kwargs: [
+                    GradientConstraintOutput(gradient=(np.zeros((8, 4)), np.zeros((8, 4))), loss=0.0)
+                    for _ in input_sequences
+                ],
                 ValueError,
                 r"2 gradients, expected 1",
             ),
             (
-                lambda inputs, *, config, **kwargs: GradientConstraintOutput(
-                    gradient=(np.zeros_like(inputs[0].logits),),
-                    loss=0.0,
-                    structures=(MockStructure.with_plddt([0.5] * 8), MockStructure.with_plddt([0.5] * 8)),
-                ),
+                lambda input_sequences, *, config, **kwargs: [
+                    GradientConstraintOutput(
+                        gradient=(np.zeros_like(s[0].logits),),
+                        loss=0.0,
+                        structures=(MockStructure.with_plddt([0.5] * 8), MockStructure.with_plddt([0.5] * 8)),
+                    )
+                    for s in input_sequences
+                ],
                 ValueError,
                 r"2 structures, expected 1",
             ),
@@ -841,12 +868,17 @@ class TestConstraintGradientSupport:
         seg_a.proposal_sequences[0].logits = np.zeros((3, 20))
         seg_b.proposal_sequences[0].structure = existing
 
-        def backward(inputs: tuple, *, config: BaseModel, **kwargs: Any) -> GradientConstraintOutput:
-            return GradientConstraintOutput(
-                gradient=(np.zeros_like(inputs[0].logits), np.zeros((3, 20))),
-                loss=0.0,
-                structures=(new_struct, None),
-            )
+        def backward(
+            input_sequences: list[tuple[Sequence, ...]], *, config: BaseModel, **kwargs: Any
+        ) -> list[GradientConstraintOutput]:
+            return [
+                GradientConstraintOutput(
+                    gradient=(np.zeros_like(s[0].logits), np.zeros((3, 20))),
+                    loss=0.0,
+                    structures=(new_struct, None),
+                )
+                for s in input_sequences
+            ]
 
         _make_gradient_constraint(
             inputs=[seg_a, seg_b], function=mock_multi_input_scoring_function, backward=backward

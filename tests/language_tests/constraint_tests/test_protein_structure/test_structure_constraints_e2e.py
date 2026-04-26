@@ -38,7 +38,7 @@ RUVB_PROTEIN = "VERTLRPQYFKEYIGQDKVKDQLKIFIEAAKLRDEALDHTLLFGPPGLGKTTMAFVIANEMGVN
 ADP_LIGAND = "Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@](=O)([O-])OP(=O)([O-])[O-])[C@@H](O)[C@H]1O"
 
 # Boltz configuration without MSAs
-BOLTZ2_CONFIG = {"use_msa": False}
+BOLTZ2_CONFIG = {"use_msa": False, "seed": 42}
 
 
 # ============================================================================

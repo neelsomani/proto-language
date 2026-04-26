@@ -37,8 +37,6 @@ Known parity gaps (intentional):
 - VHH external cofold uses Chai-1/AF3 fallbacks instead of Germinal's Protenix until
   proto-language/proto-tools can pass Protenix full-PAE outputs through final pDockQ2.
 - Post-softmax entropy gate dropped (moot — Stage-3 AbMPNN rebuilds sequence).
-- No global-best tracking across optimizer steps (near-monotonic for gradient
-  phases; small impact for semigreedy MCMC at near-zero temperature).
 
 Usage:
     # VHH against PD-L1 (default)

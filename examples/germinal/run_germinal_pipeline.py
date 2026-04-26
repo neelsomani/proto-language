@@ -936,7 +936,7 @@ def run_trajectory(
         # FastRelax (1 cycle, matching Germinal)
         relax_result = run_pyrosetta_relax(
             PyRosettaRelaxInput(inputs=[ScoringStructureInput(structure=cofold_struct)]),
-            PyRosettaRelaxConfig(relax_cycles=1, constrain_to_start=True),
+            PyRosettaRelaxConfig(relax_cycles=1, constrain_to_start=True, max_iter=200),
         )
         relaxed_struct = relax_result.results[0].relax.relaxed_structure
 
@@ -1255,7 +1255,7 @@ def run_pre_redesign_external_filters(
 
     relax_result = run_pyrosetta_relax(
         PyRosettaRelaxInput(inputs=[ScoringStructureInput(structure=cofold_struct)]),
-        PyRosettaRelaxConfig(relax_cycles=1, constrain_to_start=True),
+        PyRosettaRelaxConfig(relax_cycles=1, constrain_to_start=True, max_iter=200),
     )
     relaxed_struct = relax_result.results[0].relax.relaxed_structure
 

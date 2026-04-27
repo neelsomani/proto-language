@@ -43,6 +43,10 @@ class AF2BinderConstraintConfig(BaseConfig):
             Germinal inter-chain contact loss. Germinal backend only.
         bias_redesign (float | None): Soft bias toward wildtype at non-design positions.
         sample_models (bool): Randomly sample AF2 model parameter sets each forward pass.
+        use_multimer (bool): Use AlphaFold multimer parameters for binder protocol.
+        rm_target_seq (bool): Mask target template sequence in ``prep_inputs``.
+        rm_target_sc (bool): Mask target template side chains in ``prep_inputs``.
+        rm_template_ic (bool): Mask inter-chain template contacts in ``prep_inputs``.
         backend (Literal["base", "germinal"]): ColabDesign backend.
         seed (int | None): Base AF2 seed for the evaluation stream. When set, the
             constraint derives a unique per-evaluation ColabDesign seed from it so
@@ -139,6 +143,30 @@ class AF2BinderConstraintConfig(BaseConfig):
         description="Randomly sample from available AF2 model parameter sets each forward pass.",
         advanced=True,
     )
+    use_multimer: bool = ConfigField(
+        title="Use Multimer",
+        default=True,
+        description="Use AlphaFold multimer parameters for binder protocol.",
+        advanced=True,
+    )
+    rm_target_seq: bool = ConfigField(
+        title="Mask Target Sequence",
+        default=True,
+        description="Mask target template sequence in ColabDesign prep_inputs.",
+        advanced=True,
+    )
+    rm_target_sc: bool = ConfigField(
+        title="Mask Target Side Chains",
+        default=False,
+        description="Mask target template side chains in ColabDesign prep_inputs.",
+        advanced=True,
+    )
+    rm_template_ic: bool = ConfigField(
+        title="Mask Template Contacts",
+        default=True,
+        description="Mask inter-chain template contacts in ColabDesign prep_inputs.",
+        advanced=True,
+    )
     backend: Literal["base", "germinal"] = ConfigField(
         title="Backend",
         default="base",
@@ -218,6 +246,8 @@ class AF2BinderConstraintConfig(BaseConfig):
             },
             omit_aas="C",
             bias_redesign=10.0,
+            inter_contact_num=10,
+            inter_contact_cutoff=20.0,
             framework_contact_offset=1.0,
             sample_models=True,
             backend="germinal",
@@ -275,6 +305,10 @@ def af2_binder_backward(
                 framework_contact_offset=config.framework_contact_offset,
                 bias_redesign=config.bias_redesign,
                 sample_models=config.sample_models,
+                use_multimer=config.use_multimer,
+                rm_target_seq=config.rm_target_seq,
+                rm_target_sc=config.rm_target_sc,
+                rm_template_ic=config.rm_template_ic,
                 backend=config.backend,
                 seed=evaluation_seed,
                 soft=soft,
@@ -357,6 +391,10 @@ def af2_binder_forward(
                 framework_contact_offset=config.framework_contact_offset,
                 bias_redesign=config.bias_redesign,
                 sample_models=config.sample_models,
+                use_multimer=config.use_multimer,
+                rm_target_seq=config.rm_target_seq,
+                rm_target_sc=config.rm_target_sc,
+                rm_template_ic=config.rm_template_ic,
                 backend=config.backend,
                 seed=evaluation_seed,
                 soft=0.0,

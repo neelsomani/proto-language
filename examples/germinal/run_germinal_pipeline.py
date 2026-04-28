@@ -486,18 +486,18 @@ COFOLD_BINDER_CHAIN = "A"
 COFOLD_TARGET_CHAIN = "B"
 _BACKBONE_ATOMS = {"N", "CA", "C", "O"}
 
-_COFOLD_CONFIGS: dict[str, dict[str, Any]] = {
-    "chai1": {"structure_tool": "chai1", "chai1_config": Chai1Config(include_pae_matrix=True).model_dump()},
-    "alphafold3": {
-        "structure_tool": "alphafold3",
-        "alphafold3_config": AlphaFold3Config(include_pae_matrix=True).model_dump(),
-    },
-}
-
-
-def _cofold_config(tool: str) -> dict[str, Any]:
-    if tool in _COFOLD_CONFIGS:
-        return _COFOLD_CONFIGS[tool]
+def _cofold_config(tool: str, seed: int) -> dict[str, Any]:
+    """Build the structure-composite config for a cofold tool with a per-trajectory seed."""
+    if tool == "chai1":
+        return {
+            "structure_tool": "chai1",
+            "chai1_config": Chai1Config(include_pae_matrix=True, seed=seed).model_dump(),
+        }
+    if tool == "alphafold3":
+        return {
+            "structure_tool": "alphafold3",
+            "alphafold3_config": AlphaFold3Config(include_pae_matrix=True, seeds=[seed]).model_dump(),
+        }
     return {"structure_tool": tool}
 
 
@@ -850,6 +850,7 @@ def run_trajectory(
         cofold_hotspots=cofold_hotspots,
         cdr_positions_1idx=cdr_positions_1idx,
         cdr3_positions_1idx=cdr3_positions_1idx,
+        trajectory_seed=trajectory_seed,
     )
     if not _check_gate(
         "pre_redesign_external_gate",
@@ -894,7 +895,7 @@ def run_trajectory(
             Constraint(
                 inputs=[binder, target],
                 function=structure_composite_constraint,
-                function_config=_cofold_config(geom.cofold_tool),
+                function_config=_cofold_config(geom.cofold_tool, trajectory_seed),
                 label="cofold",
             ),
         ],
@@ -1240,13 +1241,14 @@ def run_pre_redesign_external_filters(
     cofold_hotspots: str,
     cdr_positions_1idx: set[int],
     cdr3_positions_1idx: set[int],
+    trajectory_seed: int,
 ) -> PreRedesignFilterMetrics:
     """Run Germinal's extra external cofold + relax + initial-filter stage."""
     eval_binder = Sequence(sequence=binder_sequence, sequence_type="protein")
     eval_target = Sequence(sequence=target_sequence, sequence_type="protein")
     structure_composite_constraint(
         [(eval_binder, eval_target)],
-        StructureBasedConstraintConfig.model_validate(_cofold_config(cofold_tool)),
+        StructureBasedConstraintConfig.model_validate(_cofold_config(cofold_tool, trajectory_seed)),
     )
     assert eval_binder.structure is not None  # noqa: S101 -- structure_composite_constraint always populates it
     cofold_struct = eval_binder.structure

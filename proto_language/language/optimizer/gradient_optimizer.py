@@ -388,6 +388,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     description="Gradient-based sequence optimization via differentiable constraints",
     compatible_generators=["position-weight"],
     required_constraint_mode="gradient",
+    targets_single_segment=True,
 )
 @final
 class GradientOptimizer(Optimizer):

@@ -72,11 +72,11 @@ from proto_tools.utils.device_manager import DeviceManager
 from proto_tools import (
     AlphaFold3Config,
     Chai1Config,
+    IPSAEScoringConfig,
+    IPSAEScoringInput,
     InverseFoldingStructureInput,
-    PDockQ2Config,
-    PDockQ2Input,
     Structure,
-    run_pdockq2,
+    run_ipsae_scoring,
 )
 from proto_tools.tools.structure_scoring.pyrosetta.pyrosetta_interface_analyzer import (
     InterfaceStructureInput,
@@ -271,19 +271,26 @@ class TrajectoryRecord:
     seed: int
     stage_metrics: dict[str, StageMetrics] = field(default_factory=dict)
     rejected_at: str | None = None
+    would_reject_at: str | None = None
     accepted: bool = False
 
 
 def _extract_stage_metrics(binder: "Segment") -> StageMetrics:
-    """Extract current metrics from binder segment after a stage run."""
+    """Extract current metrics from binder segment after a stage run.
+
+    Falls back to NaN when metadata is absent (e.g. MCMC rejected all proposals).
+    """
     result = binder.result_sequences[0]
-    assert result.structure is not None  # noqa: S101 -- af2 always populates it on stages 0/1/2
-    af2_data = result._constraints_metadata["af2"]["data"]
+    af2_meta = result._constraints_metadata.get("af2")
+    ablang_meta = result._constraints_metadata.get("ablang")
+    if af2_meta is None or result.structure is None:
+        return StageMetrics(plddt=float("nan"), iptm=float("nan"), ipae=float("nan"), ablang_loss=float("nan"))
+    af2_data = af2_meta["data"]
     return StageMetrics(
         plddt=float(np.mean(result.structure.per_residue_plddt)),
         iptm=float(af2_data["iptm"]),
         ipae=float(af2_data["i_pae"]),
-        ablang_loss=float(result._constraints_metadata["ablang"]["score"]),
+        ablang_loss=float(ablang_meta["score"]) if ablang_meta else float("nan"),
     )
 
 
@@ -582,7 +589,7 @@ def run_germinal_antibody(
             record=record,
         )
         all_records.append(record)
-        if num_accepted >= max_passing:
+        if num_accepted >= max_passing and not no_filter:
             break
 
     def _nan_safe(v: float) -> float | None:
@@ -597,6 +604,7 @@ def run_germinal_antibody(
                 "traj_idx": r.traj_idx,
                 "seed": r.seed,
                 "rejected_at": r.rejected_at,
+                "would_reject_at": r.would_reject_at,
                 "accepted": r.accepted,
                 "stages": {
                     stage: {
@@ -773,15 +781,18 @@ def run_trajectory(
 
     def _check_gate(gate_name: str, passed: bool, detail: str = "") -> bool:
         """Check a gate; returns True to continue, False to abort (when filters are on)."""
+        reason = f"{gate_name}: {detail}" if detail else gate_name
         if passed:
             print(f"[Traj {traj_idx}] {gate_name} passed" + (f" ({detail})" if detail else ""))
             return True
         if no_filter:
             print(f"[Traj {traj_idx}] {gate_name} FAILED (continuing, --no-filter)" + (f" ({detail})" if detail else ""))
+            if record is not None and record.would_reject_at is None:
+                record.would_reject_at = reason
             return True
         if record is not None:
-            record.rejected_at = f"{gate_name}: {detail}" if detail else gate_name
-        print(f"[Traj {traj_idx}] rejected at {gate_name}" + (f": {detail}" if detail else ""))
+            record.rejected_at = reason
+        print(f"[Traj {traj_idx}] rejected at {reason}")
         return False
 
     hallucination = Program(optimizers=[stage0, stage1, stage2], num_results=1, seed=trajectory_seed)
@@ -810,7 +821,10 @@ def run_trajectory(
     # ── POST-STAGE-2: structural gates ──
     binder_struct = binder.result_sequences[0].structure
     target_struct = target.result_sequences[0].structure
-    assert binder_struct is not None and target_struct is not None  # noqa: S101 -- populated by af2 backward/forward
+    if binder_struct is None or target_struct is None:
+        # Cannot proceed without a predicted structure, even in --no-filter mode.
+        _check_gate("structural_gate", False, "no structure (MCMC rejected all proposals)")
+        return 0
     complex_struct = Structure.concat([binder_struct, target_struct])
 
     print(f"[Traj {traj_idx}] Post-stage-2 structural checks...")
@@ -920,17 +934,20 @@ def run_trajectory(
         pae_angstroms = pae_norm * PAE_MAXIMUM
         assert variant.structure is not None  # noqa: S101 -- structure_composite_constraint always populates it
         cofold_struct = variant.structure
+        # Normalize PAE key: Chai-1 uses 'pae', IPSAE/AF3 use 'pae_matrix'.
+        if "pae_matrix" not in cofold_struct.metrics and "pae" in cofold_struct.metrics:
+            cofold_struct.metrics["pae_matrix"] = cofold_struct.metrics["pae"]
 
-        pdockq2 = float(
-            run_pdockq2(
-                PDockQ2Input(
-                    structure=cofold_struct,
-                    binder_chain=COFOLD_BINDER_CHAIN,
-                    target_chains=[COFOLD_TARGET_CHAIN],
-                ),
-                PDockQ2Config(),
-            ).metrics.pdockq2
+        ipsae_result = run_ipsae_scoring(
+            IPSAEScoringInput(
+                structure=cofold_struct,
+                binder_chain=COFOLD_BINDER_CHAIN,
+                target_chains=[COFOLD_TARGET_CHAIN],
+            ),
+            IPSAEScoringConfig(pae_cutoff=10, distance_cutoff=10),
         )
+        pdockq2 = float(ipsae_result.metrics.pdockq2)
+        ipsae_score = float(ipsae_result.metrics.ipsae)
 
         # FastRelax (1 cycle, matching Germinal)
         relax_result = run_pyrosetta_relax(
@@ -992,6 +1009,7 @@ def run_trajectory(
             "external_ptm": ptm,
             "external_pae": pae_angstroms,
             "pdockq2": pdockq2,
+            "ipsae": ipsae_score,
             "clashes": float(clashes),
             "sc_rmsd": sc_rmsd,
             "binder_near_hotspot": 1.0 if cofold_binder_near_hotspot else 0.0,
@@ -1002,10 +1020,9 @@ def run_trajectory(
             "interface_hbonds": float(iface_analysis.interface_hbonds),
             "surface_hydrophobicity": float(iface_analysis.surface_hydrophobicity),
         }
-        ok = all(rule.evaluate(filter_values[k]) for k, rule in geom.final_filters.items())
-        if no_filter:
-            ok = True
-        status = "accepted" if ok else "redesign_candidate"
+        filter_results = {k: rule.evaluate(filter_values[k]) for k, rule in geom.final_filters.items()}
+        ok = all(filter_results.values())
+        status = "accepted" if ok else "failed_filters"
         if ok and record is not None:
             record.accepted = True
         metrics_str = " ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in filter_values.items())
@@ -1017,15 +1034,19 @@ def run_trajectory(
         with open(os.path.join(run_dir, f"{stem}.json"), "w") as f:
             json.dump(
                 {k: round(v, 4) if isinstance(v, float) else v for k, v in filter_values.items()}
-                | {"status": status},
+                | {"status": status, "filter_results": filter_results},
                 f,
                 indent=2,
             )
         relaxed_struct.write_pdb(os.path.join(run_dir, f"{stem}.pdb"))
         accepted += int(ok)
 
-    if accepted == 0 and record is not None and record.rejected_at is None:
-        record.rejected_at = "final_filter"
+    if accepted == 0 and record is not None:
+        if no_filter:
+            if record.would_reject_at is None:
+                record.would_reject_at = "final_filter"
+        elif record.rejected_at is None:
+            record.rejected_at = "final_filter"
 
     return accepted
 
@@ -1099,6 +1120,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional override for the preset's number of top redesign variants kept.",
     )
+    parser.add_argument(
+        "--cofold-tool",
+        choices=["chai1", "alphafold3"],
+        default=None,
+        help="Optional override for the preset's cofold tool.",
+    )
     parser.add_argument("--output-dir", default="./outputs")
     parser.add_argument(
         "--share-gpu",
@@ -1117,7 +1144,7 @@ def parse_args() -> argparse.Namespace:
 
 def _apply_runtime_overrides(args: argparse.Namespace, geom: BinderGeometry) -> BinderGeometry:
     """Apply optional CLI overrides without mutating the shared preset object."""
-    updates: dict[str, int] = {}
+    updates: dict[str, Any] = {}
     if args.logits_steps is not None:
         updates["logits_steps"] = args.logits_steps
     if args.softmax_steps is not None:
@@ -1128,6 +1155,8 @@ def _apply_runtime_overrides(args: argparse.Namespace, geom: BinderGeometry) -> 
         updates["num_seqs"] = args.num_seqs
     if args.max_mpnn_sequences is not None:
         updates["max_mpnn_sequences"] = args.max_mpnn_sequences
+    if args.cofold_tool is not None:
+        updates["cofold_tool"] = args.cofold_tool
     return replace(geom, **updates) if updates else geom
 
 
@@ -1160,8 +1189,11 @@ def main() -> None:
 def passes_gate(binder: Segment, *, geom: BinderGeometry, include_ipae: bool) -> bool:
     """Confidence gate: binder-only pLDDT + iPTM, optionally iPAE."""
     result = binder.result_sequences[0]
-    data = result._constraints_metadata["af2"]["data"]
-    assert result.structure is not None  # noqa: S101 -- af2 backward always populates it
+    af2_meta = result._constraints_metadata.get("af2")
+    if af2_meta is None or result.structure is None:
+        print("  gate: no AF2 metadata (MCMC rejected all proposals)")
+        return False
+    data = af2_meta["data"]
     plddt = float(np.mean(result.structure.per_residue_plddt))
     iptm = float(data["iptm"])
     ipae = float(data["i_pae"])
@@ -1246,12 +1278,12 @@ def run_pre_redesign_external_filters(
     """Run Germinal's extra external cofold + relax + initial-filter stage."""
     eval_binder = Sequence(sequence=binder_sequence, sequence_type="protein")
     eval_target = Sequence(sequence=target_sequence, sequence_type="protein")
-    structure_composite_constraint(
+    cofold_results = structure_composite_constraint(
         [(eval_binder, eval_target)],
         StructureBasedConstraintConfig.model_validate(_cofold_config(cofold_tool, trajectory_seed)),
     )
-    assert eval_binder.structure is not None  # noqa: S101 -- structure_composite_constraint always populates it
-    cofold_struct = eval_binder.structure
+    cofold_struct = cofold_results[0].structures[0]
+    assert cofold_struct is not None  # noqa: S101 -- structure_composite_constraint always populates slot 0
 
     relax_result = run_pyrosetta_relax(
         PyRosettaRelaxInput(inputs=[ScoringStructureInput(structure=cofold_struct)]),

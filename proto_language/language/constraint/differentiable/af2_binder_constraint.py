@@ -408,7 +408,7 @@ def af2_binder_forward(
             ConstraintOutput(
                 score=output.loss,
                 metadata=metadata,
-                metadata_recipient="Binder Chain",
+                metadata_recipient="binder",
                 structures=(
                     output.structure.select_chain(config.binder_chain),
                     output.structure.select_chains(config.target_chains),

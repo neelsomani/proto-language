@@ -187,6 +187,7 @@ presets:
       percent_interface_cdr: {value: 0.5, operator: ">="}
       interface_hydrophobicity: {value: 45, operator: ">="}
       pdockq2: {value: 0.23, operator: ">"}
+      ipsae: {value: 0.6, operator: ">="}
       external_plddt: {value: 0.8, operator: ">="}
       external_iptm: {value: 0.75, operator: ">="}
       external_ptm: {value: 0.8, operator: ">="}

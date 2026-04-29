@@ -83,12 +83,8 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
             Larger batches improve throughput but use more GPU memory; reduce
             if encountering out-of-memory errors. Default: ``1``.
 
-        device (str): Compute device for model inference. Options:
-
-            - ``"cuda"``: NVIDIA GPU (recommended, default)
-            - ``"cpu"``: CPU execution (slower)
-
-            Default: ``"cuda"``.
+        device (str): GPU device for model inference, e.g. ``"cuda"`` or
+            ``"cuda:0"``. Default: ``"cuda"``.
 
         verbose (bool): Whether to print status messages during model loading
             and sequence generation. Default: ``False``.
@@ -175,7 +171,7 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
     device: str = ConfigField(
         default="cuda",
         title="Device",
-        description="Compute device for inference: 'cuda' or 'cpu'.",
+        description="GPU device for inference (e.g. 'cuda' or 'cuda:0').",
         hidden=True,
     )
     verbose: bool = ConfigField(

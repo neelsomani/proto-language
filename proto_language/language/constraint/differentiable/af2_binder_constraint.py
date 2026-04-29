@@ -48,6 +48,8 @@ class AF2BinderConstraintConfig(BaseConfig):
         rm_target_sc (bool): Mask target template side chains in ``prep_inputs``.
         rm_template_ic (bool): Mask inter-chain template contacts in ``prep_inputs``.
         backend (Literal["base", "germinal"]): ColabDesign backend.
+        device (str): GPU device for AlphaFold2, for example ``"cuda"`` or
+            ``"cuda:0"``.
         seed (int | None): Base AF2 seed for the evaluation stream. When set, the
             constraint derives a unique per-evaluation ColabDesign seed from it so
             repeated calls do not reset AF2 to the same RNG state.
@@ -172,6 +174,12 @@ class AF2BinderConstraintConfig(BaseConfig):
         default="base",
         description="ColabDesign backend: 'base' (upstream) or 'germinal' (with alpha, bias, IgLM).",
         advanced=True,
+    )
+    device: str = ConfigField(
+        title="Device",
+        default="cuda",
+        description="GPU device for AlphaFold2 (e.g. 'cuda' or 'cuda:0').",
+        hidden=True,
     )
     seed: int | None = ConfigField(
         title="Seed",
@@ -310,6 +318,7 @@ def af2_binder_backward(
                 rm_target_sc=config.rm_target_sc,
                 rm_template_ic=config.rm_template_ic,
                 backend=config.backend,
+                device=config.device,
                 seed=evaluation_seed,
                 soft=soft,
                 hard=hard,
@@ -396,6 +405,7 @@ def af2_binder_forward(
                 rm_target_sc=config.rm_target_sc,
                 rm_template_ic=config.rm_template_ic,
                 backend=config.backend,
+                device=config.device,
                 seed=evaluation_seed,
                 soft=0.0,
                 hard=1.0,

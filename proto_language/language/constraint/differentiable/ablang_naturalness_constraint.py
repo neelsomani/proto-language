@@ -33,7 +33,8 @@ class AbLangConstraintConfig(BaseConfig):
             choose it deliberately.
         use_ste (bool): Use Straight-Through Estimator (hard one-hot forward pass with
             gradients through soft probabilities). Germinal always uses STE.
-        device (str): Execution device for AbLang, for example ``"cuda"`` or ``"cpu"``.
+        device (str): GPU device for AbLang, for example ``"cuda"`` or
+            ``"cuda:0"``.
         heavy_slice (tuple[int, int] | None): Optional half-open ``(start, end)`` over the
             binder Segment for the VH region. Set together with ``light_slice`` to enable
             single-chain scFv mode; leave both ``None`` for VHH (heavy-only) scoring.
@@ -56,7 +57,7 @@ class AbLangConstraintConfig(BaseConfig):
     device: str = ConfigField(
         title="Device",
         default="cuda",
-        description="Execution device for AbLang, for example 'cuda' or 'cpu'.",
+        description="GPU device for AbLang (e.g. 'cuda' or 'cuda:0').",
         hidden=True,
     )
     heavy_slice: tuple[int, int] | None = ConfigField(

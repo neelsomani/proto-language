@@ -51,6 +51,9 @@ class ProGen2GeneratorConfig(BaseConfig):
             or fine-tuned models. If ``None``, downloads from HuggingFace (hugohrban/).
             Default: ``None``.
 
+        device (str): GPU device to run ProGen2 on, e.g. ``"cuda"`` or
+            ``"cuda:0"``. Default: ``"cuda"``.
+
         temperature (float): Scales randomness of amino acid sampling by adjusting
             probability distribution sharpness:
             - ``< 1.0``: More deterministic, favors high-probability amino acids
@@ -112,6 +115,12 @@ class ProGen2GeneratorConfig(BaseConfig):
         default=None,
         title="Local Model Path",
         description="Path to local model weights",
+        hidden=True,
+    )
+    device: str = ConfigField(
+        default="cuda",
+        title="Device",
+        description="GPU device to run ProGen2 on (e.g. 'cuda' or 'cuda:0').",
         hidden=True,
     )
     temperature: float = ConfigField(
@@ -203,6 +212,7 @@ class ProGen2Generator(Generator):
         self.prompts = config.prompts
         self.model_checkpoint = config.model_checkpoint
         self.local_path = config.local_path
+        self.device = config.device
         self.temperature = config.temperature
         self.top_p = config.top_p
         self.top_k = config.top_k
@@ -233,6 +243,7 @@ class ProGen2Generator(Generator):
         tool_config = ProGen2SampleConfig(
             model_checkpoint=self.model_checkpoint,
             local_path=self.local_path,
+            device=self.device,
             temperature=self.temperature,
             top_p=self.top_p,
             top_k=self.top_k,

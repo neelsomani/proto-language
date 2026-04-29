@@ -44,6 +44,9 @@ class ESM3GeneratorConfig(BaseConfig):
             ``MaskingStrategy(method="max-logit")`` use model logits to select
             high-uncertainty positions.
 
+        device (str): GPU device to run ESM3 on, e.g. ``"cuda"`` or
+            ``"cuda:0"``. Default: ``"cuda"``.
+
         batch_size (int): Number of sequences to process simultaneously on GPU.
             Larger batches improve throughput but use more GPU memory; reduce
             if encountering out-of-memory errors. Default: ``1``.
@@ -71,6 +74,12 @@ class ESM3GeneratorConfig(BaseConfig):
         title="Temperature",
         description="Scales the randomness of sampling by adjusting probability distribution sharpness.",
         advanced=True,
+    )
+    device: str = ConfigField(
+        default="cuda",
+        title="Device",
+        description="GPU device to run ESM3 on (e.g. 'cuda' or 'cuda:0').",
+        hidden=True,
     )
     batch_size: int = ConfigField(
         default=1,
@@ -133,6 +142,7 @@ class ESM3Generator(Generator):
         self.model_checkpoint = config.model_checkpoint
         self.temperature = config.temperature
         self.masking_strategy = config.masking_strategy
+        self.device = config.device
         self.batch_size = config.batch_size
 
     def sample(self) -> None:
@@ -152,6 +162,7 @@ class ESM3Generator(Generator):
             model_checkpoint=self.model_checkpoint,
             temperature=self.temperature,
             masking_strategy=self.masking_strategy,
+            device=self.device,
             batch_size=self.batch_size,
             verbose=False,
             seed=self._next_seed(),

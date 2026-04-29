@@ -37,6 +37,9 @@ class Evo2GeneratorConfig(BaseConfig):
             or fine-tuned models. If ``None``, downloads from Hugging Face.
             Default: ``None``.
 
+        device (str): GPU device to run Evo2 on, e.g. ``"cuda"`` or
+            ``"cuda:0"``. Default: ``"cuda"``.
+
         top_k (int): Limits sampling to the top-k most probable tokens at each
             generation step. Lower values produce more focused sequences, higher
             values increase diversity. Must be at least 1. Default: 4.
@@ -105,6 +108,12 @@ class Evo2GeneratorConfig(BaseConfig):
         default=None,
         title="Local Checkpoint Path",
         description="Path to local checkpoint weights for custom or finetuned models",
+        hidden=True,
+    )
+    device: str = ConfigField(
+        default="cuda",
+        title="Device",
+        description="GPU device to run Evo2 on (e.g. 'cuda' or 'cuda:0').",
         hidden=True,
     )
     top_k: int = ConfigField(
@@ -258,6 +267,7 @@ class Evo2Generator(Generator):
         self.prompts = config.prompts
         self.model_checkpoint = config.model_checkpoint
         self.local_path = config.local_path
+        self.device = config.device
         self.top_k = config.top_k
         self.top_p = config.top_p
         self.temperature = config.temperature
@@ -299,6 +309,7 @@ class Evo2Generator(Generator):
             prepend_prompt=prepend_prompt,
             model_checkpoint=self.model_checkpoint,
             local_path=self.local_path,
+            device=self.device,
             top_k=self.top_k,
             top_p=self.top_p,
             temperature=self.temperature,

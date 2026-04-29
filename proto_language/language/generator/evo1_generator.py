@@ -25,6 +25,8 @@ class Evo1GeneratorConfig(BaseConfig):
         top_k (int): Top-k sampling parameter.
         temperature (float): Sampling temperature.
         prepend_prompt (bool): Whether to prepend the prompt to the output.
+        device (str): GPU device to run Evo1 on, e.g. ``"cuda"`` or
+            ``"cuda:0"``.
         batch_size (int): Number of sequences to process simultaneously on GPU.
             Larger batches improve throughput but use more GPU memory; reduce
             if encountering out-of-memory errors.
@@ -60,6 +62,12 @@ class Evo1GeneratorConfig(BaseConfig):
         default=False,
         title="Prepend Prompt",
         description="Whether to prepend prompt to generation",
+        hidden=True,
+    )
+    device: str = ConfigField(
+        default="cuda",
+        title="Device",
+        description="GPU device to run Evo1 on (e.g. 'cuda' or 'cuda:0').",
         hidden=True,
     )
     batch_size: int = ConfigField(
@@ -132,6 +140,7 @@ class Evo1Generator(Generator):
         self.top_k = config.top_k
         self.temperature = config.temperature
         self.prepend_prompt = config.prepend_prompt
+        self.device = config.device
         self.batch_size = config.batch_size
         self.verbose = config.verbose
 
@@ -159,6 +168,7 @@ class Evo1Generator(Generator):
             top_k=self.top_k,
             temperature=self.temperature,
             num_tokens=num_tokens,
+            device=self.device,
             batch_size=self.batch_size,
             verbose=self.verbose,
             seed=self._next_seed(),

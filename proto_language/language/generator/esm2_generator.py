@@ -1,4 +1,4 @@
-"""ESM2 Generator for protein sequence generation."""
+"""ESM2 generator for protein sequence mutation and refinement."""
 
 from typing import final
 
@@ -17,8 +17,10 @@ class ESM2GeneratorConfig(BaseConfig):
     """Configuration object for ESM2Generator.
 
     This class defines configuration parameters for the ESM2 generator, which uses
-    a protein language model to generate and refine protein sequences through
-    iterative mutation of masked positions.
+    a protein language model to refine existing protein sequences through iterative
+    mutation of masked positions. In Proto Language, ESM2 is registered as a
+    mutation-category generator that edits supplied or initialized proposal
+    sequences.
 
     Attributes:
         model_checkpoint (ESM2_MODEL_CHECKPOINTS): ESM2 model checkpoint to use. Options:
@@ -95,7 +97,7 @@ class ESM2GeneratorConfig(BaseConfig):
     key="esm2",
     label="ESM2 Protein Language Model",
     config=ESM2GeneratorConfig,
-    description="ESM-2 protein language model for protein sequence generation",
+    description="ESM-2 masked protein language model for local sequence mutation/refinement",
     uses_gpu=True,
     tools_called=["esm2-sample"],
     category="mutation",
@@ -103,15 +105,15 @@ class ESM2GeneratorConfig(BaseConfig):
 )
 @final
 class ESM2Generator(Generator):
-    """Protein sequence generator using ESM2 language model.
+    """Protein sequence mutation/refinement generator using ESM2 language model.
 
-    This generator uses the ESM2 protein language model to generate and refine
+    This generator uses the ESM2 protein language model to refine existing
     protein sequences through iterative mutation. It masks positions according
     to the configured masking strategy and samples biologically plausible amino
     acids at those positions.
 
-    The generator category is ``"mutation"``, indicating it refines sequences
-    through targeted mutations rather than generating from scratch.
+    The generator category is ``"mutation"``, indicating it refines proposal
+    sequences through targeted mutations.
 
     Attributes:
         model_checkpoint (str): ESM2 model checkpoint name.

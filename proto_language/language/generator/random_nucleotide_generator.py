@@ -80,8 +80,11 @@ class RandomNucleotideGenerator(Generator):
     substitution scheme, allowing targeted mutation strategies (e.g., transitions
     only with ``"R"``/``"Y"``, or any base with ``"N"``).
 
-    The generator category is ``"mutation"``, indicating it modifies existing
-    sequences rather than generating from scratch.
+    The generator category is ``"mutation"``, indicating it modifies proposal
+    sequences at selected positions.
+
+    If assigned to a length-only segment, the base generator seeds random
+    starting sequences before applying mutations.
 
     Attributes:
         masking_strategy (MaskingStrategy): Strategy for selecting positions to mutate.

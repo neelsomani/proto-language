@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 class Generator(ABC):
     """Generator base class that modifies proposal_sequences of assigned segments during optimization.
 
+    Mutation generators can operate on length-only segments by first seeding
+    random starting sequences in ``_validate_generator``. That fallback provides
+    initial proposal sequences for the mutation step.
+
     Subclasses must implement `__init__()` and `sample()`. Override `assign()` only if
     additional validation or initialization is needed (call super().assign() first).
 
@@ -109,9 +113,10 @@ class Generator(ABC):
             )
 
         # Initialize random sequences for mutation generators if no input template sequence provided.
+        # This is only an initial proposal seed for the local mutation step.
         if self._spec.category == "mutation" and not segment.proposals_populated:
             warnings.warn(
-                f"Generator {self.__class__.__name__} is a mutation generator, but proposals have no sequences. Initializing random starting sequences.",
+                f"Generator {self.__class__.__name__} is a mutation generator, but proposals have no sequences. Initializing random starting sequences before local mutation.",
                 stacklevel=2,
             )
             assert segment.valid_chars is not None  # noqa: S101 -- mypy type narrowing

@@ -1,4 +1,4 @@
-"""ESM3 Generator for protein sequence generation."""
+"""ESM3 generator for protein sequence mutation and refinement."""
 
 from typing import final
 
@@ -17,8 +17,10 @@ class ESM3GeneratorConfig(BaseConfig):
     """Configuration object for ESM3Generator.
 
     This class defines configuration parameters for the ESM3 generator, which uses
-    the open-source ESM3 protein language model to generate and refine protein
-    sequences through iterative mutation of masked positions.
+    the open-source ESM3 protein language model to refine existing protein
+    sequences through iterative mutation of masked positions. In Proto Language,
+    ESM3 is registered as a mutation-category generator that edits supplied or
+    initialized proposal sequences.
 
     Attributes:
         model_checkpoint (ESM3_MODEL_CHECKPOINTS): ESM3 model checkpoint to use. Currently available:
@@ -94,7 +96,7 @@ class ESM3GeneratorConfig(BaseConfig):
     key="esm3",
     label="ESM3 Protein Language Model",
     config=ESM3GeneratorConfig,
-    description="ESM-3 open protein language model for protein sequence generation",
+    description="ESM-3 open masked protein language model for local sequence mutation/refinement",
     uses_gpu=True,
     tools_called=["esm3-sample"],
     category="mutation",
@@ -102,15 +104,15 @@ class ESM3GeneratorConfig(BaseConfig):
 )
 @final
 class ESM3Generator(Generator):
-    """Protein sequence generator using ESM3 open language model.
+    """Protein sequence mutation/refinement generator using ESM3 open language model.
 
-    This generator uses the open-source ESM3 protein language model to generate
-    and refine protein sequences through iterative mutation. It masks positions
+    This generator uses the open-source ESM3 protein language model to refine
+    existing protein sequences through iterative mutation. It masks positions
     according to the configured masking strategy and samples biologically
     plausible amino acids at those positions.
 
-    The generator category is ``"mutation"``, indicating it refines sequences
-    through targeted mutations rather than generating from scratch.
+    The generator category is ``"mutation"``, indicating it refines proposal
+    sequences through targeted mutations.
 
     Attributes:
         model_checkpoint (str): ESM3 model checkpoint name.

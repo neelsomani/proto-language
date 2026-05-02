@@ -1,5 +1,6 @@
 """Provides shared infrastructure for ConstraintRegistry, GeneratorRegistry, and ToolRegistry."""
 
+import copy
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -77,6 +78,8 @@ class BaseRegistry(ABC, Generic[SpecType]):
     - get(): Retrieve component spec by key
     - get_schema(): Get JSON schema for component configuration
     - count(): Get number of registered components
+    - snapshot() / restore(): Transactional rollback of registry state
+    - unregister(): Remove a key from the registry
     """
 
     # Any instead of SpecType — mypy can't handle ClassVar with generic type params
@@ -158,6 +161,22 @@ class BaseRegistry(ABC, Generic[SpecType]):
             int: Number of registered components
         """
         return len(cls._registry)
+
+    @classmethod
+    def snapshot(cls) -> dict[str, SpecType]:
+        """Deep-copy the registry for transactional rollback (pair with :meth:`restore`)."""
+        return copy.deepcopy(cls._registry)
+
+    @classmethod
+    def restore(cls, snapshot: dict[str, SpecType]) -> None:
+        """Replace the registry contents with ``snapshot`` in place."""
+        cls._registry.clear()
+        cls._registry.update(snapshot)
+
+    @classmethod
+    def unregister(cls, key: str) -> None:
+        """Remove ``key`` from the registry. No-op if not present."""
+        cls._registry.pop(key, None)
 
     @classmethod
     def _check_duplicate(cls, key: str, attempted_component_name: str | None = None) -> None:

@@ -165,6 +165,61 @@ class TestRegistration:
 
 
 # ============================================================================
+# Unit Tests: Transactional API (snapshot / restore / unregister)
+# ============================================================================
+
+
+class TestTransactionalAPI:
+    """snapshot / restore / unregister on BaseRegistry via ConstraintRegistry."""
+
+    @staticmethod
+    def _register_temp(key: str) -> None:
+        class _Cfg(BaseModel):
+            value: float = Field(default=0.0)
+
+        @constraint(
+            key=key,
+            label=f"Probe {key}",
+            config=_Cfg,
+            description="Probe.",
+            supported_sequence_types=["protein"],
+        )
+        def _probe(input_sequences, config: _Cfg):  # type: ignore[no-untyped-def]
+            return [ConstraintOutput(score=config.value) for _ in input_sequences]
+
+    def test_snapshot_restore_roundtrip(self):
+        """Restore must return the registry to exactly the snapshot state — no more, no less."""
+        baseline = set(ConstraintRegistry._registry)
+        snap = ConstraintRegistry.snapshot()
+        try:
+            self._register_temp("test-roundtrip-a")
+            self._register_temp("test-roundtrip-b")
+            assert {"test-roundtrip-a", "test-roundtrip-b"} <= set(ConstraintRegistry._registry)
+        finally:
+            ConstraintRegistry.restore(snap)
+        assert set(ConstraintRegistry._registry) == baseline
+
+    def test_snapshot_is_deep_copy(self):
+        """Snapshot must be independent of the live registry in both directions."""
+        snap = ConstraintRegistry.snapshot()
+        assert snap, "expected at least one shipped constraint to be registered"
+        first_key = next(iter(snap))
+        assert snap[first_key] is not ConstraintRegistry.get(first_key)
+        snap.pop(first_key)
+        assert first_key in ConstraintRegistry._registry
+
+    def test_unregister_removes_present_key_and_noops_on_missing(self):
+        """Unregister deletes when present, silently does nothing when absent."""
+        try:
+            self._register_temp("test-unregister-x")
+            ConstraintRegistry.unregister("test-unregister-x")
+            assert "test-unregister-x" not in ConstraintRegistry._registry
+            ConstraintRegistry.unregister("not-a-real-key")  # must not raise
+        finally:
+            ConstraintRegistry._registry.pop("test-unregister-x", None)
+
+
+# ============================================================================
 # Unit Tests: Discovery Methods
 # ============================================================================
 

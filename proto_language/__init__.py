@@ -1,5 +1,6 @@
 """Public API surface for proto-language."""
 
+from proto_language.base_config import ConfigField
 from proto_language.language.constraint import (
     BorzoiChromatinAccessibilityMorseConfig,
     ConstraintRegistry,
@@ -124,6 +125,7 @@ __all__ = [
     "BaseConfig",
     "BaseRegistry",
     "BaseSpec",
+    "ConfigField",
     # Core classes
     "Sequence",
     "Segment",

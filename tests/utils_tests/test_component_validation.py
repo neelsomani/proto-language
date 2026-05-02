@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 
 from proto_language.utils import (
+    LintResult,
     TestResult,
-    ValidationResult,
+    lint_component_file,
     test_constraint,
     test_generator,
     test_optimizer,
-    validate_component_file,
 )
 
 GOOD_CONSTRAINT_SOURCE = textwrap.dedent(
@@ -95,13 +95,13 @@ GOOD_OPTIMIZER_SOURCE = textwrap.dedent(
 ).lstrip()
 
 
-def _validate(tmp_path: Path, source: str, filename: str = "component.py") -> ValidationResult:
+def _lint(tmp_path: Path, source: str, filename: str = "component.py") -> LintResult:
     path = tmp_path / filename
     path.write_text(source)
-    return validate_component_file(path)
+    return lint_component_file(path)
 
 
-def _has_error(result: ValidationResult, substring: str) -> bool:
+def _has_error(result: LintResult, substring: str) -> bool:
     return any(substring.lower() in error.lower() for error in result.errors)
 
 
@@ -113,17 +113,17 @@ def _has_error(result: ValidationResult, substring: str) -> bool:
         (GOOD_OPTIMIZER_SOURCE, "optimizer", "toy-optimizer"),
     ],
 )
-def test_validate_accepts_well_formed_components(
+def test_lint_accepts_well_formed_components(
     tmp_path: Path, source: str, component_type: str, registry_key: str
 ) -> None:
-    result = _validate(tmp_path, source)
+    result = _lint(tmp_path, source)
 
     assert result.success
     assert result.component_type == component_type
     assert result.registry_key == registry_key
 
 
-def test_validate_accepts_public_proto_language_imports(tmp_path: Path) -> None:
+def test_lint_accepts_public_proto_language_imports(tmp_path: Path) -> None:
     source = GOOD_CONSTRAINT_SOURCE.replace(
         "from proto_language.base_config import BaseConfig, ConfigField\n"
         "from proto_language.language.constraint.constraint_registry import constraint\n"
@@ -134,7 +134,7 @@ def test_validate_accepts_public_proto_language_imports(tmp_path: Path) -> None:
         "threshold: float = 0.5",
     )
 
-    assert _validate(tmp_path, source).success
+    assert _lint(tmp_path, source).success
 
 
 @pytest.mark.parametrize(
@@ -163,16 +163,16 @@ def test_validate_accepts_public_proto_language_imports(tmp_path: Path) -> None:
         ),
     ],
 )
-def test_validate_rejects_invalid_constraint_contract(
+def test_lint_rejects_invalid_constraint_contract(
     tmp_path: Path, transform: Callable[[str], str], error_substring: str
 ) -> None:
-    result = _validate(tmp_path, transform(GOOD_CONSTRAINT_SOURCE))
+    result = _lint(tmp_path, transform(GOOD_CONSTRAINT_SOURCE))
 
     assert not result.success
     assert _has_error(result, error_substring)
 
 
-def test_validate_rejects_multiple_components(tmp_path: Path) -> None:
+def test_lint_rejects_multiple_components(tmp_path: Path) -> None:
     second_constraint = textwrap.dedent(
         """
 
@@ -190,7 +190,7 @@ def test_validate_rejects_multiple_components(tmp_path: Path) -> None:
         """
     )
 
-    result = _validate(tmp_path, GOOD_CONSTRAINT_SOURCE + second_constraint)
+    result = _lint(tmp_path, GOOD_CONSTRAINT_SOURCE + second_constraint)
 
     assert not result.success
     assert _has_error(result, "exactly one @constraint")
@@ -204,15 +204,15 @@ def test_validate_rejects_multiple_components(tmp_path: Path) -> None:
         (GOOD_GENERATOR_SOURCE.replace("    def sample(self) -> None:\n        pass\n", ""), "sample"),
     ],
 )
-def test_validate_rejects_unusable_files(tmp_path: Path, source: str, error_substring: str) -> None:
-    result = _validate(tmp_path, source)
+def test_lint_rejects_unusable_files(tmp_path: Path, source: str, error_substring: str) -> None:
+    result = _lint(tmp_path, source)
 
     assert not result.success
     assert _has_error(result, error_substring)
 
 
-def test_validate_missing_path_returns_error(tmp_path: Path) -> None:
-    result = validate_component_file(tmp_path / "does_not_exist.py")
+def test_lint_missing_path_returns_error(tmp_path: Path) -> None:
+    result = lint_component_file(tmp_path / "does_not_exist.py")
 
     assert not result.success
     assert _has_error(result, "File not found")
@@ -261,3 +261,57 @@ def test_generator_helper_checks_length_and_alphabet() -> None:
 )
 def test_optimizer_helper_validates_config(config: dict, should_pass: bool) -> None:
     assert test_optimizer("mcmc", config=config).passed is should_pass
+
+
+_LOAD_CONSTRAINT_SOURCE = textwrap.dedent(
+    """
+    from proto_language.base_config import BaseConfig, ConfigField
+    from proto_language.language.constraint.constraint_registry import constraint
+    from proto_language.language.core import ConstraintOutput, Sequence
+
+
+    class LoadProbeConfig(BaseConfig):
+        offset: float = ConfigField(default=0.25, title="Offset", description="Offset.")
+
+
+    @constraint(
+        key="load-probe-constraint",
+        label="Load Probe",
+        config=LoadProbeConfig,
+        description="Probe used by test_constraint(load=...).",
+        supported_sequence_types=["protein"],
+        tools_called=[],
+        category="testing",
+    )
+    def load_probe_constraint(
+        input_sequences: list[tuple[Sequence, ...]], config: LoadProbeConfig
+    ) -> list[ConstraintOutput]:
+        return [ConstraintOutput(score=config.offset) for _ in input_sequences]
+    """
+).lstrip()
+
+
+def test_constraint_load_kwarg_registers_workspace_file(tmp_path: Path) -> None:
+    """test_constraint(load=...) execs the file so its decorator registers."""
+    from proto_language.language.constraint import ConstraintRegistry
+
+    key = "load-probe-constraint"
+    path = tmp_path / "load_probe.py"
+    path.write_text(_LOAD_CONSTRAINT_SOURCE)
+
+    # Sanity: not registered yet.
+    with pytest.raises((KeyError, ValueError)):
+        ConstraintRegistry.get(key)
+
+    try:
+        result = test_constraint(
+            key,
+            sequences=["MAKL"],
+            expected_scores=[0.25],
+            tolerance=1e-6,
+            load=path,
+        )
+        assert result.passed
+        assert result.actual == [0.25]
+    finally:
+        ConstraintRegistry._registry.pop(key, None)

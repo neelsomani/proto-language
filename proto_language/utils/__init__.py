@@ -2,12 +2,12 @@
 
 from proto_language.utils.component_validation import (
     ComponentType,
+    LintResult,
     TestResult,
-    ValidationResult,
+    lint_component_file,
     test_constraint,
     test_generator,
     test_optimizer,
-    validate_component_file,
 )
 from proto_language.utils.export import (
     build_results,
@@ -140,9 +140,9 @@ __all__ = [
     # Component validation + smoke-test helpers
     "ComponentType",
     "TestResult",
-    "ValidationResult",
+    "LintResult",
     "test_constraint",
     "test_generator",
     "test_optimizer",
-    "validate_component_file",
+    "lint_component_file",
 ]

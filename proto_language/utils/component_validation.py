@@ -84,6 +84,7 @@ _VALIDATION_RULES: dict[ComponentType, dict[str, Any]] = {
 _PUBLIC_IMPORT_MODULES: dict[str, frozenset[str]] = {
     "BaseConfig": frozenset({"proto_language"}),
     "BaseOptimizerConfig": frozenset({"proto_language.language.optimizer"}),
+    "ConfigField": frozenset({"proto_language", "proto_language.base_config"}),
     "ConstraintOutput": frozenset({"proto_language", "proto_language.language"}),
     "Generator": frozenset({"proto_language", "proto_language.language"}),
     "Optimizer": frozenset({"proto_language", "proto_language.language"}),
@@ -95,8 +96,8 @@ _PUBLIC_IMPORT_MODULES: dict[str, frozenset[str]] = {
 
 
 @dataclass
-class ValidationResult:
-    """Outcome of ``validate_component_file``.
+class LintResult:
+    """Outcome of ``lint_component_file``.
 
     Attributes:
         success (bool): True when the file parses with no AST-level errors.
@@ -136,42 +137,45 @@ class TestResult:
     message: str = ""
 
 
-def validate_component_file(path: str | Path) -> ValidationResult:
-    """Validate a component file's structure before import.
+def lint_component_file(path: str | Path) -> LintResult:
+    """Statically lint a component file's structure.
 
-    Runs AST-level checks: syntax, required imports, decorator presence,
-    config base class, decorator args, component shape. Does not import
-    the file. This is an advisory authoring check, not a runtime loader
-    or executable payload format.
+    AST-only static analysis: parses the source and checks syntax, required
+    imports, decorator presence, config base class, decorator args, and
+    component shape. **The file is never imported or executed**, so the
+    decorator does not run and the registry is not touched. This is an
+    authoring-time lint, not a runtime loader. To register the component
+    in-process, exec the file (or pass ``load=path`` to ``test_constraint``
+    / ``test_generator`` / ``test_optimizer``).
 
     Args:
         path (str | Path): Filesystem path to the component .py file.
 
     Returns:
-        ValidationResult: Inspect ``result.errors`` to decide whether to import.
+        LintResult: Inspect ``result.errors`` to decide whether to load.
     """
     file_path = Path(path)
     try:
         source = file_path.read_text()
     except FileNotFoundError:
-        return ValidationResult(success=False, errors=[f"File not found: {file_path}"])
+        return LintResult(success=False, errors=[f"File not found: {file_path}"])
     except OSError as exc:
-        return ValidationResult(success=False, errors=[f"Cannot read file: {exc!s}"])
+        return LintResult(success=False, errors=[f"Cannot read file: {exc!s}"])
 
     try:
         tree = ast.parse(source)
     except SyntaxError as exc:
-        return ValidationResult(success=False, errors=[f"Line {exc.lineno}: {exc.msg}"])
+        return LintResult(success=False, errors=[f"Line {exc.lineno}: {exc.msg}"])
 
     facts = _analyze_tree(tree)
     component_type = facts["component_type"]
     if component_type is None:
-        return ValidationResult(
+        return LintResult(
             success=False,
             errors=["No @constraint, @generator, or @optimizer decorator found."],
         )
     if len(facts["detected_types"]) > 1:
-        return ValidationResult(
+        return LintResult(
             success=False,
             errors=[
                 "Component files should define exactly one component type; "
@@ -196,7 +200,7 @@ def validate_component_file(path: str | Path) -> ValidationResult:
     _check_config_class(facts["classes"], component_type, rules, structure, errors)
     _check_component_definition(facts, component_type, rules, structure, errors, warnings)
 
-    return ValidationResult(
+    return LintResult(
         success=not errors,
         component_type=component_type,
         registry_key=facts["registry_key"],
@@ -213,6 +217,7 @@ def test_constraint(
     expected_scores: list[float] | None = None,
     tolerance: float = 0.01,
     sequence_type: SequenceType = "protein",
+    load: str | Path | None = None,
 ) -> TestResult:
     """Run a registered constraint and compare scores to ``expected_scores``.
 
@@ -226,6 +231,10 @@ def test_constraint(
         expected_scores (list[float] | None): Per-input expected score, or None to skip comparison.
         tolerance (float): Absolute tolerance for score comparison.
         sequence_type (SequenceType): Used only when wrapping plain strings.
+        load (str | Path | None): Optional component source path to import before
+            the registry lookup. Use this when ``key`` lives in a workspace file
+            that hasn't been registered yet in the current process — the file is
+            executed so its ``@constraint(...)`` decorator runs.
 
     Returns:
         TestResult: ``passed=True`` when scores match within tolerance.
@@ -234,6 +243,8 @@ def test_constraint(
         KeyError: When ``key`` is not registered.
         ValueError: When the constraint is gradient-only (no scoring function).
     """
+    if load is not None:
+        _exec_component_file(load)
     from proto_language.language.constraint import ConstraintRegistry
 
     spec = ConstraintRegistry.get(key)
@@ -283,6 +294,7 @@ def test_generator(
     n_samples: int = 5,
     sequence_type: SequenceType = "protein",
     expected_alphabet: str | None = None,
+    load: str | Path | None = None,
 ) -> TestResult:
     """Smoke-test a registered generator: instantiate, sample, check shape.
 
@@ -297,6 +309,9 @@ def test_generator(
         n_samples (int): Number of proposal slots to allocate.
         sequence_type (SequenceType): Must match a value in the generator's ``supported_sequence_types``.
         expected_alphabet (str | None): When provided, every char in every proposal must be in this string.
+        load (str | Path | None): Optional component source path to import before
+            the registry lookup. Use this when ``key`` lives in a workspace file
+            that hasn't been registered yet in the current process.
 
     Returns:
         TestResult: ``passed=True`` when proposals match the requested shape.
@@ -304,6 +319,8 @@ def test_generator(
     Raises:
         KeyError: When ``key`` is not registered.
     """
+    if load is not None:
+        _exec_component_file(load)
     from proto_language.language.core import Segment
     from proto_language.language.generator import GeneratorRegistry
 
@@ -340,6 +357,7 @@ def test_generator(
 def test_optimizer(
     key: str,
     config: dict[str, Any] | None = None,
+    load: str | Path | None = None,
 ) -> TestResult:
     """Smoke-test a registered optimizer: validate that its config schema accepts the overrides.
 
@@ -350,6 +368,9 @@ def test_optimizer(
     Args:
         key (str): Optimizer registry key.
         config (dict[str, Any] | None): Config overrides.
+        load (str | Path | None): Optional component source path to import before
+            the registry lookup. Use this when ``key`` lives in a workspace file
+            that hasn't been registered yet in the current process.
 
     Returns:
         TestResult: ``passed=True`` when the config is accepted.
@@ -357,6 +378,8 @@ def test_optimizer(
     Raises:
         KeyError: When ``key`` is not registered.
     """
+    if load is not None:
+        _exec_component_file(load)
     from pydantic import ValidationError
 
     from proto_language.language.optimizer import OptimizerRegistry
@@ -390,6 +413,17 @@ def _close(a: float, b: float, tol: float) -> bool:
     if math.isnan(a) or math.isnan(b):
         return False
     return abs(a - b) <= tol
+
+
+def _exec_component_file(path: str | Path) -> None:
+    """Execute a component source file so its decorator side effect registers."""
+    file_path = Path(path)
+    source = file_path.read_text()
+    namespace: dict[str, Any] = {
+        "__file__": str(file_path),
+        "__name__": f"_load_{file_path.stem}",
+    }
+    exec(compile(source, str(file_path), "exec"), namespace)  # noqa: S102
 
 
 def _coerce_constraint_inputs(
@@ -653,9 +687,9 @@ def _base_name(base: ast.expr) -> str | None:
 __all__ = [
     "ComponentType",
     "TestResult",
-    "ValidationResult",
+    "LintResult",
     "test_constraint",
     "test_generator",
     "test_optimizer",
-    "validate_component_file",
+    "lint_component_file",
 ]

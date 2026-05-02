@@ -25,7 +25,7 @@ def parse_program(json_data: dict[str, Any]) -> Program:
     for construct_json in json_data["constructs"]:
         segments: list[Segment] = []
         sequence_type = construct_json["type"].lower()
-        if sequence_type not in ("dna", "rna", "protein"):
+        if sequence_type not in ("dna", "rna", "protein", "ligand"):
             raise ValueError(f"Invalid construct type: {sequence_type}")
 
         for segment_json in construct_json["segments"]:

@@ -20,6 +20,8 @@ from proto_language.language.core import Constraint, ConstraintOutput, Construct
 from proto_language.language.generator import (
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
+    RandomProteinGenerator,
+    RandomProteinGeneratorConfig,
 )
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
@@ -714,6 +716,33 @@ class TestMCMCOptimizer:
         assert len(optimizer.energy_scores) == num_trajectories
         assert len(segment1.result_sequences) == num_trajectories
         assert len(segment2.result_sequences) == num_trajectories
+
+    def test_single_generator_can_populate_multiple_construct_segments(self):
+        """One generator can drive multiple segments across separate constructs."""
+        segment1 = Segment(length=8, sequence_type="protein")
+        segment2 = Segment(length=8, sequence_type="protein")
+        generator = RandomProteinGenerator(RandomProteinGeneratorConfig())
+        generator.assign([segment1, segment2])
+
+        def zero_complex_constraint(input_sequences, config=None):
+            return [ConstraintOutput(score=0.0) for _ in input_sequences]
+
+        constraint = Constraint(
+            inputs=[segment1, segment2],
+            function=zero_complex_constraint,
+        )
+        optimizer = MCMCOptimizer(
+            constructs=[Construct([segment1]), Construct([segment2])],
+            generators=[generator],
+            constraints=[constraint],
+            config=MCMCOptimizerConfig(num_results=1, num_steps=1, verbose=False),
+        )
+
+        optimizer.run()
+
+        assert len(optimizer.energy_scores) == 1
+        assert len(segment1.result_sequences[0].sequence) == 8
+        assert segment2.result_sequences[0].sequence == segment1.result_sequences[0].sequence
 
     def test_run_restarts_from_initial_state(self):
         """Tests that calling run() twice restarts from initial state."""

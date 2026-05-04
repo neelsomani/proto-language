@@ -23,7 +23,7 @@ class TestProGen2Generator:
         segment = Segment(length=expected_length, sequence_type="protein")
         progen2_generator.assign(segment)
 
-        assert progen2_generator._assigned_segment is segment
+        assert progen2_generator._assigned_segments == (segment,)
 
         progen2_generator.sample()
 
@@ -45,7 +45,7 @@ class TestProGen2Generator:
         segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(len(prompts))]
         progen2_generator.assign(segment)
 
-        assert progen2_generator._assigned_segment is segment
+        assert progen2_generator._assigned_segments == (segment,)
         assert len(segment.proposal_sequences) == len(prompts)
 
         progen2_generator.sample()
@@ -135,7 +135,7 @@ class TestProGen2GeneratorValidation:
         segment = Segment(length=100, sequence_type="protein")
 
         generator.assign(segment)
-        assert generator._assigned_segment is segment
+        assert generator._assigned_segments == (segment,)
 
     def test_prompt_exceeds_segment_length_with_prepend(self):
         """Prompt >= segment length with prepend_prompt=True should raise ValueError."""

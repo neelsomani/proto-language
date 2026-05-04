@@ -161,7 +161,7 @@ class TestMSAGeneratorAssign:
 
         gen.assign(segment)
 
-        assert gen._assigned_segment is segment
+        assert gen._assigned_segments == (segment,)
 
     def test_assign_length_mismatch(self):
         """Test that assign raises error for length mismatch."""
@@ -353,7 +353,7 @@ class TestMSAGeneratorSequenceTypes:
         segment = Segment(sequence="ACGT", sequence_type="dna")
 
         gen.assign(segment)
-        assert gen._assigned_segment is segment
+        assert gen._assigned_segments == (segment,)
 
     def test_accepts_rna_segment(self):
         """MSAGenerator should accept RNA segments."""
@@ -362,7 +362,7 @@ class TestMSAGeneratorSequenceTypes:
         segment = Segment(sequence="ACGU", sequence_type="rna")
 
         gen.assign(segment)
-        assert gen._assigned_segment is segment
+        assert gen._assigned_segments == (segment,)
 
     def test_accepts_protein_segment(self):
         """MSAGenerator should accept protein segments."""
@@ -371,7 +371,7 @@ class TestMSAGeneratorSequenceTypes:
         segment = Segment(sequence="MVLS", sequence_type="protein")
 
         gen.assign(segment)
-        assert gen._assigned_segment is segment
+        assert gen._assigned_segments == (segment,)
 
 
 class TestMSAGeneratorRegistry:

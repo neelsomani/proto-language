@@ -31,7 +31,7 @@ class TestLigandMPNNGenerator:
         segment = Segment(length=5, sequence_type="protein")
         generator.assign(segment)
 
-        assert generator._assigned_segment is segment
+        assert generator._assigned_segments == (segment,)
 
         generator.sample()
 

@@ -14,6 +14,7 @@ Note: Gradient tests use protein segments (PositionWeightGenerator is protein-on
 """
 
 import random
+from collections.abc import Iterable
 from unittest.mock import Mock
 
 import numpy as np
@@ -65,10 +66,10 @@ class MockAutoregressiveGenerator(Generator):
         self.use_kv_caching = use_kv_caching
         self.kv_caches: list[dict] = []
 
-    def assign(self, assigned_segment: Segment) -> None:
-        self._assigned_segment = assigned_segment
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def sample(
+    def _sample(
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
@@ -83,7 +84,7 @@ class MockAutoregressiveGenerator(Generator):
         for prompt in prompts:
             new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
-        self._assigned_segment.proposal_sequences = [Sequence(sequence=seq, sequence_type="dna") for seq in sequences]
+        self.segment.proposal_sequences = [Sequence(sequence=seq, sequence_type="dna") for seq in sequences]
         if self.use_kv_caching:
             mock_mha = Mock()
             mock_mha.key_value_memory_dict = {0: Mock(shape=(1, 2, 3))}
@@ -102,12 +103,12 @@ class MockCyclingGenerator(Generator):
     def __init__(self):
         super().__init__()
 
-    def assign(self, assigned_segment: Segment) -> None:
-        self._assigned_segment = assigned_segment
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def sample(self, structure_inputs=None) -> None:
+    def _sample(self, structure_inputs=None) -> None:
         # Mutate each proposal sequence slightly
-        for seq in self._assigned_segment.proposal_sequences:
+        for seq in self.segment.proposal_sequences:
             chars = list(seq.sequence)
             if chars:
                 idx = random.randint(0, len(chars) - 1)  # noqa: S311 -- non-cryptographic, test mock
@@ -161,7 +162,7 @@ def create_mcmc_optimizer(construct, segment, num_results=3, num_steps=10, num_m
 def create_beamsearch_optimizer(construct, segment, num_results=3, beam_length=10, prompt="ATCG"):
     """Create a BeamSearch optimizer with mock generator."""
     generator = MockAutoregressiveGenerator(use_kv_caching=True)
-    generator._assigned_segment = segment
+    generator._assigned_segments = (segment,)
     constraint = Constraint(
         inputs=[segment],
         function=gc_content_constraint,

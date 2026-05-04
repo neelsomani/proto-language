@@ -38,7 +38,7 @@ class TestRandomNucleotideGenerator:
         gen = RandomNucleotideGenerator(config)
         gen.assign(segment)
 
-        assert gen._assigned_segment is segment
+        assert gen._assigned_segments == (segment,)
         assert segment.num_results == 1
         assert len(segment.proposal_sequences[0].sequence) == 0
         assert all(c in "ACGU" for c in segment.proposal_sequences[0].sequence)
@@ -168,7 +168,7 @@ class TestRandomNucleotideGeneratorValidation:
         segment = Segment(length=50, sequence_type="dna")
 
         generator.assign(segment)
-        assert generator._assigned_segment is segment
+        assert generator._assigned_segments == (segment,)
 
     def test_accepts_rna_segment(self):
         """RandomNucleotide should accept RNA segments."""
@@ -177,7 +177,7 @@ class TestRandomNucleotideGeneratorValidation:
         segment = Segment(length=50, sequence_type="rna")
 
         generator.assign(segment)
-        assert generator._assigned_segment is segment
+        assert generator._assigned_segments == (segment,)
 
     def test_rejects_protein_segment(self):
         """RandomNucleotide should reject protein segments."""

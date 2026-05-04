@@ -114,7 +114,7 @@ class RandomNucleotideGenerator(Generator):
         self.masking_strategy = config.masking_strategy
         self.substitution_scheme = config.substitution_scheme
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         """Introduce random nucleotide mutations at masked positions.
 
         Applies the masking strategy to select positions, then samples random

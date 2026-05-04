@@ -148,7 +148,7 @@ class ESM2Generator(Generator):
         self.device = config.device
         self.batch_size = config.batch_size
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         """Sample new amino acids at masked positions for all sequences in the batch.
 
         For each sequence in the batch, applies the masking strategy to select

@@ -1,6 +1,7 @@
 """tests/language_tests/optimizer_tests/test_base_optimizer.py."""
 
 import logging
+from collections.abc import Iterable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -70,12 +71,12 @@ class MockGenerator(Generator):
 
     def __init__(self):
         super().__init__()
-        self._assigned_segment = None
+        self._assigned_segments = None
 
-    def assign(self, segment: Segment) -> None:
-        self._assigned_segment = segment
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def sample(self, *args, **kwargs) -> None:
+    def _sample(self, *args, **kwargs) -> None:
         pass
 
 

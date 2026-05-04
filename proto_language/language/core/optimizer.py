@@ -355,11 +355,11 @@ class Optimizer(ABC):
 
         assigned_segments: set[Segment] = set()
         for i, gen in enumerate(self.generators):
-            if not gen._assigned_segment:
+            if not gen.is_assigned:
                 raise RuntimeError(
                     f"Generator at index {i} ({gen.__class__.__name__}) has no segment assigned; call generator.assign(segment) before optimizer init"
                 )
-            assigned_segments.add(gen._assigned_segment)
+            assigned_segments.update(gen.segments)
 
         for i, con in enumerate(self.constraints):
             if not con.inputs:
@@ -459,7 +459,8 @@ class Optimizer(ABC):
                 # Capture label before any renaming so multi-segment constraints
                 # use a stable key across all their segments.
                 base_label = constraint.label
-                # Track unique segments for this constraint to handle same segment appearing multiple times in inputs (e.g. symmetric proteins)
+                # Defensive dedup: a Constraint may list the same Segment twice in inputs
+                # (user error). Treat each unique segment once when assigning labels.
                 seen_segments_for_constraint: set[int] = set()
                 for segment in constraint.inputs:
                     seg_id = id(segment)
@@ -492,13 +493,13 @@ class Optimizer(ABC):
                 f"target_segment '{target_segment.label or 'unlabeled'}' is not in any of the provided constructs"
             )
 
-        # Generators must only target the target segment
+        # Generators must target the target segment. Tied assignments can't reach
+        # this validator: BeamSearch/Cycling/Gradient re-`assign(target_segment)` in __init__.
         for i, gen in enumerate(self.generators):
-            if gen._assigned_segment is not target_segment:
-                assigned_label = gen._assigned_segment.label if gen._assigned_segment else "unassigned"
+            if gen.segment is not target_segment:
                 raise ValueError(
                     f"Generator {i} ({gen.__class__.__name__}) targets segment "
-                    f"'{assigned_label or 'unlabeled'}', not target segment "
+                    f"'{gen.segment.label or 'unlabeled'}', not target segment "
                     f"'{target_segment.label or 'unlabeled'}'"
                 )
 

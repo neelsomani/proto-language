@@ -146,16 +146,22 @@ def run_optimization(
         ## Segments ##
         #######################
 
-        protomer = Segment(
-            length=monomer_length,
-            sequence_type="protein",
-        )
+        protomer_segments = [
+            Segment(
+                length=monomer_length,
+                sequence_type="protein",
+                label=f"protomer_{idx + 1}",
+            )
+            for idx in range(n_symmetric_units)
+        ]
 
         ################
         ## Constructs ##
         ################
 
-        protomer_construct = Construct([protomer])
+        protomer_constructs = [
+            Construct([segment], label=f"protomer_{idx + 1}") for idx, segment in enumerate(protomer_segments)
+        ]
 
         ################
         ## Generators ##
@@ -163,13 +169,13 @@ def run_optimization(
 
         uniform_gen_config = RandomProteinGeneratorConfig()
         uniform_gen = RandomProteinGenerator(uniform_gen_config)
-        uniform_gen.assign(protomer)
+        uniform_gen.assign(protomer_segments)
 
         #################
         ## Constraints ##
         #################
 
-        symmetric_complex = [protomer for _ in range(n_symmetric_units)]
+        symmetric_complex = protomer_segments
 
         esmfold_plddt = Constraint(
             inputs=symmetric_complex,
@@ -206,8 +212,8 @@ def run_optimization(
         #################
 
         def custom_logging(step: int, outputs: tuple[Segment]) -> None:
-            output_sequence: Sequence = outputs[0].result_sequences[0]
-            constraints = _get_constraints_metadata(output_sequence)
+            output_sequences = [segment.result_sequences[0] for segment in outputs]
+            constraints = _get_constraints_metadata(output_sequences[0])
 
             # Get pLDDT from structure_plddt_constraint
             plddt = constraints.get("structure_plddt_constraint", {}).get("data", {}).get("avg_plddt")
@@ -227,8 +233,8 @@ def run_optimization(
 
             print(
                 f"Iteration {step} | \n"
-                f"\tsequence (monomer): {output_sequence._sequence}, \n"
-                f"\tsequence (duplicated): {folded_sequence}, \n"
+                f"\tsequence (monomer): {output_sequences[0].sequence}, \n"
+                f"\tsequence (folded complex): {folded_sequence}, \n"
                 f"\tpLDDT: {plddt}, \n"
                 f"\tpTM: {ptm}"
             )
@@ -246,7 +252,7 @@ def run_optimization(
 
         # Create optimizer
         optimizer = MCMCOptimizer(
-            constructs=[protomer_construct],
+            constructs=protomer_constructs,
             generators=[uniform_gen],
             constraints=[
                 esmfold_plddt,
@@ -267,11 +273,11 @@ def run_optimization(
         ## Save Outputs ##
         #################
 
-        # Get sequence from the protomer segment (where constraint metadata is stored)
-        protomer_sequence: Sequence = protomer.result_sequences[0]
-        constraints = _get_constraints_metadata(protomer_sequence)
+        # Get sequences from the protomer segments (where constraint metadata is stored)
+        protomer_sequences: list[Sequence] = [segment.result_sequences[0] for segment in protomer_segments]
+        constraints = _get_constraints_metadata(protomer_sequences[0])
         if not constraints:
-            raise RuntimeError("No constraint metadata found on final protomer sequence.")
+            raise RuntimeError("No constraint metadata found on final protomer sequences.")
 
         # Save PDB (stored as file reference, need to retrieve content)
         symmetry_data = constraints.get("protein_symmetry_ring_constraint", {}).get("data", {})
@@ -298,8 +304,10 @@ def run_optimization(
             f.write(f"# N steps: {n_steps}\n")
             f.write(f"# Timestamp: {datetime.now().isoformat()}\n")
             f.write("\n")
-            f.write(f"Monomer sequence:\n{protomer_sequence._sequence}\n")
-            f.write(f"\nFolded sequence (duplicated):\n{folded_sequence}\n")
+            f.write("Protomer sequences:\n")
+            for idx, protomer_sequence in enumerate(protomer_sequences):
+                f.write(f"Protomer {idx + 1}: {protomer_sequence.sequence}\n")
+            f.write(f"\nFolded sequence (complex):\n{folded_sequence}\n")
             f.write(f"\nFinal pLDDT: {final_plddt}\n")
             f.write(f"Final pTM: {final_ptm}\n")
         print(f"Saved sequence to: {seq_path}")

@@ -96,6 +96,25 @@ class TestRandomProteinGenerator:
         # Verify mask tokens were replaced
         assert "_" not in results[0]
 
+    def test_sample_ties_assigned_segments(self):
+        """Tests that one generator samples once and ties all assigned segments."""
+        config = RandomProteinGeneratorConfig()
+        gen = RandomProteinGenerator(config)
+        segment1 = Segment(sequence="MKK_LVV_GGG_AAA", sequence_type="protein")
+        segment2 = Segment(sequence="MAA_VVV_LLL_GGG", sequence_type="protein")
+        gen.assign([segment1, segment2])
+
+        segment1.proposal_sequences = [copy.deepcopy(segment1.original_sequence)]
+        segment2.proposal_sequences = [copy.deepcopy(segment2.original_sequence)]
+        gen.sample()
+
+        assert gen._assigned_segments == (segment1, segment2)
+        assert gen.segments == (segment1, segment2)
+        assert "_" not in segment1.proposal_sequences[0].sequence
+        assert segment2.proposal_sequences[0].sequence == segment1.proposal_sequences[0].sequence
+        assert len(segment1.proposal_sequences[0].sequence) == segment1.sequence_length
+        assert len(segment2.proposal_sequences[0].sequence) == segment2.sequence_length
+
 
 class TestRandomProteinGeneratorValidation:
     """Test sequence type validation for RandomProtein generator."""
@@ -107,7 +126,7 @@ class TestRandomProteinGeneratorValidation:
         segment = Segment(length=50, sequence_type="protein")
 
         generator.assign(segment)
-        assert generator._assigned_segment is segment
+        assert generator._assigned_segments == (segment,)
 
     @pytest.mark.parametrize("seq_type", ["dna", "rna"])
     def test_rejects_non_protein_segment(self, seq_type):

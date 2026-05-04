@@ -679,7 +679,7 @@ def _check_component_shape(
         errors.append(f"{component_type.title()} class '{node.name}' must inherit from {base_class}")
 
     methods = {item.name: item for item in node.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))}
-    required_method = "sample" if component_type == "generator" else "run"
+    required_method = "_sample" if component_type == "generator" else "run"
     if required_method not in methods:
         errors.append(f"{component_type.title()} '{node.name}' is missing required '{required_method}' method")
     if component_type == "generator":

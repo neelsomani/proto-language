@@ -456,11 +456,12 @@ class CyclingOptimizer(Optimizer):
         if not callable(self.conditioning_fn):
             raise TypeError(f"conditioning_fn must be callable, got {type(self.conditioning_fn)}")
 
-        sample_sig = inspect.signature(self.generator.sample)
+        # Inspect `_sample`: typed kwargs live there, not on the `*args, **kwargs` orchestrator.
+        sample_sig = inspect.signature(self.generator._sample)
         valid_params = set(sample_sig.parameters.keys()) - {"self"}
         if self.conditioning_param_name not in valid_params:
             raise ValueError(
-                f"Generator {self.generator.__class__.__name__}.sample() does not accept parameter '{self.conditioning_param_name}'. "
+                f"Generator {self.generator.__class__.__name__}._sample() does not accept parameter '{self.conditioning_param_name}'. "
                 f"Valid parameters: {sorted(valid_params)}"
             )
 

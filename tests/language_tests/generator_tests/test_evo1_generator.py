@@ -31,7 +31,7 @@ class TestEvo1Generator:
         segment = Segment(length=expected_length, sequence_type="dna")
         segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(3)]
         gen.assign(segment)
-        assert gen._assigned_segment is segment
+        assert gen._assigned_segments == (segment,)
 
         gen.sample()
 
@@ -64,7 +64,7 @@ class TestEvo1GeneratorValidation:
         segment = Segment(length=100, sequence_type="dna")
 
         gen.assign(segment)
-        assert gen._assigned_segment is segment
+        assert gen._assigned_segments == (segment,)
 
     @pytest.mark.parametrize("seq_type", ["protein", "rna"])
     def test_rejects_non_dna_segment(self, seq_type):

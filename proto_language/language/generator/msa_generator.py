@@ -1,6 +1,7 @@
 """MSAGenerator for sampling mutations from multiple sequence alignment distributions."""
 
 import random
+from collections.abc import Iterable
 from typing import Any, final
 
 from proto_tools import MSA
@@ -138,29 +139,29 @@ class MSAGenerator(Generator):
                 self.position_probs.append(probs)
                 self.mutable_positions.append(position)
 
-    def assign(self, assigned_segment: Segment) -> None:
-        """Assign a segment to this generator.
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        """Assign segment(s) to this generator.
 
         Validates that the alignment length matches the segment's sequence length
         and that the MSA has at least one mutable position.
 
         Args:
-            assigned_segment (Segment): The segment to assign.
+            segments (Segment | Iterable[Segment]): Segment or tied segments to assign.
 
         Raises:
             ValueError: If alignment/segment length mismatch, no mutable positions, or invalid segment.
         """
-        super().assign(assigned_segment)
+        super().assign(segments)
 
-        if self.msa.alignment_length != assigned_segment.sequence_length:
+        if self.msa.alignment_length != self.segment.sequence_length:
             raise ValueError(
-                f"MSA alignment length ({self.msa.alignment_length}) must match segment length ({assigned_segment.sequence_length})"
+                f"MSA alignment length ({self.msa.alignment_length}) must match segment length ({self.segment.sequence_length})"
             )
 
         if not self.mutable_positions:
             raise ValueError("No mutable positions in MSA (all positions are gaps)")
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         """Sample mutations for proposal sequences using MSA distributions.
 
         For each proposal sequence in the pool, randomly selects positions from

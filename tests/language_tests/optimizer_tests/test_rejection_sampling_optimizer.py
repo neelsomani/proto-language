@@ -35,7 +35,7 @@ class _NoOpGenerator(Generator):
     def __init__(self):
         super().__init__()
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         self._validate_generator()
 
 

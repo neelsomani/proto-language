@@ -281,7 +281,7 @@ class Program:
         # 5. Validate all segments will be populated
         # A segment must have either an input sequence or a generator in some optimizer.
         generator_segments = {
-            gen._assigned_segment for opt in self.optimizers for gen in opt.generators if gen._assigned_segment
+            segment for opt in self.optimizers for gen in opt.generators if gen.is_assigned for segment in gen.segments
         }
         for construct in self.constructs:
             for segment in construct.segments:

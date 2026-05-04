@@ -120,7 +120,7 @@ class RandomProteinGenerator(Generator):
         self.masking_strategy = config.masking_strategy
         self.codon_scheme = config.codon_scheme
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         """Introduce random amino acid mutations at masked positions.
 
         Applies the masking strategy to select positions, then samples random

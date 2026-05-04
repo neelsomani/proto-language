@@ -2,6 +2,7 @@
 
 import copy
 import random
+from collections.abc import Iterable
 from unittest.mock import Mock
 
 import pytest
@@ -26,10 +27,10 @@ class MockAutoregressiveGenerator(Generator):
         self.use_kv_caching = use_kv_caching
         self.kv_caches: list[dict] = []
 
-    def assign(self, assigned_segment: Segment) -> None:
-        self._assigned_segment = assigned_segment
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def sample(
+    def _sample(
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
@@ -44,7 +45,7 @@ class MockAutoregressiveGenerator(Generator):
         for prompt in prompts:
             new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
-        for proposal, sequence in zip(self._assigned_segment.proposal_sequences, sequences, strict=True):
+        for proposal, sequence in zip(self.segment.proposal_sequences, sequences, strict=True):
             proposal.sequence = sequence
         if self.use_kv_caching and getattr(self, "store_kv_cache", False):
             mock_mha = Mock()
@@ -77,10 +78,10 @@ class TrackingKVCacheGenerator(Generator):
         self.released_kv_caches: list[str] = []
         self._sample_idx = 0
 
-    def assign(self, assigned_segment: Segment) -> None:
-        self._assigned_segment = assigned_segment
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def sample(
+    def _sample(
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
@@ -111,10 +112,10 @@ class MockMutationGenerator(Generator):
         super().__init__()
         self.kv_caches: list[dict] = []
 
-    def assign(self, assigned_segment: Segment) -> None:
-        self._assigned_segment = assigned_segment
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None) -> None:
+    def _sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None) -> None:
         pass
 
 
@@ -125,10 +126,10 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
         super().__init__()
         # Intentionally missing kv_caches
 
-    def assign(self, assigned_segment: Segment) -> None:
-        self._assigned_segment = assigned_segment
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def sample(
+    def _sample(
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
@@ -143,7 +144,7 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
         for prompt in prompts:
             new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
-        for proposal, sequence in zip(self._assigned_segment.proposal_sequences, sequences, strict=True):
+        for proposal, sequence in zip(self.segment.proposal_sequences, sequences, strict=True):
             proposal.sequence = sequence
 
 
@@ -163,7 +164,7 @@ def _setup_beam_search(
     segment = Segment(length=segment_length, sequence_type="dna")
     construct = Construct([segment])
     generator = mock_generator or MockAutoregressiveGenerator(use_kv_caching=use_kv_caching)
-    generator._assigned_segment = segment
+    generator._assigned_segments = (segment,)
     constraint = Constraint(
         inputs=[segment],
         function=gc_content_constraint,
@@ -231,7 +232,7 @@ class TestBeamSearchOptimizer:
         segments = [target_segment, context_segment1, context_segment2]
         construct = Construct(segments)
         generator = MockAutoregressiveGenerator()
-        generator._assigned_segment = segments[0]
+        generator._assigned_segments = (segments[0],)
         constraint = Constraint(
             inputs=[segments[0]],
             function=gc_content_constraint,
@@ -254,7 +255,7 @@ class TestBeamSearchOptimizer:
         context_segment = Segment(sequence="ATCGATCGATCGATCGATCG", sequence_type="dna")
         construct = Construct([target_segment, context_segment])
         generator = MockAutoregressiveGenerator()
-        generator._assigned_segment = target_segment
+        generator._assigned_segments = (target_segment,)
 
         non_target_constraint = Constraint(
             inputs=[context_segment],
@@ -277,7 +278,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=20, sequence_type="dna")
         construct = Construct([segment])
         generator = MockAutoregressiveGenerator()
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -300,7 +301,7 @@ class TestBeamSearchOptimizer:
         other_segment = Segment(length=20, sequence_type="dna")  # Not in construct
         construct = Construct([segment])
         generator = MockAutoregressiveGenerator()
-        generator._assigned_segment = other_segment
+        generator._assigned_segments = (other_segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -322,7 +323,7 @@ class TestBeamSearchOptimizer:
         context_segment = Segment(sequence="ATCGATCGATCGATCGATCG", sequence_type="dna")
         construct = Construct([target_segment, context_segment])
         generator = MockAutoregressiveGenerator()
-        generator._assigned_segment = target_segment
+        generator._assigned_segments = (target_segment,)
         constraint = Constraint(
             inputs=[target_segment],
             function=gc_content_constraint,
@@ -344,7 +345,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=100, sequence_type="dna")
         construct = Construct([segment])
         generator = MockMutationGenerator()
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -365,7 +366,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=100, sequence_type="dna")
         construct = Construct([segment])
         generator = MockAutoregressiveGeneratorNoKVCache()
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -392,7 +393,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=100, sequence_type="dna")
         construct = Construct([segment])
         generator = MockAutoregressiveGeneratorNoKVCacheRelease()
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -419,7 +420,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=100, sequence_type="dna")
         construct = Construct([segment])
         generator = MockAutoregressiveGeneratorNoKVCache()
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -448,7 +449,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=50, sequence_type="dna")
         construct = Construct([segment])
         generator = MockAutoregressiveGenerator()
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -627,7 +628,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=20, sequence_type="dna")
         construct = Construct([segment])
         generator = MockAutoregressiveGenerator(use_kv_caching=False)
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
@@ -857,7 +858,7 @@ class TestBeamSearchNonTargetSegmentSync:
         construct = Construct([target_segment, context_segment])
         other_construct = Construct([other_segment])
         generator = MockAutoregressiveGenerator(use_kv_caching=False)
-        generator._assigned_segment = target_segment
+        generator._assigned_segments = (target_segment,)
         constraint = Constraint(
             inputs=[target_segment],
             function=gc_content_constraint,
@@ -890,7 +891,7 @@ class TestBeamSearchNonTargetSegmentSync:
         construct = Construct([target_segment, context_segment])
 
         generator = MockAutoregressiveGenerator(use_kv_caching=False)
-        generator._assigned_segment = target_segment
+        generator._assigned_segments = (target_segment,)
 
         # Custom scoring function that reads from both segments
         def multi_seg_score(input_sequences, config=None):
@@ -940,7 +941,7 @@ class TestBeamSearchTrackingInterval:
         segment = Segment(length=100, sequence_type="dna")
         construct = Construct([segment])
         generator = MockAutoregressiveGenerator(use_kv_caching=False)
-        generator._assigned_segment = segment
+        generator._assigned_segments = (segment,)
         constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,

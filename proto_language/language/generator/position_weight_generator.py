@@ -1,5 +1,6 @@
 """Generator for sampling sequences from logit distributions."""
 
+from collections.abc import Iterable
 from typing import Literal, final
 
 import numpy as np
@@ -147,15 +148,15 @@ class PositionWeightGenerator(Generator):
         self.logit_scale = config.logit_scale
         self.entropy_positions = config.entropy_positions
 
-    def assign(self, assigned_segment: Segment) -> None:
-        """Assign a segment and validate length-dependent logit-bias config."""
-        super().assign(assigned_segment)
-        if self._logit_bias is not None and self._logit_bias.shape[0] != assigned_segment.sequence_length:
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        """Assign segment(s) and validate length-dependent logit-bias config."""
+        super().assign(segments)
+        if self._logit_bias is not None and self._logit_bias.shape[0] != self.segment.sequence_length:
             row_count = self._logit_bias.shape[0]
-            seq_len = assigned_segment.sequence_length
+            seq_len = self.segment.sequence_length
             raise ValueError(f"logit_bias has {row_count} rows; sequence length is {seq_len}.")
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         """Decode discrete sequences from ``seq.logits`` on each proposal.
 
         Reads ``.logits`` from each proposal sequence, applies softmax at the

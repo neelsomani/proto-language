@@ -23,7 +23,7 @@ class TestESM2Generator:
         segment = Segment(length=20, sequence_type="protein")
         esm2_generator.assign(segment)
 
-        assert esm2_generator._assigned_segment is segment
+        assert esm2_generator._assigned_segments == (segment,)
 
         esm2_generator.sample()
 
@@ -109,7 +109,7 @@ class TestESM2GeneratorValidation:
         segment = Segment(length=50, sequence_type="protein")
 
         generator.assign(segment)
-        assert generator._assigned_segment is segment
+        assert generator._assigned_segments == (segment,)
 
     @pytest.mark.parametrize("seq_type", ["dna", "rna"])
     def test_rejects_non_protein_segment(self, seq_type):

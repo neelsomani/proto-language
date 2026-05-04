@@ -446,7 +446,7 @@ class BeamSearchOptimizer(Optimizer):
 
             # Generate proposals
             with self._cached_generation_context():
-                self.generator.sample(  # type: ignore[call-arg]
+                self.generator.sample(
                     prompts=prompts,
                     prepend_prompt=prepend_prompt,
                     num_tokens=num_tokens,

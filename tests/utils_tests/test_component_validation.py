@@ -65,7 +65,7 @@ GOOD_GENERATOR_SOURCE = textwrap.dedent(
             super().__init__()
             self.config = config
 
-        def sample(self) -> None:
+        def _sample(self) -> None:
             pass
     """
 ).lstrip()
@@ -201,7 +201,7 @@ def test_lint_rejects_multiple_components(tmp_path: Path) -> None:
     [
         ("def broken(:\n    pass\n", "Line "),
         ("def plain():\n    return 1\n", "@constraint"),
-        (GOOD_GENERATOR_SOURCE.replace("    def sample(self) -> None:\n        pass\n", ""), "sample"),
+        (GOOD_GENERATOR_SOURCE.replace("    def _sample(self) -> None:\n        pass\n", ""), "_sample"),
     ],
 )
 def test_lint_rejects_unusable_files(tmp_path: Path, source: str, error_substring: str) -> None:

@@ -1,5 +1,6 @@
 """Generator for semigreedy single-point mutations guided by logits."""
 
+from collections.abc import Iterable
 from typing import Any, Literal, final
 
 import numpy as np
@@ -188,10 +189,10 @@ class SemigreedyMutationGenerator(Generator):
         self.exclude_current = config.exclude_current
         self.clear_logits = config.clear_logits
 
-    def assign(self, assigned_segment: Segment) -> None:
-        """Assign a segment and validate length-dependent config against it."""
-        super().assign(assigned_segment)
-        seq_len = assigned_segment.sequence_length
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        """Assign segment(s) and validate length-dependent config against them."""
+        super().assign(segments)
+        seq_len = self.segment.sequence_length
         if self._logit_bias is not None and self._logit_bias.shape[0] != seq_len:
             raise ValueError(f"logit_bias has {self._logit_bias.shape[0]} rows but sequence length is {seq_len}.")
         if self._frozen_positions is not None:
@@ -201,7 +202,7 @@ class SemigreedyMutationGenerator(Generator):
             if len(self._frozen_positions) == seq_len:
                 raise ValueError("All positions are frozen; no mutation is possible.")
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         """Introduce one single-point mutation per proposal.
 
         For each proposal sequence:

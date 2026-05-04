@@ -286,7 +286,7 @@ class Evo2Generator(Generator):
         self.prepend_prompt = config.prepend_prompt
         self.kv_caches: list[Evo2KVCacheRef] = []
 
-    def sample(
+    def _sample(
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,

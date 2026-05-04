@@ -222,7 +222,7 @@ class ProGen2Generator(Generator):
         self.batch_size = config.batch_size
         self.verbose = config.verbose
 
-    def sample(
+    def _sample(
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,

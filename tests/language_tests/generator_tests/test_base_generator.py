@@ -19,7 +19,7 @@ class ConcreteGenerator(Generator):
         """Minimal implementation of abstract __init__."""
         super().__init__()
 
-    def sample(self) -> None:
+    def _sample(self) -> None:
         """Dummy sample implementation that does nothing."""
 
 
@@ -50,14 +50,15 @@ class TestGeneratorBase:
     def test_assign_sets_segment_and_allows_all_types_when_empty(self):
         """Tests that assign sets segment and allows any type when supported_sequence_types is empty."""
         gen = ConcreteGenerator()
-        assert gen._assigned_segment is None
+        assert gen._assigned_segments is None
 
         p_get, p_key = _patch_registry(_mock_spec())
         with p_get, p_key:
             for seq, seq_type in [("ATCG", "dna"), ("ACGU", "rna"), ("MKKL", "protein")]:
                 segment = Segment(sequence=seq, sequence_type=seq_type)
                 gen.assign(segment)
-                assert gen._assigned_segment is segment
+                assert gen._assigned_segments == (segment,)
+                assert gen.segment is segment
 
     def test_assign_rejects_ligand_and_incompatible_type(self):
         """Tests that assign rejects ligand segments and incompatible sequence types."""
@@ -70,6 +71,118 @@ class TestGeneratorBase:
         with p_get, p_key:
             with pytest.raises(ValueError, match="does not support sequence type"):
                 gen.assign(Segment(sequence="ATCG", sequence_type="dna"))
+
+    def test_assign_multiple_segments(self):
+        """Tests that assign can record multiple target segments."""
+        gen = ConcreteGenerator()
+        segments = [
+            Segment(sequence="MKKL", sequence_type="protein"),
+            Segment(sequence="MAAA", sequence_type="protein"),
+        ]
+
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign(segments)
+
+        assert gen._assigned_segments == tuple(segments)
+        assert gen.segment is segments[0]
+        assert gen.segments == tuple(segments)
+
+    def test_assign_multiple_segments_requires_tie_compatible_segments(self):
+        """Tests that tied segments must describe the same value space."""
+        gen = ConcreteGenerator()
+
+        p_get, p_key = _patch_registry(_mock_spec())
+        with p_get, p_key:
+            with pytest.raises(ValueError, match="different sequence types"):
+                gen.assign(
+                    [
+                        Segment(sequence="ATCG", sequence_type="dna"),
+                        Segment(sequence="ACGU", sequence_type="rna"),
+                    ]
+                )
+            with pytest.raises(ValueError, match="different lengths"):
+                gen.assign(
+                    [
+                        Segment(sequence="MKKL", sequence_type="protein"),
+                        Segment(sequence="MAAAA", sequence_type="protein"),
+                    ]
+                )
+
+    def test_assign_rejects_duplicate_segment_instances(self):
+        """Reusing one Segment object as multiple tied entries is rejected (defeats tying)."""
+        gen = ConcreteGenerator()
+        seg = Segment(sequence="MKKL", sequence_type="protein")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key, pytest.raises(ValueError, match="duplicate Segment instances"):
+            gen.assign([seg, seg])
+
+    def test_assign_rejects_empty_iterable(self):
+        """An empty iterable must raise rather than leave the generator in a half-assigned state."""
+        gen = ConcreteGenerator()
+        p_get, p_key = _patch_registry(_mock_spec())
+        with p_get, p_key, pytest.raises(ValueError, match="at least one segment"):
+            gen.assign([])
+        assert not gen.is_assigned
+
+    def test_assign_rejects_mismatched_valid_chars(self):
+        """Tied segments with custom but differing ``valid_chars`` are rejected.
+
+        Without this guard, a primary's mirror would silently overwrite a tied
+        segment with characters outside that segment's allowed alphabet.
+        """
+        gen = ConcreteGenerator()
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key, pytest.raises(ValueError, match="different valid character sets"):
+            gen.assign(
+                [
+                    Segment(sequence="MKKL", sequence_type="protein", valid_chars={"M", "K", "L"}),
+                    Segment(sequence="MAAA", sequence_type="protein", valid_chars={"M", "A"}),
+                ]
+            )
+
+    def test_sample_mirrors_proposals_to_tied_segments(self):
+        """``sample()`` deep-copies primary proposals onto every tied segment."""
+        from proto_language.language.core import Sequence
+
+        gen = ConcreteGenerator()
+        segments = [
+            Segment(sequence="MKKL", sequence_type="protein"),
+            Segment(sequence="MAAA", sequence_type="protein"),
+            Segment(sequence="MGGG", sequence_type="protein"),
+        ]
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign(segments)
+
+        # _sample is a no-op; plant a primary proposal so we observe the mirror.
+        segments[0].proposal_sequences = [Sequence(sequence="WWWW", sequence_type="protein")]
+        segments[1].proposal_sequences = [Sequence(sequence="ZZZZ", sequence_type="protein")]
+        segments[2].proposal_sequences = [Sequence(sequence="QQQQ", sequence_type="protein")]
+
+        gen.sample()
+
+        assert segments[1].proposal_sequences[0].sequence == "WWWW"
+        assert segments[2].proposal_sequences[0].sequence == "WWWW"
+        # Deep copies, not aliases.
+        assert segments[1].proposal_sequences[0] is not segments[0].proposal_sequences[0]
+        assert segments[2].proposal_sequences[0] is not segments[0].proposal_sequences[0]
+
+    def test_sample_is_noop_mirror_for_single_segment(self):
+        """Single-segment ``sample()`` skips the deepcopy path."""
+        from proto_language.language.core import Sequence
+
+        gen = ConcreteGenerator()
+        segment = Segment(sequence="MKKL", sequence_type="protein")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign(segment)
+
+        original = Sequence(sequence="WWWW", sequence_type="protein")
+        segment.proposal_sequences = [original]
+        gen.sample()
+        # Same instance — no copying happened.
+        assert segment.proposal_sequences[0] is original
 
     def test_mutation_generator_lazy_init_and_preserves_existing(self):
         """Tests lazy random init for length-only segments and preservation of existing sequences."""

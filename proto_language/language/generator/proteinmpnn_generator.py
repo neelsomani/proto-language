@@ -266,7 +266,7 @@ class ProteinMPNNGenerator(Generator):
         self.device = config.device
         self.verbose = config.verbose
 
-    def sample(self, structure_inputs: list[InverseFoldingStructureInput] | None = None) -> None:
+    def _sample(self, structure_inputs: list[InverseFoldingStructureInput] | None = None) -> None:
         """Generate protein sequences using ProteinMPNN and update proposal sequences.
 
         Args:

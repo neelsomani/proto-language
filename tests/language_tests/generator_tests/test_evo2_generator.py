@@ -109,7 +109,7 @@ class TestEvo2Generator:
 
         generator.assign(segment)
 
-        assert generator._assigned_segment is segment
+        assert generator._assigned_segments == (segment,)
 
     @pytest.mark.parametrize("seq_type", ["protein", "rna"])
     def test_rejects_non_dna_segment(self, seq_type):

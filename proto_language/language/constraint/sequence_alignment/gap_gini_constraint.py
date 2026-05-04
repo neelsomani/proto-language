@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# Internal utilities (ported from the original gap-gini tool)
+# Utilities (ported from the original gap-gini tool)
 # ============================================================================
 
 
@@ -71,7 +71,7 @@ def _gap_runs(seq: str) -> list[int]:
     return runs
 
 
-def _gap_gini_single(al1: str, al2: str) -> float:
+def gap_gini_single(al1: str, al2: str) -> float:
     """Compute gap Gini score for a single pairwise alignment.
 
     Returns the max Gini coefficient across both aligned sequences.
@@ -89,7 +89,7 @@ def _gap_gini_single(al1: str, al2: str) -> float:
     return max(gini1, gini2)
 
 
-def _trim_alignment(al1: str, al2: str) -> tuple[str | None, str | None]:
+def trim_alignment(al1: str, al2: str) -> tuple[str | None, str | None]:
     """Center-crop to 80% and strip end gaps (matches evocas9 pipeline).
 
     Returns (trimmed_al1, trimmed_al2) or (None, None) if no overlap remains.
@@ -129,7 +129,7 @@ def _gap_gini_from_fasta(alignment_fasta: str) -> float:
     if len(sequences) != 2:
         raise ValueError(f"Expected 2 sequences in pairwise alignment, got {len(sequences)}")
     al1, al2 = [seq.replace("\n", "") for seq in sequences]
-    return _gap_gini_single(al1, al2)
+    return gap_gini_single(al1, al2)
 
 
 # ============================================================================
@@ -257,7 +257,7 @@ def gap_gini_constraint(
 
         # --- Optional trimming ---
         if config.trim_alignment:
-            al1, al2 = _trim_alignment(al1, al2)
+            al1, al2 = trim_alignment(al1, al2)
             if al1 is None:
                 # No overlap after trimming, treat as 0.0 (no gaps)
                 results.append(
@@ -266,7 +266,7 @@ def gap_gini_constraint(
                 continue
 
         # --- Gini computation ---
-        gini_score = _gap_gini_single(al1, al2)
+        gini_score = gap_gini_single(al1, al2)
 
         # --- Scoring ---
         if gini_score <= config.max_gap_gini:

@@ -24,6 +24,9 @@ from proto_language.language.constraint.protein_quality import (
     protein_diversity_constraint,
     protein_domain_constraint,
     protein_length_constraint,
+    protein_max_identity_constraint,
+    protein_nearest_neighbor_gap_gini_constraint,
+    protein_profile_hmm_constraint,
     protein_repetitiveness_constraint,
 )
 
@@ -67,7 +70,10 @@ from proto_language.language.constraint.sequence_annotation import (
     EnformerChromatinAccessibilityMorseConfig,
     alphagenome_interval_track_constraint,
     borzoi_chromatin_accessibility_morse_constraint,
+    crispr_array_constraint,
+    crispr_tracr_rna_constraint,
     enformer_chromatin_accessibility_morse_constraint,
+    longest_orf_length_constraint,
     mmseqs_similarity_constraint,
     promoter_strength_constraint,
     seq_motif_constraint,
@@ -126,6 +132,9 @@ __all__ = [
     "balanced_aa_constraint",
     "overall_protein_quality_constraint",
     "protein_domain_constraint",
+    "protein_max_identity_constraint",
+    "protein_nearest_neighbor_gap_gini_constraint",
+    "protein_profile_hmm_constraint",
     # Sequence alignment
     "gap_gini_constraint",
     # Sequence annotation
@@ -133,6 +142,9 @@ __all__ = [
     "borzoi_chromatin_accessibility_morse_constraint",
     "EnformerChromatinAccessibilityMorseConfig",
     "enformer_chromatin_accessibility_morse_constraint",
+    "crispr_array_constraint",
+    "crispr_tracr_rna_constraint",
+    "longest_orf_length_constraint",
     "mmseqs_similarity_constraint",
     "sigma70_promoter_constraint",
     "seq_motif_constraint",

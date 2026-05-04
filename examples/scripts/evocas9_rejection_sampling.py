@@ -1,11 +1,10 @@
-"""
-Cas9 generation pipeline using a single Rejection Sampling optimizer with filter constraints.
+"""Cas9 generation pipeline using a single Rejection Sampling optimizer with filter constraints.
 
 Expresses the multi-stage Cas9 generation pipeline as a proto-language Program
-with one RejectionSamplingOptimizer. All filtering steps are expressed as constraints ordered
-cheap -> expensive. The optimizer's built-in filter short-circuiting (score_energy
-mask propagation) ensures expensive filters (AF3) only run on proposals that pass
-all cheaper ones.
+with one RejectionSamplingOptimizer. Reusable filters are core proto-language constraints
+ordered cheap -> expensive; the AF3-specific structural screen remains local to this script.
+The optimizer's built-in filter short-circuiting (score_energy mask propagation) ensures
+expensive filters (AF3) only run on proposals that pass all cheaper ones.
 
 Architecture:
     1 Rejection Sampling optimizer with 1 Evo1Generator + 8 filter constraints:
@@ -21,12 +20,14 @@ Architecture:
 Usage:
     python evocas9_rejection_sampling.py --n-samples 10
     python evocas9_rejection_sampling.py --n-samples 150 --batch-size 150
+    python evocas9_rejection_sampling.py --n-samples 150 --filter-log-output cas9_filter_diagnostics.tsv
 """
 
 import argparse
 import csv
 import gzip
 import logging
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -62,7 +63,7 @@ ORF_MIN_LEN = 3000  # Nucleotides
 CAS9_PHMM_EVALUE = 1e-3
 
 # Stage 2 thresholds
-IDENTITY_THRESHOLD = 0.90
+IDENTITY_THRESHOLD_PCT = 90.0
 GAP_GINI_THRESHOLD = 0.1
 
 # Stage 3 thresholds
@@ -79,11 +80,34 @@ LONGEST_ALPHA_THRESHOLD = 50
 # ============================================================================
 
 # Key: DNA sequence string
-# Values populated incrementally by successive filter constraints
-CACHE: dict[str, dict[str, Any]] = {}
+# Values are only AF3/structure artifacts reused if the same sequence recurs.
+STRUCTURE_CACHE: dict[str, dict[str, Any]] = {}
 
-# Training sequences loaded once and reused across combos
-_TRAINING_SEQS: dict | None = None
+FILTER_LOG_COLUMNS = [
+    "temperature",
+    "top_k",
+    "round",
+    "proposal_idx",
+    "accepted_as_result",
+    "passed_all_filters",
+    "outcome",
+    "failed_filter",
+    "energy_score",
+    "filter_status_path",
+    "dna_length",
+    "dna_sequence",
+    "protein_sequence",
+    "identity",
+    "gap_gini",
+    "domains_found",
+    "crispr_repeat",
+    "tracr_rna_sequence",
+    "interaction_energy",
+    "plddt",
+    "gyration_radius",
+    "longest_alpha",
+    "pdb_path",
+]
 
 # ============================================================================
 # Helpers
@@ -93,7 +117,7 @@ _TRAINING_SEQS: dict | None = None
 def _get_training_fasta() -> Path:
     """Build combined training FASTA from individual .gz files (cached)."""
     if TRAINING_FASTA_CACHE.exists():
-        logger.info(f"Using cached combined training FASTA: {TRAINING_FASTA_CACHE}")
+        logger.info("Using cached combined training FASTA: %s", TRAINING_FASTA_CACHE)
         return TRAINING_FASTA_CACHE
 
     if not TRAINING_FASTA_DIR.exists():
@@ -115,59 +139,12 @@ def _get_training_fasta() -> Path:
                 total_seqs += content.count(">")
 
     logger.info(
-        f"Built combined training FASTA ({total_seqs} sequences from {len(fasta_files)} files): {TRAINING_FASTA_CACHE}"
+        "Built combined training FASTA (%d sequences from %d files): %s",
+        total_seqs,
+        len(fasta_files),
+        TRAINING_FASTA_CACHE,
     )
     return TRAINING_FASTA_CACHE
-
-
-def _load_training_sequences(fasta_path: Path) -> dict:
-    """Load FASTA into {id: sequence} dict."""
-    sequences = {}
-    current_id = None
-    current_seq: list[str] = []
-
-    with open(fasta_path) as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith(">"):
-                if current_id is not None:
-                    sequences[current_id] = "".join(current_seq)
-                current_id = line[1:].split()[0]
-                current_seq = []
-            elif line:
-                current_seq.append(line)
-        if current_id is not None:
-            sequences[current_id] = "".join(current_seq)
-
-    logger.info(f"Loaded {len(sequences)} training sequences from {fasta_path}")
-    return sequences
-
-
-def _get_training_seqs() -> dict:
-    """Get training sequences, loading them once on first call."""
-    global _TRAINING_SEQS
-    if _TRAINING_SEQS is None:
-        training_fasta = _get_training_fasta()
-        _TRAINING_SEQS = _load_training_sequences(training_fasta)
-    return _TRAINING_SEQS
-
-
-def _get_protein(dna: str) -> str | None:
-    """Look up cached protein for a DNA sequence."""
-    entry = CACHE.get(dna)
-    if entry:
-        return entry.get("protein")
-    return None
-
-
-def _parse_seq_index(target_name: str) -> int | None:
-    """Parse integer index from HMM/mmseqs target names like 'seq_42' or '42'."""
-    try:
-        if target_name.startswith("seq_"):
-            return int(target_name[4:])
-        return int(target_name)
-    except (ValueError, IndexError):
-        return None
 
 
 # ============================================================================
@@ -175,373 +152,9 @@ def _parse_seq_index(target_name: str) -> int | None:
 # ============================================================================
 
 
-def orf_filter(
-    input_sequences: list[tuple[Any, ...]],
-    config: dict,
-) -> list[ConstraintOutput]:
-    """Filter by ORF length. Caches protein translation.
-
-    Returns 0.0 for PASS, 1.0 for FAIL.
-    """
-    from proto_tools import OrfipyConfig, OrfipyInput, run_orfipy_prediction
-
-    min_len = config.get("min_len", ORF_MIN_LEN)
-    sequences = [seq_tuple[0].sequence for seq_tuple in input_sequences]
-
-    orf_result = run_orfipy_prediction(
-        OrfipyInput(sequences=sequences),
-        OrfipyConfig(min_len=min_len, strand="b"),
-    )
-
-    results: list[ConstraintOutput] = []
-    for i, seq_orfs in enumerate(orf_result.predicted_orfs):
-        dna = sequences[i]
-        if dna not in CACHE:
-            CACHE[dna] = {}
-
-        if seq_orfs:
-            best = max(seq_orfs, key=lambda o: o.amino_acid_length)
-            CACHE[dna]["protein"] = best.amino_acid_sequence
-            results.append(ConstraintOutput(score=0.0, metadata={"protein": best.amino_acid_sequence}))
-        else:
-            results.append(ConstraintOutput(score=1.0))
-
-    n_pass = sum(1 for r in results if r.score == 0.0)
-    logger.info(f"orf_filter: {n_pass}/{len(results)} have ORFs >= {min_len} nt")
-    return results
-
-
-def cas9_phmm_filter(
-    input_sequences: list[tuple[Any, ...]],
-    config: dict,
-) -> list[ConstraintOutput]:
-    """Filter by Cas9 profile HMM hit.
-
-    Returns 0.0 for PASS, 1.0 for FAIL.
-    """
-    from proto_tools import (
-        PyHmmsearchConfig,
-        PyHmmsearchInput,
-        run_pyhmmer_hmmsearch,
-    )
-
-    evalue = config.get("evalue", CAS9_PHMM_EVALUE)
-    hmm_path = config.get("hmm_path", CAS9_HMM_PATH)
-
-    if not Path(hmm_path).exists():
-        logger.warning(f"Cas9 HMM not found: {hmm_path}, passing all")
-        return [ConstraintOutput(score=0.0) for _ in input_sequences]
-
-    # Collect proteins from cache
-    dna_seqs = [seq_tuple[0].sequence for seq_tuple in input_sequences]
-    proteins = []
-    valid_indices = []
-    for i, dna in enumerate(dna_seqs):
-        protein = _get_protein(dna)
-        if protein:
-            proteins.append(protein)
-            valid_indices.append(i)
-
-    if not proteins:
-        return [ConstraintOutput(score=1.0) for _ in input_sequences]
-
-    hmm_result = run_pyhmmer_hmmsearch(
-        PyHmmsearchInput(sequences=proteins, hmm=hmm_path),
-        PyHmmsearchConfig(evalue_threshold=evalue),
-    )
-
-    hmm_hits = set()
-    for hit in hmm_result.sequence_hits:
-        j = _parse_seq_index(hit.target_name)
-        if j is not None and 0 <= j < len(proteins):
-            hmm_hits.add(j)
-
-    scores = [1.0] * len(input_sequences)
-    for protein_idx in hmm_hits:
-        original_idx = valid_indices[protein_idx]
-        scores[original_idx] = 0.0
-
-    n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(f"cas9_phmm_filter: {n_pass}/{len(scores)} have Cas9 pHMM hit (E < {evalue})")
-    return [ConstraintOutput(score=s) for s in scores]
-
-
-def crispr_array_filter(
-    input_sequences: list[tuple[Any, ...]],
-    config: dict,
-) -> list[ConstraintOutput]:
-    """Filter by CRISPR array detection. Caches repeat sequence.
-
-    Returns 0.0 for PASS, 1.0 for FAIL.
-    """
-    from proto_tools import MincedConfig, MincedInput, run_minced
-
-    sequences = [seq_tuple[0].sequence for seq_tuple in input_sequences]
-
-    minced_result = run_minced(
-        MincedInput(sequences=sequences),
-        MincedConfig(min_num_repeats=3, min_repeat_length=23),
-    )
-
-    results: list[ConstraintOutput] = []
-    for i, dna in enumerate(sequences):
-        if dna not in CACHE:
-            CACHE[dna] = {}
-
-        metadata: dict[str, Any] = {}
-        if i < len(minced_result.results):
-            res = minced_result.results[i]
-            if res.has_crispr:
-                if res.crispr_arrays:
-                    repeat = res.crispr_arrays[0].repeats_and_spacers[0].repeat
-                    CACHE[dna]["crispr_repeat"] = repeat
-                    metadata["crispr_repeat"] = repeat
-                results.append(ConstraintOutput(score=0.0, metadata=metadata))
-            else:
-                results.append(ConstraintOutput(score=1.0))
-        else:
-            results.append(ConstraintOutput(score=1.0))
-
-    n_pass = sum(1 for r in results if r.score == 0.0)
-    logger.info(f"crispr_array_filter: {n_pass}/{len(results)} have CRISPR arrays")
-    return results
-
-
-def identity_filter(
-    input_sequences: list[tuple[Any, ...]],
-    config: dict,
-) -> list[ConstraintOutput]:
-    """Filter by sequence identity to training set. Caches identity and nearest hit.
-
-    Returns 0.0 for PASS (identity < threshold or no hit), 1.0 for FAIL.
-    """
-    from proto_tools import (
-        MmseqsSearchProteinsConfig,
-        MmseqsSearchProteinsInput,
-        run_mmseqs_search_proteins,
-    )
-
-    threshold = config.get("threshold", IDENTITY_THRESHOLD)
-    training_fasta = _get_training_fasta()
-    training_seqs = _get_training_seqs()
-
-    dna_seqs = [seq_tuple[0].sequence for seq_tuple in input_sequences]
-    proteins = []
-    for dna in dna_seqs:
-        proteins.append(_get_protein(dna) or "")
-
-    # Batch MMseqs2 search
-    mmseqs_result = run_mmseqs_search_proteins(
-        MmseqsSearchProteinsInput(
-            query_sequences=proteins,
-            mmseqs_db=str(training_fasta),
-        ),
-        MmseqsSearchProteinsConfig(only_top_hits=True),
-    )
-
-    results: list[ConstraintOutput] = []
-    for i, dna in enumerate(dna_seqs):
-        if dna not in CACHE:
-            CACHE[dna] = {}
-
-        result = mmseqs_result.results[i]
-
-        if not result.has_hits:
-            CACHE[dna]["identity"] = 0.0
-            CACHE[dna]["nearest_hit_seq"] = None
-            results.append(ConstraintOutput(score=0.0, metadata={"identity": 0.0, "nearest_hit_seq": None}))
-            continue
-
-        top_hit = result.top_hit
-        identity = top_hit.pident / 100.0
-        CACHE[dna]["identity"] = identity
-
-        target_seq = training_seqs.get(top_hit.target_id)
-        CACHE[dna]["nearest_hit_seq"] = target_seq
-
-        score = 1.0 if identity >= threshold else 0.0
-        results.append(ConstraintOutput(score=score, metadata={"identity": identity, "nearest_hit_seq": target_seq}))
-
-    n_pass = sum(1 for r in results if r.score == 0.0)
-    logger.info(f"identity_filter: {n_pass}/{len(results)} have identity < {threshold:.0%}")
-    return results
-
-
-def gap_gini_filter(
-    input_sequences: list[tuple[Any, ...]],
-    config: dict,
-) -> list[ConstraintOutput]:
-    """Filter by gap Gini on MAFFT alignment vs nearest training hit.
-
-    Returns 0.0 for PASS, 1.0 for FAIL.
-    """
-    from proto_tools import MafftConfig, MafftInput, run_mafft_align
-
-    from proto_language.language.constraint.sequence_alignment.gap_gini_constraint import (
-        _gap_gini_single,
-        _trim_alignment,
-    )
-
-    threshold = config.get("threshold", GAP_GINI_THRESHOLD)
-
-    results: list[ConstraintOutput] = []
-    for seq_tuple in input_sequences:
-        dna = seq_tuple[0].sequence
-        if dna not in CACHE:
-            CACHE[dna] = {}
-
-        protein = _get_protein(dna)
-        nearest_hit = CACHE.get(dna, {}).get("nearest_hit_seq")
-
-        # No nearest hit or no protein -> passes (novel sequence)
-        if not protein or nearest_hit is None:
-            CACHE[dna]["gap_gini"] = 0.0
-            results.append(ConstraintOutput(score=0.0, metadata={"gap_gini": 0.0}))
-            continue
-
-        align_result = run_mafft_align(
-            MafftInput(sequences=[protein, nearest_hit]),
-            MafftConfig(),
-        )
-
-        if align_result.msa and len(align_result.msa) >= 2:
-            al1, al2 = _trim_alignment(align_result.msa[0], align_result.msa[1])
-            if al1 is not None:
-                gini = _gap_gini_single(al1, al2)
-            else:
-                gini = 0.0
-        else:
-            gini = 0.0
-
-        CACHE[dna]["gap_gini"] = gini
-        score = 0.0 if gini < threshold else 1.0
-        results.append(ConstraintOutput(score=score, metadata={"gap_gini": gini}))
-
-    n_pass = sum(1 for r in results if r.score == 0.0)
-    logger.info(f"gap_gini_filter: {n_pass}/{len(results)} have gap Gini < {threshold}")
-    return results
-
-
-def domain_filter(
-    input_sequences: list[tuple[Any, ...]],
-    config: dict,
-) -> list[ConstraintOutput]:
-    """Filter by presence of all required Cas9 domains.
-
-    Returns 0.0 for PASS, 1.0 for FAIL.
-    """
-    from proto_tools import (
-        PyHmmsearchConfig,
-        PyHmmsearchInput,
-        run_pyhmmer_hmmsearch,
-    )
-
-    hmm_path = config.get("hmm_path", DOMAIN_HMM_PATH)
-    required = config.get("required_domains", REQUIRED_DOMAINS)
-    evalue = config.get("evalue", DOMAIN_EVALUE_THRESHOLD)
-
-    if not Path(hmm_path).exists():
-        logger.warning(f"Domain HMM not found: {hmm_path}, passing all")
-        return [ConstraintOutput(score=0.0) for _ in input_sequences]
-
-    dna_seqs = [seq_tuple[0].sequence for seq_tuple in input_sequences]
-    proteins = []
-    valid_indices = []
-    for i, dna in enumerate(dna_seqs):
-        protein = _get_protein(dna)
-        if protein:
-            proteins.append(protein)
-            valid_indices.append(i)
-
-    if not proteins:
-        return [ConstraintOutput(score=1.0) for _ in input_sequences]
-
-    hmm_result = run_pyhmmer_hmmsearch(
-        PyHmmsearchInput(sequences=proteins, hmm=hmm_path),
-        PyHmmsearchConfig(domain_evalue_threshold=evalue),
-    )
-
-    # Build per-protein domain sets
-    protein_domains: dict[int, list[str]] = {i: [] for i in range(len(proteins))}
-    for hit in hmm_result.domain_hits:
-        j = _parse_seq_index(hit.target_name)
-        if j is not None and j in protein_domains:
-            for domain in required:
-                if domain.lower() in hit.query_name.lower():
-                    if domain not in protein_domains[j]:
-                        protein_domains[j].append(domain)
-
-    scores = [1.0] * len(input_sequences)
-    metadata_per_idx: dict[int, dict[str, Any]] = {}
-    for protein_idx, original_idx in enumerate(valid_indices):
-        dna = dna_seqs[original_idx]
-        if dna not in CACHE:
-            CACHE[dna] = {}
-        CACHE[dna]["domains_found"] = protein_domains[protein_idx]
-        metadata_per_idx[original_idx] = {"domains_found": protein_domains[protein_idx]}
-
-        if set(protein_domains[protein_idx]) >= set(required):
-            scores[original_idx] = 0.0
-
-    n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(f"domain_filter: {n_pass}/{len(scores)} have all required domains")
-    return [ConstraintOutput(score=scores[i], metadata=metadata_per_idx.get(i, {})) for i in range(len(scores))]
-
-
-def tracr_filter(
-    input_sequences: list[tuple[Any, ...]],
-    config: dict,
-) -> list[ConstraintOutput]:
-    """Filter by tracrRNA prediction. Caches tracrRNA and interaction energy.
-
-    Returns 0.0 for PASS, 1.0 for FAIL.
-    """
-    from proto_tools import (
-        CrisprTracrRNAConfig,
-        CrisprTracrRNAInput,
-        run_crispr_tracr_rna,
-    )
-
-    sequences = [seq_tuple[0].sequence for seq_tuple in input_sequences]
-
-    tracr_workers = len(os.sched_getaffinity(0)) or 1
-    logger.info(f"tracr_filter: CRISPRtracrRNA prediction ({tracr_workers} workers)...")
-    tracr_result = run_crispr_tracr_rna(
-        CrisprTracrRNAInput(sequences=sequences),
-        CrisprTracrRNAConfig(model_type="II", num_workers=tracr_workers),
-    )
-    if tracr_result.success is False:
-        raise RuntimeError(f"tracrRNA prediction failed: {tracr_result.errors}")
-
-    results: list[ConstraintOutput] = []
-    for i, dna in enumerate(sequences):
-        if dna not in CACHE:
-            CACHE[dna] = {}
-
-        if i < len(tracr_result.results):
-            seq_result = tracr_result.results[i]
-            top = seq_result.top_candidate
-            tracr_sequence = top.tracr_rna_sequence if top else None
-            interaction_energy = top.interaction_energy if top else None
-            CACHE[dna]["tracr_sequence"] = tracr_sequence
-            CACHE[dna]["interaction_energy"] = interaction_energy
-            metadata = {"tracr_sequence": tracr_sequence, "interaction_energy": interaction_energy}
-
-            has_tracr = seq_result.has_tracr
-            has_intarna = top is not None and top.intarna_anti_repeat_interaction is not None
-            score = 0.0 if (has_tracr and has_intarna) else 1.0
-            results.append(ConstraintOutput(score=score, metadata=metadata))
-        else:
-            results.append(ConstraintOutput(score=1.0))
-
-    n_pass = sum(1 for r in results if r.score == 0.0)
-    logger.info(f"tracr_filter: {n_pass}/{len(results)} have tracrRNA + IntaRNA")
-    return results
-
-
 def structure_filter(
     input_sequences: list[tuple[Any, ...]],
-    config: dict,
+    config: dict[str, Any],
 ) -> list[ConstraintOutput]:
     """Filter by AF3 structure prediction + metrics.
 
@@ -555,48 +168,71 @@ def structure_filter(
         run_alphafold3,
     )
 
+    from proto_language.utils.orf_selection import predict_longest_canonical_cds
+
     plddt_threshold = config.get("plddt_threshold", PLDDT_THRESHOLD)
     rg_threshold = config.get("rg_threshold", GYRATION_RADIUS_THRESHOLD)
     alpha_threshold = config.get("alpha_threshold", LONGEST_ALPHA_THRESHOLD)
     af3_dir = config.get("af3_output_dir", "af3_pdbs")
     af3_name = "cas9"
 
-    dna_seqs = [seq_tuple[0].sequence for seq_tuple in input_sequences]
+    dna_sequence_objs = [seq_tuple[0] for seq_tuple in input_sequences]
+    dna_seqs = [seq.sequence for seq in dna_sequence_objs]
+    selected_orfs = predict_longest_canonical_cds(dna_sequence_objs)
     scores = [1.0] * len(input_sequences)
     metadata_per_idx: dict[int, dict[str, Any]] = {}
     structures_per_idx: dict[int, Any] = {}
 
-    for i, dna in enumerate(dna_seqs):
-        if dna not in CACHE:
-            CACHE[dna] = {}
+    for i, (dna, (selected_orf, orf_metadata)) in enumerate(zip(dna_seqs, selected_orfs, strict=True)):
+        cache_entry = STRUCTURE_CACHE.setdefault(dna, {})
+        metadata: dict[str, Any] = dict(orf_metadata)
 
-        protein = _get_protein(dna)
-        if not protein:
+        if selected_orf is None:
+            metadata.update(
+                {
+                    "selected_protein_sequence": None,
+                    "selected_orf_nucleotide_length": None,
+                    "selected_orf_amino_acid_length": None,
+                }
+            )
+            metadata_per_idx[i] = metadata
             continue
 
+        protein = selected_orf.amino_acid_sequence
+        metadata.update(
+            {
+                "selected_protein_sequence": protein,
+                "selected_orf_nucleotide_length": selected_orf.nucleotide_length,
+                "selected_orf_amino_acid_length": selected_orf.amino_acid_length,
+            }
+        )
+
         # Skip AF3 if we already have a PDB for this sequence
-        if "pdb_path" in CACHE[dna]:
-            pdb_file = Path(CACHE[dna]["pdb_path"])
+        if "pdb_path" in cache_entry:
+            pdb_file = Path(cache_entry["pdb_path"])
             if pdb_file.exists():
-                plddt = CACHE[dna].get("plddt")
-                rg = CACHE[dna].get("gyration_radius")
-                alpha = CACHE[dna].get("longest_alpha")
+                plddt = cache_entry.get("plddt")
+                rg = cache_entry.get("gyration_radius")
+                alpha = cache_entry.get("longest_alpha")
                 plddt_ok = plddt is not None and plddt >= plddt_threshold
                 rg_ok = rg is not None and rg < rg_threshold
                 alpha_ok = alpha is not None and alpha < alpha_threshold
-                metadata_per_idx[i] = {
-                    "plddt": plddt,
-                    "gyration_radius": rg,
-                    "longest_alpha": alpha,
-                    "pdb_path": str(pdb_file),
-                }
+                metadata.update(
+                    {
+                        "plddt": plddt,
+                        "gyration_radius": rg,
+                        "longest_alpha": alpha,
+                        "pdb_path": str(pdb_file),
+                    }
+                )
+                metadata_per_idx[i] = metadata
                 if plddt_ok and rg_ok and alpha_ok:
                     scores[i] = 0.0
                 continue
 
         # AF3 structure prediction
-        af3_idx = structure_filter._next_idx
-        structure_filter._next_idx += 1
+        af3_idx = getattr(structure_filter, "_next_idx", 0)
+        structure_filter._next_idx = af3_idx + 1  # type: ignore[attr-defined]
         proposal_dir = f"{af3_dir}/{af3_name}_{af3_idx}"
         try:
             af3_result = run_alphafold3(
@@ -609,12 +245,12 @@ def structure_filter(
                 ),
             )
         except Exception as e:
-            logger.error(f"  structure_filter: AF3 failed for proposal: {e}")
+            logger.error("  structure_filter: AF3 failed for proposal: %s", e)
             continue
 
         structure = af3_result.structures[0]
         plddt = structure.metrics.get("avg_plddt")
-        CACHE[dna]["plddt"] = plddt
+        cache_entry["plddt"] = plddt
 
         # Find PDB path
         output_dir = Path(f"{proposal_dir}_af3_results")
@@ -628,7 +264,7 @@ def structure_filter(
                 logger.error("  structure_filter: PDB not found for proposal")
                 continue
 
-        CACHE[dna]["pdb_path"] = str(pdb_file)
+        cache_entry["pdb_path"] = str(pdb_file)
 
         # Structure metrics
         from proto_tools import (
@@ -644,20 +280,23 @@ def structure_filter(
 
         if metrics_result.metrics:
             m = metrics_result.metrics[0]
-            CACHE[dna]["gyration_radius"] = m.gyration_radius
-            CACHE[dna]["longest_alpha"] = m.longest_alpha_helix
+            cache_entry["gyration_radius"] = m.gyration_radius
+            cache_entry["longest_alpha"] = m.longest_alpha_helix
 
             # Combined filter
             plddt_ok = plddt is not None and plddt >= plddt_threshold
             rg_ok = m.gyration_radius is not None and m.gyration_radius < rg_threshold
             alpha_ok = m.longest_alpha_helix is not None and m.longest_alpha_helix < alpha_threshold
 
-            metadata_per_idx[i] = {
-                "plddt": plddt,
-                "gyration_radius": m.gyration_radius,
-                "longest_alpha": m.longest_alpha_helix,
-                "pdb_path": str(pdb_file),
-            }
+            metadata.update(
+                {
+                    "plddt": plddt,
+                    "gyration_radius": m.gyration_radius,
+                    "longest_alpha": m.longest_alpha_helix,
+                    "pdb_path": str(pdb_file),
+                }
+            )
+            metadata_per_idx[i] = metadata
             structures_per_idx[i] = structure
 
             if plddt_ok and rg_ok and alpha_ok:
@@ -670,39 +309,27 @@ def structure_filter(
                     reasons.append(f"Rg={m.gyration_radius}")
                 if not alpha_ok:
                     reasons.append(f"alpha={m.longest_alpha_helix}")
-                logger.info(f"  structure_filter: FAIL ({'; '.join(reasons)})")
+                logger.info("  structure_filter: FAIL (%s)", "; ".join(reasons))
 
     n_pass = sum(1 for s in scores if s == 0.0)
-    logger.info(f"structure_filter: {n_pass}/{len(scores)} passed structure checks")
+    logger.info("structure_filter: %d/%d passed structure checks", n_pass, len(scores))
 
-    results: list[ConstraintOutput] = []
-    for i in range(len(scores)):
-        results.append(
-            ConstraintOutput(
-                score=scores[i],
-                metadata=metadata_per_idx.get(i, {}),
-                structures=(structures_per_idx.get(i),),
-            )
+    return [
+        ConstraintOutput(
+            score=scores[i],
+            metadata=metadata_per_idx.get(i, {}),
+            structures=(structures_per_idx.get(i),),
         )
-    return results
+        for i in range(len(scores))
+    ]
 
 
-structure_filter._next_idx = 0
+structure_filter._next_idx = 0  # type: ignore[attr-defined]
 
 
 # Suppress validation warnings by setting supported sequence types
-for _fn in [
-    orf_filter,
-    cas9_phmm_filter,
-    crispr_array_filter,
-    identity_filter,
-    gap_gini_filter,
-    domain_filter,
-    tracr_filter,
-    structure_filter,
-]:
-    _fn._constraint_supported_sequence_types = ["dna"]
-    _fn._constraint_num_input_sequences_per_tuple = 1
+structure_filter._constraint_supported_sequence_types = ["dna"]  # type: ignore[attr-defined]
+structure_filter._constraint_num_input_sequences_per_tuple = 1  # type: ignore[attr-defined]
 
 
 # ============================================================================
@@ -717,12 +344,37 @@ def build_program(
     batch_size: int,
     verbose: bool = False,
     af3_output_dir: str = "af3_pdbs",
+    filter_log_output: Path | None = None,
 ) -> tuple[Any, Any]:
     """Build a Program with a single Rejection Sampling optimizer for one (temp, top_k) combo.
 
     Returns:
         (program, segment) tuple for result collection.
     """
+    from proto_tools import CrisprTracrRNAConfig, MincedConfig, PyHmmsearchConfig
+
+    from proto_language.language.constraint import (
+        crispr_array_constraint,
+        crispr_tracr_rna_constraint,
+        longest_orf_length_constraint,
+        protein_max_identity_constraint,
+        protein_nearest_neighbor_gap_gini_constraint,
+        protein_profile_hmm_constraint,
+    )
+    from proto_language.language.constraint.protein_quality.protein_max_identity_constraint import (
+        ProteinMaxIdentityConfig,
+    )
+    from proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint import (
+        ProteinNearestNeighborGapGiniConfig,
+    )
+    from proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint import (
+        ProteinProfileHMMConfig,
+    )
+    from proto_language.language.constraint.sequence_annotation.crispr_array_constraint import CrisprArrayConfig
+    from proto_language.language.constraint.sequence_annotation.orf_length_constraint import LongestOrfLengthConfig
+    from proto_language.language.constraint.sequence_annotation.tracr_rna_constraint import (
+        CrisprTracrRNAConstraintConfig,
+    )
     from proto_language.language.core import Constraint, Construct, Program, Segment
     from proto_language.language.generator.evo1_generator import (
         Evo1Generator,
@@ -745,7 +397,7 @@ def build_program(
     # Generator
     gen_config = Evo1GeneratorConfig(
         prompts=[PROMPT],
-        model_name=MODEL_NAME,
+        model_checkpoint=MODEL_NAME,
         top_k=top_k_val,
         temperature=temperature,
         prepend_prompt=False,
@@ -755,61 +407,87 @@ def build_program(
     generator = Evo1Generator(gen_config)
     generator.assign(segment)
 
-    # Filter constraints (ordered cheap -> expensive)
+    training_fasta = str(_get_training_fasta())
+    tracr_workers = len(os.sched_getaffinity(0)) or 1
+
+    # Every constraint below has a threshold, so Optimizer.score_energy treats them
+    # as ordered filters. A proposal that fails one filter is not evaluated by
+    # later filters; optional filter diagnostics record those later filters as SKIPPED.
     constraints = [
         Constraint(
             inputs=[segment],
-            function=orf_filter,
-            function_config={"min_len": ORF_MIN_LEN},
+            function=longest_orf_length_constraint,
+            function_config=LongestOrfLengthConfig(min_nucleotide_length=ORF_MIN_LEN),
             label="orf_filter",
             threshold=0.5,
         ),
         Constraint(
             inputs=[segment],
-            function=cas9_phmm_filter,
-            function_config={
-                "evalue": CAS9_PHMM_EVALUE,
-                "hmm_path": CAS9_HMM_PATH,
-            },
+            function=protein_profile_hmm_constraint,
+            function_config=ProteinProfileHMMConfig(
+                hmm_path=CAS9_HMM_PATH,
+                hmmsearch_config=PyHmmsearchConfig(
+                    evalue_threshold=CAS9_PHMM_EVALUE,
+                    domain_evalue_threshold=CAS9_PHMM_EVALUE,
+                ),
+            ),
             label="cas9_phmm_filter",
             threshold=0.5,
         ),
         Constraint(
             inputs=[segment],
-            function=crispr_array_filter,
-            function_config={},
+            function=crispr_array_constraint,
+            function_config=CrisprArrayConfig(
+                minced_config=MincedConfig(min_num_repeats=3, min_repeat_length=23),
+            ),
             label="crispr_array_filter",
             threshold=0.5,
         ),
         Constraint(
             inputs=[segment],
-            function=identity_filter,
-            function_config={"threshold": IDENTITY_THRESHOLD},
+            function=protein_max_identity_constraint,
+            function_config=ProteinMaxIdentityConfig(
+                mmseqs_db=training_fasta,
+                reference_fasta=training_fasta,
+                max_identity=IDENTITY_THRESHOLD_PCT,
+                pass_no_hits=True,
+            ),
             label="identity_filter",
             threshold=0.5,
         ),
         Constraint(
             inputs=[segment],
-            function=gap_gini_filter,
-            function_config={"threshold": GAP_GINI_THRESHOLD},
+            function=protein_nearest_neighbor_gap_gini_constraint,
+            function_config=ProteinNearestNeighborGapGiniConfig(
+                mmseqs_db=training_fasta,
+                reference_fasta=training_fasta,
+                max_gap_gini=GAP_GINI_THRESHOLD,
+                pass_no_hits=True,
+            ),
             label="gap_gini_filter",
             threshold=0.5,
         ),
         Constraint(
             inputs=[segment],
-            function=domain_filter,
-            function_config={
-                "hmm_path": DOMAIN_HMM_PATH,
-                "required_domains": REQUIRED_DOMAINS,
-                "evalue": DOMAIN_EVALUE_THRESHOLD,
-            },
+            function=protein_profile_hmm_constraint,
+            function_config=ProteinProfileHMMConfig(
+                hmm_path=DOMAIN_HMM_PATH,
+                required_profiles=sorted(REQUIRED_DOMAINS),
+                profile_match_field="query_name",
+                hmmsearch_config=PyHmmsearchConfig(
+                    evalue_threshold=DOMAIN_EVALUE_THRESHOLD,
+                    domain_evalue_threshold=DOMAIN_EVALUE_THRESHOLD,
+                ),
+            ),
             label="domain_filter",
             threshold=0.5,
         ),
         Constraint(
             inputs=[segment],
-            function=tracr_filter,
-            function_config={},
+            function=crispr_tracr_rna_constraint,
+            function_config=CrisprTracrRNAConstraintConfig(
+                tracr_config=CrisprTracrRNAConfig(model_type="II", num_workers=tracr_workers)
+            ),
             label="tracr_filter",
             threshold=0.5,
         ),
@@ -840,6 +518,17 @@ def build_program(
         constraints=constraints,
         config=optimizer_config,
     )
+    if filter_log_output is not None:
+        filter_specs = [
+            (constraint.label, constraint.threshold) for constraint in constraints if constraint.threshold is not None
+        ]
+        optimizer.custom_logging = _make_filter_result_logger(
+            optimizer=optimizer,
+            filter_specs=filter_specs,
+            output_path=filter_log_output,
+            temperature=temperature,
+            top_k_val=top_k_val,
+        )
 
     program = Program(optimizers=[optimizer], num_results=n_samples, verbose=verbose)
     return program, segment
@@ -852,44 +541,207 @@ def build_program(
 
 def collect_results(
     segment: Any,
-    cache: dict[str, dict[str, Any]],
     temperature: float,
     top_k_val: int,
-) -> list[dict]:
-    """Collect passing proposals from segment result_sequences and cache."""
+) -> list[dict[str, Any]]:
+    """Collect passing proposals from segment result sequences and constraint metadata."""
     results = []
     for i, seq in enumerate(segment.result_sequences):
         dna = seq.sequence
         if not dna:
             continue  # Skip empty padding
 
-        entry = cache.get(dna, {})
+        orf_data = _constraint_data(seq, "orf_filter")
+        identity_data = _constraint_data(seq, "identity_filter")
+        gap_data = _constraint_data(seq, "gap_gini_filter")
+        domain_data = _constraint_data(seq, "domain_filter")
+        crispr_data = _constraint_data(seq, "crispr_array_filter")
+        tracr_data = _constraint_data(seq, "tracr_filter")
+        structure_data = _constraint_data(seq, "structure_filter")
+        generator_data = seq._generator_metadata.get("evo1", {})
         results.append(
             {
                 "proposal_idx": i,
                 "temperature": temperature,
                 "top_k": top_k_val,
-                "score": seq._generator_metadata["evo1"]["score"],
-                "identity": entry.get("identity"),
-                "gap_gini": entry.get("gap_gini"),
-                "domains_found": entry.get("domains_found", []),
-                "interaction_energy": entry.get("interaction_energy"),
-                "plddt": entry.get("plddt"),
-                "gyration_radius": entry.get("gyration_radius"),
-                "longest_alpha": entry.get("longest_alpha"),
-                "pdb_path": entry.get("pdb_path"),
+                "score": generator_data.get("score"),
+                "identity": identity_data.get("identity"),
+                "gap_gini": gap_data.get("gap_gini"),
+                "domains_found": domain_data.get("profiles_found", []),
+                "interaction_energy": tracr_data.get("interaction_energy"),
+                "plddt": structure_data.get("plddt"),
+                "gyration_radius": structure_data.get("gyration_radius"),
+                "longest_alpha": structure_data.get("longest_alpha"),
+                "pdb_path": structure_data.get("pdb_path"),
                 "dna_sequence": dna,
-                "crispr_repeat": entry.get("crispr_repeat"),
-                "tracr_rna_sequence": entry.get("tracr_sequence"),
-                "protein_sequence": entry.get("protein"),
+                "crispr_repeat": crispr_data.get("crispr_repeat"),
+                "tracr_rna_sequence": tracr_data.get("tracr_sequence"),
+                "protein_sequence": orf_data.get("selected_protein_sequence"),
             }
         )
 
     return results
 
 
+def _constraint_data(seq: Any, label: str) -> dict[str, Any]:
+    """Return custom metadata stored by a named constraint."""
+    data = seq._constraints_metadata.get(label, {}).get("data", {})
+    return data if isinstance(data, dict) else {}
+
+
+def _make_filter_result_logger(
+    optimizer: Any,
+    filter_specs: list[tuple[str, float]],
+    output_path: Path,
+    temperature: float,
+    top_k_val: int,
+) -> Any:
+    """Create a callback that writes per-proposal filter diagnostics."""
+
+    def _log_filter_results(round_num: int, segments: tuple[Any, ...]) -> None:
+        rows = _collect_filter_log_rows(
+            round_num=round_num,
+            segments=segments,
+            filter_specs=filter_specs,
+            outcomes=optimizer._proposal_outcomes,
+            energy_scores=optimizer._proposal_energy_scores,
+            temperature=temperature,
+            top_k_val=top_k_val,
+        )
+        _append_filter_log_rows(output_path, rows)
+        summary = _summarize_filter_log_rows(rows)
+        logger.info(
+            "filter diagnostics: round=%d temp=%s top_k=%s accepted=%d passed_filters=%d failed=%s",
+            round_num,
+            temperature,
+            top_k_val,
+            summary["accepted_as_result"],
+            summary["passed_all_filters"],
+            summary["failed_by_filter"],
+        )
+
+    return _log_filter_results
+
+
+def _collect_filter_log_rows(
+    round_num: int,
+    segments: tuple[Any, ...],
+    filter_specs: list[tuple[str, float]],
+    outcomes: list[str],
+    energy_scores: list[float],
+    temperature: float,
+    top_k_val: int,
+) -> list[dict[str, Any]]:
+    """Collect per-proposal filter diagnostics, including short-circuited filters."""
+    if not segments:
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for proposal_idx, seq in enumerate(segments[0].proposal_sequences):
+        filter_statuses, failed_filter = _filter_status_path(seq, filter_specs)
+        passed_all_filters = failed_filter is None
+        outcome = outcomes[proposal_idx] if proposal_idx < len(outcomes) else "unknown"
+        orf_data = _constraint_data(seq, "orf_filter")
+        identity_data = _constraint_data(seq, "identity_filter")
+        gap_data = _constraint_data(seq, "gap_gini_filter")
+        domain_data = _constraint_data(seq, "domain_filter")
+        crispr_data = _constraint_data(seq, "crispr_array_filter")
+        tracr_data = _constraint_data(seq, "tracr_filter")
+        structure_data = _constraint_data(seq, "structure_filter")
+
+        rows.append(
+            {
+                "temperature": temperature,
+                "top_k": top_k_val,
+                "round": round_num,
+                "proposal_idx": proposal_idx,
+                "accepted_as_result": outcome == "accepted",
+                "passed_all_filters": passed_all_filters,
+                "outcome": outcome,
+                "failed_filter": failed_filter,
+                "energy_score": _format_float(
+                    energy_scores[proposal_idx] if proposal_idx < len(energy_scores) else None
+                ),
+                "filter_status_path": ";".join(filter_statuses),
+                "dna_length": len(seq.sequence),
+                "dna_sequence": seq.sequence,
+                "protein_sequence": orf_data.get("selected_protein_sequence"),
+                "identity": _format_float(identity_data.get("identity")),
+                "gap_gini": _format_float(gap_data.get("gap_gini")),
+                "domains_found": ",".join(domain_data.get("profiles_found", [])),
+                "crispr_repeat": crispr_data.get("crispr_repeat"),
+                "tracr_rna_sequence": tracr_data.get("tracr_sequence"),
+                "interaction_energy": _format_float(tracr_data.get("interaction_energy")),
+                "plddt": _format_float(structure_data.get("plddt")),
+                "gyration_radius": _format_float(structure_data.get("gyration_radius")),
+                "longest_alpha": _format_float(structure_data.get("longest_alpha")),
+                "pdb_path": structure_data.get("pdb_path"),
+            }
+        )
+    return rows
+
+
+def _filter_status_path(seq: Any, filter_specs: list[tuple[str, float]]) -> tuple[list[str], str | None]:
+    """Return per-filter PASS/FAIL/SKIPPED statuses and the first failing filter."""
+    statuses: list[str] = []
+    failed_filter = None
+    for label, threshold in filter_specs:
+        constraint_entry = seq._constraints_metadata.get(label)
+        if constraint_entry is None:
+            status = "SKIPPED" if failed_filter is not None else "NOT_EVALUATED"
+        else:
+            score = constraint_entry.get("score")
+            if score is not None and score <= threshold:
+                status = "PASS"
+            else:
+                status = "FAIL"
+                failed_filter = failed_filter or label
+        statuses.append(f"{label}:{status}")
+    return statuses, failed_filter
+
+
+def _append_filter_log_rows(output_path: Path, rows: list[dict[str, Any]]) -> None:
+    """Append filter diagnostics rows to a TSV file."""
+    if not rows:
+        return
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    write_header = not output_path.exists()
+    with open(output_path, "a", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=FILTER_LOG_COLUMNS, delimiter="\t")
+        if write_header:
+            writer.writeheader()
+        writer.writerows(rows)
+
+
+def _summarize_filter_log_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize filter diagnostics for concise console logging."""
+    failed_by_filter: dict[str, int] = {}
+    for row in rows:
+        failed_filter = row["failed_filter"]
+        if failed_filter:
+            failed_by_filter[failed_filter] = failed_by_filter.get(failed_filter, 0) + 1
+    return {
+        "accepted_as_result": sum(1 for row in rows if row["accepted_as_result"]),
+        "passed_all_filters": sum(1 for row in rows if row["passed_all_filters"]),
+        "failed_by_filter": failed_by_filter,
+    }
+
+
+def _format_float(value: Any) -> str:
+    """Format optional numeric values for TSV output."""
+    if value is None:
+        return ""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if not math.isfinite(numeric):
+        return ""
+    return f"{numeric:.6g}"
+
+
 def save_results(
-    results: list[dict],
+    results: list[dict[str, Any]],
     output_tsv: Path,
     output_fasta: Path,
 ) -> None:
@@ -940,7 +792,7 @@ def save_results(
                 }
             )
 
-    logger.info(f"Summary TSV written to: {output_tsv}")
+    logger.info("Summary TSV written to: %s", output_tsv)
 
     with open(output_fasta, "w") as f:
         for r in results:
@@ -948,7 +800,7 @@ def save_results(
             header = f">cas9_proposal_{r['proposal_idx']} temp={r['temperature']} top_k={r['top_k']}{plddt_str}"
             f.write(f"{header}\n{r['dna_sequence']}\n")
 
-    logger.info(f"FASTA written to: {output_fasta}")
+    logger.info("FASTA written to: %s", output_fasta)
 
 
 # ============================================================================
@@ -956,7 +808,8 @@ def save_results(
 # ============================================================================
 
 
-def main():
+def main() -> list[dict[str, Any]]:
+    """Run the EvoCas9 rejection-sampling pipeline."""
     parser = argparse.ArgumentParser(description="Cas9 generation pipeline (Rejection Sampling optimizer version)")
     parser.add_argument(
         "--n-samples",
@@ -977,6 +830,12 @@ def main():
         help="Output FASTA for passing proposals (default: cas9_proposals.fasta)",
     )
     parser.add_argument(
+        "--filter-log-output",
+        type=str,
+        default=None,
+        help="Optional TSV path for per-proposal filter diagnostics, including skipped filters after short-circuiting.",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose logging",
@@ -984,6 +843,9 @@ def main():
     args = parser.parse_args()
 
     batch_size = args.batch_size or args.n_samples
+    filter_log_output = Path(args.filter_log_output) if args.filter_log_output else None
+    if filter_log_output is not None:
+        filter_log_output.unlink(missing_ok=True)
 
     # Enable tool caching
     from proto_tools.utils.tool_cache import ToolCache, _program_tool_cache
@@ -995,22 +857,22 @@ def main():
     logger.info("=" * 60)
     logger.info("Cas9 Generation Pipeline (Rejection Sampling Optimizer)")
     logger.info("=" * 60)
-    logger.info(f"Sweep: {len(TEMPERATURES)} temps x {len(TOP_KS)} top_k = {n_combos} combos")
-    logger.info(f"Samples per combo: {args.n_samples}")
-    logger.info(f"Total sequences: {total_seqs}")
-    logger.info(f"Batch size: {batch_size}")
+    logger.info("Sweep: %d temps x %d top_k = %d combos", len(TEMPERATURES), len(TOP_KS), n_combos)
+    logger.info("Samples per combo: %d", args.n_samples)
+    logger.info("Total sequences: %d", total_seqs)
+    logger.info("Batch size: %d", batch_size)
     logger.info("=" * 60)
 
-    all_results: list[dict] = []
+    all_results: list[dict[str, Any]] = []
     combo_idx = 0
 
     for temp in TEMPERATURES:
         for top_k_val in TOP_KS:
             combo_idx += 1
-            logger.info(f"\nCombo {combo_idx}/{n_combos}: temp={temp}, top_k={top_k_val}")
+            logger.info("\nCombo %d/%d: temp=%s, top_k=%s", combo_idx, n_combos, temp, top_k_val)
 
-            CACHE.clear()
-            structure_filter._next_idx = 0
+            STRUCTURE_CACHE.clear()
+            structure_filter._next_idx = 0  # type: ignore[attr-defined]
 
             output_base = Path(args.output).stem.replace("_proposals", "")
             af3_output_dir = f"{output_base}_af3_pdbs/temp{temp}_topk{top_k_val}"
@@ -1021,30 +883,33 @@ def main():
                 batch_size=batch_size,
                 verbose=args.verbose,
                 af3_output_dir=af3_output_dir,
+                filter_log_output=filter_log_output,
             )
             program.run()
 
-            results = collect_results(segment, CACHE, temp, top_k_val)
+            results = collect_results(segment, temp, top_k_val)
             all_results.extend(results)
 
-            logger.info(f"Combo {combo_idx}: {len(results)} proposals passed all filters")
+            logger.info("Combo %d: %d proposals passed all filters", combo_idx, len(results))
 
     logger.info("\n" + "=" * 60)
     logger.info("PIPELINE SUMMARY")
     logger.info("=" * 60)
-    logger.info(f"Total combos: {n_combos}")
-    logger.info(f"Total sequences generated: {total_seqs}")
-    logger.info(f"Total passing proposals: {len(all_results)}")
+    logger.info("Total combos: %d", n_combos)
+    logger.info("Total sequences generated: %d", total_seqs)
+    logger.info("Total passing proposals: %d", len(all_results))
     logger.info("=" * 60)
 
     if all_results:
         output_fasta = Path(args.output)
         output_tsv = output_fasta.with_suffix(".tsv")
         save_results(all_results, output_tsv, output_fasta)
-        logger.info(f"\nPassing proposals written to: {output_fasta}")
-        logger.info(f"Summary TSV written to: {output_tsv}")
+        logger.info("\nPassing proposals written to: %s", output_fasta)
+        logger.info("Summary TSV written to: %s", output_tsv)
     else:
         logger.info("\nNo proposals passed all filters.")
+    if filter_log_output is not None:
+        logger.info("Filter diagnostics TSV written to: %s", filter_log_output)
 
     return all_results
 

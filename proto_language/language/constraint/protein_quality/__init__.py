@@ -10,6 +10,15 @@ from proto_language.language.constraint.protein_quality.protein_complexity_const
 from proto_language.language.constraint.protein_quality.protein_diversity_constraint import protein_diversity_constraint
 from proto_language.language.constraint.protein_quality.protein_domain_constraint import protein_domain_constraint
 from proto_language.language.constraint.protein_quality.protein_length_constraint import protein_length_constraint
+from proto_language.language.constraint.protein_quality.protein_max_identity_constraint import (
+    protein_max_identity_constraint,
+)
+from proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint import (
+    protein_nearest_neighbor_gap_gini_constraint,
+)
+from proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint import (
+    protein_profile_hmm_constraint,
+)
 from proto_language.language.constraint.protein_quality.protein_repetitiveness_constraint import (
     protein_repetitiveness_constraint,
 )
@@ -22,4 +31,7 @@ __all__ = [
     "balanced_aa_constraint",
     "overall_protein_quality_constraint",
     "protein_domain_constraint",
+    "protein_max_identity_constraint",
+    "protein_nearest_neighbor_gap_gini_constraint",
+    "protein_profile_hmm_constraint",
 ]

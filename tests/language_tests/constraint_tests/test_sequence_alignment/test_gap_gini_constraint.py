@@ -1,19 +1,19 @@
-"""Tests for the gap Gini constraint (internal functions and full constraint)."""
+"""Tests for the gap Gini constraint helpers and full constraint."""
 
 import pytest
 
 from proto_language.language.constraint.sequence_alignment.gap_gini_constraint import (
     GapGiniConfig,
-    _gap_gini_single,
     _gap_runs,
     _gini,
-    _trim_alignment,
     gap_gini_constraint,
+    gap_gini_single,
+    trim_alignment,
 )
 from proto_language.language.core import Sequence
 
 # ============================================================================
-# Unit tests for internal helpers
+# Unit tests for helpers
 # ============================================================================
 
 
@@ -62,21 +62,21 @@ class TestGapRuns:
 class TestGapGiniSingle:
     def test_no_gaps(self):
         # No gaps → Gini = 0
-        score = _gap_gini_single("ACGTACGT", "ACGTACGT")
+        score = gap_gini_single("ACGTACGT", "ACGTACGT")
         assert score == 0.0
 
     def test_evenly_distributed_gaps(self):
         # Evenly distributed single gaps → low Gini
         al1 = "A-C-G-T-A-C-G-T-"
         al2 = "ACGTACGTACGTACGTAC"
-        score = _gap_gini_single(al1, al2)
+        score = gap_gini_single(al1, al2)
         assert score < 0.2
 
     def test_concentrated_gaps(self):
         # All gaps in one block → high Gini
         al1 = "ACGT--------ACGT"
         al2 = "ACGTACGTACGTACGT"
-        score = _gap_gini_single(al1, al2)
+        score = gap_gini_single(al1, al2)
         assert score > 0.3
 
 
@@ -84,14 +84,14 @@ class TestTrimAlignment:
     def test_basic_trim(self):
         al1 = "A" * 100
         al2 = "A" * 100
-        t1, _t2 = _trim_alignment(al1, al2)
+        t1, _t2 = trim_alignment(al1, al2)
         assert t1 is not None
         assert len(t1) < 100  # Should be trimmed
 
     def test_all_gaps_returns_none(self):
         al1 = "-" * 100
         al2 = "-" * 100
-        t1, t2 = _trim_alignment(al1, al2)
+        t1, t2 = trim_alignment(al1, al2)
         assert t1 is None
         assert t2 is None
 
@@ -99,7 +99,7 @@ class TestTrimAlignment:
         al1 = "AC"
         al2 = "AC"
         # Very short alignment after cropping
-        t1, _t2 = _trim_alignment(al1, al2)
+        t1, _t2 = trim_alignment(al1, al2)
         # May be None if too short after trim
         if t1 is not None:
             assert len(t1) <= 2

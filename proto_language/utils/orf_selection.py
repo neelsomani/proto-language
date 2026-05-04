@@ -71,6 +71,7 @@ def predict_longest_canonical_cds(dna_sequences: list[Sequence]) -> list[tuple[O
         selected = max(orfs, key=lambda orf: (orf.amino_acid_length, orf.nucleotide_length))
         metadata["selected_cds"] = {
             "id": selected.id,
+            "parent_id": selected.parent_id,
             "orf_id": selected.orf_id,
             "strand": selected.strand,
             "frame": selected.frame,

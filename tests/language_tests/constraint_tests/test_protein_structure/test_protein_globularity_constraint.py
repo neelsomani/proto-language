@@ -177,7 +177,7 @@ class TestProteinGlobularityConstraint:
 
     def test_multiple_protein_chains(self):
         """Test that provided input sequences are folded as complex chains."""
-        segment = Segment(sequence="MKTAYIAK", sequence_type="protein")
+        segments = [Segment(sequence="MKTAYIAK", sequence_type="protein") for _ in range(3)]
         config = ProteinGlobularityConfig()
         with patch(
             "proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
@@ -201,7 +201,7 @@ class TestProteinGlobularityConstraint:
             mock_run.return_value = mock_structure_prediction_output
 
             constraint = Constraint(
-                inputs=[segment, segment, segment],
+                inputs=segments,
                 function=protein_globularity_constraint,
                 function_config=config,
             )

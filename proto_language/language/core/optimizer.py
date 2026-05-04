@@ -459,8 +459,8 @@ class Optimizer(ABC):
                 # Capture label before any renaming so multi-segment constraints
                 # use a stable key across all their segments.
                 base_label = constraint.label
-                # Defensive dedup: a Constraint may list the same Segment twice in inputs
-                # (user error). Treat each unique segment once when assigning labels.
+                # Aliased inputs are allowed (Constraint warns); dedup so homo-oligomer-style
+                # `[seg, seg, seg]` doesn't accumulate `_1`, `_2` suffixes against itself.
                 seen_segments_for_constraint: set[int] = set()
                 for segment in constraint.inputs:
                     seg_id = id(segment)

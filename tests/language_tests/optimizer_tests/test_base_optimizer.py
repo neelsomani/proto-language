@@ -258,15 +258,9 @@ class TestOptimizerValidation:
 
     # 7. Homo-oligomer constraints (same segment repeated in inputs)
     def test_homo_oligomer_constraint_same_segment_multiple_times(self):
-        """Tests that constraints with same segment repeated don't accumulate _1 suffixes.
-
-        This is a regression test for a bug where homo-oligomer constraints (e.g., trimers)
-        that have the same segment multiple times in inputs would have their labels
-        incorrectly renamed on each iteration through the inputs list.
-        """
+        """Same segment repeated within one constraint must not accumulate _1 suffixes."""
         construct, generator, _, segment = _setup_optimizer_components()
 
-        # Homo-trimer constraint: same segment appears 3 times (common for structure prediction)
         trimer_constraint = MagicMock(spec=Constraint)
         trimer_constraint.inputs = [segment, segment, segment]  # Same segment 3x
         trimer_constraint.label = "structure_plddt_constraint"
@@ -316,12 +310,7 @@ class TestOptimizerValidation:
         assert constraint2.label == "my_constraint_1"  # Still _1, not _1_1_1_1_1
 
     def test_homo_oligomer_with_multiple_constraints_same_label(self):
-        """Tests combination of homo-oligomer and duplicate label handling.
-
-        When multiple constraints with the same label each have the same segment
-        repeated, the deduplication should only apply between different constraints,
-        not within a single constraint's inputs.
-        """
+        """Dedup applies between homo-oligomer constraints sharing a label, not within one."""
         construct, generator, _, segment = _setup_optimizer_components()
 
         # Two homo-trimer constraints with same base label

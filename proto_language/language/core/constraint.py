@@ -501,16 +501,24 @@ class Constraint:
 
         Checks:
             1. Non-empty: At least one segment must be provided.
-            2. Consistent proposals: All segments must have the same number of proposals.
-            3. Supported types: Constraint callable must declare supported sequence types.
-            4. Type compatibility: Each segment's sequence type must be supported by the constraint.
-            5. Input count: Number of input segments must match input_labels length if specified.
+            2. Distinct inputs: Warn (do not reject) if the same Segment instance appears more than once.
+            3. Consistent proposals: All segments must have the same number of proposals.
+            4. Supported types: Constraint callable must declare supported sequence types.
+            5. Type compatibility: Each segment's sequence type must be supported by the constraint.
+            6. Input count: Number of input segments must match input_labels length if specified.
 
         Raises:
             ValueError: If any validation check fails.
         """
         if not self._inputs:
             raise ValueError("At least one segment must be provided")
+
+        # Aliased inputs are allowed but almost always a user error.
+        if len({id(seg) for seg in self._inputs}) != len(self._inputs):
+            logger.warning(
+                "Constraint %r has duplicate Segment instances in `inputs`; pass N distinct Segments instead.",
+                self.label,
+            )
 
         # All segments must have same number of proposals
         proposal_sizes = [seg.num_proposals for seg in self._inputs]

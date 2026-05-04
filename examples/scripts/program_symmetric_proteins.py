@@ -169,34 +169,35 @@ def run_optimization(
         ## Constraints ##
         #################
 
+        symmetric_complex = [protomer for _ in range(n_symmetric_units)]
+
         esmfold_plddt = Constraint(
-            inputs=[protomer for _ in range(n_symmetric_units)],
+            inputs=symmetric_complex,
             function=structure_plddt_constraint,
             function_config={"structure_tool": "esmfold"},
             weight=1,
         )
 
         esmfold_ptm = Constraint(
-            inputs=[protomer for _ in range(n_symmetric_units)],
+            inputs=symmetric_complex,
             function=structure_ptm_constraint,
             function_config={"structure_tool": "esmfold"},
             weight=1,
         )
 
         symmetry = Constraint(
-            inputs=[protomer],
+            inputs=symmetric_complex,
             function=protein_symmetry_ring_constraint,
             function_config={
-                "n_replications": n_symmetric_units,
                 "all_to_all_protomer_symmetry": True,
             },
             weight=1,
         )
 
         globularity = Constraint(
-            inputs=[protomer],
+            inputs=symmetric_complex,
             function=protein_globularity_constraint,
-            function_config={"n_replications": n_symmetric_units},
+            function_config={},
             weight=5,
         )
 

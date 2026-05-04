@@ -1,6 +1,5 @@
 """Protein symmetry ring constraint for symmetric multimeric structures."""
 
-import logging
 from io import StringIO
 
 import numpy as np
@@ -22,9 +21,7 @@ from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.storage import FileType, store_file
 from proto_language.utils import MAX_ENERGY
-from proto_language.utils.orf_selection import predict_longest_canonical_cds
-
-logger = logging.getLogger(__name__)
+from proto_language.utils.orf_selection import resolve_protein_complex_chains
 
 
 class ProteinSymmetryRingConfig(BaseConfig):
@@ -43,11 +40,6 @@ class ProteinSymmetryRingConfig(BaseConfig):
     The score is normalized by dividing by ``max_symmetry_std`` and capped at 1.0.
 
     Attributes:
-        n_replications (int): Number of protomers in the ring structure. Must
-            be a positive integer (typically 3-12). Defines the oligomeric state:
-            3 for trimers, 4 for tetramers, 5 for pentamers, 6 for hexamers, etc.
-             Higher values increase computational cost. Default: 3.
-
         max_symmetry_std (float): Maximum standard deviation of inter-protomer
             distances (in Ångströms) used for score normalization. Must be a
             positive float. Structures with symmetry standard deviation at or
@@ -70,16 +62,6 @@ class ProteinSymmetryRingConfig(BaseConfig):
             specified here. Default: ESMFoldConfig().
     """
 
-    # Required parameters
-    n_replications: int = ConfigField(
-        default=3,
-        ge=1,
-        title="Number of Replications",
-        description="Number of protomers in the ring structure. Defines the oligomeric state (dimer=2, trimer=3, etc.).",
-        examples=[3, 12],
-    )
-
-    # Advanced parameters
     max_symmetry_std: float = ConfigField(
         default=10.0,
         ge=0.0,
@@ -110,6 +92,7 @@ class ProteinSymmetryRingConfig(BaseConfig):
     tools_called=["esmfold-prediction", "orfipy-prediction"],
     category="protein_structure",
     supported_sequence_types=["dna", "protein"],
+    input_labels=None,
 )
 def protein_symmetry_ring_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: ProteinSymmetryRingConfig
@@ -128,21 +111,20 @@ def protein_symmetry_ring_constraint(
     ring-shaped enzymes. This constraint is useful for designing or selecting
     proteins that form such symmetric assemblies.
 
-    For DNA sequences, the function first uses ORFipy to scan both strands for
-    canonical ATG-to-stop ORFs, selects the longest ORF as the single CDS for
-    that proposal, and evaluates the ring symmetry of the translated protein.
+    Each input tuple is folded as one complex with an arbitrary number of protein
+    chains. DNA chains are first resolved with ORFipy by scanning both strands
+    for canonical ATG-to-stop ORFs and selecting the longest ORF as that chain's
+    translated CDS.
 
     Structure prediction is GPU-intensive and may take several minutes per protein
     depending on length and hardware.
 
     Args:
-        input_sequences (list[tuple[Sequence, ...]]): List of single-sequence tuples to
-            evaluate. Each tuple contains one protein or DNA sequence. All sequences
-            must be the same type. For DNA sequences, canonical ORF prediction is
-            performed automatically and the longest ORF is scored.
+        input_sequences (list[tuple[Sequence, ...]]): List of proposal tuples to
+            evaluate. Each tuple may contain any number of protein and/or DNA
+            chains. DNA chains are translated through the longest canonical ORF.
 
         config (ProteinSymmetryRingConfig): Configuration object containing
-            ``n_replications`` (number of protomers in ring, default: 2),
             ``max_symmetry_std`` (normalization threshold in Å, default: 10.0),
             ``all_to_all_protomer_symmetry`` (distance calculation mode, default: False),
             and optional ``esmfold_config`` for advanced ESMFold settings.
@@ -152,26 +134,14 @@ def protein_symmetry_ring_constraint(
             perfect ring symmetry. Protein results attach the predicted ``Structure``
             to slot 0. ``metadata`` carries:
 
-            **For protein sequences:**
-
             - ``avg_plddt``: Float average pLDDT score for structure confidence (0.0-1.0)
             - ``ptm``: Float predicted TM-score for structure accuracy (0.0-1.0)
             - ``pdb_output``: String PDB format structure file content
-            - ``esmfolded_sequence``: String colon-separated sequence representation
+            - ``esmfolded_sequence``: String colon-separated protein-chain representation
             - ``symmetry_std_raw``: Float raw standard deviation of inter-protomer
               distances in Ångströms (lower = more symmetric)
             - ``symmetry_score_normalized``: Float normalized symmetry score (0.0-1.0)
-
-            **For DNA sequences:**
-
-            - ``orfipy_orfs``: Stored JSON of canonical ORFs detected by ORFipy
-            - ``orfipy_orf_count``: Integer count of candidate ORFs
-            - ``selected_cds``: Coordinates and length for the longest ORF used as
-              the single CDS for scoring
-            - ``esmfold_cds_symmetry_std``: Float symmetry standard deviation for
-              the selected CDS protein (in Ångströms)
-            - ``esmfold_normalized_symmetry``: Float normalized selected-CDS
-              symmetry score (0.0-1.0, capped by max_symmetry_std)
+            - ``dna_chain_orfs``: Per-DNA-chain ORFipy metadata when DNA chains are present
 
     Examples:
         Designing a symmetric hexameric ring:
@@ -179,147 +149,71 @@ def protein_symmetry_ring_constraint(
         >>> from proto_language.language.core import Sequence, SequenceType
         >>> seq = Sequence("MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSF", "protein")
         >>> config = ProteinSymmetryRingConfig(
-        ...     n_replications=6,  # Hexamer
         ...     max_symmetry_std=10.0,
         ... )
-        >>> results = protein_symmetry_ring_constraint([(seq,)], config)
+        >>> results = protein_symmetry_ring_constraint([(seq, seq, seq, seq, seq, seq)], config)
         >>> print(results[0].score)  # e.g., 0.35 (3.5 Å std / 10.0 Å max)
         >>> print(results[0].metadata["symmetry_std_raw"])  # e.g., 3.5 Å
         >>> print(results[0].metadata["symmetry_score_normalized"])  # 0.35
     """
-    sequences = [seq for (seq,) in input_sequences]
-    by_type: dict[str, list[Sequence]] = {"dna": [], "protein": []}
-    for seq in sequences:
-        by_type[seq.sequence_type].append(seq)
-
-    per_proposal: list[ConstraintOutput | None] = [None] * len(input_sequences)
-
-    if by_type["protein"]:
-        protein_results = _evaluate_protein_symmetry(by_type["protein"], config)
-        _map_results_to_original(sequences, by_type["protein"], protein_results, per_proposal)
-
-    if by_type["dna"]:
-        dna_results = _evaluate_dna_symmetry(by_type["dna"], config)
-        _map_results_to_original(sequences, by_type["dna"], dna_results, per_proposal)
-
-    return [r for r in per_proposal if r is not None]
-
-
-def _evaluate_protein_symmetry(
-    protein_sequences: list[Sequence], config: ProteinSymmetryRingConfig
-) -> list[ConstraintOutput]:
-    """Evaluate protein ring symmetry directly."""
-    complexes = [
-        StructurePredictionComplex(
-            chains=[{"sequence": seq.sequence, "entity_type": "protein"}] * config.n_replications
-        )
-        for seq in protein_sequences
-    ]
-
-    output = run_esmfold(
-        inputs=ESMFoldInput(complexes=complexes),
-        config=config.esmfold_config,
-    )
-
+    resolved_complexes = resolve_protein_complex_chains(input_sequences)
     distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
+    results: list[ConstraintOutput | None] = [None] * len(input_sequences)
+    complexes: list[StructurePredictionComplex] = []
+    valid_indices: list[int] = []
+    valid_metadata: list[dict[str, object]] = []
+    valid_chain_sequences: list[list[str]] = []
 
-    results: list[ConstraintOutput] = []
-    for seq, structure in zip(protein_sequences, output.structures, strict=False):
-        atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
+    for idx, (chain_sequences, metadata) in enumerate(resolved_complexes):
+        if chain_sequences is None:
+            results[idx] = ConstraintOutput(score=MAX_ENERGY, metadata=metadata)
+            continue
+        complexes.append(
+            StructurePredictionComplex(
+                chains=[{"sequence": sequence, "entity_type": "protein"} for sequence in chain_sequences]
+            )
+        )
+        metadata["esmfolded_sequence"] = ":".join(chain_sequences)
+        valid_indices.append(idx)
+        valid_metadata.append(metadata)
+        valid_chain_sequences.append(chain_sequences)
 
-        centroids = []
-        for chain_id in get_chains(atom_array):
-            chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord
-            centroids.append(get_centroid(chain_backbone))
+    if complexes:
+        output = run_esmfold(
+            inputs=ESMFoldInput(complexes=complexes),
+            config=config.esmfold_config,
+        )
 
-        if len(centroids) != config.n_replications:
-            raise ValueError(f"Expected {config.n_replications} centroids, got {len(centroids)}")
-        centroids_arr = np.vstack(centroids)
+        for idx, chain_sequences, metadata, structure in zip(
+            valid_indices, valid_chain_sequences, valid_metadata, output.structures, strict=True
+        ):
+            atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
 
-        symmetry_std = float(np.std(distance_func(centroids_arr)))
-        normalized_score = min(1.0, symmetry_std / config.max_symmetry_std)
+            centroids = []
+            for chain_id in get_chains(atom_array):
+                chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord
+                centroids.append(get_centroid(chain_backbone))
 
-        results.append(
-            ConstraintOutput(
-                score=normalized_score,
-                metadata={
+            if len(centroids) != len(chain_sequences):
+                raise ValueError(f"Expected {len(chain_sequences)} centroids, got {len(centroids)}")
+            centroids_arr = np.vstack(centroids)
+
+            symmetry_std = float(np.std(distance_func(centroids_arr)))
+            normalized_score = min(1.0, symmetry_std / config.max_symmetry_std)
+
+            metadata.update(
+                {
                     "avg_plddt": structure.metrics["avg_plddt"],
                     "ptm": structure.metrics["ptm"],
                     "pdb_output": store_file(structure.structure_pdb, FileType.PDB),
-                    "esmfolded_sequence": ":".join([seq.sequence] * config.n_replications),
                     "symmetry_std_raw": symmetry_std,
                     "symmetry_score_normalized": normalized_score,
-                },
-                structures=(structure,),
+                }
             )
-        )
-
-    return results
-
-
-def _evaluate_dna_symmetry(dna_sequences: list[Sequence], config: ProteinSymmetryRingConfig) -> list[ConstraintOutput]:
-    """Evaluate DNA sequences via the longest canonical ORF on either strand."""
-    distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
-    results: list[ConstraintOutput] = []
-
-    for selected_orf, metadata in predict_longest_canonical_cds(dna_sequences):
-        if selected_orf is None:
-            results.append(ConstraintOutput(score=MAX_ENERGY, metadata=metadata))
-            continue
-
-        complexes = [
-            StructurePredictionComplex(
-                chains=[{"sequence": selected_orf.amino_acid_sequence, "entity_type": "protein"}]
-                * config.n_replications
+            results[idx] = ConstraintOutput(
+                score=normalized_score,
+                metadata=metadata,
+                structures=(structure,) + (None,) * (len(chain_sequences) - 1),
             )
-        ]
 
-        try:
-            esmfold_output = run_esmfold(
-                inputs=ESMFoldInput(complexes=complexes),
-                config=config.esmfold_config,
-            )
-        except Exception as e:
-            logger.warning(
-                "protein-symmetry-ring: ESMFold failed for selected DNA CDS %s: %s; using worst score",
-                selected_orf.id,
-                e,
-            )
-            results.append(
-                ConstraintOutput(
-                    score=MAX_ENERGY,
-                    metadata={**metadata, "symmetry_ring_error": f"ESMFold failed: {e}"},
-                )
-            )
-            continue
-
-        structure = esmfold_output.structures[0]
-        atom_array = pdb_file_to_atomarray(StringIO(structure.structure_pdb))
-        centroids = []
-        for chain_id in get_chains(atom_array):
-            chain_backbone = get_backbone_atoms(atom_array[atom_array.chain_id == chain_id]).coord
-            centroids.append(get_centroid(chain_backbone))
-
-        centroids_arr = np.vstack(centroids)
-        symmetry_std = float(np.std(distance_func(centroids_arr)))
-        normalized_score = min(1.0, symmetry_std / config.max_symmetry_std)
-
-        metadata["esmfold_cds_symmetry_std"] = symmetry_std
-        metadata["esmfold_normalized_symmetry"] = normalized_score
-        results.append(ConstraintOutput(score=normalized_score, metadata=metadata))
-
-    return results
-
-
-def _map_results_to_original(
-    all_sequences: list[Sequence],
-    subset_sequences: list[Sequence],
-    subset_results: list[ConstraintOutput],
-    per_proposal: list[ConstraintOutput | None],
-) -> None:
-    """Map subset results back to original sequence order."""
-    subset_idx = 0
-    for i, seq in enumerate(all_sequences):
-        if seq in subset_sequences:
-            per_proposal[i] = subset_results[subset_idx]
-            subset_idx += 1
+    return [result for result in results if result is not None]

@@ -171,12 +171,14 @@ class TestProteinGlobularityConstraint:
             assert data["selected_cds"]["id"] == "seq_0_orf_longest"
             assert data["selected_cds"]["orf_id"] == "orf_longest"
             assert data["selected_cds"]["strand"] == "-"
-            assert "esmfold_cds_globularity" in data
+            assert data["esmfolded_sequence"] == "MKTAYIAK"
+            assert "raw_globularity" in data
+            assert "esmfold_complex_globularity" not in data
 
-    def test_n_replications_parameter(self):
-        """Test that n_replications correctly replicates the sequence."""
+    def test_multiple_protein_chains(self):
+        """Test that provided input sequences are folded as complex chains."""
         segment = Segment(sequence="MKTAYIAK", sequence_type="protein")
-        config = ProteinGlobularityConfig(n_replications=3)
+        config = ProteinGlobularityConfig()
         with patch(
             "proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
         ) as mock_run:
@@ -199,14 +201,14 @@ class TestProteinGlobularityConstraint:
             mock_run.return_value = mock_structure_prediction_output
 
             constraint = Constraint(
-                inputs=[segment],
+                inputs=[segment, segment, segment],
                 function=protein_globularity_constraint,
                 function_config=config,
             )
 
             constraint.evaluate()
 
-            # Verify sequence was replicated 3 times
+            # Verify the three provided inputs were folded as the three chains.
             mock_run.assert_called_once()
             passed_input = mock_run.call_args.kwargs["inputs"]  # Function called with keyword args
             assert [chain.sequence for chain in passed_input.complexes[0].chains] == [

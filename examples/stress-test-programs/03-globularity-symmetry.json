@@ -1,6 +1,6 @@
 {
   "name": "Protein Globularity and Symmetry Ring",
-  "description": "Optimize for structural compactness and symmetric trimeric assembly. Tests heavier ESMFold usage (n_replications multiplies folding calls).",
+  "description": "Optimize for structural compactness and symmetric trimeric assembly. Tests heavier ESMFold usage by folding repeated protomer targets as explicit complex chains.",
   "num_results": 2,
   "verbose": true,
   "constructs": [
@@ -37,7 +37,7 @@
         {
           "key": "protein-globularity",
           "targets": ["protomer"],
-          "config": { "n_replications": 1 },
+          "config": {},
           "weight": 1.0
         }
       ]
@@ -60,15 +60,14 @@
       "constraints": [
         {
           "key": "protein-globularity",
-          "targets": ["protomer"],
-          "config": { "n_replications": 3 },
+          "targets": ["protomer", "protomer", "protomer"],
+          "config": {},
           "weight": 1.0
         },
         {
           "key": "protein-symmetry-ring",
-          "targets": ["protomer"],
+          "targets": ["protomer", "protomer", "protomer"],
           "config": {
-            "n_replications": 3,
             "all_to_all_protomer_symmetry": false
           },
           "weight": 1.5

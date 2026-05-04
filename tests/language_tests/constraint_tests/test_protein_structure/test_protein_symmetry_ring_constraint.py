@@ -49,7 +49,7 @@ class TestProteinSymmetryRingConstraint:
     def test_scoring_algorithm(self):
         """Test basic constraint evaluation with mocked structure."""
         segment = Segment(sequence="MKR", sequence_type="protein")
-        config = ProteinSymmetryRingConfig(n_replications=3)
+        config = ProteinSymmetryRingConfig()
 
         with patch(
             "proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
@@ -65,7 +65,7 @@ class TestProteinSymmetryRingConstraint:
             mock_run.return_value = mock_output
 
             constraint = Constraint(
-                inputs=[segment],
+                inputs=[segment, segment, segment],
                 function=protein_symmetry_ring_constraint,
                 function_config=config,
             )
@@ -77,7 +77,7 @@ class TestProteinSymmetryRingConstraint:
     def test_dna_input(self):
         """DNA sequences are scored through the longest canonical ORF only."""
         segment = Segment(sequence="ATGAAAAAACGTTAA", sequence_type="dna")
-        config = ProteinSymmetryRingConfig(n_replications=3)
+        config = ProteinSymmetryRingConfig()
 
         from proto_tools import ORF
 
@@ -107,7 +107,7 @@ class TestProteinSymmetryRingConstraint:
         )
 
         mock_orfipy_output = Mock(spec=OrfipyOutput)
-        mock_orfipy_output.predicted_orfs = [[short_orf, longest_orf]]
+        mock_orfipy_output.predicted_orfs = [[short_orf, longest_orf] for _ in range(3)]
 
         # Mock the ESMFold output
         mock_structure = MockStructure(structure_content=mock_pdb)
@@ -129,7 +129,7 @@ class TestProteinSymmetryRingConstraint:
             mock_esmfold.return_value = mock_structure_prediction_output
 
             constraint = Constraint(
-                inputs=[segment],
+                inputs=[segment, segment, segment],
                 function=protein_symmetry_ring_constraint,
                 function_config=config,
             )
@@ -139,6 +139,7 @@ class TestProteinSymmetryRingConstraint:
             assert len(scores) == 1
             assert scores[0] >= 0.0
             mock_orfipy.assert_called_once()
+            assert len(mock_orfipy.call_args.kwargs["inputs"].sequences) == 3
             assert mock_orfipy.call_args.kwargs["config"].start_codons == ["ATG"]
             assert mock_orfipy.call_args.kwargs["config"].stop_codons == ["TAA", "TAG", "TGA"]
             assert mock_orfipy.call_args.kwargs["config"].strand == "b"
@@ -150,16 +151,18 @@ class TestProteinSymmetryRingConstraint:
             ]
 
             data = segment.proposal_sequences[0]._constraints_metadata["protein_symmetry_ring_constraint"]["data"]
-            assert data["orfipy_orf_count"] == 2
-            assert data["selected_cds"]["id"] == "seq_0_orf_longest"
-            assert data["selected_cds"]["orf_id"] == "orf_longest"
-            assert data["selected_cds"]["strand"] == "-"
-            assert "esmfold_cds_symmetry_std" in data
+            assert len(data["dna_chain_orfs"]) == 3
+            assert data["translated_cds_by_chain"][0]["id"] == "seq_0_orf_longest"
+            assert data["translated_cds_by_chain"][0]["orf_id"] == "orf_longest"
+            assert data["translated_cds_by_chain"][0]["strand"] == "-"
+            assert data["esmfolded_sequence"] == "MKTAYIAK:MKTAYIAK:MKTAYIAK"
+            assert "symmetry_std_raw" in data
+            assert "esmfold_complex_symmetry_std" not in data
 
-    def test_n_replications_parameter(self):
-        """Test that n_replications correctly replicates the sequence."""
+    def test_multiple_protein_chains(self):
+        """Test that provided input sequences are folded as complex chains."""
         segment = Segment(sequence="MKTAYIAK", sequence_type="protein")
-        config = ProteinSymmetryRingConfig(n_replications=5)
+        config = ProteinSymmetryRingConfig()
 
         # Create a mock PDB with 5 chains (A, B, C, D, E)
         mock_pdb = """ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00 90.00           C
@@ -182,14 +185,14 @@ ATOM      5  CA  ALA E   1      -5.000   0.000   0.000  1.00 90.00           C""
             mock_run.return_value = mock_output
 
             constraint = Constraint(
-                inputs=[segment],
+                inputs=[segment, segment, segment, segment, segment],
                 function=protein_symmetry_ring_constraint,
                 function_config=config,
             )
 
             constraint.evaluate()
 
-            # Verify sequence was replicated 5 times for each input complex
+            # Verify all five provided inputs were folded as complex chains.
             mock_run.assert_called_once()
             passed_input = mock_run.call_args.kwargs["inputs"]
             for comp in passed_input.complexes:

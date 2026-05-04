@@ -5,13 +5,13 @@ from typing import Any, Literal
 
 import numpy as np
 from proto_tools import (
-    MmseqsSearchProteinsConfig,
-    MmseqsSearchProteinsInput,
+    Mmseqs2SearchProteinsConfig,
+    Mmseqs2SearchProteinsInput,
     OrfipyConfig,
     OrfipyInput,
     ProdigalConfig,
     ProdigalInput,
-    run_mmseqs_search_proteins,
+    run_mmseqs2_search_proteins,
     run_orfipy_prediction,
     run_prodigal_prediction,
 )
@@ -55,10 +55,10 @@ class MMseqsSimilarityConfig(BaseConfig):
             Must be a preprocessed MMseqs2 database (created with `mmseqs createdb`).
             Example: "/data/databases/uniref50" or "~/databases/ncbi_nr_mmseqs".
 
-        mmseqs_config (MmseqsSearchProteinsConfig): MMseqs2 configuration including
+        mmseqs_config (Mmseqs2SearchProteinsConfig): MMseqs2 configuration including
             sensitivity, threads, E-value threshold, and other search parameters.
-            Example: ``MmseqsSearchProteinsConfig(threads=16, sensitivity=8.0)``
-            for faster, more sensitive searches. Default: MmseqsSearchProteinsConfig().
+            Example: ``Mmseqs2SearchProteinsConfig(threads=16, sensitivity=8.0)``
+            for faster, more sensitive searches. Default: Mmseqs2SearchProteinsConfig().
 
         orf_predictor (Literal['orfipy', 'prodigal']): ORF prediction tool for
             DNA sequences (ignored for protein inputs). Options:
@@ -78,7 +78,7 @@ class MMseqsSimilarityConfig(BaseConfig):
 
     Note:
         For examples with tool configuration, see:
-        >>> from proto_tools import MmseqsSearchProteinsConfig
+        >>> from proto_tools import Mmseqs2SearchProteinsConfig
         The similarity range [min_similarity, max_similarity] defines acceptable percent
         identity. Sequences with hits outside this range are penalized. For example:
         - [40, 70]: Moderate similarity, useful for inferring functional similarity while
@@ -108,9 +108,9 @@ class MMseqsSimilarityConfig(BaseConfig):
     )
 
     # Advanced parameters
-    mmseqs_config: MmseqsSearchProteinsConfig = ConfigField(
+    mmseqs_config: Mmseqs2SearchProteinsConfig = ConfigField(
         title="MMseqs Configuration",
-        default_factory=MmseqsSearchProteinsConfig,
+        default_factory=Mmseqs2SearchProteinsConfig,
         description="MMseqs configuration (threads, sensitivity, etc.).",
         advanced=True,
     )
@@ -150,7 +150,7 @@ class MMseqsSimilarityConfig(BaseConfig):
     label="Gene/Protein Similarity",
     config=MMseqsSimilarityConfig,
     description="Evaluate similarity (percent identity) using MMseqs. For DNA: predicts ORFs first. For proteins: searches directly.",
-    tools_called=["mmseqs-search-proteins", "prodigal-prediction", "orfipy-prediction"],
+    tools_called=["mmseqs2-search-proteins", "prodigal-prediction", "orfipy-prediction"],
     category="sequence annotation",
     supported_sequence_types=["dna", "protein"],
 )
@@ -313,11 +313,11 @@ def mmseqs_similarity_constraint(
     resolved_db = resolve_paths(config.mmseqs_db)
     mmseqs_config = config.mmseqs_config
 
-    mmseqs_input = MmseqsSearchProteinsInput(
+    mmseqs_input = Mmseqs2SearchProteinsInput(
         query_sequences=protein_sequences,
         mmseqs_db=resolved_db,
     )
-    mmseqs_result = run_mmseqs_search_proteins(mmseqs_input, mmseqs_config)
+    mmseqs_result = run_mmseqs2_search_proteins(mmseqs_input, mmseqs_config)
 
     if not mmseqs_result.success:
         for meta in metadata_by_seq:

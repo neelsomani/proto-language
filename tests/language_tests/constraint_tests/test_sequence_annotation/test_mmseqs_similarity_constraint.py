@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 from proto_tools import (
-    MmseqsHit,
-    MmseqsSearchProteinsConfig,
-    MmseqsSearchProteinsOutput,
-    MmseqsSequenceSearchResult,
+    Mmseqs2Hit,
+    Mmseqs2SearchProteinsConfig,
+    Mmseqs2SearchProteinsOutput,
+    Mmseqs2SequenceSearchResult,
 )
 
 from proto_language.language.constraint import (
@@ -34,7 +34,7 @@ class TestMMseqsSimilarityConstraint:
 
     def _create_mock_output(self, results):
         """Helper to create mock output with success=True."""
-        return MmseqsSearchProteinsOutput(
+        return Mmseqs2SearchProteinsOutput(
             metadata={},
             results=results,
             success=True,
@@ -60,20 +60,20 @@ class TestMMseqsSimilarityConstraint:
             min_similarity=80.0,
             max_similarity=100.0,
             mmseqs_db=dummy_db_path,
-            mmseqs_config=MmseqsSearchProteinsConfig(threads=1),
+            mmseqs_config=Mmseqs2SearchProteinsConfig(threads=1),
         )
 
         # Mock MMseqs2 search with new output structure
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins"
+            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
-                    MmseqsSequenceSearchResult(
+                    Mmseqs2SequenceSearchResult(
                         query_id="seq_0",
                         query_sequence="MVLSPADKTNVKAAW",
                         hits=[
-                            MmseqsHit(target_id="hit1", pident=90.0, evalue=1e-10),
+                            Mmseqs2Hit(target_id="hit1", pident=90.0, evalue=1e-10),
                         ],
                     )
                 ]
@@ -112,11 +112,11 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with no results
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins"
+            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
-                    MmseqsSequenceSearchResult(
+                    Mmseqs2SequenceSearchResult(
                         query_id="seq_0",
                         query_sequence="MVLSP",
                         hits=[],  # No hits
@@ -156,17 +156,17 @@ class TestMMseqsSimilarityConstraint:
         # Mock MMseqs2 with results - note: for DNA, ORF prediction happens first
         # and might produce zero proteins if no ORFs are found in short sequences
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins"
+            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             # This test might not even call mmseqs if no ORFs are predicted
             # But if it does, we mock the response
             mock_mmseqs.return_value = self._create_mock_output(
                 [
-                    MmseqsSequenceSearchResult(
+                    Mmseqs2SequenceSearchResult(
                         query_id="seq_0",
                         query_sequence="MVLSPADKTN",  # Hypothetical translated protein
                         hits=[
-                            MmseqsHit(target_id="hit1", pident=85.0, evalue=1e-10),
+                            Mmseqs2Hit(target_id="hit1", pident=85.0, evalue=1e-10),
                         ],
                     )
                 ]
@@ -196,17 +196,17 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with multiple hits for the single protein
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins"
+            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
-                    MmseqsSequenceSearchResult(
+                    Mmseqs2SequenceSearchResult(
                         query_id="seq_0",
                         query_sequence="MVLSPADKTNVKAAW",
                         hits=[
-                            MmseqsHit(target_id="hit1", pident=95.0, evalue=1e-50),
-                            MmseqsHit(target_id="hit2", pident=85.0, evalue=1e-30),
-                            MmseqsHit(target_id="hit3", pident=75.0, evalue=1e-20),  # Below threshold
+                            Mmseqs2Hit(target_id="hit1", pident=95.0, evalue=1e-50),
+                            Mmseqs2Hit(target_id="hit2", pident=85.0, evalue=1e-30),
+                            Mmseqs2Hit(target_id="hit3", pident=75.0, evalue=1e-20),  # Below threshold
                         ],
                     )
                 ]
@@ -245,7 +245,7 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with results for both proteins
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins"
+            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             # The constraint evaluates proposals one at a time in batched mode
             # but mmseqs_similarity_constraint processes all proteins at once
@@ -253,14 +253,14 @@ class TestMMseqsSimilarityConstraint:
             def mock_side_effect(inputs, config):
                 # Return appropriate number of results based on input
                 results = [
-                    MmseqsSequenceSearchResult(
+                    Mmseqs2SequenceSearchResult(
                         query_id=f"seq_{i}",
                         query_sequence=seq,
-                        hits=[MmseqsHit(target_id=f"hit_{i}", pident=90.0, evalue=1e-10)],
+                        hits=[Mmseqs2Hit(target_id=f"hit_{i}", pident=90.0, evalue=1e-10)],
                     )
                     for i, seq in enumerate(inputs.query_sequences)
                 ]
-                return MmseqsSearchProteinsOutput(metadata={}, results=results, success=True)
+                return Mmseqs2SearchProteinsOutput(metadata={}, results=results, success=True)
 
             mock_mmseqs.side_effect = mock_side_effect
 
@@ -286,15 +286,15 @@ class TestMMseqsSimilarityConstraint:
         )
 
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins"
+            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
-                    MmseqsSequenceSearchResult(
+                    Mmseqs2SequenceSearchResult(
                         query_id="seq_0",
                         query_sequence="MVLSPADKTNVKAAW",
                         hits=[
-                            MmseqsHit(target_id="hit1", pident=90.0, evalue=1e-10),  # Within range
+                            Mmseqs2Hit(target_id="hit1", pident=90.0, evalue=1e-10),  # Within range
                         ],
                     )
                 ]
@@ -322,15 +322,15 @@ class TestMMseqsSimilarityConstraint:
         )
 
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs_search_proteins"
+            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
-                    MmseqsSequenceSearchResult(
+                    Mmseqs2SequenceSearchResult(
                         query_id="seq_0",
                         query_sequence="MVLSPADKTNVKAAW",
                         hits=[
-                            MmseqsHit(target_id="hit1", pident=50.0, evalue=1e-10),  # Below min
+                            Mmseqs2Hit(target_id="hit1", pident=50.0, evalue=1e-10),  # Below min
                         ],
                     )
                 ]

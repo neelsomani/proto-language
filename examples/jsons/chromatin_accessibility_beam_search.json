@@ -35,7 +35,7 @@
       "generators": [
         {
           "key": "evo2",
-          "target": "chromatin_region",
+          "targets": ["chromatin_region"],
           "config": {
             "prompts": ["ATCGATCGATCGATCG"],
             "model_checkpoint": "evo2_7b",

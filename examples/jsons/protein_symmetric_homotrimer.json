@@ -22,7 +22,7 @@
       "generators": [
         {
           "key": "random-protein",
-          "target": "protomer",
+          "targets": ["protomer"],
           "config": { "masking_strategy": { "num_mutations": 1 } }
         }
       ],

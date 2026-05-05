@@ -33,7 +33,7 @@
       "generators": [
         {
           "key": "proteinmpnn",
-          "target": "designed_protein",
+          "targets": ["designed_protein"],
           "config": {
             "temperature": 0.1,
             "excluded_amino_acids": ["C"]

@@ -22,7 +22,7 @@
       "generators": [
         {
           "key": "evo2",
-          "target": "phage_fragment",
+          "targets": ["phage_fragment"],
           "config": {
             "prompts": ["ATGAGTAAAGGAGAA"],
             "model_checkpoint": "evo2_7b",

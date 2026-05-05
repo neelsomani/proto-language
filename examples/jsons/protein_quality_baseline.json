@@ -22,7 +22,7 @@
       "generators": [
         {
           "key": "esm2",
-          "target": "gb1",
+          "targets": ["gb1"],
           "config": {
             "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 1.0,
@@ -50,7 +50,7 @@
       "generators": [
         {
           "key": "esm2",
-          "target": "gb1",
+          "targets": ["gb1"],
           "config": {
             "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.7,

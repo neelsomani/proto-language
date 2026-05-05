@@ -21,7 +21,7 @@
       "generators": [
         {
           "key": "random-nucleotide",
-          "target": "variable_dna",
+          "targets": ["variable_dna"],
           "config": {
             "masking_strategy": { "num_mutations": 2 }
           }

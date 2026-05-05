@@ -42,12 +42,12 @@
       "generators": [
         {
           "key": "random-nucleotide",
-          "target": "promoter",
+          "targets": ["promoter"],
           "config": { "masking_strategy": { "num_mutations": 2 } }
         },
         {
           "key": "random-nucleotide",
-          "target": "terminator",
+          "targets": ["terminator"],
           "config": { "masking_strategy": { "num_mutations": 2 } }
         }
       ],

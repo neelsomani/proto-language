@@ -54,7 +54,7 @@
       "generators": [
         {
           "key": "position-weight",
-          "target": "binder",
+          "targets": ["binder"],
           "config": { "sampling_mode": "argmax" }
         }
       ],
@@ -101,7 +101,7 @@
       "generators": [
         {
           "key": "position-weight",
-          "target": "binder",
+          "targets": ["binder"],
           "config": { "sampling_mode": "argmax" }
         }
       ],
@@ -139,7 +139,7 @@
       "generators": [
         {
           "key": "semigreedy-mutation",
-          "target": "binder",
+          "targets": ["binder"],
           "config": {
             "position_weighting": "plddt",
             "temperature": 1.0,

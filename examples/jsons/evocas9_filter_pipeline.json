@@ -22,7 +22,7 @@
       "generators": [
         {
           "key": "evo1",
-          "target": "locus",
+          "targets": ["locus"],
           "config": {
             "prompts": ["`A"],
             "model_checkpoint": "evo-1-8k-crispr",

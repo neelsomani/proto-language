@@ -32,7 +32,7 @@
       "generators": [
         {
           "key": "random-nucleotide",
-          "target": "intron",
+          "targets": ["intron"],
           "config": {
             "masking_strategy": {
               "num_mutations": 1

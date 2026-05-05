@@ -34,7 +34,7 @@
       "generators": [
         {
           "key": "esm2",
-          "target": "binder",
+          "targets": ["binder"],
           "config": {
             "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 1.0,

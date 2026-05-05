@@ -148,6 +148,7 @@ def run_protein_hunter(
                 excluded_amino_acids=["C"],
             )
         )
+        proteinmpnn_generator.assign(protein)
 
         # Define conditioning function.
         def structure_conditioning_fn(sequences: list[Sequence]) -> list:

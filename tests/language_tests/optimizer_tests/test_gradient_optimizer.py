@@ -93,6 +93,7 @@ def _make(num_steps: int = 5, num_results: int = 1, seed: int = 42, **kw: object
     seg = Segment(sequence="EVQLV", sequence_type="protein")
     construct = Construct([seg])
     gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+    gen.assign(seg)
     con = Constraint(
         inputs=[seg], backward=_backward, backward_config=_Cfg(), function=_scorer, function_config=_Cfg(), label="mock"
     )
@@ -112,6 +113,7 @@ def _make_optimizer(
 ) -> GradientOptimizer:
     """Minimal single-constraint optimizer on a caller-supplied segment."""
     gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+    gen.assign(seg)
     con = Constraint(inputs=[seg], backward=backward, backward_config=_Cfg(), label=label, weight=weight)
     return GradientOptimizer(
         target_segment=seg,
@@ -353,6 +355,7 @@ class TestValidation:
     def test_no_gradient_constraints(self) -> None:
         seg = Segment(sequence="AA", sequence_type="protein")
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(seg)
         con = Constraint(inputs=[seg], function=_scorer, function_config=_Cfg())
         with pytest.raises(ValueError, match="gradient evaluation"):
             GradientOptimizer(
@@ -366,6 +369,7 @@ class TestValidation:
     def test_wrong_generator(self) -> None:
         seg = Segment(sequence="AA", sequence_type="protein")
         gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
+        gen.assign(seg)
         con = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="m")
         with pytest.raises(ValueError, match="not compatible with"):
             GradientOptimizer(
@@ -423,6 +427,7 @@ class TestMergers:
         for merger in ("pcgrad", "weighted_sum"):
             seg = Segment(sequence="GGGGG", sequence_type="protein")
             gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+            gen.assign(seg)
             con_a = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="A")
             con_c = Constraint(inputs=[seg], backward=_backward_toward_C, backward_config=_Cfg(), label="C")
             opt = GradientOptimizer(
@@ -447,6 +452,7 @@ class TestMergers:
         """High-weight constraint dominates in logit space."""
         seg = Segment(sequence="GGGGG", sequence_type="protein")
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(seg)
         con_a = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="A", weight=10.0)
         con_c = Constraint(inputs=[seg], backward=_backward_toward_C, backward_config=_Cfg(), label="C", weight=0.01)
         opt = GradientOptimizer(
@@ -548,6 +554,7 @@ class TestMultiStage:
     @staticmethod
     def _gradient_stage(seg: Segment, construct: Construct, label: str, **kw: object) -> GradientOptimizer:
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(seg)
         con = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label=label)
         defaults: dict[str, object] = {"num_results": 1, "num_steps": 5, "lr": 0.1}
         defaults.update(kw)
@@ -603,6 +610,7 @@ class TestMultiStage:
 
         def stage(cfg: GradientOptimizerConfig, weight: float = 1.0) -> GradientOptimizer:
             gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+            gen.assign(seg)
             con = Constraint(inputs=[seg], backward=_backward, backward_config=_Cfg(), label="ablang", weight=weight)
             return GradientOptimizer(
                 target_segment=seg, constructs=[construct], generators=[gen], constraints=[con], config=cfg

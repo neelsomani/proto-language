@@ -339,7 +339,6 @@ class CyclingOptimizer(Optimizer):
         if len(generators) != 1:
             raise ValueError(f"CyclingOptimizer requires exactly one generator, got {len(generators)}.")
         generator = generators[0]
-        generator.assign(target_segment)
 
         # Resolve conditioning_fn from pipeline or direct parameter
         conditioning_fn = _resolve_conditioning_fn(config, generator, conditioning_fn)

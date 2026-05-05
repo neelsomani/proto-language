@@ -1064,6 +1064,7 @@ class TestCyclingOptimizerPipelineResolution:
         target_segment = Segment(sequence="A" * 100, sequence_type="protein")
         construct = Construct([target_segment])
         generator = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(temperature=0.1))
+        generator.assign(target_segment)
 
         config = CyclingOptimizerConfig(
             num_steps=2,
@@ -1087,6 +1088,7 @@ class TestCyclingOptimizerPipelineResolution:
         target_segment = Segment(sequence="A" * 100, sequence_type="protein")
         construct = Construct([target_segment])
         generator = LigandMPNNGenerator(LigandMPNNGeneratorConfig(temperature=0.1))
+        generator.assign(target_segment)
 
         config = CyclingOptimizerConfig(
             num_steps=2,

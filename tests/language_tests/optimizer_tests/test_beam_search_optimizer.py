@@ -553,6 +553,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=20, sequence_type="dna")
         construct = Construct([segment])
         generator = TrackingKVCacheGenerator()
+        generator.assign(segment)
         constraint = Constraint(inputs=[segment], function=accept_all, function_config={})
         optimizer = BeamSearchOptimizer(
             target_segment=segment,
@@ -587,6 +588,7 @@ class TestBeamSearchOptimizer:
         segment = Segment(length=10, sequence_type="dna")
         construct = Construct([segment])
         generator = TrackingKVCacheGenerator()
+        generator.assign(segment)
         constraint = Constraint(inputs=[segment], function=accept_first, function_config={}, threshold=0.0)
         optimizer = BeamSearchOptimizer(
             target_segment=segment,

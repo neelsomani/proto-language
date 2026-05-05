@@ -727,6 +727,7 @@ def run_trajectory(
             logit_scale=GERMINAL_LOGIT_SCALE,
         )
     )
+    pwg_stage0.assign(binder)
     stage0 = GradientOptimizer(
         target_segment=binder,
         constructs=[construct],
@@ -747,6 +748,7 @@ def run_trajectory(
             logit_scale=GERMINAL_LOGIT_SCALE,
         )
     )
+    pwg_stage1.assign(binder)
     stage1 = GradientOptimizer(
         target_segment=binder,
         constructs=[construct],

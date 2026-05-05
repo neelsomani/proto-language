@@ -228,7 +228,6 @@ class BeamSearchOptimizer(Optimizer):
                 f"BeamSearchOptimizer only supports one generator, but currently has {len(generators)} generators."
             )
         generator = generators[0]
-        generator.assign(target_segment)
 
         # Store config before super().__init__() so _resolve_num_results can access it
         self.config = config

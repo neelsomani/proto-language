@@ -478,12 +478,18 @@ class Optimizer(ABC):
             self._labels_deduplicated = True
 
     def _validate_target_segment(self, target_segment: Segment) -> None:
-        """Validate target_segment is in constructs and that generators/constraints respect it.
+        """Validate target_segment is in constructs and that the generator/constraints respect it.
+
+        Single-target optimizers run a single generator over ``target_segment``.
+        That generator may be tied across additional segments (e.g. symmetric
+        protomers), in which case ``target_segment`` must appear in its
+        ``segments`` and the tied segments evolve in lockstep.
 
         Checks:
-            1. target_segment belongs to one of the provided constructs.
-            2. All generators target the target_segment (non-target segments are context-only).
-            3. All constraints include the target_segment in their inputs.
+            1. ``target_segment`` belongs to one of the provided constructs.
+            2. Exactly one generator is configured.
+            3. The generator's assigned segments include ``target_segment``.
+            4. All constraints include ``target_segment`` in their inputs.
 
         Args:
             target_segment ('Segment'): Segment targeted for optimization.
@@ -493,17 +499,17 @@ class Optimizer(ABC):
                 f"target_segment '{target_segment.label or 'unlabeled'}' is not in any of the provided constructs"
             )
 
-        # Generators must target the target segment. Tied assignments can't reach
-        # this validator: BeamSearch/Cycling/Gradient re-`assign(target_segment)` in __init__.
-        for i, gen in enumerate(self.generators):
-            if gen.segment is not target_segment:
-                raise ValueError(
-                    f"Generator {i} ({gen.__class__.__name__}) targets segment "
-                    f"'{gen.segment.label or 'unlabeled'}', not target segment "
-                    f"'{target_segment.label or 'unlabeled'}'"
-                )
+        if len(self.generators) != 1:
+            raise ValueError(f"Single-target optimizer requires exactly one generator, got {len(self.generators)}.")
 
-        # Constraints must include the target segment
+        gen = self.generators[0]
+        if target_segment not in gen.segments:
+            assigned_labels = [s.label or "unlabeled" for s in gen.segments]
+            raise ValueError(
+                f"Generator {gen.__class__.__name__} must target "
+                f"'{target_segment.label or 'unlabeled'}'; currently targets {assigned_labels}."
+            )
+
         for i, con in enumerate(self.constraints):
             if target_segment not in con.inputs:
                 raise ValueError(

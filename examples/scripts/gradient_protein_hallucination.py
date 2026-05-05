@@ -51,6 +51,7 @@ construct = Construct([segment])
 
 # Stage 1: Logit phase — soft ramps 0→1, no temperature annealing
 gen1 = PositionWeightGenerator(PositionWeightGeneratorConfig())
+gen1.assign(segment)
 con1 = Constraint(
     inputs=[segment],
     backward=mock_structure_backward,
@@ -71,6 +72,7 @@ stage1 = GradientOptimizer(
 
 # Stage 2: Softmax phase — soft=1, temperature anneals 1→0.01
 gen2 = PositionWeightGenerator(PositionWeightGeneratorConfig())
+gen2.assign(segment)
 con2 = Constraint(
     inputs=[segment],
     backward=mock_structure_backward,

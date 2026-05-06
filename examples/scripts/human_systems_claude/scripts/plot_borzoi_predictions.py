@@ -157,7 +157,7 @@ def run_all_replicates(
     """
     full_sequence = full_sequence.replace("N", "A")
 
-    borzoi_input = BorzoiInput(sequence=full_sequence)
+    borzoi_input = BorzoiInput(sequences=[full_sequence])
 
     # Use the ensemble function for convenience
     ensemble_config = BorzoiEnsembleConfig(
@@ -169,7 +169,7 @@ def run_all_replicates(
 
     ensemble_output = run_borzoi_ensemble(borzoi_input, ensemble_config)
 
-    predictions = np.array(ensemble_output.predictions)  # (4, 1, BORZOI_OUTPUT).
+    predictions = np.array(ensemble_output.results[0].predictions)  # (4, 1, BORZOI_OUTPUT).
     predictions = np.squeeze(predictions, axis=1)  # (4, BORZOI_OUTPUT).
 
     return predictions

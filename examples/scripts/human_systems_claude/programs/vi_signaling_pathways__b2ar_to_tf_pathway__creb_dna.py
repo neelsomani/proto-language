@@ -134,13 +134,14 @@ def _borzoi_creb_dna_design(
 
         sequence = sequence.replace("N", "A")  # Hack as Borzoi does not accept Ns.
 
-        borzoi_input = BorzoiInput(sequence=str(sequence))
+        borzoi_input = BorzoiInput(sequences=[str(sequence)])
 
         borzoi_output = run_borzoi(borzoi_input, config.borzoi_config)
 
-        assert len(borzoi_output.prediction) == 1
-        assert len(borzoi_output.prediction[0]) == BORZOI_OUTPUT
-        prediction = np.array(borzoi_output.prediction[0])
+        prediction_result = borzoi_output.results[0]
+        assert len(prediction_result.prediction) == 1
+        assert len(prediction_result.prediction[0]) == BORZOI_OUTPUT
+        prediction = np.array(prediction_result.prediction[0])
         activity_score = prediction[config.output_mask].mean()
 
         assert activity_score >= 0.0

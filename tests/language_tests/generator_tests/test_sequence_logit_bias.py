@@ -124,3 +124,44 @@ def test_from_sequence_validates_against_sequence_length() -> None:
     config = SequenceLogitBiasConfig(reference_sequence="AAA", reference_bias=1.0)
     with pytest.raises(ValueError, match="reference_sequence length"):
         build_sequence_logit_bias_matrix_from_sequence(config, Sequence("AA", "protein"))
+
+
+def test_raw_matrix_composes_additively_with_reference_and_excluded() -> None:
+    """raw_matrix + reference_bias + excluded_symbols all sum into the final matrix."""
+    raw = [[1.0] * 20 for _ in range(3)]
+    config = SequenceLogitBiasConfig(
+        reference_sequence="ACD",
+        reference_bias=10.0,
+        excluded_symbols=["W"],
+        raw_matrix=raw,
+    )
+
+    matrix = build_sequence_logit_bias_matrix(config, Segment(sequence="ACD", sequence_type="protein"))
+
+    assert matrix is not None
+    vocab = Segment(sequence="ACD", sequence_type="protein").ordered_vocab()
+    assert matrix[0, vocab.index("A")] == pytest.approx(10.0 + 1.0)  # reference + raw
+    assert matrix[2, vocab.index("D")] == pytest.approx(10.0 + 1.0)
+    assert matrix[1, vocab.index("W")] == pytest.approx(1.0 - 1e6)  # exclusion + raw
+    assert matrix[0, vocab.index("G")] == pytest.approx(1.0)  # raw only
+
+
+@pytest.mark.parametrize(
+    ("bad", "match"),
+    [
+        ([[float("inf")] * 20 for _ in range(3)], "finite"),
+        ([[1.0, 2.0], [1.0]], "rectangular"),
+        ([1.0, 2.0, 3.0], r"valid list|list_type|2-D"),  # 1-D — caught by Pydantic typing
+    ],
+)
+def test_raw_matrix_rejects_malformed(bad: list, match: str) -> None:
+    """Non-finite, jagged, and 1-D inputs are rejected at config construction."""
+    with pytest.raises(ValueError, match=match):
+        SequenceLogitBiasConfig(raw_matrix=bad)
+
+
+def test_raw_matrix_shape_check_against_segment() -> None:
+    """Shape mismatch against the resolving segment is caught at build time."""
+    config = SequenceLogitBiasConfig(raw_matrix=np.zeros((1, 21)).tolist())
+    with pytest.raises(ValueError, match="raw_matrix shape"):
+        build_sequence_logit_bias_matrix(config, Segment(sequence="ACD", sequence_type="protein"))

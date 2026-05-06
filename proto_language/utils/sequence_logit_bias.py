@@ -33,6 +33,9 @@ class SequenceLogitBiasConfig(BaseConfig):
             ``excluded_symbols`` are penalized. Defaults to
             ``unbiased_positions`` when set, else all positions.
         exclusion_penalty (float): Additive penalty for each excluded symbol.
+        raw_matrix (list[list[float]] | None): Pre-computed ``(L, |vocab|)`` additive
+            bias; summed with the declarative primitives. Escape hatch for arbitrary
+            per-(position, symbol) biases (e.g. MSA-derived PSSMs).
     """
 
     reference_sequence: str | None = ConfigField(
@@ -71,6 +74,12 @@ class SequenceLogitBiasConfig(BaseConfig):
         advanced=True,
         hidden=True,
     )
+    raw_matrix: list[list[float]] | None = ConfigField(
+        default=None,
+        title="Raw Bias Matrix",
+        description="Pre-computed (L, |vocab|) additive bias; summed with the declarative primitives.",
+        hidden=True,
+    )
 
     @field_validator("unbiased_positions", "excluded_positions")
     @classmethod
@@ -99,6 +108,22 @@ class SequenceLogitBiasConfig(BaseConfig):
         invalid = [symbol for symbol in value if len(symbol) != 1]
         if invalid:
             raise ValueError(f"excluded_symbols entries must be single-character symbols; got {invalid}.")
+        return value
+
+    @field_validator("raw_matrix")
+    @classmethod
+    def _validate_raw_matrix(cls, value: list[list[float]] | None) -> list[list[float]] | None:
+        """Reject non-rectangular / non-finite matrices; segment-shape check happens at build time."""
+        if value is None:
+            return None
+        try:
+            arr = np.asarray(value, dtype=np.float64)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"raw_matrix must be a rectangular 2-D matrix of floats: {exc}") from exc
+        if arr.ndim != 2:
+            raise ValueError(f"raw_matrix must be 2-D, got shape {arr.shape}.")
+        if not np.isfinite(arr).all():
+            raise ValueError("raw_matrix must contain only finite values.")
         return value
 
     @model_validator(mode="after")
@@ -137,6 +162,12 @@ class SequenceLogitBiasConfig(BaseConfig):
             invalid = sorted(set(self.excluded_symbols) - vocab)
             if invalid:
                 raise ValueError(f"excluded_symbols {invalid} are not in vocabulary {sorted(vocab)}.")
+
+        if self.raw_matrix is not None:
+            arr = np.asarray(self.raw_matrix, dtype=np.float64)
+            expected = (sequence_length, len(vocab))
+            if arr.shape != expected:
+                raise ValueError(f"raw_matrix shape {arr.shape} does not match expected {expected}.")
 
 
 def build_sequence_logit_bias_matrix(config: SequenceLogitBiasConfig | None, segment: Segment) -> np.ndarray | None:
@@ -219,5 +250,8 @@ def _build_matrix(config: SequenceLogitBiasConfig, *, sequence_length: int, voca
         if excluded_positions:
             excluded_indices = [vocab_index[symbol] for symbol in config.excluded_symbols]
             matrix[np.ix_(excluded_positions, excluded_indices)] += config.exclusion_penalty
+
+    if config.raw_matrix is not None:
+        matrix += np.asarray(config.raw_matrix, dtype=np.float64)
 
     return matrix if np.any(matrix) else None

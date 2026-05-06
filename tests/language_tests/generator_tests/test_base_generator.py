@@ -1,10 +1,11 @@
 """tests/language_tests/generator_tests/test_base_generator.py."""
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator, Segment, Sequence
 from proto_language.language.generator.generator_registry import (
     GeneratorRegistry,
     GeneratorSpec,
@@ -279,3 +280,68 @@ class TestGeneratorRegistry:
             assert isinstance(spec, GeneratorSpec)
             for attr in ("key", "label", "description", "category", "uses_gpu", "supported_sequence_types"):
                 assert hasattr(spec, attr)
+
+
+class TestShortSequenceWarning:
+    """Tests for the warning emitted from sample() when autoregressive output is shorter than target."""
+
+    GENERATOR_LOGGER = "proto_language.language.core.generator"
+
+    def _assigned(self, category: str = "autoregressive", num_proposals: int = 3) -> tuple[ConcreteGenerator, Segment]:
+        gen = ConcreteGenerator()
+        segment = Segment(length=50, sequence_type="protein", label="binder")
+        p_get, p_key = _patch_registry(_mock_spec(category=category))
+        with p_get, p_key:
+            gen.assign(segment)
+        segment.proposal_sequences = [Sequence(sequence="", sequence_type="protein") for _ in range(num_proposals)]
+        return gen, segment
+
+    def _run(self, gen, target_segment, lengths: list[int], caplog) -> list[logging.LogRecord]:
+        def fake_sample() -> None:
+            for proposal, length in zip(target_segment.proposal_sequences, lengths, strict=True):
+                proposal.sequence = "M" * length
+
+        gen._sample = fake_sample  # type: ignore[method-assign]
+        with caplog.at_level(logging.WARNING, logger=self.GENERATOR_LOGGER):
+            gen.sample()
+        return [r for r in caplog.records if "candidates shorter than target_length" in r.getMessage()]
+
+    def test_warns_with_all_candidate_lengths(self, caplog):
+        gen, segment = self._assigned()
+        records = self._run(gen, segment, [50, 30, 40], caplog)
+        assert len(records) == 1
+        assert records[0].levelno == logging.WARNING
+        msg = records[0].getMessage()
+        for fragment in (
+            "ConcreteGenerator",
+            "'binder'",
+            "target_length=50 aa",  # protein segment → aa unit
+            "candidate #0: 50 aa",  # full-length candidate is shown too
+            "candidate #1: 30 aa",
+            "candidate #2: 40 aa",
+            "end-of-sequence",
+        ):
+            assert fragment in msg, f"missing {fragment!r} in {msg!r}"
+
+    @pytest.mark.parametrize(
+        "category, lengths",
+        [
+            ("autoregressive", [50, 50, 50]),  # gate passes but no proposals are short
+            ("mutation", [30, 30, 30]),  # category gated out
+            ("inverse_folding", [30, 30, 30]),  # category gated out
+        ],
+    )
+    def test_no_warning_when_gate_or_length_check_short_circuits(self, caplog, category, lengths):
+        gen, segment = self._assigned(category=category)
+        assert not self._run(gen, segment, lengths, caplog)
+
+    def test_warning_fires_once_and_mirrors_to_tied_segments(self, caplog):
+        gen = ConcreteGenerator()
+        primary = Segment(length=50, sequence_type="protein", label="primary")
+        tied = Segment(length=50, sequence_type="protein", label="tied")
+        p_get, p_key = _patch_registry(_mock_spec(category="autoregressive", supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign([primary, tied])
+        primary.proposal_sequences = [Sequence(sequence="", sequence_type="protein")]
+        assert len(self._run(gen, primary, [30], caplog)) == 1
+        assert tied.proposal_sequences[0].sequence == "M" * 30

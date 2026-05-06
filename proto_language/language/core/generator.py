@@ -136,10 +136,27 @@ class Generator(ABC):
         )
 
     def sample(self, *args: Any, **kwargs: Any) -> None:
-        """Run ``_sample()``, then deep-copy primary proposals to any tied segments."""
+        """Run ``_sample()``, warn on short autoregressive output, then mirror primary proposals to tied segments."""
         self._sample(*args, **kwargs)
+        primary = self.segments[0]
+
+        if self._spec.category == "autoregressive":
+            target = primary.sequence_length
+            lengths = [len(p.sequence) for p in primary.proposal_sequences]
+            if any(length < target for length in lengths):
+                unit = {"protein": " aa", "dna": " bp", "rna": " nt"}.get(primary.sequence_type, "")
+                candidates = ", ".join(f"candidate #{i}: {length}{unit}" for i, length in enumerate(lengths))
+                logger.warning(
+                    "%s: some candidates shorter than target_length=%d%s for segment %r. All candidates: %s. "
+                    "The model emitted an end-of-sequence token before reaching the target length.",
+                    self.__class__.__name__,
+                    target,
+                    unit,
+                    primary.label or "unlabeled",
+                    candidates,
+                )
+
         if len(self.segments) > 1:
-            primary = self.segments[0]
             for segment in self.segments[1:]:
                 segment.proposal_sequences = [copy.deepcopy(sequence) for sequence in primary.proposal_sequences]
 

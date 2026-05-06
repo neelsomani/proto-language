@@ -35,7 +35,9 @@ def mock_generator_registry(monkeypatch):
         "ControlledMockGenerator": "evo1",
         "SegmentAwareMockGenerator": "evo1",
         "AccumulativeTrackingGenerator": "evo1",
+        "TrackingKVCacheGenerator": "evo1",
         "MockMutationGenerator": "random-protein",
+        "MockCyclingGenerator": "random-protein",
         "MockInverseFoldingGenerator": "proteinmpnn",
     }
 

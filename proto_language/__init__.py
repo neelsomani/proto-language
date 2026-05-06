@@ -8,6 +8,7 @@ from proto_language.language.constraint import (
     ConstraintRegistry,
     ConstraintSpec,
     EnformerChromatinAccessibilityMorseConfig,
+    ESM2PerplexityConfig,
     StructureBasedConstraintConfig,
     ablang_perplexity_constraint,
     ablang_perplexity_gradient_backward,
@@ -20,6 +21,8 @@ from proto_language.language.constraint import (
     crispr_array_constraint,
     crispr_tracr_rna_constraint,
     enformer_chromatin_accessibility_morse_constraint,
+    esm2_perplexity_constraint,
+    esm2_perplexity_gradient_backward,
     gap_gini_constraint,
     gc_content_constraint,
     gyration_radius_constraint,
@@ -221,8 +224,11 @@ __all__ = [
     "rna_basepair_similarity_constraint",
     # Sequence scoring constraints
     "AbLangPerplexityConfig",
+    "ESM2PerplexityConfig",
     "ablang_perplexity_constraint",
     "ablang_perplexity_gradient_backward",
+    "esm2_perplexity_constraint",
+    "esm2_perplexity_gradient_backward",
     "mpnn_perplexity_constraint",
     # RNA splicing constraints
     "alphagenome_splice_site_usage",

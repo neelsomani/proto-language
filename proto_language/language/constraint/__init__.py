@@ -95,8 +95,11 @@ from proto_language.language.constraint.sequence_composition import (
 # Sequence scoring constraints
 from proto_language.language.constraint.sequence_scoring import (
     AbLangPerplexityConfig,
+    ESM2PerplexityConfig,
     ablang_perplexity_constraint,
     ablang_perplexity_gradient_backward,
+    esm2_perplexity_constraint,
+    esm2_perplexity_gradient_backward,
     mpnn_perplexity_constraint,
 )
 
@@ -169,8 +172,11 @@ __all__ = [
     "rna_basepair_similarity_constraint",
     # Sequence scoring
     "AbLangPerplexityConfig",
+    "ESM2PerplexityConfig",
     "ablang_perplexity_constraint",
     "ablang_perplexity_gradient_backward",
+    "esm2_perplexity_constraint",
+    "esm2_perplexity_gradient_backward",
     "mpnn_perplexity_constraint",
     # RNA splicing
     "alphagenome_splice_site_usage",

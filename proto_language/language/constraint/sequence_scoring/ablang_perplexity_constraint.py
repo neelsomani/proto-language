@@ -71,6 +71,7 @@ class AbLangPerplexityConfig(BaseConfig):
         default=True,
         title="Straight-Through Estimator",
         description="Hard one-hot forward pass with soft-probability gradients.",
+        advanced=True,
     )
     device: str = ConfigField(
         default="cuda",
@@ -92,7 +93,6 @@ class AbLangPerplexityConfig(BaseConfig):
         default="nll",
         title="Score Mode",
         description="Return raw mean NLL by default, or AbLang perplexity when set to 'ppl'.",
-        advanced=True,
     )
     logit_scale: float = ConfigField(
         default=1.0,

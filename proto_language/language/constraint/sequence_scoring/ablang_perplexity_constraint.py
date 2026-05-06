@@ -28,6 +28,10 @@ from proto_language.language.constraint.constraint_registry import InputSlot, co
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.utils import one_hot_protein_matrix
+from proto_language.utils.sequence_logit_bias import (
+    SequenceLogitBiasConfig,
+    build_sequence_logit_bias_matrix_from_sequence,
+)
 
 
 class AbLangPerplexityConfig(BaseConfig):
@@ -57,9 +61,9 @@ class AbLangPerplexityConfig(BaseConfig):
         logit_scale (float): Multiplier applied to raw optimizer logits before
             AbLang. The backward pass multiplies returned gradients by the same
             scale via the chain rule.
-        logit_bias (list[list[float]] | None): Optional additive bias with shape
-            ``L x 20`` applied after scaling and before AbLang. This is useful
-            for carrying persistent sequence priors into the antibody LM term.
+        sequence_bias (SequenceLogitBiasConfig | None): Optional declarative
+            per-position symbol bias resolved against the binder's 20-AA
+            protein vocabulary; added to logits after scaling and before AbLang.
     """
 
     temperature: float = ConfigField(
@@ -100,11 +104,11 @@ class AbLangPerplexityConfig(BaseConfig):
         description="Pre-scale raw logits before AbLang; gradients are scaled back by the same factor.",
         gt=0.0,
     )
-    logit_bias: list[list[float]] | None = ConfigField(
+    sequence_bias: SequenceLogitBiasConfig | None = ConfigField(
         default=None,
-        title="Logit Bias",
-        description="Additive bias (L x 20) applied after scaling, before AbLang.",
-        hidden=True,
+        title="Sequence Bias",
+        description="Declarative sequence-symbol bias (canonical 20-AA protein) added before AbLang.",
+        advanced=True,
     )
 
     @model_validator(mode="after")
@@ -147,10 +151,14 @@ def ablang_perplexity_gradient_backward(
         list[GradientConstraintOutput]: Per-proposal loss, gradient, and metrics.
     """
     results: list[GradientConstraintOutput] = []
+    if not input_sequences:
+        return results
+    # Bias resolves from binder length + sequence_type + valid_chars — all invariant across proposals.
+    seq_bias = build_sequence_logit_bias_matrix_from_sequence(config.sequence_bias, input_sequences[0][0])
+    bias: np.ndarray | float = seq_bias if seq_bias is not None else 0.0
     for (binder_seq,) in input_sequences:
         raw_logits = binder_seq.logits
         assert raw_logits is not None  # noqa: S101 -- input slot validation guarantees logits
-        bias = np.asarray(config.logit_bias, dtype=np.float64) if config.logit_bias is not None else 0.0
         logits = config.logit_scale * raw_logits + bias
 
         if config.heavy_slice is None:

@@ -74,20 +74,21 @@ class TestPositionWeightGenerator:
 
         assert argmax_seg.proposal_sequences[0].sequence == low_temp_seg.proposal_sequences[0].sequence
 
-    def test_argmax_decoding_respects_logit_bias_and_scale(self):
+    def test_argmax_decoding_respects_sequence_bias_and_scale(self):
         """Decoding uses the configured effective logits, not raw proposal logits."""
         logits = np.array([[2.0, 0, 0, 0], [0, 2.0, 0, 0]])
-        bias = [[0, 0, 3.0, 0], [3.0, 0, 0, 0]]
+        # +3.0 at G on position 0 and at A on position 1 (vocab "ACGT").
+        bias = SequenceLogitBiasConfig(reference_sequence="GA", reference_bias=3.0)
 
         biased_seg = Segment(sequence="AA", sequence_type="dna")
         biased_seg.proposal_sequences[0].logits = logits
-        biased_gen = PositionWeightGenerator(PositionWeightGeneratorConfig(logit_bias=bias))
+        biased_gen = PositionWeightGenerator(PositionWeightGeneratorConfig(sequence_bias=bias))
         biased_gen.assign(biased_seg)
         biased_gen.sample()
 
         scaled_seg = Segment(sequence="AA", sequence_type="dna")
         scaled_seg.proposal_sequences[0].logits = logits
-        scaled_gen = PositionWeightGenerator(PositionWeightGeneratorConfig(logit_bias=bias, logit_scale=2.0))
+        scaled_gen = PositionWeightGenerator(PositionWeightGeneratorConfig(sequence_bias=bias, logit_scale=2.0))
         scaled_gen.assign(scaled_seg)
         scaled_gen.sample()
 

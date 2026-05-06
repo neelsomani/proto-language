@@ -122,7 +122,7 @@ from proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constra
     MpnnPerplexityConfig,
     mpnn_perplexity_constraint,
 )
-from proto_language.language.core import PROTEIN_AMINO_ACIDS, Constraint, Construct, Program, Segment, Sequence
+from proto_language.language.core import Constraint, Construct, Program, Segment, Sequence
 from proto_language.language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
@@ -141,6 +141,7 @@ from proto_language.language.optimizer import (
 )
 from proto_language.language.optimizer.gradient_optimizer import ConstraintWeightSchedule
 from proto_language.utils import one_hot_protein_matrix
+from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
 
 # =============================================================================
 # Preset configuration (loaded from a consolidated script-owned YAML)
@@ -311,6 +312,7 @@ def _extract_stage_metrics(binder: "Segment") -> StageMetrics:
 def _plot_trajectory_dynamics(records: list[TrajectoryRecord], run_dir: str) -> None:
     """Generate per-metric charts with individual trajectory lines and bolded average."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -506,6 +508,7 @@ STITCHED_BINDER_CHAIN = "B"
 COFOLD_BINDER_CHAIN = "A"
 COFOLD_TARGET_CHAIN = "B"
 _BACKBONE_ATOMS = {"N", "CA", "C", "O"}
+
 
 def _cofold_config(tool: str, seed: int) -> dict[str, Any]:
     """Build the structure-composite config for a cofold tool with a per-trajectory seed."""
@@ -722,7 +725,15 @@ def run_trajectory(
             if weight != 0.0
         ]
 
-    handoff_bias = _germinal_handoff_bias(binder_template, cdr_set, ban_cysteine=geom.ban_cysteine)
+    # Germinal static bias: keep framework near template; optionally ban Cys in CDRs.
+    ban_cdrs = geom.ban_cysteine and bool(cdr_positions)
+    handoff_bias = SequenceLogitBiasConfig(
+        reference_sequence=binder_template,
+        reference_bias=10.0,
+        unbiased_positions=cdr_positions or None,
+        excluded_symbols=["C"] if ban_cdrs else None,
+        excluded_positions=cdr_positions if ban_cdrs else None,
+    )
 
     def ablang(weight: float | None = None) -> Constraint:
         cfg = AbLangPerplexityConfig(
@@ -730,7 +741,7 @@ def run_trajectory(
             heavy_slice=geom.heavy_slice,
             light_slice=geom.light_slice,
             logit_scale=GERMINAL_LOGIT_SCALE,
-            logit_bias=handoff_bias,
+            sequence_bias=handoff_bias,
         )
         return Constraint(
             inputs=[binder],
@@ -759,7 +770,7 @@ def run_trajectory(
 
     pwg_stage0 = PositionWeightGenerator(
         PositionWeightGeneratorConfig(
-            logit_bias=handoff_bias,
+            sequence_bias=handoff_bias,
             logit_scale=GERMINAL_LOGIT_SCALE,
         )
     )
@@ -780,7 +791,7 @@ def run_trajectory(
         softmax_cfg.lr_schedule = geom.lr_schedule
     pwg_stage1 = PositionWeightGenerator(
         PositionWeightGeneratorConfig(
-            logit_bias=handoff_bias,
+            sequence_bias=handoff_bias,
             logit_scale=GERMINAL_LOGIT_SCALE,
         )
     )
@@ -801,7 +812,7 @@ def run_trajectory(
             position_weighting="plddt",
             exclude_current=True,
             clear_logits=True,
-            logit_bias=handoff_bias,
+            sequence_bias=handoff_bias,
         ),
     )
     semigreedy.assign(binder)
@@ -1033,11 +1044,13 @@ def run_trajectory(
 
         iface_analysis = run_pyrosetta_interface_analyzer(
             PyRosettaInterfaceAnalyzerInput(
-                inputs=[InterfaceStructureInput(
-                    structure=relaxed_struct,
-                    binder_chain=COFOLD_BINDER_CHAIN,
-                    target_chain=COFOLD_TARGET_CHAIN,
-                )]
+                inputs=[
+                    InterfaceStructureInput(
+                        structure=relaxed_struct,
+                        binder_chain=COFOLD_BINDER_CHAIN,
+                        target_chain=COFOLD_TARGET_CHAIN,
+                    )
+                ]
             ),
             PyRosettaInterfaceAnalyzerConfig(),
         ).results[0]
@@ -1249,20 +1262,6 @@ def passes_gate(binder: Segment, *, geom: BinderGeometry, include_ipae: bool) ->
     return True
 
 
-def _germinal_handoff_bias(template_seq: str, cdr_set: set[int], *, ban_cysteine: bool) -> list[list[float]]:
-    """Germinal static bias: keep framework near template and optionally ban Cys in CDRs."""
-    vocab = list(PROTEIN_AMINO_ACIDS)
-    aa_to_idx = {aa: idx for idx, aa in enumerate(vocab)}
-    bias = np.zeros((len(template_seq), len(vocab)), dtype=np.float64)
-    for pos, aa in enumerate(template_seq):
-        if pos in cdr_set:
-            if ban_cysteine:
-                bias[pos, aa_to_idx["C"]] -= 1e6
-        else:
-            bias[pos, aa_to_idx[aa]] = 10.0
-    return bias.tolist()
-
-
 def stitch_starting_complex(
     *,
     target_pdb: Path,
@@ -1349,17 +1348,17 @@ def run_pre_redesign_external_filters(
         cutoff=4.0,
         include_hydrogens=True,
     )
-    percent_interface_cdr = (
-        len(set(interface_res) & cdr_positions_1idx) / len(interface_res) if interface_res else 0.0
-    )
+    percent_interface_cdr = len(set(interface_res) & cdr_positions_1idx) / len(interface_res) if interface_res else 0.0
 
     iface_result = run_pyrosetta_interface_analyzer(
         PyRosettaInterfaceAnalyzerInput(
-            inputs=[InterfaceStructureInput(
-                structure=relaxed_struct,
-                binder_chain=COFOLD_BINDER_CHAIN,
-                target_chain=COFOLD_TARGET_CHAIN,
-            )]
+            inputs=[
+                InterfaceStructureInput(
+                    structure=relaxed_struct,
+                    binder_chain=COFOLD_BINDER_CHAIN,
+                    target_chain=COFOLD_TARGET_CHAIN,
+                )
+            ]
         ),
         PyRosettaInterfaceAnalyzerConfig(),
     )
@@ -1373,9 +1372,7 @@ def run_pre_redesign_external_filters(
     )
 
 
-def _apply_filter_gates(
-    rules: dict[str, MetricRule], values: dict[str, float], traj_idx: int, stage: str
-) -> bool:
+def _apply_filter_gates(rules: dict[str, MetricRule], values: dict[str, float], traj_idx: int, stage: str) -> bool:
     """Evaluate a dict of MetricRules against observed values; print and return False on first failure."""
     for name, rule in rules.items():
         if name not in values:
@@ -1386,7 +1383,9 @@ def _apply_filter_gates(
     return True
 
 
-def passes_pre_redesign_external_gate(metrics: PreRedesignFilterMetrics, *, geom: BinderGeometry, traj_idx: int) -> bool:
+def passes_pre_redesign_external_gate(
+    metrics: PreRedesignFilterMetrics, *, geom: BinderGeometry, traj_idx: int
+) -> bool:
     """Apply Germinal's initial external filters."""
     values = {
         "clashes": float(metrics.clashes),
@@ -1449,9 +1448,7 @@ def compute_sc_rmsd(
             chain = chains.get(chain_id)
             if chain is None:
                 raise ValueError(f"Chain {chain_id} not found in structure (available: {list(chains.keys())})")
-            atoms.extend(
-                atom for residue in chain for atom in residue if atom.get_name() == "CA"
-            )
+            atoms.extend(atom for residue in chain for atom in residue if atom.get_name() == "CA")
         return atoms
 
     def _bb_atoms(bio_struct: BioStructure, chain_id: str) -> list:
@@ -1480,8 +1477,9 @@ def compute_sc_rmsd(
         raise ValueError(f"No backbone atoms found: hall chain {hall_binder_chain}={len(hall_bb)}, cofold chain {cofold_binder_chain}={len(cofold_bb)}")
 
     sup.apply(cofold_bb[:n_bb])
-    diff = np.array([h.get_vector().get_array() - c.get_vector().get_array()
-                     for h, c in zip(hall_bb[:n_bb], cofold_bb[:n_bb])])
+    diff = np.array(
+        [h.get_vector().get_array() - c.get_vector().get_array() for h, c in zip(hall_bb[:n_bb], cofold_bb[:n_bb])]
+    )
     return round(float(np.sqrt(np.mean(np.sum(diff**2, axis=1)))), 2)
 
 

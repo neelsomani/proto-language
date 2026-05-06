@@ -3,11 +3,11 @@
 import numpy as np
 import pytest
 
-from proto_language.language.core import Segment
+from proto_language.language.core import Segment, Sequence
 from proto_language.utils.sequence_logit_bias import (
     SequenceLogitBiasConfig,
     build_sequence_logit_bias_matrix,
-    combine_logit_biases,
+    build_sequence_logit_bias_matrix_from_sequence,
 )
 
 
@@ -67,17 +67,6 @@ def test_explicit_excluded_positions_override_unbiased_positions() -> None:
     assert matrix[1, vocab.index("A")] == pytest.approx(-1e6)
 
 
-def test_combine_logit_biases_adds_raw_and_declarative_biases() -> None:
-    """Raw advanced matrices remain additive with declarative sequence_bias."""
-    raw = [[1.0, 2.0]]
-    declarative = np.array([[3.0, 4.0]])
-
-    combined = combine_logit_biases(raw, declarative)
-
-    assert combined is not None
-    np.testing.assert_array_equal(combined, np.array([[4.0, 6.0]]))
-
-
 @pytest.mark.parametrize(
     ("config", "segment", "match"),
     [
@@ -117,3 +106,21 @@ def test_config_validation(kwargs: dict[str, object], match: str) -> None:
     """Field-level mistakes are rejected when the config is built."""
     with pytest.raises(ValueError, match=match):
         SequenceLogitBiasConfig(**kwargs)
+
+
+@pytest.mark.parametrize(("sequence_type", "ref"), [("dna", "AT"), ("rna", "AU"), ("protein", "ACD")])
+def test_from_sequence_matches_segment_path(sequence_type: str, ref: str) -> None:
+    """``_from_sequence`` resolves to the same matrix as the segment-based builder."""
+    config = SequenceLogitBiasConfig(reference_sequence=ref, reference_bias=2.5, excluded_symbols=[ref[0]])
+    seg_matrix = build_sequence_logit_bias_matrix(config, Segment(sequence=ref, sequence_type=sequence_type))
+    seq_matrix = build_sequence_logit_bias_matrix_from_sequence(config, Sequence(ref, sequence_type))
+
+    assert seg_matrix is not None and seq_matrix is not None
+    np.testing.assert_array_equal(seg_matrix, seq_matrix)
+
+
+def test_from_sequence_validates_against_sequence_length() -> None:
+    """Length-mismatch raises against the Sequence's length, not a segment's."""
+    config = SequenceLogitBiasConfig(reference_sequence="AAA", reference_bias=1.0)
+    with pytest.raises(ValueError, match="reference_sequence length"):
+        build_sequence_logit_bias_matrix_from_sequence(config, Sequence("AA", "protein"))

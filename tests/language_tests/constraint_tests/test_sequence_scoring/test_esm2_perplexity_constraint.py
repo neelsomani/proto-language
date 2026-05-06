@@ -15,6 +15,7 @@ from proto_language.language.constraint.sequence_scoring.esm2_perplexity_constra
 )
 from proto_language.language.core import Sequence
 from proto_language.utils import one_hot_protein_matrix
+from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
 
 _TOOL_MODULE = "proto_language.language.constraint.sequence_scoring.esm2_perplexity_constraint"
 
@@ -59,16 +60,21 @@ class TestBackward:
         assert len(result.gradient) == 1 and result.gradient[0].shape == (5, 20)
 
     @patch(f"{_TOOL_MODULE}.run_esm2_gradient")
-    def test_backward_applies_logit_scale_and_bias(self, mock_run: object) -> None:
+    def test_backward_applies_logit_scale_and_sequence_bias(self, mock_run: object) -> None:
         mock_run.return_value = _mock_gradient_output(gradient=[[0.5] * 20] * 2, loss=1.0)
         binder = _seq_with_logits(np.ones((2, 20)))
-        bias = [[0.25] * 20] * 2
 
         (result,) = esm2_perplexity_gradient_backward(
             [(binder,)],
-            config=ESM2PerplexityConfig(temperature=0.6, device="cpu", logit_scale=2.0, logit_bias=bias),
+            config=ESM2PerplexityConfig(
+                temperature=0.6,
+                device="cpu",
+                logit_scale=2.0,
+                sequence_bias=SequenceLogitBiasConfig(reference_sequence="AA", reference_bias=0.25),
+            ),
         )
 
+        # logit_scale=2.0 doubles raw_logits=1.0 → 2.0; sequence_bias adds +0.25 at the A column.
         tool_input = mock_run.call_args[0][0]
         assert tool_input.logits[0][0] == 2.25
         assert result.gradient[0][0, 0] == pytest.approx(1.0)

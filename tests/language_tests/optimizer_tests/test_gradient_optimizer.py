@@ -26,12 +26,7 @@ from proto_language.language.optimizer import (
     MCMCOptimizerConfig,
 )
 from proto_language.utils.scheduling import hinge_schedule
-
-
-def _anchor_bias(seed: str, bias: float) -> list[list[float]]:
-    """Matrix with ``bias`` at each position's WT AA; matches old scalar bias semantics."""
-    aa_idx = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
-    return [[bias if j == aa_idx[aa] else 0.0 for j in range(len(PROTEIN_AMINO_ACIDS))] for aa in seed]
+from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
 
 
 class _Cfg(BaseModel):
@@ -364,47 +359,45 @@ class TestSchedules:
         assert _abs_sum(scale=True) < _abs_sum(scale=False)
 
 
-class TestLogitBiasMatrix:
-    def test_position_specific_bias_flows_to_init_logits(self) -> None:
-        """Non-uniform bias — the scalar-era field couldn't express this."""
+class TestSequenceBias:
+    def test_declarative_reference_bias_flows_to_init_logits(self) -> None:
+        """Declarative reference bias anchors init logits to the WT at every position."""
         aa_idx = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
-        bias = [[0.0] * len(PROTEIN_AMINO_ACIDS) for _ in range(5)]
-        bias[0][aa_idx["E"]] = 10.0
-        bias[4][aa_idx["V"]] = 10.0
-        opt, seg = _make(num_steps=1, seed=42, lr=1e-30, logit_bias=bias)
+        opt, seg = _make(
+            num_steps=1,
+            seed=42,
+            lr=1e-30,
+            sequence_bias=SequenceLogitBiasConfig(reference_sequence="EVQLV", reference_bias=10.0),
+        )
         opt.run()
         logits = seg.result_sequences[0].logits
         assert logits is not None
-        assert int(logits[0].argmax()) == aa_idx["E"]
-        assert int(logits[4].argmax()) == aa_idx["V"]
-        assert np.allclose(logits[[1, 2, 3]], 0.0)
+        for position, aa in enumerate("EVQLV"):
+            assert int(logits[position].argmax()) == aa_idx[aa]
 
-    def test_large_negative_bias_persists_through_updates(self) -> None:
-        """-1e6 at an AA survives gradient updates toward it — decode never picks it."""
+    def test_excluded_symbols_dominates_gradient(self) -> None:
+        """``excluded_symbols`` -1e6 penalty survives gradient updates toward the banned AA."""
         aa_idx = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
-        bias = [[0.0] * len(PROTEIN_AMINO_ACIDS) for _ in range(5)]
-        for row in bias:
-            row[aa_idx["A"]] = -1e6  # _backward pushes toward A; the penalty must still win.
-        opt, seg = _make(num_steps=10, seed=42, lr=1.0, logit_bias=bias)
+        # _backward pushes toward A (column 0); the declarative penalty must still win.
+        opt, seg = _make(
+            num_steps=10,
+            seed=42,
+            lr=1.0,
+            sequence_bias=SequenceLogitBiasConfig(excluded_symbols=["A"]),
+        )
         opt.run()
         logits = seg.result_sequences[0].logits
         assert logits is not None
         assert np.all(logits[:, aa_idx["A"]] < -1e5)
         assert "A" not in seg.result_sequences[0].sequence
 
-    @pytest.mark.parametrize(
-        "bad,match",
-        [
-            ([[0.0] * len(PROTEIN_AMINO_ACIDS) for _ in range(3)], "logit_bias shape"),  # 3 rows, need 5
-            ([[0.0] * (len(PROTEIN_AMINO_ACIDS) + 1) for _ in range(5)], "logit_bias shape"),  # 21 cols, need 20
-            ([[0.0, 0.0], [0.0, 0.0, 0.0]] + [[0.0] * len(PROTEIN_AMINO_ACIDS)] * 3, "rectangular"),  # jagged
-            ([], "logit_bias shape"),  # empty list — caught cleanly, not IndexError
-        ],
-    )
-    def test_malformed_bias_raises_at_init(self, bad: list, match: str) -> None:
-        """Shape/rectangularity vs target segment is checked in GradientOptimizer.__init__, not run()."""
-        with pytest.raises(ValueError, match=match):
-            _make(num_steps=1, logit_bias=bad)
+    def test_segment_mismatch_raises_at_init(self) -> None:
+        """Reference-sequence length mismatch surfaces eagerly in __init__, not at run()."""
+        with pytest.raises(ValueError, match="reference_sequence length"):
+            _make(
+                num_steps=1,
+                sequence_bias=SequenceLogitBiasConfig(reference_sequence="EVQLVAA", reference_bias=1.0),
+            )
 
 
 class TestFixedPositions:
@@ -412,7 +405,7 @@ class TestFixedPositions:
         opt, seg = _make(
             num_steps=20,
             lr=1.0,
-            logit_bias=_anchor_bias("EVQLV", 5.0),
+            sequence_bias=SequenceLogitBiasConfig(reference_sequence="EVQLV", reference_bias=5.0),
             fixed_positions=[0, 4],
             gumbel_logit_init=True,
         )
@@ -484,7 +477,7 @@ class TestHistory:
             lr=1.0,
             tracking_interval=5,
             seed=1,
-            logit_bias=_anchor_bias("EVQLV", 5.0),
+            sequence_bias=SequenceLogitBiasConfig(reference_sequence="EVQLV", reference_bias=5.0),
         )
         opt.run()
 
@@ -835,9 +828,9 @@ class TestHingeSchedule:
 
 class TestGumbelLogitInit:
     def test_gumbel_adds_noise(self) -> None:
-        bias = _anchor_bias("EVQLV", 5.0)
-        opt_d, seg_d = _make(num_steps=1, seed=42, logit_bias=bias, gumbel_logit_init=False)
-        opt_g, seg_g = _make(num_steps=1, seed=42, logit_bias=bias, gumbel_logit_init=True)
+        bias = SequenceLogitBiasConfig(reference_sequence="EVQLV", reference_bias=5.0)
+        opt_d, seg_d = _make(num_steps=1, seed=42, sequence_bias=bias, gumbel_logit_init=False)
+        opt_g, seg_g = _make(num_steps=1, seed=42, sequence_bias=bias, gumbel_logit_init=True)
         opt_d.run()
         opt_g.run()
         assert not np.allclose(seg_d.result_sequences[0].logits, seg_g.result_sequences[0].logits)

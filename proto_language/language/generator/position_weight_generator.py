@@ -10,11 +10,7 @@ from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, Segment
 from proto_language.language.generator.generator_registry import generator
 from proto_language.utils import mean_peak_probability, softmax
-from proto_language.utils.sequence_logit_bias import (
-    SequenceLogitBiasConfig,
-    build_sequence_logit_bias_matrix,
-    combine_logit_biases,
-)
+from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
 
 
 class PositionWeightGeneratorConfig(BaseConfig):
@@ -29,10 +25,9 @@ class PositionWeightGeneratorConfig(BaseConfig):
             most likely token at each position or sample stochastically from the
             per-position distribution.
         temperature (float): Softmax temperature applied to logits in ``sample()``.
-        logit_bias (list[list[float]] | None): Optional additive bias matrix
-            applied before decoding discrete handoff sequences.
-        sequence_bias (SequenceLogitBiasConfig | None): Declarative,
-            sequence-type-aware additive bias. Combined with ``logit_bias``.
+        sequence_bias (SequenceLogitBiasConfig | None): Optional declarative
+            per-position symbol bias resolved against the assigned segment
+            vocabulary; added to logits before decoding handoff sequences.
         logit_scale (float): Optional scale factor applied to logits before the
             additive bias and temperature-scaled softmax.
         entropy_positions (list[int] | None): Zero-based positions to include
@@ -53,13 +48,6 @@ class PositionWeightGeneratorConfig(BaseConfig):
         description="Softmax temperature used when logits are provided.",
         advanced=True,
     )
-    logit_bias: list[list[float]] | None = ConfigField(
-        default=None,
-        title="Logit Bias",
-        description="Optional additive bias matrix (L x |vocab|) applied before decoding.",
-        advanced=True,
-        hidden=True,
-    )
     sequence_bias: SequenceLogitBiasConfig | None = ConfigField(
         default=None,
         title="Sequence Bias",
@@ -70,7 +58,7 @@ class PositionWeightGeneratorConfig(BaseConfig):
         default=1.0,
         ge=0.0,
         title="Logit Scale",
-        description="Optional scale factor applied to logits before adding logit_bias and decoding.",
+        description="Optional scale factor applied to logits before adding sequence_bias and decoding.",
         advanced=True,
         hidden=True,
     )
@@ -80,19 +68,6 @@ class PositionWeightGeneratorConfig(BaseConfig):
         description="Positions to average over when computing mean_peak_probability. None = all.",
         advanced=True,
     )
-
-    @field_validator("logit_bias")
-    @classmethod
-    def _check_logit_bias(cls, value: list[list[float]] | None) -> list[list[float]] | None:
-        """Reject non-matrix / non-finite bias tensors at config time."""
-        if value is None:
-            return None
-        matrix = np.asarray(value, dtype=float)
-        if matrix.ndim != 2:
-            raise ValueError(f"logit_bias must be a 2D matrix, got shape {matrix.shape}.")
-        if not np.isfinite(matrix).all():
-            raise ValueError("logit_bias must contain only finite values.")
-        return value
 
     @field_validator("entropy_positions")
     @classmethod
@@ -133,10 +108,9 @@ class PositionWeightGenerator(Generator):
         config (PositionWeightGeneratorConfig): Generator configuration.
         sampling_mode (Literal["argmax", "categorical"]): Decoding strategy.
         temperature (float): Softmax temperature for logits.
-        logit_bias (np.ndarray | None): Optional additive bias matrix applied
-            before decoding.
-        sequence_bias (SequenceLogitBiasConfig | None): Declarative additive
-            bias built against the assigned segment vocabulary.
+        sequence_bias (SequenceLogitBiasConfig | None): Declarative per-position
+            symbol bias resolved against the assigned segment vocabulary; added
+            to logits before decoding.
         logit_scale (float): Scale factor applied to logits before the additive
             bias and temperature-scaled softmax.
         entropy_positions (list[int] | None): Rows included when computing
@@ -159,25 +133,15 @@ class PositionWeightGenerator(Generator):
         self.config = config
         self.sampling_mode = config.sampling_mode
         self.temperature = config.temperature
-        self._raw_logit_bias = np.asarray(config.logit_bias, dtype=float) if config.logit_bias is not None else None
         self._sequence_bias_config = config.sequence_bias
         self._logit_bias: np.ndarray | None = None
         self.logit_scale = config.logit_scale
         self.entropy_positions = config.entropy_positions
 
     def assign(self, segments: Segment | Iterable[Segment]) -> None:
-        """Assign segment(s) and validate length-dependent logit-bias config."""
+        """Assign segment(s) and resolve the declarative bias against the segment vocab."""
         super().assign(segments)
-        seq_len = self.segment.sequence_length
-        if self._raw_logit_bias is not None:
-            row_count = self._raw_logit_bias.shape[0]
-            if row_count != seq_len:
-                raise ValueError(f"logit_bias has {row_count} rows; sequence length is {seq_len}.")
-            expected_shape = (seq_len, len(self.segment.ordered_vocab()))
-            if self._raw_logit_bias.shape != expected_shape:
-                raise ValueError(f"logit_bias shape {self._raw_logit_bias.shape} != {expected_shape}.")
-        sequence_logit_bias = build_sequence_logit_bias_matrix(self._sequence_bias_config, self.segment)
-        self._logit_bias = combine_logit_biases(self._raw_logit_bias, sequence_logit_bias)
+        self._logit_bias = build_sequence_logit_bias_matrix(self._sequence_bias_config, self.segment)
 
     def _sample(self) -> None:
         """Decode discrete sequences from ``seq.logits`` on each proposal.
@@ -202,12 +166,6 @@ class PositionWeightGenerator(Generator):
             out_of_range = [p for p in self.entropy_positions if p >= seq_len]
             if out_of_range:
                 raise ValueError(f"entropy_positions {out_of_range} are >= sequence_length ({seq_len}).")
-        if self._logit_bias is not None:
-            expected_shape = (seq_len, len(vocab))
-            if self._logit_bias.shape != expected_shape:
-                shape = self._logit_bias.shape
-                label = self.segment.label or "unlabeled"
-                raise ValueError(f"logit_bias shape {shape} != {expected_shape} on segment '{label}'.")
 
         rng = np.random.default_rng(self._next_seed()) if self.sampling_mode == "categorical" else None
         key = self._spec.key

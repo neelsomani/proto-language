@@ -15,11 +15,7 @@ from proto_language.language.core import (
 )
 from proto_language.language.generator.generator_registry import generator
 from proto_language.utils import softmax
-from proto_language.utils.sequence_logit_bias import (
-    SequenceLogitBiasConfig,
-    build_sequence_logit_bias_matrix,
-    combine_logit_biases,
-)
+from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
 
 
 class SemigreedyMutationGeneratorConfig(BaseConfig):
@@ -42,15 +38,13 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
         exclude_current (bool): Whether to zero out the probability of the current
             amino acid at the selected position before sampling the replacement.
             Guarantees every mutation actually changes the sequence.
-        logit_bias (list[list[float]] | None): Additive bias matrix of shape
-            ``(L, 20)`` added to ``proposal.logits`` before AA sampling. Position
-            weighting still uses ``proposal.logits`` alone.
-        sequence_bias (SequenceLogitBiasConfig | None): Declarative additive
-            bias built against the assigned segment vocabulary. Combined with
-            ``logit_bias``.
+        sequence_bias (SequenceLogitBiasConfig | None): Declarative per-position
+            symbol bias resolved against the assigned segment vocabulary; added to
+            ``proposal.logits`` before AA sampling. Position weighting still uses
+            ``proposal.logits`` alone.
         clear_logits (bool): If True, ignore ``proposal.logits`` when sampling the
-            replacement amino acid; sample from ``logit_bias`` only (or uniform if
-            ``logit_bias`` is None). Incompatible with ``position_weighting="entropy"``.
+            replacement amino acid; sample from ``sequence_bias`` only (or uniform if
+            ``sequence_bias`` is None). Incompatible with ``position_weighting="entropy"``.
         frozen_positions (list[int] | None): Zero-indexed positions excluded from
             mutation; the residue at each listed index is preserved from the
             proposal sequence. E.g., disulfide or epitope preservation via
@@ -75,13 +69,6 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
         description="Zero out the current amino acid before sampling to guarantee a mutation.",
         advanced=True,
     )
-    logit_bias: list[list[float]] | None = ConfigField(
-        default=None,
-        title="Logit Bias",
-        description="Additive bias matrix (L x 20) added to logits before AA sampling.",
-        advanced=True,
-        hidden=True,
-    )
     sequence_bias: SequenceLogitBiasConfig | None = ConfigField(
         default=None,
         title="Sequence Bias",
@@ -91,7 +78,7 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
     clear_logits: bool = ConfigField(
         default=False,
         title="Clear Logits",
-        description="Sample replacement AAs from logit_bias only (or uniform), ignoring proposal.logits.",
+        description="Sample replacement AAs from sequence_bias only (or uniform), ignoring proposal.logits.",
         advanced=True,
     )
     frozen_positions: list[int] | None = ConfigField(
@@ -100,19 +87,6 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
         description="Zero-indexed positions excluded from mutation.",
         advanced=True,
     )
-
-    @field_validator("logit_bias")
-    @classmethod
-    def validate_logit_bias(cls, v: Any) -> Any:
-        """Validate logit_bias shape and finiteness."""
-        if v is None:
-            return v
-        arr = np.asarray(v, dtype=float)
-        if arr.ndim != 2 or arr.shape[1] != len(PROTEIN_AMINO_ACIDS):
-            raise ValueError(f"logit_bias must have shape (L, {len(PROTEIN_AMINO_ACIDS)}), got {arr.shape}.")
-        if not np.isfinite(arr).all():
-            raise ValueError("logit_bias must contain only finite values.")
-        return v
 
     @field_validator("frozen_positions")
     @classmethod
@@ -165,7 +139,7 @@ class SemigreedyMutationGenerator(Generator):
       ``PLDDT`` or ``NORMALIZED_PLDDT``.
 
     ``frozen_positions`` hard-excludes listed indices from selection (deterministic
-    counterpart to ``logit_bias``); whatever residue is there stays. Implements
+    counterpart to ``sequence_bias``); whatever residue is there stays. Implements
     Germinal's ``design_semigreedy`` phase (``MCMCOptimizer`` at near-zero
     temperature, ``proposals_per_result > 1``).
 
@@ -175,7 +149,7 @@ class SemigreedyMutationGenerator(Generator):
             selection strategy.
         temperature (float): Softmax temperature for PSSM construction.
         exclude_current (bool): Whether to exclude the current AA when sampling.
-        clear_logits (bool): If True, sample replacement AAs from ``logit_bias``
+        clear_logits (bool): If True, sample replacement AAs from ``sequence_bias``
             only (or uniform), ignoring ``proposal.logits``.
 
     Example:
@@ -194,7 +168,6 @@ class SemigreedyMutationGenerator(Generator):
         """Initialize the semigreedy mutation generator."""
         super().__init__()
         self.config = config
-        self._raw_logit_bias = np.asarray(config.logit_bias, dtype=float) if config.logit_bias is not None else None
         self._sequence_bias_config = config.sequence_bias
         self._logit_bias: np.ndarray | None = None
         self._frozen_positions: frozenset[int] | None = (
@@ -209,10 +182,7 @@ class SemigreedyMutationGenerator(Generator):
         """Assign segment(s) and validate length-dependent config against them."""
         super().assign(segments)
         seq_len = self.segment.sequence_length
-        if self._raw_logit_bias is not None and self._raw_logit_bias.shape[0] != seq_len:
-            raise ValueError(f"logit_bias has {self._raw_logit_bias.shape[0]} rows but sequence length is {seq_len}.")
-        sequence_logit_bias = build_sequence_logit_bias_matrix(self._sequence_bias_config, self.segment)
-        self._logit_bias = combine_logit_biases(self._raw_logit_bias, sequence_logit_bias)
+        self._logit_bias = build_sequence_logit_bias_matrix(self._sequence_bias_config, self.segment)
         if self._frozen_positions is not None:
             for pos in self._frozen_positions:
                 if pos >= seq_len:
@@ -229,9 +199,9 @@ class SemigreedyMutationGenerator(Generator):
            configured temperature.
         2. Select a position using the configured ``position_weighting`` strategy.
         3. Sample a replacement amino acid at that position. By default, sample
-           from ``proposal.logits + logit_bias``. If ``clear_logits=True``, sample
-           from ``logit_bias`` alone (or uniform if no bias). Optionally exclude
-           the current residue via a logit penalty.
+           from ``proposal.logits + sequence_bias``. If ``clear_logits=True``,
+           sample from ``sequence_bias`` alone (or uniform if no bias).
+           Optionally exclude the current residue via a logit penalty.
         4. Write the mutated sequence back to ``proposal.sequence``.
 
         Raises:
@@ -248,7 +218,7 @@ class SemigreedyMutationGenerator(Generator):
 
         for proposal in self.segment.proposal_sequences:
             # When clear_logits=True the entropy weighting is rejected by the validator and
-            # AA sampling reads only logit_bias, so proposal.logits is unused — skip building it.
+            # AA sampling reads only sequence_bias, so proposal.logits is unused — skip building it.
             pssm: np.ndarray | None = None
             if not self.clear_logits:
                 if proposal.logits is None:

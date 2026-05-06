@@ -13,8 +13,11 @@ from proto_language.language.constraint.sequence_scoring.ablang_perplexity_const
     ablang_perplexity_gradient_backward,
 )
 from proto_language.language.core import Segment, Sequence
+from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
+from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
 
 _TOOL_MODULE = "proto_language.language.constraint.sequence_scoring.ablang_perplexity_constraint"
+_AA_IDX = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
 
 
 def _seq_with_logits(logits: np.ndarray) -> Sequence:
@@ -114,6 +117,72 @@ class TestScFvMode:
                 ablang_perplexity_gradient_backward([(_seq_with_logits(np.zeros((10, 20))),)], config=config)
             else:
                 ablang_perplexity_constraint([(Sequence("A" * 10, "protein"),)], config=config)
+
+
+class TestSequenceBias:
+    """Declarative ``sequence_bias`` adds to logits before AbLang."""
+
+    @patch(f"{_TOOL_MODULE}.run_ablang_gradient")
+    def test_reference_bias_adds_before_ablang(self, mock_run: object) -> None:
+        mock_run.return_value = _mock_gradient_output(gradient=[[0.0] * 20] * 5, loss=0.5)
+        binder = _seq_with_logits(np.zeros((5, 20)))
+
+        ablang_perplexity_gradient_backward(
+            [(binder,)],
+            config=AbLangPerplexityConfig(
+                temperature=0.6,
+                device="cpu",
+                sequence_bias=SequenceLogitBiasConfig(reference_sequence="A" * 5, reference_bias=2.0),
+            ),
+        )
+
+        heavy = np.array(mock_run.call_args[0][0].antibody.heavy_chain)
+        a_col = _AA_IDX["A"]
+        np.testing.assert_allclose(heavy[:, a_col], 2.0)
+        np.testing.assert_allclose(np.delete(heavy, a_col, axis=1), 0.0)
+
+    @patch(f"{_TOOL_MODULE}.run_ablang_gradient")
+    def test_excluded_symbols_penalty_reaches_ablang(self, mock_run: object) -> None:
+        mock_run.return_value = _mock_gradient_output(gradient=[[0.0] * 20] * 5, loss=0.5)
+        binder = _seq_with_logits(np.zeros((5, 20)))
+
+        ablang_perplexity_gradient_backward(
+            [(binder,)],
+            config=AbLangPerplexityConfig(
+                temperature=0.6,
+                device="cpu",
+                sequence_bias=SequenceLogitBiasConfig(excluded_symbols=["C"]),
+            ),
+        )
+
+        heavy = np.array(mock_run.call_args[0][0].antibody.heavy_chain)
+        c_col = _AA_IDX["C"]
+        assert np.all(heavy[:, c_col] < -1e5)
+        np.testing.assert_allclose(np.delete(heavy, c_col, axis=1), 0.0)
+
+    @patch(f"{_TOOL_MODULE}.run_ablang_gradient")
+    def test_scfv_mode_applies_full_binder_bias_before_slicing(self, mock_run: object) -> None:
+        vh_len, vl_len, total = 8, 8, 20
+        mock_run.return_value = _mock_gradient_output(gradient=[[0.0] * 20] * (vh_len + vl_len), loss=0.3)
+        binder = _seq_with_logits(np.zeros((total, 20)))
+
+        ablang_perplexity_gradient_backward(
+            [(binder,)],
+            config=AbLangPerplexityConfig(
+                temperature=0.6,
+                device="cpu",
+                heavy_slice=(0, vh_len),
+                light_slice=(12, 20),
+                sequence_bias=SequenceLogitBiasConfig(reference_sequence="A" * total, reference_bias=3.0),
+            ),
+        )
+
+        ab = mock_run.call_args[0][0].antibody
+        a_col = _AA_IDX["A"]
+        # Bias is added to full-binder logits before slicing, so +3.0 at column A
+        # appears in both VH and VL chains.
+        np.testing.assert_allclose(np.array(ab.heavy_chain)[:, a_col], 3.0)
+        np.testing.assert_allclose(np.array(ab.light_chain)[:, a_col], 3.0)
 
 
 class TestConfig:

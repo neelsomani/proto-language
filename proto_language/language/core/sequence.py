@@ -28,6 +28,7 @@ _DEFAULT_PROTEIN_CHARS: frozenset[str] = frozenset(PROTEIN_AMINO_ACIDS)
 # Type alias for supported biological sequence types
 SequenceType = Literal["dna", "rna", "protein", "ligand"]
 
+
 # Reserved keys in the computed .metadata property — user-provided metadata
 # should not use these keys as they will be overwritten by identity fields
 # or collide with first-class Sequence attributes.
@@ -142,6 +143,16 @@ class Sequence:
     def valid_chars(self) -> set[str] | frozenset[str] | None:
         """Valid characters for this sequence (read-only after construction)."""
         return self._valid_chars
+
+    def ordered_vocab(self) -> list[str]:
+        """Canonical alphabet for the sequence's type, intersected with ``valid_chars``; raises for ligands."""
+        if self._sequence_type == "ligand":
+            raise ValueError("Sequence is a ligand; no fixed vocab.")
+        canonical = {"dna": DNA_NUCLEOTIDES, "rna": RNA_NUCLEOTIDES, "protein": PROTEIN_AMINO_ACIDS}[
+            self._sequence_type
+        ]
+        valid = set(self._valid_chars or ())
+        return [c for c in canonical if c in valid] + sorted(valid - set(canonical))
 
     @property
     def metadata(self) -> dict[str, Any]:

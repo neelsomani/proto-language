@@ -149,29 +149,6 @@ class TestSemigreedyMutationGenerator:
             with pytest.raises(ValueError, match=expect_error):
                 gen.sample()
 
-    def test_logit_bias_shifts_sampling(self):
-        """Additive logit_bias shifts AA sampling away from proposal.logits preference."""
-        segment = Segment(sequence="AAAAA", sequence_type="protein")
-        # proposal.logits: uniform (zeros)
-        segment.proposal_sequences[0].logits = np.zeros((5, VOCAB_SIZE))
-
-        # logit_bias: strongly favor L (col 9) — additive, so logits+bias peaks at L
-        bias = np.zeros((5, VOCAB_SIZE)).tolist()
-        for row in bias:
-            row[9] = 100.0
-
-        gen = SemigreedyMutationGenerator(
-            SemigreedyMutationGeneratorConfig(exclude_current=True, logit_bias=bias),
-        )
-        gen._set_program_seed(42)
-        gen.assign(segment)
-        gen.sample()
-
-        result = segment.proposal_sequences[0].sequence
-        mutated_aa = [c for c in result if c != "A"]
-        assert len(mutated_aa) == 1
-        assert mutated_aa[0] == "L"
-
     def test_sequence_bias_shifts_sampling(self):
         """Declarative sequence_bias shifts replacement sampling without a raw matrix."""
         segment = Segment(sequence="AAAAA", sequence_type="protein")
@@ -191,25 +168,6 @@ class TestSemigreedyMutationGenerator:
         mutated_aa = [char for char in result if char != "A"]
         assert len(mutated_aa) == 1
         assert mutated_aa[0] == "L"
-
-    def test_logit_bias_validation(self):
-        """logit_bias with wrong shape or non-finite values raises at config validation."""
-        with pytest.raises(Exception, match="logit_bias must have shape"):
-            SemigreedyMutationGeneratorConfig(logit_bias=[[1.0, 2.0]])
-
-        bias_with_inf = np.zeros((3, VOCAB_SIZE)).tolist()
-        bias_with_inf[1][5] = float("inf")
-        with pytest.raises(Exception, match="finite"):
-            SemigreedyMutationGeneratorConfig(logit_bias=bias_with_inf)
-
-        # Length mismatch: bias has 3 rows but segment has 5 positions — caught at assign() time
-        segment = Segment(sequence="ACDEF", sequence_type="protein")
-        segment.proposal_sequences[0].logits = np.zeros((5, VOCAB_SIZE))
-        gen = SemigreedyMutationGenerator(
-            SemigreedyMutationGeneratorConfig(logit_bias=np.zeros((3, VOCAB_SIZE)).tolist())
-        )
-        with pytest.raises(ValueError, match="rows but sequence length"):
-            gen.assign(segment)
 
     def test_frozen_positions_excluded_from_selection(self):
         """Frozen positions never mutate; unfrozen positions absorb every mutation."""
@@ -270,18 +228,19 @@ class TestSemigreedyMutationGenerator:
             SemigreedyMutationGeneratorConfig(frozen_positions=frozen)
 
     def test_clear_logits_uses_bias_not_proposal_logits(self):
-        """clear_logits=True overrides a sharply peaked proposal.logits preference with logit_bias."""
+        """clear_logits=True overrides a sharply peaked proposal.logits preference with sequence_bias."""
         vocab = list(PROTEIN_AMINO_ACIDS)
         # Without clear_logits, the L peak in proposal.logits would dominate.
         proposal_logits = np.full((1, VOCAB_SIZE), -100.0)
         proposal_logits[:, vocab.index("L")] = 100.0
-        bias = np.full((1, VOCAB_SIZE), -100.0)
-        bias[:, vocab.index("Y")] = 100.0
 
         segment = Segment(sequence="A", sequence_type="protein")
         segment.proposal_sequences[0].logits = proposal_logits
         gen = SemigreedyMutationGenerator(
-            SemigreedyMutationGeneratorConfig(logit_bias=bias.tolist(), clear_logits=True)
+            SemigreedyMutationGeneratorConfig(
+                sequence_bias=SequenceLogitBiasConfig(reference_sequence="Y", reference_bias=100.0),
+                clear_logits=True,
+            )
         )
         gen._set_program_seed(0)
         gen.assign(segment)

@@ -7,6 +7,7 @@ from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core.segment import Segment
+from proto_language.language.core.sequence import Sequence
 from proto_language.utils.helpers import is_plain_int
 
 
@@ -109,24 +110,8 @@ class SequenceLogitBiasConfig(BaseConfig):
             raise ValueError("excluded_symbols is required when excluded_positions is set.")
         return self
 
-    def validate_against_segment(self, segment: Segment) -> None:
-        """Validate cross-field constraints that depend on the segment's vocabulary and length.
-
-        Position bounds, reference-sequence length match, and vocab membership for
-        ``reference_sequence`` and ``excluded_symbols`` all require segment context
-        and so cannot run as Pydantic field validators. Call once before building
-        a bias matrix; raises on the first violation.
-
-        Args:
-            segment (Segment): Segment whose ordered vocab and sequence length
-                the config must agree with.
-
-        Raises:
-            ValueError: If any position, length, or symbol fails the check.
-        """
-        vocab = set(segment.ordered_vocab())
-        sequence_length = segment.sequence_length
-
+    def _validate_against_vocab(self, *, sequence_length: int, vocab: set[str]) -> None:
+        """Shared validator for any source that resolves to ``(sequence_length, vocab)``."""
         for field_name, positions in (
             ("unbiased_positions", self.unbiased_positions),
             ("excluded_positions", self.excluded_positions),
@@ -141,19 +126,17 @@ class SequenceLogitBiasConfig(BaseConfig):
             assert self.reference_sequence is not None  # noqa: S101 -- model validator requires it
             if len(self.reference_sequence) != sequence_length:
                 raise ValueError(
-                    f"reference_sequence length {len(self.reference_sequence)} does not match segment length "
+                    f"reference_sequence length {len(self.reference_sequence)} does not match sequence length "
                     f"{sequence_length}."
                 )
             invalid = sorted(set(self.reference_sequence) - vocab)
             if invalid:
-                raise ValueError(
-                    f"reference_sequence contains symbols {invalid} outside segment vocabulary {sorted(vocab)}."
-                )
+                raise ValueError(f"reference_sequence contains symbols {invalid} outside vocabulary {sorted(vocab)}.")
 
         if self.excluded_symbols is not None:
             invalid = sorted(set(self.excluded_symbols) - vocab)
             if invalid:
-                raise ValueError(f"excluded_symbols {invalid} are not in segment vocabulary {sorted(vocab)}.")
+                raise ValueError(f"excluded_symbols {invalid} are not in vocabulary {sorted(vocab)}.")
 
 
 def build_sequence_logit_bias_matrix(config: SequenceLogitBiasConfig | None, segment: Segment) -> np.ndarray | None:
@@ -175,12 +158,45 @@ def build_sequence_logit_bias_matrix(config: SequenceLogitBiasConfig | None, seg
     """
     if config is None:
         return None
+    return _build_matrix(config, sequence_length=segment.sequence_length, vocab=segment.ordered_vocab())
 
-    config.validate_against_segment(segment)
 
-    vocab = segment.ordered_vocab()
+def build_sequence_logit_bias_matrix_from_sequence(
+    config: SequenceLogitBiasConfig | None, sequence: Sequence
+) -> np.ndarray | None:
+    """Build an additive logit-bias matrix from a ``Sequence``.
+
+    Sibling to ``build_sequence_logit_bias_matrix`` for constraint backwards
+    that only see ``Sequence`` instances rather than a ``Segment``.
+
+    Args:
+        config (SequenceLogitBiasConfig | None): Declarative bias configuration.
+            ``None`` disables declarative biasing.
+        sequence (Sequence): Sequence whose length and ordered vocabulary define
+            the output matrix shape.
+
+    Returns:
+        np.ndarray | None: Bias matrix with shape ``(L, |vocab|)``, or ``None``
+            when the config is unset or has no numeric effect.
+
+    Raises:
+        ValueError: If the reference sequence length, positions, or symbols do
+            not match the sequence.
+    """
+    if config is None:
+        return None
+    return _build_matrix(
+        config,
+        sequence_length=len(sequence),
+        vocab=sequence.ordered_vocab(),
+    )
+
+
+def _build_matrix(config: SequenceLogitBiasConfig, *, sequence_length: int, vocab: list[str]) -> np.ndarray | None:
+    """Validate ``config`` against ``vocab`` and build the ``(L, |vocab|)`` bias matrix."""
+    config._validate_against_vocab(sequence_length=sequence_length, vocab=set(vocab))
+
     vocab_index = {symbol: index for index, symbol in enumerate(vocab)}
-    sequence_length = segment.sequence_length
     matrix = np.zeros((sequence_length, len(vocab)), dtype=np.float64)
 
     unbiased_positions = sorted(set(config.unbiased_positions)) if config.unbiased_positions else []
@@ -205,28 +221,3 @@ def build_sequence_logit_bias_matrix(config: SequenceLogitBiasConfig | None, seg
             matrix[np.ix_(excluded_positions, excluded_indices)] += config.exclusion_penalty
 
     return matrix if np.any(matrix) else None
-
-
-def combine_logit_biases(
-    raw_logit_bias: np.ndarray | list[list[float]] | None,
-    sequence_logit_bias: np.ndarray | None,
-) -> np.ndarray | None:
-    """Combine raw and declarative logit biases.
-
-    Args:
-        raw_logit_bias (np.ndarray | list[list[float]] | None): Existing
-            explicit bias matrix supplied by advanced callers.
-        sequence_logit_bias (np.ndarray | None): Bias matrix built from
-            ``SequenceLogitBiasConfig``.
-
-    Returns:
-        np.ndarray | None: Additive combined bias matrix, or ``None`` when both
-            inputs are unset.
-    """
-    if raw_logit_bias is None:
-        return sequence_logit_bias
-    raw = np.asarray(raw_logit_bias, dtype=float)
-    if sequence_logit_bias is None:
-        return raw
-    combined: np.ndarray = raw + sequence_logit_bias
-    return combined

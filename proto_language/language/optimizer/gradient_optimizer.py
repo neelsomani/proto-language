@@ -22,6 +22,7 @@ from proto_language.utils import softmax
 from proto_language.utils.gradients import MERGERS, GradientMergerName, align_norms, normalize_gradient
 from proto_language.utils.ml_optimizers import ML_OPTIMIZERS, AdamConfig, MLOptimizerType
 from proto_language.utils.scheduling import SCHEDULES, Schedule, Scheduler
+from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         num_results (int | None): Parallel optimization trajectories.
         num_steps (int): Number of gradient steps.
         lr (float): Base learning rate.
-        logit_bias (list[list[float]] | None): Per-position bias matrix ``(L, |vocab|)`` added to initial logits.
+        sequence_bias (SequenceLogitBiasConfig | None): Declarative per-position symbol bias resolved
+            against the target segment vocabulary and added to initial logits.
         soft_start (float): Soft blending at step 1 (0=hard, 1=softmax).
         soft_end (float): Soft blending at final step.
         hard_start (float): Straight-through estimator at step 1 (0=relaxed, 1=argmax).
@@ -111,8 +113,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         save_best (bool): Return the lowest-loss result instead of the last iteration.
         constraint_weight_schedules (list[ConstraintWeightSchedule] | None): Per-label
             weight schedules that override ``Constraint.weight`` each step.
-        gumbel_logit_init (bool): If True, add Gumbel(0,1) noise per position on top of
-            ``logit_bias`` — gives parallel trajectories stochastic starts.
+        gumbel_logit_init (bool): If True, add Gumbel(0,1) noise per position on top of the
+            resolved ``sequence_bias`` — gives parallel trajectories stochastic starts.
         gumbel_init_alpha (float): Divisor for Gumbel init noise. ``1.0`` = unscaled.
         initial_logits (list[list[float]] | None): Base logit matrix ``(L, |vocab|)``
             replacing default initialization.
@@ -144,12 +146,11 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         title="Learning Rate",
         description="Base learning rate for gradient updates.",
     )
-    logit_bias: list[list[float]] | None = ConfigField(
+    sequence_bias: SequenceLogitBiasConfig | None = ConfigField(
         default=None,
-        title="Logit Bias Matrix",
-        description="Per-position logit bias matrix (L x |vocab|) added to initial logits.",
+        title="Sequence Bias",
+        description="Declarative sequence-symbol bias resolved against the target segment vocabulary.",
         advanced=True,
-        hidden=True,
     )
     soft_start: float = ConfigField(
         default=1.0,
@@ -250,7 +251,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     fixed_positions: list[int] | None = ConfigField(
         default=None,
         title="Fixed Positions",
-        description="Sequence positions to freeze. Pair with logit_bias to anchor them at the desired AA.",
+        description="Sequence positions to freeze. Pair with sequence_bias to anchor them at the desired AA.",
         advanced=True,
     )
     scale_lr_by_temperature: bool = ConfigField(
@@ -281,7 +282,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     gumbel_logit_init: bool = ConfigField(
         default=False,
         title="Gumbel Logit Init",
-        description="Gumbel(0,1) noise at init; zeroed at fixed_positions; additive with logit_bias.",
+        description="Gumbel(0,1) noise at init; zeroed at fixed_positions; additive with sequence_bias.",
         advanced=True,
     )
     gumbel_init_alpha: float = ConfigField(
@@ -312,7 +313,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         configs: dict[str, BaseConfig] = {"adam": self.adam_config}
         return configs.get(self.ml_optimizer)
 
-    @field_validator("logit_bias", "initial_logits")
+    @field_validator("initial_logits")
     @classmethod
     def _validate_matrix(cls, v: list[list[float]] | None, info: ValidationInfo) -> list[list[float]] | None:
         """Reject non-rectangular / non-numeric input; shape-vs-segment is checked in ``GradientOptimizer._validate_optimizer``."""
@@ -489,6 +490,10 @@ class GradientOptimizer(Optimizer):
             self._gradient_constraints, self.target_segment
         )
 
+        self._sequence_bias_matrix: np.ndarray | None = build_sequence_logit_bias_matrix(
+            config.sequence_bias, self.target_segment
+        )
+
     def _validate_optimizer(self) -> None:
         """Extend base validation with gradient-specific checks against the target segment."""
         super()._validate_optimizer()
@@ -504,13 +509,6 @@ class GradientOptimizer(Optimizer):
             out_of_bounds = [p for p in self.config.fixed_positions if p < 0 or p >= seq_len]
             if out_of_bounds:
                 raise ValueError(f"fixed_positions {out_of_bounds} out of bounds for segment length {seq_len}.")
-
-        if self.config.logit_bias is not None:
-            expected = (seq_len, len(self.target_segment.ordered_vocab()))
-            row0 = self.config.logit_bias[0] if self.config.logit_bias else ()
-            actual = (len(self.config.logit_bias), len(row0))  # rectangularity validated upstream
-            if actual != expected:
-                raise ValueError(f"logit_bias shape {actual} does not match target segment {expected}.")
 
         if self.config.initial_logits is not None:
             expected = (seq_len, len(self.target_segment.ordered_vocab()))
@@ -588,9 +586,7 @@ class GradientOptimizer(Optimizer):
         vocab = target.ordered_vocab()
         needs_rng = self.config.initial_logits is not None or self.config.gumbel_logit_init
         init_rng = np.random.default_rng(self.seed) if needs_rng else None
-        logit_bias = (
-            np.asarray(self.config.logit_bias, dtype=np.float64) if self.config.logit_bias is not None else None
-        )
+        logit_bias = self._sequence_bias_matrix
         initial_logits_arr = (
             np.asarray(self.config.initial_logits, dtype=np.float64) if self.config.initial_logits is not None else None
         )
@@ -819,5 +815,5 @@ def _init_logits(
     if fixed_positions:
         logits[fixed_positions] = 0.0
     if logit_bias is not None:
-        logits = logits + logit_bias  # shape validated upstream in GradientOptimizer.__init__
+        logits = logits + logit_bias
     return logits

@@ -161,7 +161,7 @@ class Segment:
         return self.result_sequences[index]
 
     def to_dict(self, *, include_logits: bool = False, include_structure: bool = False) -> dict[str, Any]:
-        """Serialize Segment to dictionary for cloud/API communication."""
+        """Serialize Segment to a JSON-safe dictionary."""
         return {
             "original_sequence": self.original_sequence.to_dict(
                 include_logits=include_logits, include_structure=include_structure

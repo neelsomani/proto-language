@@ -253,7 +253,7 @@ class Sequence:
         return new_seq
 
     def to_dict(self, *, include_logits: bool = False, include_structure: bool = False) -> dict[str, Any]:
-        """Serialize Sequence to dictionary for cloud/API communication."""
+        """Serialize Sequence to a JSON-safe dictionary."""
         result = {
             "sequence": self._sequence,
             "sequence_type": self.sequence_type,

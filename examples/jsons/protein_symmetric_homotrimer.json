@@ -1,18 +1,42 @@
 {
   "name": "protein_symmetric_homotrimer",
-  "description": "Redesign of a 32 aa GCN4-zipper-like parallel three-stranded coiled-coil protomer scaffold (heptad-Ile-rich variant in the spirit of the Harbury et al. 1993 Science 262:1401-1407 trimer mutants, PDB 1GCM) under MCMC with ESMFold-based symmetry constraints. The seed sequence has Ile dominating heptad a and d positions to bias the 3-helix oligomerization state; the wild-type GCN4 leucine zipper (with Val@a / Leu@d) is dimeric, while Ile-Ile or Leu-Ile combinations switch the bundle to trimer/tetramer per Harbury 1993. Replace the seed with the literal PDB 1GCM SEQRES if your campaign needs the exact published variant. Constraints: `protein-symmetry-ring(all_to_all_protomer_symmetry=True)` on repeated protomer targets measures all pairwise protomer-protomer distance dispersion when ESMFold-predicting 3 chains, rewarding sequences whose three-fold symmetric assembly has an even ring; `protein-globularity` on the same repeated targets rewards a compact globular trimer; `structure-plddt` and `structure-ptm` reward confidence in the predicted trimer fold. We deliberately omit `balanced-aa` here - heptad design intrinsically biases the sequence toward I, L, K, E at the a/d/e/g positions, which is exactly the pattern `balanced-aa` would penalize as low diversity. Random-protein generator with a 1-mutation step is appropriate because the heptad code is positional - large jumps disrupt the a-d hydrophobic seam.",
+  "description": "Symmetric homotrimer design matching `examples/scripts/program_symmetric_proteins.py` with three 50 aa protein protomer constructs and 3000 MCMC steps. A single shared `random-protein` generator targets all three protomer segments with one mutation per proposal, tying their proposed sequences so the optimizer designs one monomer sequence replicated across a three-chain complex. The ESMFold confidence constraints, ring-symmetry constraint, and globularity constraint score the three protomers together as the symmetric assembly.",
   "version": "1.0",
-  "num_results": 2,
+  "num_results": 1,
   "constructs": [
     {
-      "id": "construct1",
+      "id": "protomer_construct_1",
       "type": "protein",
-      "label": "Parallel coiled-coil trimer protomer (GCN4 family)",
+      "label": "protomer_1",
       "segments": [
         {
-          "id": "protomer",
-          "label": "32 aa GCN4-zipper-like parallel coiled-coil protomer scaffold",
-          "sequence": "MKQIEDKIEEILSKIYHIENEIARIKKLLGER"
+          "id": "protomer_1",
+          "label": "protomer_1",
+          "length": 50
+        }
+      ]
+    },
+    {
+      "id": "protomer_construct_2",
+      "type": "protein",
+      "label": "protomer_2",
+      "segments": [
+        {
+          "id": "protomer_2",
+          "label": "protomer_2",
+          "length": 50
+        }
+      ]
+    },
+    {
+      "id": "protomer_construct_3",
+      "type": "protein",
+      "label": "protomer_3",
+      "segments": [
+        {
+          "id": "protomer_3",
+          "label": "protomer_3",
+          "length": 50
         }
       ]
     }
@@ -22,40 +46,50 @@
       "generators": [
         {
           "key": "random-protein",
-          "targets": ["protomer"],
-          "config": { "masking_strategy": { "num_mutations": 1 } }
+          "label": "shared protomer generator",
+          "targets": ["protomer_1", "protomer_2", "protomer_3"],
+          "config": {
+            "masking_strategy": {
+              "num_mutations": 1
+            }
+          }
         }
       ],
       "constraints": [
         {
           "key": "structure-plddt",
-          "targets": ["protomer", "protomer", "protomer"],
+          "targets": ["protomer_1", "protomer_2", "protomer_3"],
+          "weight": 1,
           "config": { "structure_tool": "esmfold" }
         },
         {
           "key": "structure-ptm",
-          "targets": ["protomer", "protomer", "protomer"],
+          "targets": ["protomer_1", "protomer_2", "protomer_3"],
+          "weight": 1,
           "config": { "structure_tool": "esmfold" }
         },
         {
           "key": "protein-symmetry-ring",
-          "targets": ["protomer", "protomer", "protomer"],
+          "targets": ["protomer_1", "protomer_2", "protomer_3"],
+          "weight": 1,
           "config": {
             "all_to_all_protomer_symmetry": true
           }
         },
         {
           "key": "protein-globularity",
-          "targets": ["protomer", "protomer", "protomer"],
+          "targets": ["protomer_1", "protomer_2", "protomer_3"],
+          "weight": 5,
           "config": {}
         }
       ],
       "optimizer": {
         "method": "mcmc",
         "config": {
-          "num_steps": 100,
+          "num_steps": 3000,
           "max_temperature": 1.0,
-          "min_temperature": 0.01
+          "min_temperature": 0.0001,
+          "verbose": true
         }
       }
     }

@@ -2,7 +2,7 @@
 Program symmetric proteins with configurable parameters.
 
 Usage:
-    python program_symmetric_proteins.py --monomer-length 100 --n-symmetric-units 3 --n-steps 10000 --output-dir ./outputs
+    python program_symmetric_proteins.py --monomer-length 50 --n-symmetric-units 3 --n-steps 3000 --output-dir ./outputs
 """
 
 import argparse
@@ -25,6 +25,7 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.generator import (
+    MaskingStrategy,
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
 )
@@ -37,8 +38,8 @@ def parse_args():
     parser.add_argument(
         "--monomer-length",
         type=int,
-        default=100,
-        help="Length of each monomer unit (default: 100)",
+        default=50,
+        help="Length of each monomer unit (default: 50)",
     )
     parser.add_argument(
         "--n-symmetric-units",
@@ -49,8 +50,8 @@ def parse_args():
     parser.add_argument(
         "--n-steps",
         type=int,
-        default=10000,
-        help="Number of MCMC optimization steps (default: 10000)",
+        default=3000,
+        help="Number of MCMC optimization steps (default: 3000)",
     )
     parser.add_argument(
         "--output-dir",
@@ -167,7 +168,9 @@ def run_optimization(
         ## Generators ##
         ################
 
-        uniform_gen_config = RandomProteinGeneratorConfig()
+        uniform_gen_config = RandomProteinGeneratorConfig(
+            masking_strategy=MaskingStrategy(num_mutations=1),
+        )
         uniform_gen = RandomProteinGenerator(uniform_gen_config)
         uniform_gen.assign(protomer_segments)
 

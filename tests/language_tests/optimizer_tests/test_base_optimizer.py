@@ -8,6 +8,7 @@ import pytest
 
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.language.core import (
+    BaseConfig,
     Constraint,
     Construct,
     Generator,
@@ -1135,8 +1136,10 @@ class TestOptimizerRegistry:
     def test_default_required_constraint_mode_is_none(self):
         assert OptimizerRegistry.get("mcmc").required_constraint_mode is None
 
-    def test_requires_generators_on_mpnn_perplexity(self):
-        assert ConstraintRegistry.get("mpnn-perplexity").requires_generators == ["proteinmpnn"]
+    def test_mpnn_perplexity_has_direct_gradient_path(self):
+        spec = ConstraintRegistry.get("mpnn-perplexity")
+        assert spec.requires_generators is None
+        assert spec.mode == "dual"
 
     def test_requires_generators_default_none(self):
         assert ConstraintRegistry.get("gc-content").requires_generators is None
@@ -1144,6 +1147,20 @@ class TestOptimizerRegistry:
 
 def _compat_scorer(input_sequences: list[tuple[Sequence, ...]], config) -> list[ConstraintOutput]:
     return [ConstraintOutput(score=0.5) for _ in input_sequences]
+
+
+@ConstraintRegistry.register(
+    key="test-requires-proteinmpnn-generator",
+    label="Test Requires ProteinMPNN Generator",
+    config=BaseConfig,
+    description="Test-only constraint for generator dependency validation.",
+    supported_sequence_types=["protein"],
+    requires_generators=["proteinmpnn"],
+)
+def _requires_proteinmpnn_scorer(
+    input_sequences: list[tuple[Sequence, ...]], config: BaseConfig
+) -> list[ConstraintOutput]:
+    return _compat_scorer(input_sequences, config)
 
 
 def _compat_backward(inputs: tuple[Sequence, ...], *, config, **kwargs) -> GradientConstraintOutput:
@@ -1160,9 +1177,9 @@ class TestComponentCompatibility:
         gen = RandomProteinGenerator(RandomProteinGeneratorConfig())
         gen.assign(seg)
         con = ConstraintRegistry.create(
-            key="mpnn-perplexity",
+            key="test-requires-proteinmpnn-generator",
             segments=[seg],
-            config_dict={"top_k": 5},
+            config_dict={},
             label="mpnn_prescreen",
             threshold=0.0,
         )
@@ -1179,9 +1196,9 @@ class TestComponentCompatibility:
         gen = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig())
         gen.assign(seg)
         con = ConstraintRegistry.create(
-            key="mpnn-perplexity",
+            key="test-requires-proteinmpnn-generator",
             segments=[seg],
-            config_dict={"top_k": 5},
+            config_dict={},
             label="mpnn_prescreen",
             threshold=0.0,
         )

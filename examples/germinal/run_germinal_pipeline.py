@@ -835,7 +835,9 @@ def run_trajectory(
             print(f"[Traj {traj_idx}] {gate_name} passed" + (f" ({detail})" if detail else ""))
             return True
         if no_filter:
-            print(f"[Traj {traj_idx}] {gate_name} FAILED (continuing, --no-filter)" + (f" ({detail})" if detail else ""))
+            print(
+                f"[Traj {traj_idx}] {gate_name} FAILED (continuing, --no-filter)" + (f" ({detail})" if detail else "")
+            )
             if record is not None and record.would_reject_at is None:
                 record.would_reject_at = reason
             return True
@@ -929,21 +931,22 @@ def run_trajectory(
         f"[Traj {traj_idx}] Stage 3 fixed: {len(non_cdr_one_indexed)} framework + "
         f"{len(interface_residues)} interface = {len(fixed_positions)} positions"
     )
+    abmpnn_structure_input = InverseFoldingStructureInput(
+        structure=complex_struct,
+        chains_to_redesign=[binder_chain],
+        fixed_positions={binder_chain: fixed_positions},
+    )
     abmpnn = ProteinMPNNGenerator(
         ProteinMPNNGeneratorConfig(
             model_choice="abmpnn",
             temperature=geom.sampling_temp,
             excluded_amino_acids=["C"] if geom.ban_cysteine else [],
-            structure_inputs=[
-                InverseFoldingStructureInput(
-                    structure=complex_struct,
-                    chains_to_redesign=[binder_chain],
-                    fixed_positions={binder_chain: fixed_positions},
-                )
-            ],
+            structure_inputs=[abmpnn_structure_input],
         ),
     )
     abmpnn.assign(binder)
+    # Mirrors upstream ``SantiagoMille/germinal/filters/redesign.py``: top-K by perplexity here,
+    # cofold per survivor in the post-loop below.
     stage3 = RejectionSamplingOptimizer(
         constructs=[construct],
         generators=[abmpnn],
@@ -951,15 +954,12 @@ def run_trajectory(
             Constraint(
                 inputs=[binder],
                 function=mpnn_perplexity_constraint,
-                function_config=MpnnPerplexityConfig(top_k=geom.max_mpnn_sequences),
-                label="mpnn_prescreen",
-                threshold=0.0,
-            ),
-            Constraint(
-                inputs=[binder, *target_segments],
-                function=structure_composite_constraint,
-                function_config=_cofold_config(geom.cofold_tool, trajectory_seed),
-                label="cofold",
+                function_config=MpnnPerplexityConfig(
+                    structure_input=abmpnn_structure_input,
+                    model_choice="abmpnn",
+                    score_mode="ppl",
+                ),
+                label="mpnn_perplexity",
             ),
         ],
         config=RejectionSamplingOptimizerConfig(
@@ -968,21 +968,29 @@ def run_trajectory(
             samples_per_round=geom.num_seqs,
         ),
     )
-    print(f"[Traj {traj_idx}] Stage 3: AbMPNN redesign ({geom.num_seqs} samples, keep top {geom.max_mpnn_sequences})...")
+    print(
+        f"[Traj {traj_idx}] Stage 3: AbMPNN redesign ({geom.num_seqs} samples, keep top {geom.max_mpnn_sequences})..."
+    )
     Program(optimizers=[stage3], num_results=geom.max_mpnn_sequences, seed=trajectory_seed).run_stage(0)
 
-    print(f"[Traj {traj_idx}] Final filter: relax + evaluate {len(geom.final_filters)} gates per variant...")
-    # ── FINAL FILTER: relax + evaluate configured Germinal gates per variant ──
+    print(f"[Traj {traj_idx}] Final filter: cofold + relax + evaluate {len(geom.final_filters)} gates per variant...")
+    # ── FINAL FILTER: cofold each top-K variant, then relax + evaluate Germinal gates ──
+    cofold_cfg = StructureBasedConstraintConfig.model_validate(_cofold_config(geom.cofold_tool, trajectory_seed))
+    target_seqs = [seg.result_sequences[0] for seg in target_segments]
     accepted = 0
     for variant_idx, variant in enumerate(binder.result_sequences):
-        data = variant._constraints_metadata["cofold"]["data"]
+        cofold_result = structure_composite_constraint([(variant, *target_seqs)], cofold_cfg)[0]
+        data = cofold_result.metadata
         plddt = float(data["composite_avg_plddt"])
         iptm = float(data["composite_iptm"])
         ptm = float(data["composite_ptm"])
         pae_norm = float(data["composite_avg_pae"])
         pae_angstroms = pae_norm * PAE_MAXIMUM
-        assert variant.structure is not None  # noqa: S101 -- structure_composite_constraint always populates it
-        cofold_struct = variant.structure
+        cofold_struct = cofold_result.structures[0]
+        assert cofold_struct is not None  # noqa: S101 -- structure_composite_constraint always populates slot 0
+        # Normalize PAE key: Chai-1 uses 'pae', IPSAE/AF3 use 'pae_matrix'.
+        if "pae_matrix" not in cofold_struct.metrics and "pae" in cofold_struct.metrics:
+            cofold_struct.metrics["pae_matrix"] = cofold_struct.metrics["pae"]
 
         ipsae_result = run_ipsae_scoring(
             IPSAEScoringInput(
@@ -1251,7 +1259,9 @@ def passes_gate(binder: Segment, *, geom: BinderGeometry, include_ipae: bool) ->
     iptm = float(data["iptm"])
     ipae = float(data["ipae"])
     if plddt <= geom.plddt_threshold or iptm <= geom.iptm_threshold:
-        print(f"  gate: plddt={plddt:.3f} (need>{geom.plddt_threshold}) iptm={iptm:.3f} (need>{geom.iptm_threshold}) ipae={ipae:.2f}")
+        print(
+            f"  gate: plddt={plddt:.3f} (need>{geom.plddt_threshold}) iptm={iptm:.3f} (need>{geom.iptm_threshold}) ipae={ipae:.2f}"
+        )
         return False
     if include_ipae and ipae >= geom.ipae_threshold:
         print(f"  gate: ipae={ipae:.2f} (need<{geom.ipae_threshold}) plddt={plddt:.3f} iptm={iptm:.3f}")
@@ -1462,7 +1472,9 @@ def compute_sc_rmsd(
     cofold_target_ca = _ca_atoms(cofold_bio, [cofold_target_chain])
     n_align = min(len(hall_target_ca), len(cofold_target_ca))
     if n_align < 3:
-        raise ValueError(f"Too few CA atoms for superposition: hall={len(hall_target_ca)}, cofold={len(cofold_target_ca)}")
+        raise ValueError(
+            f"Too few CA atoms for superposition: hall={len(hall_target_ca)}, cofold={len(cofold_target_ca)}"
+        )
 
     sup = Superimposer()
     sup.set_atoms(hall_target_ca[:n_align], cofold_target_ca[:n_align])
@@ -1471,7 +1483,9 @@ def compute_sc_rmsd(
     cofold_bb = _bb_atoms(cofold_bio, cofold_binder_chain)
     n_bb = min(len(hall_bb), len(cofold_bb))
     if n_bb == 0:
-        raise ValueError(f"No backbone atoms found: hall chain {hall_binder_chain}={len(hall_bb)}, cofold chain {cofold_binder_chain}={len(cofold_bb)}")
+        raise ValueError(
+            f"No backbone atoms found: hall chain {hall_binder_chain}={len(hall_bb)}, cofold chain {cofold_binder_chain}={len(cofold_bb)}"
+        )
 
     sup.apply(cofold_bb[:n_bb])
     diff = np.array(

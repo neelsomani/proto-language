@@ -84,9 +84,6 @@ from proto_language.language.constraint.protein_structure.structure_geometry_con
     structure_radius_gyration_constraint,
 )
 from proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constraint import (
-    GENERATOR_KEY as PROTEINMPNN_GENERATOR_KEY,
-)
-from proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constraint import (
     MpnnPerplexityConfig,
     mpnn_perplexity_constraint,
 )
@@ -115,6 +112,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 
+PROTEINMPNN_GENERATOR_KEY = "proteinmpnn"
 BINDER_CHAIN = "B"
 BINDER_CHAIN_COFOLD = "A"
 TARGET_CHAIN_COFOLD = "B"
@@ -948,7 +946,13 @@ def _redesign_and_validate(
             Constraint(
                 inputs=[binder],
                 function=mpnn_perplexity_constraint,
-                function_config=MpnnPerplexityConfig(),
+                function_config=MpnnPerplexityConfig(
+                    structure_input=InverseFoldingStructureInput(
+                        structure=complex_struct,
+                        chains_to_redesign=chains_to_redesign,
+                        fixed_positions=fixed_positions,
+                    ),
+                ),
                 label="proteinmpnn_perplexity",
             )
         ],

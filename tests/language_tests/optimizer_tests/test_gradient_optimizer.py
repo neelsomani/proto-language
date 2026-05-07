@@ -981,6 +981,22 @@ def _ablang_constraint(seg: Segment, label: str = "ablang") -> Constraint:
     )
 
 
+def _mpnn_constraint(seg: Segment, structure_pdb: str, label: str = "mpnn") -> Constraint:
+    from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+
+    return ConstraintRegistry.create(
+        key="mpnn-perplexity",
+        segments=[seg],
+        config_dict={
+            "structure_input": {"structure": structure_pdb, "chains_to_redesign": ["A"]},
+            "temperature": 0.7,
+            "score_mode": "nll",
+            "seed": 7,
+        },
+        label=label,
+    )
+
+
 def _af2_constraint(
     binder: Segment, target: Segment, label: str = "af2", function: Callable | None = None
 ) -> Constraint:
@@ -1058,6 +1074,28 @@ class TestGradientOptimizerGPU:
         energies = [h["results"][0]["energy_score"] for h in opt.history[1:]]
         assert min(energies) < energies[0]
         assert seg.result_sequences[0].logits is not None
+
+    def test_proteinmpnn_gradient_descent(self, sample_pdb_content: str) -> None:
+        """ProteinMPNN perplexity gradients drive descent on the AGSVL backbone over 5 steps."""
+        seg = Segment(sequence="AGSVL", sequence_type="protein")
+        gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(seg)
+        opt = GradientOptimizer(
+            target_segment=seg,
+            constructs=[Construct([seg])],
+            generators=[gen],
+            constraints=[_mpnn_constraint(seg, sample_pdb_content)],
+            config=GradientOptimizerConfig(num_results=1, num_steps=5, lr=0.1, tracking_interval=1, seed=7),
+        )
+        opt.run()
+
+        # SGD can overshoot; assert any tracked step beats the first, mirroring ablang_gradient_descent.
+        energies = [h["results"][0]["energy_score"] for h in opt.history[1:]]
+        assert min(energies) < energies[0]
+
+        logits = seg.result_sequences[0].logits
+        assert logits is not None and logits.shape == (5, 20)
+        assert np.isfinite(logits).all()
 
     def test_af2_multimer_gradient_descent(self) -> None:
         """AF2 multimer gradient produces finite logit updates over 3 steps against a target."""

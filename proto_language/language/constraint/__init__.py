@@ -96,11 +96,13 @@ from proto_language.language.constraint.sequence_composition import (
 from proto_language.language.constraint.sequence_scoring import (
     AbLangPerplexityConfig,
     ESM2PerplexityConfig,
+    MpnnPerplexityConfig,
     ablang_perplexity_constraint,
     ablang_perplexity_gradient_backward,
     esm2_perplexity_constraint,
     esm2_perplexity_gradient_backward,
     mpnn_perplexity_constraint,
+    mpnn_perplexity_gradient_backward,
 )
 
 __all__ = [
@@ -173,11 +175,13 @@ __all__ = [
     # Sequence scoring
     "AbLangPerplexityConfig",
     "ESM2PerplexityConfig",
+    "MpnnPerplexityConfig",
     "ablang_perplexity_constraint",
     "ablang_perplexity_gradient_backward",
     "esm2_perplexity_constraint",
     "esm2_perplexity_gradient_backward",
     "mpnn_perplexity_constraint",
+    "mpnn_perplexity_gradient_backward",
     # RNA splicing
     "alphagenome_splice_site_usage",
     "splice_transformer_intron_boundary",

@@ -1,7 +1,8 @@
 """Base configuration classes for structure-based constraints.
 
 This module provides standardized configuration classes for constraints that
-use structure prediction tools (ESMFold, AlphaFold3, Boltz2, Chai1, AlphaFold2 multimer).
+use structure prediction tools (ESMFold, AlphaFold3, Boltz2, Chai1, Protenix,
+AlphaFold2 multimer).
 """
 
 from typing import Any, Literal
@@ -11,6 +12,7 @@ from proto_tools import (
     Boltz2Config,
     Chai1Config,
     ESMFoldConfig,
+    ProtenixConfig,
 )
 from proto_tools.utils import AminoAcid
 from pydantic import PrivateAttr, field_validator, model_validator
@@ -309,11 +311,12 @@ class StructureBasedConstraintConfig(BaseConfig):
     the structure_tool field with a narrower Literal type.
 
     Attributes:
-        structure_tool (Literal['esmfold', 'alphafold3', 'boltz2', 'chai1', 'alphafold2_multimer']): Tool to use for structure prediction. Supported options:
+        structure_tool (Literal['esmfold', 'alphafold3', 'boltz2', 'chai1', 'protenix', 'alphafold2_multimer']): Tool to use for structure prediction. Supported options:
             - "esmfold": ESMFold (Meta AI)
             - "alphafold3": AlphaFold 3 (Google DeepMind)
             - "boltz2": Boltz2 (MIT)
             - "chai1": Chai-1 (Chai Discovery)
+            - "protenix": Protenix (ByteDance)
             - "alphafold2_multimer": AlphaFold2 multimer-design backend
             Default is "esmfold".
 
@@ -329,6 +332,9 @@ class StructureBasedConstraintConfig(BaseConfig):
         chai1_config (Chai1Config): Configuration for Chai1 structure prediction.
             Only visible when ``structure_tool == "chai1"``.
 
+        protenix_config (ProtenixConfig): Configuration for Protenix structure prediction.
+            Only visible when ``structure_tool == "protenix"``.
+
         alphafold2_multimer_config (AlphaFold2MultimerStructureConfig): Configuration
             for AF2 multimer-backed structure constraints.
 
@@ -338,10 +344,12 @@ class StructureBasedConstraintConfig(BaseConfig):
         >>> config = MyConstraintConfig(structure_tool="alphafold3", alphafold3_config={"seeds": [0, 1]})
     """
 
-    structure_tool: Literal["esmfold", "alphafold3", "boltz2", "chai1", "alphafold2_multimer"] = ConfigField(
-        title="Structure Prediction Tool",
-        default="esmfold",
-        description="Tool to use for structure prediction.",
+    structure_tool: Literal["esmfold", "alphafold3", "boltz2", "chai1", "protenix", "alphafold2_multimer"] = (
+        ConfigField(
+            title="Structure Prediction Tool",
+            default="esmfold",
+            description="Tool to use for structure prediction.",
+        )
     )
 
     esmfold_config: ESMFoldConfig = ConfigField(
@@ -372,6 +380,13 @@ class StructureBasedConstraintConfig(BaseConfig):
         advanced=True,
         depends_on={"field": "structure_tool", "value": "chai1"},
     )
+    protenix_config: ProtenixConfig = ConfigField(
+        default_factory=ProtenixConfig,
+        title="Protenix Configuration",
+        description="Configuration for Protenix structure prediction.",
+        advanced=True,
+        depends_on={"field": "structure_tool", "value": "protenix"},
+    )
     alphafold2_multimer_config: AlphaFold2MultimerStructureConfig = ConfigField(
         default_factory=AlphaFold2MultimerStructureConfig,
         title="AF2 Multimer Config",
@@ -383,13 +398,21 @@ class StructureBasedConstraintConfig(BaseConfig):
     @property
     def tool_config(
         self,
-    ) -> ESMFoldConfig | AlphaFold3Config | Boltz2Config | Chai1Config | AlphaFold2MultimerStructureConfig:
+    ) -> (
+        ESMFoldConfig
+        | AlphaFold3Config
+        | Boltz2Config
+        | Chai1Config
+        | ProtenixConfig
+        | AlphaFold2MultimerStructureConfig
+    ):
         """Return the active tool configuration based on structure_tool."""
         configs = {
             "esmfold": self.esmfold_config,
             "alphafold3": self.alphafold3_config,
             "boltz2": self.boltz2_config,
             "chai1": self.chai1_config,
+            "protenix": self.protenix_config,
             "alphafold2_multimer": self.alphafold2_multimer_config,
         }
         return configs[self.structure_tool]

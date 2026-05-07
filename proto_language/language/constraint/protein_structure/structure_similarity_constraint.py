@@ -200,8 +200,8 @@ class StructureRMSDConfig(StructureSimilarityConfig):
     Inherits target specification (``target_chains``, ``target_structure``,
     ``min_target_plddt``) from ``StructureSimilarityConfig`` and tool selection
     (``structure_tool``, ``esmfold_config``, ``alphafold3_config``,
-    ``boltz2_config``, ``chai1_config``, ``alphafold2_multimer_config``) from
-    ``StructureBasedConstraintConfig``.
+    ``boltz2_config``, ``chai1_config``, ``protenix_config``,
+    ``alphafold2_multimer_config``) from ``StructureBasedConstraintConfig``.
 
     Attributes:
         inflection_point_angstroms (float):
@@ -243,8 +243,8 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
     Inherits target specification (``target_chains``, ``target_structure``,
     ``min_target_plddt``) from ``StructureSimilarityConfig`` and tool selection
     (``structure_tool``, ``esmfold_config``, ``alphafold3_config``,
-    ``boltz2_config``, ``chai1_config``, ``alphafold2_multimer_config``) from
-    ``StructureBasedConstraintConfig``.
+    ``boltz2_config``, ``chai1_config``, ``protenix_config``,
+    ``alphafold2_multimer_config``) from ``StructureBasedConstraintConfig``.
 
     Attributes:
         plddt_threshold (float | None):
@@ -323,7 +323,14 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> str | None:
     config=StructureRMSDConfig,
     description="Compare structure RMSD against a target (PDB or Sequence) using generic predictors.",
     uses_gpu=True,
-    tools_called=["esmfold-prediction", "alphafold3-prediction", "boltz2-prediction", "chai1-prediction", "pymol"],
+    tools_called=[
+        "esmfold-prediction",
+        "alphafold3-prediction",
+        "boltz2-prediction",
+        "chai1-prediction",
+        "protenix-prediction",
+        "pymol",
+    ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
     input_labels=None,
@@ -400,6 +407,7 @@ def _count_pdb_chains(pdb_text: str) -> int:
         "alphafold3-prediction",
         "boltz2-prediction",
         "chai1-prediction",
+        "protenix-prediction",
         "tmalign-alignment",
         "usalign-alignment",
     ],

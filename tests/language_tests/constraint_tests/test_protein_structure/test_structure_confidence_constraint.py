@@ -689,7 +689,8 @@ class TestToolConfigPassthrough:
             from proto_tools import ESMFoldConfig
 
             assert isinstance(passed_tool_config, ESMFoldConfig)
-            assert passed_tool_config.verbose is True
+            # BaseConfig.verbose is int (0/1/2/...) not bool — truthy means verbose enabled.
+            assert passed_tool_config.verbose
             assert passed_tool_config.residue_idx_offset == 256
             assert passed_tool_config.chain_linker == "GGGGG"
 
@@ -743,7 +744,7 @@ class TestToolConfigPassthrough:
             assert isinstance(passed_tool_config, ESMFoldConfig)
             # Verify it has default values
             assert passed_tool_config.device == "cuda"
-            assert passed_tool_config.verbose is False
+            assert not passed_tool_config.verbose
 
 
 # ============================================================================
@@ -958,7 +959,7 @@ class TestConfigurationDefaults:
         assert isinstance(config.tool_config, ESMFoldConfig)
         assert isinstance(config.esmfold_config, ESMFoldConfig)
         assert config.esmfold_config.device == "cuda"
-        assert config.esmfold_config.verbose is False
+        assert not config.esmfold_config.verbose
 
     def test_tool_name_strict(self, protein_sequence):
         """Test that tool names must be exact (case-sensitive, no whitespace)."""

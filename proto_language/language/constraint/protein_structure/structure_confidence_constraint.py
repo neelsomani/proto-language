@@ -45,11 +45,12 @@ TOOL_AVAILABLE_METRICS: dict[str, set[str]] = {
     "alphafold3": {"avg_plddt", "ptm", "iptm", "avg_pae"},
     "boltz2": {"avg_plddt", "ptm", "iptm", "avg_pae"},
     "chai1": {"avg_plddt", "ptm", "iptm", "avg_pae"},
+    "protenix": {"avg_plddt", "ptm", "iptm", "avg_pae"},
     "alphafold2_multimer": {"avg_plddt", "ptm", "iptm", "avg_pae", "iplddt", "ipae"},
 }
 PAE_MAXIMUM: float = 31.75  # Angstroms.
 COMPOSITE_REQUIRED_METRICS: frozenset[str] = frozenset({"avg_plddt", "iptm", "ptm", "avg_pae"})
-COMPOSITE_SUPPORTED_TOOLS: frozenset[str] = frozenset({"alphafold3", "boltz2", "chai1"})
+COMPOSITE_SUPPORTED_TOOLS: frozenset[str] = frozenset({"alphafold3", "boltz2", "chai1", "protenix"})
 
 
 @dataclass(frozen=True)
@@ -207,6 +208,7 @@ def _assemble_result(
         "alphafold3-prediction",
         "boltz2-prediction",
         "chai1-prediction",
+        "protenix-prediction",
         "alphafold2-multimer",
     ],
     category="protein_structure",
@@ -280,6 +282,7 @@ def structure_plddt_constraint(
         "alphafold3-prediction",
         "boltz2-prediction",
         "chai1-prediction",
+        "protenix-prediction",
         "alphafold2-multimer",
     ],
     category="protein_structure",
@@ -342,7 +345,13 @@ def structure_ptm_constraint(
     config=StructureBasedConstraintConfig,
     description="Evaluate interface quality using predicted interface TM score",
     uses_gpu=True,
-    tools_called=["alphafold3-prediction", "boltz2-prediction", "chai1-prediction", "alphafold2-multimer"],
+    tools_called=[
+        "alphafold3-prediction",
+        "boltz2-prediction",
+        "chai1-prediction",
+        "protenix-prediction",
+        "alphafold2-multimer",
+    ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
     input_labels=None,
@@ -427,6 +436,7 @@ def structure_iptm_constraint(
         "alphafold3-prediction",
         "boltz2-prediction",
         "chai1-prediction",
+        "protenix-prediction",
         "alphafold2-multimer",
     ],
     category="protein_structure",
@@ -602,7 +612,7 @@ def structure_ipae_constraint(
     config=StructureBasedConstraintConfig,
     description="Score structure quality using a composite of plddt/iptm/ptm/pae from a single prediction call",
     uses_gpu=True,
-    tools_called=["alphafold3-prediction", "boltz2-prediction", "chai1-prediction"],
+    tools_called=["alphafold3-prediction", "boltz2-prediction", "chai1-prediction", "protenix-prediction"],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
     input_labels=None,

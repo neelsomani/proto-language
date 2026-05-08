@@ -30,7 +30,6 @@ from proto_language.language.generator import (
     RandomProteinGeneratorConfig,
 )
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
-from proto_language.storage import get_file_content
 
 
 def parse_args():
@@ -282,12 +281,10 @@ def run_optimization(
         if not constraints:
             raise RuntimeError("No constraint metadata found on final protomer sequences.")
 
-        # Save PDB (stored as file reference, need to retrieve content)
         symmetry_data = constraints.get("protein_symmetry_ring_constraint", {}).get("data", {})
-        pdb_ref = symmetry_data.get("pdb_output")
-        if not pdb_ref:
-            raise RuntimeError("Missing PDB output reference in protein_symmetry_ring_constraint metadata.")
-        pdb_content = get_file_content(pdb_ref)
+        pdb_content = symmetry_data.get("pdb_output")
+        if not pdb_content:
+            raise RuntimeError("Missing PDB output in protein_symmetry_ring_constraint metadata.")
         pdb_path = os.path.join(run_dir, "design.pdb")
         with open(pdb_path, "w") as f:
             f.write(pdb_content)

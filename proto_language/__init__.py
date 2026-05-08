@@ -139,9 +139,6 @@ from proto_language.language.optimizer import (
 # Logging
 from proto_language.logging_config import get_logger, setup_logging
 
-# File resolution utilities
-from proto_language.storage import resolve_file, resolve_paths
-
 __all__ = [
     # Base infrastructure
     "BaseConfig",
@@ -288,9 +285,6 @@ __all__ = [
     "CyclingOptimizerConfig",
     "GradientOptimizer",
     "GradientOptimizerConfig",
-    # Utilities
-    "resolve_paths",
-    "resolve_file",
     # Logging
     "setup_logging",
     "get_logger",

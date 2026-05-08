@@ -56,8 +56,6 @@ dev = [
     "pytest-forked",        # Required on Sherlock (exclusive GPU process mode)
     "ruff==0.15.12",
     "mypy==1.20.2",
-    "google-auth",              # mypy needs this installed to type-check storage/store.py
-    "google-cloud-storage",     # mypy needs this installed to type-check storage/resolver.py
     "docstring-parser",
 ]
 
@@ -107,7 +105,6 @@ module = [
     # Data / cloud (stubs exist but not installed — add pandas-stubs, types-openpyxl to adopt)
     "pandas.*",
     "openpyxl.*",
-    "google.cloud.*",  # google-cloud-storage installed but no py.typed marker
     # Visualization / other
     "pymol.*",
     "vortex.*",

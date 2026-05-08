@@ -1,6 +1,5 @@
 """Tests for proto_language.utils.export module."""
 
-import io
 import json
 import tempfile
 from pathlib import Path
@@ -8,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from proto_language.utils.export import (
-    _finalize_file_refs,
     _flatten_generator_columns,
     _serialize_value,
     build_proposal_results,
@@ -1078,21 +1076,6 @@ class TestFiltering:
 class TestSerializeValue:
     """Tests for _serialize_value helper."""
 
-    def test_file_reference_passes_through(self):
-        """FileReference dicts pass through for post-processing."""
-        file_ref = {
-            "__file_ref__": True,
-            "id": "abc123",
-            "file_type": "pdb",
-            "url": "gs://bucket/file.pdb",
-        }
-        assert _serialize_value(file_ref) is file_ref
-
-    def test_file_reference_missing_url_passes_through(self):
-        """FileReference without url still passes through."""
-        file_ref = {"__file_ref__": True, "id": "abc123"}
-        assert _serialize_value(file_ref) is file_ref
-
     def test_dict_to_json(self):
         """Regular dicts serialize to JSON string."""
         d = {"a": 1, "b": [2, 3]}
@@ -1123,60 +1106,6 @@ class TestSerializeValue:
 
 class TestComplexValueSerialization:
     """Tests that complex values in metadata/constraints serialize properly."""
-
-    def test_file_ref_in_constraint_data(self):
-        """FileReference in constraint data → URL in flattened output."""
-        results = {
-            "results": [
-                {
-                    "result_idx": 0,
-                    "energy_score": 0.5,
-                    "constructs": [
-                        {
-                            "label": "c0",
-                            "type": "dna",
-                            "segments": [
-                                {
-                                    "label": "seg",
-                                    "sequence": "ATCG",
-                                    "constraints": {
-                                        "structure": {
-                                            "score": 0.1,
-                                            "weight": 1.0,
-                                            "weighted_score": 0.1,
-                                            "data": {
-                                                "pdb_output": {
-                                                    "__file_ref__": True,
-                                                    "id": "xyz",
-                                                    "url": "gs://bucket/out.pdb",
-                                                },
-                                                "per_residue": [0.9, 0.8, 0.7, 0.6],
-                                            },
-                                        },
-                                    },
-                                    "metadata": {},
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-            "best_result_idx": 0,
-        }
-
-        # flatten_sequences
-        rows = flatten_sequences(results)
-        assert rows[0]["structure.pdb_output"] == "gs://bucket/out.pdb"
-        assert json.loads(rows[0]["structure.per_residue"]) == [0.9, 0.8, 0.7, 0.6]
-
-        # flatten_constraints
-        rows = flatten_constraints(results)
-        assert rows[0]["pdb_output"] == "gs://bucket/out.pdb"
-        assert json.loads(rows[0]["per_residue"]) == [0.9, 0.8, 0.7, 0.6]
-
-        # flatten_constructs
-        rows = flatten_constructs(results)
-        assert rows[0]["seg.structure.pdb_output"] == "gs://bucket/out.pdb"
 
     def test_complex_metadata_serialized(self):
         """Complex metadata values serialize to JSON strings."""
@@ -1451,49 +1380,6 @@ class TestSegmentBoundaries:
         # cds should still be at offset 8 (promoter contributes 8 chars)
         assert row["cds.start"] == 8
         assert row["cds.end"] == 16
-
-
-def test_build_results_exports_structure_and_logits_as_file_references():
-    """build_results stores seq.structure and seq.logits as FileReferences; omits when None."""
-    from unittest.mock import MagicMock
-
-    import numpy as np
-
-    from proto_language.language.core import Construct, Segment, Sequence
-    from proto_language.storage.helpers import get_file_content_bytes
-    from proto_language.storage.models import FILE_REF_MARKER
-    from proto_language.utils.export import build_results
-    from tests.helpers.mock_structure import MockStructure
-
-    logits = np.ones((5, 20))
-    seq_with = Sequence("EVQLV", sequence_type="protein")
-    seq_with.structure = MockStructure()
-    seq_with.logits = logits
-    seq_without = Sequence("MKTLL", sequence_type="protein")
-
-    segment = MagicMock(spec=Segment)
-    segment.label = "chain"
-    segment.result_sequences = [seq_with, seq_without]
-    construct = MagicMock(spec=Construct)
-    construct.label = "c0"
-    construct.sequence_type = "protein"
-    construct.segments = [segment]
-
-    results = build_results([construct], [0.5, 0.6])
-
-    seg_with = results["results"][0]["constructs"][0]["segments"][0]
-    assert seg_with["structure"][FILE_REF_MARKER] is True
-    assert seg_with["structure"]["file_type"] == "pdb"
-    assert seg_with["logits"][FILE_REF_MARKER] is True
-    assert seg_with["logits"]["file_type"] == "binary"
-
-    # Verify logits round-trip: stored .npy bytes → np.load → original array
-    restored = np.load(io.BytesIO(get_file_content_bytes(seg_with["logits"])))
-    np.testing.assert_array_equal(restored, logits)
-
-    seg_without = results["results"][1]["constructs"][0]["segments"][0]
-    assert "structure" not in seg_without
-    assert "logits" not in seg_without
 
 
 def test_build_results_includes_generator_metadata():
@@ -1793,139 +1679,3 @@ class TestFlattenOptimizationProposals:
         # All rows are result, no proposals
         assert len(result_rows) == 4
         assert len(proposals) == 0
-
-
-# =============================================================================
-# resolve_files parameter
-# =============================================================================
-
-
-class TestResolveFiles:
-    """Tests for resolve_files parameter on flatten functions."""
-
-    @pytest.fixture(autouse=True)
-    def _setup_store(self, tmp_path):
-        """Set up a temporary file store for resolve_files tests."""
-        import os
-
-        from proto_language.storage import reset_file_store, store_file
-
-        reset_file_store()
-        os.environ["FILE_STORE_TYPE"] = "local"
-        os.environ["FILE_STORE_PATH"] = str(tmp_path / "file_store")
-
-        # Store a PDB file and capture its reference
-        from proto_language.storage import FileType
-
-        pdb_content = "ATOM 1 N ALA A 1 0.0 0.0 0.0"
-        self.file_ref = store_file(pdb_content, FileType.PDB)
-        self.pdb_content = pdb_content
-
-        yield
-
-        reset_file_store()
-        os.environ.pop("FILE_STORE_TYPE", None)
-        os.environ.pop("FILE_STORE_PATH", None)
-
-    def _results_with_file_ref(self):
-        """Build results containing a file reference in constraint data."""
-        return {
-            "results": [
-                {
-                    "result_idx": 0,
-                    "energy_score": 0.5,
-                    "constructs": [
-                        {
-                            "label": "c0",
-                            "type": "protein",
-                            "segments": [
-                                {
-                                    "label": "seg",
-                                    "sequence": "MKTL",
-                                    "constraints": {
-                                        "structure": {
-                                            "score": 0.1,
-                                            "weight": 1.0,
-                                            "weighted_score": 0.1,
-                                            "data": {
-                                                "pdb_output": self.file_ref,
-                                                "plddt": 0.85,
-                                            },
-                                        },
-                                    },
-                                    "metadata": {
-                                        "pdb_output": self.file_ref,
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-            "best_result_idx": 0,
-        }
-
-    def test_finalize_file_refs_url_mode(self):
-        """_finalize_file_refs(resolve=False) extracts URLs."""
-        rows = [{"col": self.file_ref, "other": 42}]
-        result = _finalize_file_refs(rows)
-        assert result[0]["col"] == self.file_ref["url"]
-        assert result[0]["other"] == 42
-
-    def test_finalize_file_refs_resolve_mode(self):
-        """_finalize_file_refs(resolve=True) batch-fetches and inlines content."""
-        rows = [{"col": self.file_ref, "other": 42}]
-        result = _finalize_file_refs(rows, resolve=True)
-        assert result[0]["col"] == self.pdb_content
-        assert result[0]["other"] == 42
-
-    def test_finalize_file_refs_deduplication(self):
-        """Same file ID across multiple rows is fetched only once."""
-        from unittest.mock import patch
-
-        rows = [
-            {"a": self.file_ref},
-            {"a": self.file_ref},
-            {"a": self.file_ref},
-        ]
-        with patch(
-            "proto_language.storage.store.LocalFileStore.get",
-            wraps=self._get_store().get,
-        ) as mock_get:
-            result = _finalize_file_refs(rows, resolve=True)
-            # All 3 rows resolved
-            assert all(r["a"] == self.pdb_content for r in result)
-            # But underlying get() called only once (deduplication)
-            assert mock_get.call_count == 1
-
-    def _get_store(self):
-        from proto_language.storage import get_file_store
-
-        return get_file_store()
-
-    def test_flatten_sequences_resolve_files(self):
-        """flatten_sequences with resolve_files inlines file content."""
-        results = self._results_with_file_ref()
-
-        # Default: URL
-        rows = flatten_sequences(results)
-        assert rows[0]["structure.pdb_output"] == self.file_ref["url"]
-
-        # Resolved: content
-        rows = flatten_sequences(results, resolve_files=True)
-        assert rows[0]["structure.pdb_output"] == self.pdb_content
-        assert rows[0]["metadata.pdb_output"] == self.pdb_content
-
-    def test_flatten_constraints_resolve_files(self):
-        """flatten_constraints with resolve_files inlines file content."""
-        results = self._results_with_file_ref()
-
-        rows = flatten_constraints(results, resolve_files=True)
-        assert rows[0]["pdb_output"] == self.pdb_content
-
-    def test_flatten_constructs_resolve_files(self):
-        """flatten_constructs with resolve_files inlines file content."""
-        results = self._results_with_file_ref()
-
-        rows = flatten_constructs(results, resolve_files=True)
-        assert rows[0]["seg.structure.pdb_output"] == self.pdb_content

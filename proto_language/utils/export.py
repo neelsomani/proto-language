@@ -13,15 +13,10 @@ import copy
 import csv
 import json
 from collections.abc import Callable
-from io import BytesIO, StringIO
+from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Literal
 
-import numpy as np
-
-from proto_language.storage.helpers import is_file_reference, store_file
-from proto_language.storage.models import FileType
-from proto_language.storage.store import get_file_store
 from proto_language.utils.helpers import filter_inf_nan_scores
 
 # Type aliases
@@ -32,21 +27,6 @@ Results = dict[str, Any]  # Output from build_results()
 # =============================================================================
 # Build results
 # =============================================================================
-
-
-def _attach_file_refs(seg_dict: dict[str, Any], seq: Any) -> None:
-    """Store structure/logits as FileReferences on the segment dict.
-
-    These keys are intentionally not surfaced by flatten functions — large binary
-    data doesn't belong in CSV/TSV columns. They appear in the structured JSON
-    results returned by build_results() directly.
-    """
-    if seq.structure is not None:
-        seg_dict["structure"] = store_file(seq.structure.structure_pdb, FileType.PDB)
-    if seq.logits is not None:
-        buf = BytesIO()
-        np.save(buf, seq.logits)
-        seg_dict["logits"] = store_file(buf.getvalue(), FileType.BINARY)
 
 
 def build_results(
@@ -88,8 +68,6 @@ def build_results(
                                         },
                                         "generators": {"proteinmpnn": {"perplexity": 1.8}},
                                         "metadata": {},
-                                        "structure": {"__file_ref__": ...},  # optional
-                                        "logits": {"__file_ref__": ...},  # optional
                                     }
                                 ],
                             }
@@ -118,7 +96,6 @@ def build_results(
                     "generators": copy.deepcopy(seq._generator_metadata),
                     "metadata": copy.deepcopy(seq._metadata),
                 }
-                _attach_file_refs(seg_dict, seq)
                 structured_segments.append(seg_dict)
             structured_constructs.append(
                 {
@@ -178,8 +155,6 @@ def build_proposal_results(
                                     "constraints": {...},
                                     "generators": {...},
                                     "metadata": {},
-                                    "structure": ...,
-                                    "logits": ...,
                                 }
                             ],
                         }
@@ -207,7 +182,6 @@ def build_proposal_results(
                     "generators": copy.deepcopy(seq._generator_metadata),
                     "metadata": copy.deepcopy(seq._metadata),
                 }
-                _attach_file_refs(seg_dict, seq)
                 structured_segments.append(seg_dict)
             structured_constructs.append(
                 {
@@ -247,58 +221,11 @@ def build_proposal_results(
 def _serialize_value(value: Any) -> Any:
     """Coerce complex values to CSV/JSON-friendly scalars.
 
-    - FileReference dicts (``__file_ref__: True``) → passed through unchanged
-      for post-processing by :func:`_finalize_file_refs`
-    - Lists/tuples → JSON string
-    - Other dicts → JSON string
-    - Scalars → passthrough
-
-    Args:
-        value (Any): Value to serialize.
+    Lists/tuples and dicts → JSON string; scalars passthrough.
     """
-    if isinstance(value, dict):
-        if is_file_reference(value):
-            return value  # Post-processed by _finalize_file_refs
-        return json.dumps(value)
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, (dict, list, tuple)):
         return json.dumps(value)
     return value
-
-
-def _finalize_file_refs(rows: list[dict[str, Any]], *, resolve: bool = False) -> list[dict[str, Any]]:
-    """Post-process file references in flattened rows.
-
-    When *resolve* is False (default), each file reference dict is replaced
-    with its URL string (fast, no I/O). When True, all unique file IDs are
-    batch-fetched concurrently and inlined as content strings.
-
-    Args:
-        rows (list[dict[str, Any]]): Flattened rows potentially containing file reference dicts.
-        resolve (bool): If True, fetch and inline actual file content.
-    """
-    if not rows:
-        return rows
-
-    # Collect unique file IDs across all rows
-    file_ids: set[str] = set()
-    for row in rows:
-        for v in row.values():
-            if is_file_reference(v):
-                file_ids.add(v["id"])
-
-    if not file_ids:
-        return rows
-
-    if not resolve:
-        # Fast path: extract URLs, no I/O
-        return [{k: (v.get("url", "") if is_file_reference(v) else v) for k, v in row.items()} for row in rows]
-
-    # Batch fetch with concurrency, decode once
-    store = get_file_store()
-    decoded = {fid: data.decode("utf-8") for fid, data in store.get_batch(file_ids).items()}
-
-    # Substitute
-    return [{k: (decoded[v["id"]] if is_file_reference(v) else v) for k, v in row.items()} for row in rows]
 
 
 def _collect_all_columns(rows: list[dict[str, Any]]) -> list[str]:
@@ -366,8 +293,6 @@ def flatten_sequences(
     results: Results,
     segments: set[str] | None = None,
     result_indices: set[int] | None = None,
-    *,
-    resolve_files: bool = False,
 ) -> list[dict[str, Any]]:
     """One row per (result_idx, construct, segment). All constraint fields inline.
 
@@ -375,7 +300,6 @@ def flatten_sequences(
         results (Results): Output from build_results().
         segments (set[str] | None): If set, only include these segment labels.
         result_indices (set[int] | None): If set, only include these result indices.
-        resolve_files (bool): Resolve file references to content instead of URLs.
 
     Columns:
         Fixed: result_idx, energy_score, construct, segment, sequence
@@ -406,7 +330,7 @@ def flatten_sequences(
                 for key, value in segment.get("metadata", {}).items():
                     row[f"metadata.{key}"] = _serialize_value(value)
                 rows.append(row)
-    return _finalize_file_refs(rows, resolve=resolve_files)
+    return rows
 
 
 def flatten_constraints(
@@ -414,8 +338,6 @@ def flatten_constraints(
     segments: set[str] | None = None,
     constraints: set[str] | None = None,
     result_indices: set[int] | None = None,
-    *,
-    resolve_files: bool = False,
 ) -> list[dict[str, Any]]:
     """One row per (result_idx, construct, segment, constraint). All metrics.
 
@@ -424,7 +346,6 @@ def flatten_constraints(
         segments (set[str] | None): If set, only include these segment labels.
         constraints (set[str] | None): If set, only include these constraint labels.
         result_indices (set[int] | None): If set, only include these result indices.
-        resolve_files (bool): Resolve file references to content instead of URLs.
 
     Columns:
         Fixed: result_idx, energy_score, construct, segment, constraint
@@ -460,15 +381,13 @@ def flatten_constraints(
                     for k, v in cdata.get("data", {}).items():
                         row[k] = _serialize_value(v)
                     rows.append(row)
-    return _finalize_file_refs(rows, resolve=resolve_files)
+    return rows
 
 
 def flatten_constructs(
     results: Results,
     segments: set[str] | None = None,
     result_indices: set[int] | None = None,
-    *,
-    resolve_files: bool = False,
 ) -> list[dict[str, Any]]:
     """One row per (result_idx, construct). Per-segment data as prefixed columns.
 
@@ -477,7 +396,6 @@ def flatten_constructs(
         segments (set[str] | None): If set, only include these segment labels in per-segment columns.
             full_sequence still reflects all segments for construct integrity.
         result_indices (set[int] | None): If set, only include these result indices.
-        resolve_files (bool): Resolve file references to content instead of URLs.
 
     Columns:
         Fixed: result_idx, energy_score, construct, full_sequence
@@ -524,7 +442,7 @@ def flatten_constructs(
                     row[f"{seg}.metadata.{key}"] = _serialize_value(value)
                 offset += seg_len
             rows.append(row)
-    return _finalize_file_refs(rows, resolve=resolve_files)
+    return rows
 
 
 def flatten_optimization(
@@ -532,8 +450,6 @@ def flatten_optimization(
     segments: set[str] | None = None,
     result_indices: set[int] | None = None,
     include_proposals: bool = False,
-    *,
-    resolve_files: bool = False,
 ) -> list[dict[str, Any]]:
     """One row per (timepoint, result_idx). Sequences + constraint scores.
 
@@ -548,7 +464,6 @@ def flatten_optimization(
             Result rows get ``pool="result"``, proposal rows get
             ``pool="proposal"`` with ``proposal_idx``, ``accepted``,
             ``rejected_by`` columns.
-        resolve_files (bool): Whether to resolve file references to local paths.
 
     Columns:
         Fixed: timepoint, result_idx, energy_score, optimizer.*
@@ -640,7 +555,7 @@ def flatten_optimization(
                         )
                 rows.append(row)
 
-    return _finalize_file_refs(rows, resolve=resolve_files)
+    return rows
 
 
 _ALL_TABLES = ("sequences", "constraints", "constructs", "optimization")
@@ -655,7 +570,6 @@ def flatten_table(
     result_indices: set[int] | None = None,
     constraints: set[str] | None = None,
     include_proposals: bool = False,
-    resolve_files: bool = False,
 ) -> list[dict[str, Any]]:
     """Dispatch to the appropriate flatten function for *table*.
 
@@ -668,7 +582,6 @@ def flatten_table(
         result_indices (set[int] | None): Only include these result indices.
         constraints (set[str] | None): Only include these constraint labels (constraints table only).
         include_proposals (bool): Include proposal rows (optimization table only).
-        resolve_files (bool): Resolve file references to content instead of URLs.
 
     Raises:
         ValueError: If *table* is not a recognized name.
@@ -676,7 +589,6 @@ def flatten_table(
     filters: dict[str, Any] = {
         "segments": segments,
         "result_indices": result_indices,
-        "resolve_files": resolve_files,
     }
     if table == "optimization":
         return flatten_optimization(history, include_proposals=include_proposals, **filters)

@@ -333,49 +333,24 @@ results.append(ConstraintOutput(
 Non-`None` entries in `structures` / `logits` are written to `inputs[i].structure` /
 `inputs[i].logits`; `None` entries and empty tuples are no-ops.
 
-### Externalizing Large Metadata
+### Metadata: keep it inline
 
-When a constraint produces large metadata (structure files, search hit lists, ORF annotations,
-domain results — anything that could exceed ~1KB), externalize it to the content-addressed
-file store instead of inlining it. This prevents bloating metadata and database rows.
+Constraints put raw Python objects (PDB strings, hit-dict lists, ORF annotations) into
+`metadata` directly. Use `None` — not `[]` — as the empty sentinel to keep value types
+homogeneous when readers iterate.
 
 ```python
-import json
-from proto_language.storage import store_file, FileType
-
-# Use None (not []) as the empty sentinel to avoid mixed types (dict vs list).
-mmseqs_ref = store_file(json.dumps(hits), FileType.JSON) if hits else None
-
 results.append(ConstraintOutput(
     score=s,
     metadata={
-        "pdb_output": store_file(structure.structure_pdb, FileType.PDB),  # large: externalize
-        "mmseqs_results": mmseqs_ref,                                     # large: externalize
-        "avg_plddt": 0.85,                                                # small: inline
-        "hit_count": len(hits),                                           # small: inline
+        "pdb_output": structure.structure_pdb,
+        "mmseqs_results": hits or None,
+        "avg_plddt": 0.85,
+        "hit_count": len(hits),
     },
     structures=(structure,) + (None,) * (len(proposal_tuple) - 1),
 ))
 ```
-
-**When to use `store_file()`:**
-- Structure files (PDB, CIF): always externalize
-- Tool output lists/dicts (MMseqs hits, ORF predictions, domain results): externalize
-- Scalar metrics, short strings, small dicts: keep inline
-
-**Available FileTypes:** `PDB`, `CIF`, `HMM`, `FASTA`, `CSV`, `JSON`, `BINARY`
-
-**Reading externalized data:** Use `get_file_content()` — it transparently handles both
-inline strings and file references:
-
-```python
-from proto_language.storage import get_file_content
-ref = seq._constraints_metadata["<constraint_key>"]["data"]["pdb_output"]
-content = get_file_content(ref)  # works with both formats
-```
-
-The export pipeline handles file references automatically — no special handling needed
-in export code.
 
 ## Tool Integration Pattern
 

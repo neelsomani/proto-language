@@ -1,8 +1,5 @@
 """Radius of gyration constraint using structure_metrics tool."""
 
-import tempfile
-from contextlib import ExitStack
-
 from proto_tools import (
     StructureMetricsConfig,
     StructureMetricsInput,
@@ -60,23 +57,14 @@ def gyration_radius_constraint(
     """
     sequences = [seq for (seq,) in input_sequences]
 
-    with ExitStack() as stack:
-        indexed_paths: list[tuple[int, str]] = []
-        for i, seq in enumerate(sequences):
-            if seq.structure is None:
-                continue
-            tmp = stack.enter_context(tempfile.NamedTemporaryFile(mode="w", suffix=".pdb", delete=True))
-            tmp.write(seq.structure.structure_pdb)
-            tmp.flush()
-            indexed_paths.append((i, tmp.name))
-
-        metrics_by_idx = {}
-        if indexed_paths:
-            metrics_result = run_structure_metrics(
-                StructureMetricsInput(pdb_paths=[p for _, p in indexed_paths]),
-                StructureMetricsConfig(),
-            )
-            metrics_by_idx = {idx: m for (idx, _), m in zip(indexed_paths, metrics_result.metrics, strict=False)}
+    indexed_structures = [(i, seq.structure) for i, seq in enumerate(sequences) if seq.structure is not None]
+    metrics_by_idx = {}
+    if indexed_structures:
+        metrics_result = run_structure_metrics(
+            StructureMetricsInput(structures=[s for _, s in indexed_structures]),
+            StructureMetricsConfig(),
+        )
+        metrics_by_idx = {idx: m for (idx, _), m in zip(indexed_structures, metrics_result.metrics, strict=False)}
 
     threshold = config.max_gyration_radius
     results: list[ConstraintOutput] = []

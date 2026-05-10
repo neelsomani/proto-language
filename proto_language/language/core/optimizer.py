@@ -327,9 +327,7 @@ class Optimizer(ABC):
                 "Optimizer requires at least one Generator (got empty list); generators propose new sequences for assigned segments"
             )
         if self._require_non_empty_constraints and not self.constraints:
-            raise ValueError(
-                "Optimizer requires at least one Constraint (got empty list); use a no-op constraint if intentional"
-            )
+            raise ValueError("Optimizer requires at least one Constraint (got empty list)")
 
         # 2. Type validation
         for i, construct in enumerate(self.constructs):

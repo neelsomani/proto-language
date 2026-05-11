@@ -117,11 +117,20 @@ def sample(self) -> None:
     self._validate_generator()
     sequences = [seq.sequence for seq in self.segment.proposal_sequences]
     tool_input = ToolInput(sequences=sequences)
-    tool_config = ToolConfig(model=self.model_name, temperature=self.temperature, batch_size=self.batch_size)
+    tool_config = ToolConfig(
+        model=self.model_name,
+        temperature=self.temperature,
+        batch_size=self.batch_size,
+        seed=self._next_seed(),
+    )
     result = run_tool(inputs=tool_input, config=tool_config)
     for i, sequence in enumerate(result.sequences):
         self.segment.proposal_sequences[i].sequence = sequence
 ```
+
+Pass `seed=self._next_seed()` when the underlying tool output should participate
+in seeded program determinism. Do not pass `seed_per_item`; `proto-tools`
+automatically derives per-item seeds for `seed_sensitive=True` iterable tools.
 
 ## Batching Architecture
 

@@ -39,6 +39,15 @@ The `Optimizer` ABC requires two abstract methods: `__init__` and `run`.
 
 **Note**: Subclass `__init__` signatures take `config` as a single parameter and unpack it into the ABC's individual parameters via `super().__init__()`. Pass `seed=config.seed`; `Optimizer.seed` is an alias for `config.seed`.
 
+## Seeded Tool Calls
+
+Optimizers and pipeline-built conditioning functions that call `proto-tools`
+directly must bridge the language seed hierarchy into tool configs. When
+reproducibility is intended, derive or store a deterministic call-level `seed`
+from `config.seed` and pass it to the tool config. Do not pass `seed_per_item`;
+`proto-tools` automatically derives per-item seeds for `seed_sensitive=True`
+iterable tools.
+
 ## Dual-Pool Architecture
 
 Every optimizer manages two sequence pools per segment:

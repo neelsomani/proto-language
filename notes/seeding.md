@@ -45,7 +45,9 @@ replay on repeated runs.
 ## Tools Boundary
 
 Language code should pass explicit seeds into tool configs when reproducibility
-is intended.
+is intended. If a tool is iterable and `seed_sensitive=True`, pass one call-level
+`seed`; do not pass `seed_per_item`. `proto-tools` derives stable per-item seeds
+internally.
 
 On the tools side, `seed=None` remains cacheable by default. Only cacheable
 tools marked `seed_sensitive=True` skip cache and iterable dedup while unseeded

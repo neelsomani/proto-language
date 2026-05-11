@@ -187,6 +187,7 @@ Standalone inference.py
 - Generators NEVER implement batching loops — they pass all sequences to the tool in one call
 - The tool layer (in proto-tools) owns the actual batching loop
 - Both GeneratorConfig and ToolConfig define `batch_size: int = ConfigField(default=1, ...)`
+- Seeded language components pass one call-level `seed` into tool configs; `proto-tools` owns per-item seed derivation for `seed_sensitive=True` iterable tools. Do not pass `seed_per_item`.
 
 ## Export Chain
 

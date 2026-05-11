@@ -7,6 +7,7 @@ accept pattern for passing proposals.
 import copy
 import inspect
 import logging
+import random
 from collections.abc import Callable
 from typing import Any, Literal, final
 
@@ -60,16 +61,31 @@ def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> 
     from proto_tools import StructurePredictionComplex, predict_structures
 
     structure_tool = config.protein_hunter.structure_tool if config.protein_hunter else "boltz2"
-    # Hallucinated sequences have no homologs, so skip ColabFold MSA search.
-    tool_config = {"use_msa": False}
+
+    def _make_rng() -> random.Random | None:
+        if config.seed is None:
+            return None
+        return random.Random(config.seed)  # noqa: S311 -- non-cryptographic
+
+    # Mutable RNG container so `_reset_seed_state` can swap it; advances one seed per cycle.
+    state = {"rng": _make_rng()}
 
     def conditioning_fn(sequences: list[Sequence]) -> list[Any]:
+        # Hallucinated sequences have no homologs, so skip ColabFold MSA search.
+        tool_config: dict[str, Any] = {"use_msa": False}
+        rng = state["rng"]
+        if rng is not None:
+            tool_config["seed"] = rng.randint(0, 2**31 - 1)
         complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
         structures = predict_structures(complexes, structure_tool, tool_config).structures
         for seq, structure in zip(sequences, structures, strict=True):
             seq.structure = structure
         return structures  # type: ignore[no-any-return]
 
+    def _reset_seed_state() -> None:
+        state["rng"] = _make_rng()
+
+    conditioning_fn._reset_seed_state = _reset_seed_state  # type: ignore[attr-defined]
     return conditioning_fn
 
 
@@ -323,6 +339,13 @@ class CyclingOptimizer(Optimizer):
         )
 
         self.num_steps: int = config.num_steps
+
+    def _reset_seed_state(self) -> None:
+        # Base resets optimizer/generator/constraint RNGs; also reset the conditioning_fn's RNG if it exposes a hook.
+        super()._reset_seed_state()
+        reset = getattr(self.conditioning_fn, "_reset_seed_state", None)
+        if callable(reset):
+            reset()
 
     def run(self) -> None:
         """Execute the cycling optimization loop."""

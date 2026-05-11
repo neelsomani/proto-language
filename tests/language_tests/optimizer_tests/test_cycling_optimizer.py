@@ -2,6 +2,7 @@
 
 import copy
 from pathlib import Path
+from typing import Any
 
 import pytest
 from proto_tools import InverseFoldingStructureInput, Structure
@@ -1056,6 +1057,90 @@ class TestCyclingOptimizerPipelineResolution:
             config=config,
         )
         assert optimizer.pipeline == "protein-hunter"
+
+    def test_protein_hunter_passes_cycle_seed_for_seed_sensitive_unroll(self, monkeypatch):
+        """conditioning_fn must provide seeded runs to the seed-sensitive @tool layer.
+
+        Per-candidate seed derivation now lives in the proto-tools framework
+        via decorator-level unroll. The cycling code is responsible only for
+        sending one deterministic seed per cycle when the optimizer is seeded.
+        """
+        from proto_language.language.optimizer import cycling_optimizer as co
+
+        captured: list[dict[str, Any]] = []
+
+        class _FakeStructure:
+            pass
+
+        class _FakeOutput:
+            def __init__(self, n: int):
+                self.structures = [_FakeStructure() for _ in range(n)]
+
+        def _fake_predict_structures(complexes, toolkit, tool_config):
+            captured.append(dict(tool_config))
+            return _FakeOutput(len(complexes))
+
+        import proto_tools
+
+        monkeypatch.setattr(proto_tools, "predict_structures", _fake_predict_structures)
+
+        cfg = CyclingOptimizerConfig(num_steps=1, num_results=3, pipeline="protein-hunter", seed=42)
+        fn = co._create_protein_hunter_conditioning_fn(cfg)
+
+        sequences = [Sequence(sequence="A" * 10, sequence_type="protein") for _ in range(3)]
+        fn(sequences)
+
+        # One batched predict_structures call per cycle (lets ToolPool fan out across GPUs).
+        assert len(captured) == 1
+        tool_config = captured[0]
+        assert tool_config["seed"] is not None
+        assert tool_config["use_msa"] is False
+        assert "seed_per_item" not in tool_config
+
+    def test_protein_hunter_conditioning_fn_is_seed_resettable(self, monkeypatch):
+        """Re-running a seeded cycling optimizer must replay the same conditioning seeds.
+
+        Base ``Optimizer._reset_seed_state`` reseeds the optimizer/generators/constraints
+        but doesn't know about pipeline-built conditioning_fns. The cycling-optimizer
+        override calls into the closure's ``_reset_seed_state`` hook so the second run's
+        per-cycle Boltz2 (etc.) seed matches the first.
+        """
+        from proto_language.language.optimizer import cycling_optimizer as co
+
+        captured_seeds: list[int | None] = []
+
+        class _FakeStructure:
+            pass
+
+        class _FakeOutput:
+            def __init__(self, n: int):
+                self.structures = [_FakeStructure() for _ in range(n)]
+
+        def _fake_predict_structures(complexes, toolkit, tool_config):
+            captured_seeds.append(tool_config.get("seed"))
+            return _FakeOutput(len(complexes))
+
+        import proto_tools
+
+        monkeypatch.setattr(proto_tools, "predict_structures", _fake_predict_structures)
+
+        cfg = CyclingOptimizerConfig(num_steps=1, num_results=2, pipeline="protein-hunter", seed=42)
+        fn = co._create_protein_hunter_conditioning_fn(cfg)
+        sequences = [Sequence(sequence="A" * 10, sequence_type="protein") for _ in range(2)]
+
+        fn(sequences)
+        first_seed = captured_seeds[-1]
+
+        # Without a reset, the second call advances the RNG — different seed.
+        fn(sequences)
+        continued_seed = captured_seeds[-1]
+        assert continued_seed != first_seed
+
+        # After resetting, the stream replays — third call matches the first.
+        fn._reset_seed_state()
+        fn(sequences)
+        replayed_seed = captured_seeds[-1]
+        assert replayed_seed == first_seed
 
 
 class TestCyclingProposalTracking:

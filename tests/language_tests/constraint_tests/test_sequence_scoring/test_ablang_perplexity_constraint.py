@@ -213,7 +213,7 @@ class TestRegistry:
         assert spec.mode == "dual"
         assert spec.function is ablang_perplexity_constraint
         assert spec.backward is ablang_perplexity_gradient_backward
-        assert spec.input_labels == [InputSlot(label="Binder", requires_logits=True)]
+        assert spec.input_labels == [InputSlot(label="Sequence", requires_logits=True)]
 
     def test_factory_builds_vhh_constraint(self) -> None:
         binder = Segment(sequence="EVQLVESG", sequence_type="protein")

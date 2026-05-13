@@ -173,7 +173,7 @@ def esm2_perplexity_gradient_backward(
     uses_gpu=True,
     category="sequence scoring",
     supported_sequence_types=["protein"],
-    input_labels=[InputSlot(label="Binder", requires_logits=True)],
+    input_labels=[InputSlot(label="Sequence", requires_logits=True)],
     backward=esm2_perplexity_gradient_backward,
     backward_config=ESM2PerplexityConfig,
 )

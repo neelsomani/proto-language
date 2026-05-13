@@ -136,7 +136,7 @@ class TestRegistry:
         assert spec.mode == "dual"
         assert spec.function is esm2_perplexity_constraint
         assert spec.backward is esm2_perplexity_gradient_backward
-        assert spec.input_labels == [InputSlot(label="Binder", requires_logits=True)]
+        assert spec.input_labels == [InputSlot(label="Sequence", requires_logits=True)]
 
 
 @pytest.mark.uses_gpu

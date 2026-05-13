@@ -433,28 +433,36 @@ class Program:
         return build_results(self.constructs, energy_scores)
 
     def serialize_state(self) -> dict[str, Any]:
-        """Serialize minimal program state for persistence between stages.
+        """Serialize program state for persistence between stages.
 
-        Only stores what's needed to reconstruct Sequence objects:
-        sequence, sequence_type, valid_chars. Constraint metadata is
-        excluded since it will be re-evaluated in subsequent stages.
+        Stores sequence identity plus optimizer handoff state. Constraint and
+        generator metadata are excluded since they will be re-evaluated in
+        subsequent stages.
         """
         segment_states = []
         for construct in self.constructs:
             for segment in construct.segments:
                 segment_state = {
-                    "result_sequences": [
-                        {
-                            "sequence": seq.sequence,
-                            "sequence_type": seq.sequence_type,
-                            "valid_chars": list(seq.valid_chars) if seq.valid_chars else None,
-                        }
-                        for seq in segment.result_sequences
-                    ],
+                    "result_sequences": [self._serialize_handoff_sequence(seq) for seq in segment.result_sequences],
                 }
                 segment_states.append(segment_state)
 
         return {"segments": segment_states}
+
+    @staticmethod
+    def _serialize_handoff_sequence(seq: Any) -> dict[str, Any]:
+        """Serialize only the sequence fields needed across optimizer stages."""
+        seq_data = {
+            "sequence": seq.sequence,
+            "sequence_type": seq.sequence_type,
+            "valid_chars": list(seq.valid_chars) if seq.valid_chars else None,
+        }
+        # Preserve optimizer handoff state across hosted stage boundaries.
+        if seq.logits is not None:
+            seq_data["logits"] = seq.logits.tolist()
+        if seq.structure is not None:
+            seq_data["structure"] = seq.structure.model_dump(mode="json")
+        return seq_data
 
     def restore_state(self, state: dict[str, Any], stage_index: int | None = None) -> None:
         """Restore program state from serialized data.
@@ -477,14 +485,7 @@ class Program:
             )
 
         for segment, segment_state in zip(all_segments, state["segments"], strict=False):
-            segment.result_sequences = [
-                Sequence(
-                    sequence=seq_data["sequence"],
-                    sequence_type=seq_data["sequence_type"],
-                    valid_chars=set(seq_data["valid_chars"]) if seq_data.get("valid_chars") else None,
-                )
-                for seq_data in segment_state["result_sequences"]
-            ]
+            segment.result_sequences = [Sequence.from_dict(seq_data) for seq_data in segment_state["result_sequences"]]
 
         # Update current_stage if specified (for resuming multi-stage optimization)
         if stage_index is not None:

@@ -3,6 +3,7 @@
 from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 
@@ -13,6 +14,7 @@ from proto_language.language.generator import (
     RandomNucleotideGeneratorConfig,
 )
 from proto_language.language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from tests.helpers.mock_structure import MockStructure
 
 _UNSET = object()
 
@@ -795,6 +797,67 @@ class TestSerializeRestoreState:
         restored_seq = fresh_program.constructs[0].segments[0].result_sequences[0]
         assert restored_seq.valid_chars == original_seq.valid_chars
         assert restored_seq.sequence_type == original_seq.sequence_type
+
+    def test_serialize_restore_preserves_logits(self):
+        """Optimizer handoff state preserves logits for hosted multi-stage runs."""
+        program = _create_simple_program(num_stages=1)
+        program.run_stage(0)
+        segment = program.constructs[0].segments[0]
+        logits = np.arange(len(segment.result_sequences[0].sequence) * 4, dtype=np.float64).reshape(-1, 4)
+        segment.result_sequences[0].logits = logits
+
+        state = program.serialize_state()
+        assert state["segments"][0]["result_sequences"][0]["logits"] == logits.tolist()
+
+        fresh_program = _create_simple_program(num_stages=1)
+        fresh_program.restore_state(state)
+
+        restored_seq = fresh_program.constructs[0].segments[0].result_sequences[0]
+        np.testing.assert_array_equal(restored_seq.logits, logits)
+
+    def test_serialize_restore_preserves_structure(self):
+        """Optimizer handoff state preserves structures used by pLDDT-weighted generators."""
+        program = _create_simple_program(num_stages=1)
+        program.run_stage(0)
+        segment = program.constructs[0].segments[0]
+        plddt = [0.2, 0.8]
+        segment.result_sequences[0].structure = MockStructure.with_plddt(plddt)
+
+        state = program.serialize_state()
+        assert "structure" in state["segments"][0]["result_sequences"][0]
+
+        fresh_program = _create_simple_program(num_stages=1)
+        fresh_program.restore_state(state)
+
+        restored_seq = fresh_program.constructs[0].segments[0].result_sequences[0]
+        assert restored_seq.structure is not None
+        np.testing.assert_allclose(restored_seq.structure.per_residue_plddt, plddt)
+
+    def test_serialize_state_with_handoff_payloads_is_json_compatible(self):
+        """Intermediate DB state survives the hosted JSON round-trip."""
+        import json
+
+        program = _create_simple_program(num_stages=1)
+        program.run_stage(0)
+        segment = program.constructs[0].segments[0]
+        sequence = segment.result_sequences[0]
+        logits = np.zeros((len(sequence.sequence), 4), dtype=np.float64)
+        plddt = [0.2, 0.8]
+        sequence.logits = logits
+        sequence.structure = MockStructure.with_plddt(plddt)
+
+        state = program.serialize_state()
+        structure_state = state["segments"][0]["result_sequences"][0]["structure"]
+        assert isinstance(structure_state["b_factor_type"], str)
+
+        restored_state = json.loads(json.dumps(state))
+        fresh_program = _create_simple_program(num_stages=1)
+        fresh_program.restore_state(restored_state)
+
+        restored_seq = fresh_program.constructs[0].segments[0].result_sequences[0]
+        np.testing.assert_array_equal(restored_seq.logits, logits)
+        assert restored_seq.structure is not None
+        np.testing.assert_allclose(restored_seq.structure.per_residue_plddt, plddt)
 
 
 class TestProgramExport:

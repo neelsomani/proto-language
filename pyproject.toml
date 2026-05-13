@@ -54,6 +54,7 @@ dev = [
     "pytest-asyncio>=0.21", # asyncio_mode="auto" requires 0.21+
     "pytest-cov>=4.1.0",
     "pytest-forked",        # Required on Sherlock (exclusive GPU process mode)
+    "pytest-randomly>=3.15",
     "ruff==0.15.12",
     "mypy==1.20.2",
     "docstring-parser",
@@ -69,14 +70,18 @@ testpaths = ["tests"]
 norecursedirs = ["proto-tools", "*.egg", ".*", "build", "dist"]
 pythonpath = ["."]
 addopts = [
+    "-ra",
     "-v",
     "--tb=short",
     "--strict-markers",
+    "--strict-config",
+    "--import-mode=importlib",
+    "--durations=20",
 ]
 markers = [
     "asyncio: mark test as requiring asyncio",
-    "cpu: CPU-only tests",
-    "gpu: GPU-required tests",
+    "uses_cpu: CPU-only tests (auto-applied to non-GPU tests by conftest)",
+    "uses_gpu: GPU-required tests",
     "slow: Slow tests that may take several minutes",
     "integration: Integration tests (require external tools like MAFFT). Skipped by default.",
     "skip_ci: Skip test in GitHub Actions CI",
@@ -198,10 +203,18 @@ docstring-code-format = true
 [tool.coverage.run]
 branch = true
 source = ["proto_language"]
-omit = ["*/tests/*"]
+omit = [
+    "*/tests/*",
+    # Git submodule (source already filters; defensive)
+    "proto-tools/*",
+    # Constraint plugins: tool-bound, only @pytest.mark.integration tests
+    "proto_language/language/constraint/*/*",
+    # Logging stdlib wrapper: handler plumbing
+    "proto_language/logging_config.py",
+]
 
 [tool.coverage.report]
-fail_under = 72
+fail_under = 80
 show_missing = true
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
 

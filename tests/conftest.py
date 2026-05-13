@@ -111,9 +111,6 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     """Configure pytest with custom markers and options."""
-    config.addinivalue_line("markers", "uses_gpu: mark test as requiring GPU")
-    config.addinivalue_line("markers", "uses_cpu: mark test as CPU-only")
-
     # Set environment variable to indicate we're in pytest
     # This prevents setup_logging() from creating timestamped files during test imports
     os.environ["PYTEST_RUNNING"] = "1"

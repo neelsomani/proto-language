@@ -19,11 +19,13 @@ proposal. The optimizer therefore does not need to know whether a gradient came
 from a public backward function or from a backend-specific grouped model call.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
+from pydantic import BaseModel
+
+from proto_language.language.constraint.constraint_registry import ConstraintSpec
 from proto_language.language.core import Constraint, Segment
+from proto_language.language.core.sequence import SequenceType
 from proto_language.language.optimizer.constraint_compiler import alphafold2_multimer_provider as af2m
 from proto_language.language.optimizer.constraint_compiler import esmfold_provider as esmfold
 from proto_language.language.optimizer.constraint_compiler.base import (
@@ -308,6 +310,91 @@ def constraint_supports_compiled_gradient(
     except (TypeError, ValueError) as exc:
         return False, str(exc)
     return True, None
+
+
+class GradientInputRequirement(BaseModel):
+    """A vocab requirement on a subset of constraint inputs.
+
+    Attributes:
+        sequence_types (list[SequenceType]): Allowed sequence types for selected inputs.
+        config_path (str | None): Config path selecting inputs; ``None`` means every input.
+        config_path_is_list (bool): True if ``config_path`` resolves to a list of indices.
+    """
+
+    sequence_types: list[SequenceType]
+    config_path: str | None = None
+    config_path_is_list: bool = False
+
+
+class GradientRule(BaseModel):
+    """One compiler-backed gradient path for a constraint.
+
+    Attributes:
+        label (str): Human-readable backend label.
+        structure_tool (str): Required ``structure_tool`` config value.
+        target_input_config_path (str | None): Config path of the gradient-receiving input; ``None`` means any input.
+        input_requirements (list[GradientInputRequirement]): Vocab requirements per input subset.
+    """
+
+    label: str
+    structure_tool: str
+    target_input_config_path: str | None = None
+    input_requirements: list[GradientInputRequirement]
+
+
+class GradientSupport(BaseModel):
+    """Compiler-backed gradient paths discoverable for a constraint.
+
+    Attributes:
+        rules (list[GradientRule]): One rule per supporting backend.
+    """
+
+    rules: list[GradientRule]
+
+
+_ESMFOLD_RULE = GradientRule(
+    label="ESMFold gradient",
+    structure_tool="esmfold",
+    target_input_config_path=None,
+    input_requirements=[GradientInputRequirement(sequence_types=["protein"])],
+)
+
+_AF2_MULTIMER_RULE = GradientRule(
+    label="AF2 multimer gradient",
+    structure_tool="alphafold2_multimer",
+    target_input_config_path="alphafold2_multimer_config.binder_input_index",
+    input_requirements=[
+        GradientInputRequirement(
+            sequence_types=["protein"],
+            config_path="alphafold2_multimer_config.binder_input_index",
+        ),
+        GradientInputRequirement(
+            sequence_types=["protein"],
+            config_path="alphafold2_multimer_config.target_input_indices",
+            config_path_is_list=True,
+        ),
+    ],
+)
+
+
+def gradient_support_for_constraint_spec(spec: ConstraintSpec) -> GradientSupport | None:
+    """Return compiler-backed gradient paths for a registered constraint.
+
+    Args:
+        spec (ConstraintSpec): The constraint registry entry to inspect.
+
+    Returns:
+        GradientSupport | None: Compiled gradient paths, or ``None`` when no
+            backend supports the constraint.
+    """
+    if spec.function is None:
+        return None
+    rules: list[GradientRule] = []
+    if spec.function in esmfold.ESMFOLD_STRUCTURE_LOSS_BY_FUNCTION:
+        rules.append(_ESMFOLD_RULE)
+    if spec.function in af2m.AF2_MULTIMER_STRUCTURE_LOSS_BY_FUNCTION:
+        rules.append(_AF2_MULTIMER_RULE)
+    return GradientSupport(rules=rules) if rules else None
 
 
 def _flush_scoring_groups(

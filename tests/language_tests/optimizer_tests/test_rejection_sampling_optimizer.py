@@ -29,6 +29,7 @@ from proto_language.language.generator.generator_registry import (
     GeneratorSpec,
 )
 from proto_language.language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from proto_language.language.optimizer.rejection_sampling_optimizer import DID_NOT_ENTER_TOP_K
 
 
 class _NoOpGenerator(Generator):
@@ -718,6 +719,9 @@ class TestRejectionSamplingOptimizerInternals:
         # No valid proposals found, empty results (no padding)
         assert len(optimizer.energy_scores) == 0
         assert len(segment.result_sequences) == 0
+        assert optimizer.history
+        assert all(entry["optimizer"]["filter_status"] == "failed" for entry in optimizer.history)
+        assert all(entry["optimizer"]["failed_filter"] == constraint.label for entry in optimizer.history)
 
     def test_partial_proposals_rejected_by_filter(self):
         """Test Rejection Sampling optimizer handles case where some but not all proposals pass filter."""
@@ -1057,7 +1061,7 @@ class TestRejectionSamplingProposalTracking:
     """Test proposal_results tracking in Rejection Sampling history."""
 
     def test_proposal_tracking(self):
-        """History has proposal_results with 'Not in results' for rejected proposals."""
+        """History has proposal_results for proposals that did not enter the top-k."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
         gen = RandomNucleotideGenerator(
@@ -1082,9 +1086,14 @@ class TestRejectionSamplingProposalTracking:
         )
         optimizer.run()
 
-        valid_rejectors = {"Not in results"}
+        valid_rejectors = {DID_NOT_ENTER_TOP_K}
         all_rejectors = set()
         for entry in optimizer.history:
+            metadata = entry["optimizer"]
+            assert metadata["filter_status"] == "passed"
+            assert metadata["failed_filter"] is None
+            assert "accepted" not in metadata
+            assert "rejected_by" not in metadata
             if "proposal_results" not in entry:
                 continue
             for cand in entry["proposal_results"]:

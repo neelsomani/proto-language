@@ -22,6 +22,9 @@ from proto_language.utils.export import build_proposal_results
 
 logger = logging.getLogger(__name__)
 
+# Passed threshold filters but did not enter the retained top-k at evaluation time.
+DID_NOT_ENTER_TOP_K = "did_not_enter_top_k"
+
 
 def _finite_number(value: Any) -> float | None:
     """Return value as finite float, else None."""
@@ -34,7 +37,7 @@ def _finite_number(value: Any) -> float | None:
 def _proposal_snapshot_score(proposal: dict[str, Any]) -> tuple[float | None, str]:
     """Choose the scalar score recorded for a proposal progress snapshot."""
     rejected_by = proposal.get("rejected_by")
-    if proposal.get("accepted") or rejected_by == "Not in results":
+    if proposal.get("accepted") or rejected_by == DID_NOT_ENTER_TOP_K:
         score = _finite_number(proposal.get("energy_score"))
         return (score, "energy_score") if score is not None else (None, "none")
 
@@ -48,6 +51,14 @@ def _proposal_snapshot_score(proposal: dict[str, Any]) -> tuple[float | None, st
                     if score is not None:
                         return score, "failed_filter_score"
     return None, "none"
+
+
+def _proposal_filter_metadata(proposal: dict[str, Any]) -> tuple[str, str | None]:
+    """Return whether the proposal passed threshold filters and the failing filter if any."""
+    rejected_by = proposal.get("rejected_by")
+    if rejected_by and rejected_by != DID_NOT_ENTER_TOP_K:
+        return "failed", str(rejected_by)
+    return "passed", None
 
 
 class RejectionSamplingOptimizerConfig(BaseOptimizerConfig):
@@ -336,7 +347,7 @@ class RejectionSamplingOptimizer(Optimizer):
                 pos = bisect.bisect_left(self._result_energies, energy)
                 self._insert_into_results(pos, proposal_idx, energy)
             else:
-                self._proposal_outcomes[proposal_idx] = "Not in results"
+                self._proposal_outcomes[proposal_idx] = DID_NOT_ENTER_TOP_K
 
             if self._should_save_proposal(proposal_number):
                 self._save_proposal_snapshot(proposal_number, batch_num, proposal_idx)
@@ -453,7 +464,7 @@ class RejectionSamplingOptimizer(Optimizer):
         proposals = build_proposal_results(self.constructs, self._proposal_outcomes, self._proposal_energy_scores)
         proposal = {**proposals[batch_proposal_idx], "proposal_idx": proposal_number - 1}
         score, score_source = _proposal_snapshot_score(proposal)
-        rejected_by = proposal.get("rejected_by")
+        filter_status, failed_filter = _proposal_filter_metadata(proposal)
         metadata: dict[str, Any] = {
             "type": "rejection-sampling",
             "iteration_kind": "proposal",
@@ -467,9 +478,8 @@ class RejectionSamplingOptimizer(Optimizer):
             "result_count": len(self._result_energies),
             "energy_threshold": self.energy_threshold,
             "proposal_count": 1,
-            "accepted_proposal_count": 1 if proposal.get("accepted") else 0,
-            "accepted": bool(proposal.get("accepted")),
-            "rejected_by": rejected_by,
+            "filter_status": filter_status,
+            "failed_filter": failed_filter,
             "score_source": score_source,
         }
         result = {

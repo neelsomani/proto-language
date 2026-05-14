@@ -214,10 +214,21 @@ def evaluate_scoring_constraints(
             compiled backend group containing multiple public constraints.
     """
     outputs: list[list[float]] = []
-    group_by_key: dict[tuple[Any, ...], list[CompiledConstraint]] = {}
-    group_order: list[tuple[Any, ...]] = []
+    group_by_key: dict[tuple[str, tuple[Any, ...]], list[CompiledConstraint]] = {}
+    group_order: list[tuple[str, tuple[Any, ...]]] = []
 
     for constraint in constraints:
+        objective_key = esmfold.objective_key_for_constraint(constraint)
+        if objective_key is not None:
+            config = esmfold.config_for_constraint(constraint, strict=True)
+            if config is not None and esmfold.can_group_scoring_constraint(constraint, objective_key, config):
+                group_key = ("esmfold", esmfold.scoring_group_key(constraint, config))
+                if group_key not in group_by_key:
+                    group_by_key[group_key] = []
+                    group_order.append(group_key)
+                group_by_key[group_key].append(CompiledConstraint(constraint=constraint, objective_key=objective_key))
+                continue
+
         objective_key = af2m.objective_key_for_constraint(constraint)
         if objective_key is None:
             _flush_scoring_groups(group_order, group_by_key, outputs, mask)
@@ -230,7 +241,7 @@ def evaluate_scoring_constraints(
             outputs.append([float(score) for score in constraint.evaluate(mask=mask, verbose=verbose)])
             continue
 
-        group_key = af2m.group_key(constraint, config)
+        group_key = ("af2", af2m.group_key(constraint, config))
         if group_key not in group_by_key:
             group_by_key[group_key] = []
             group_order.append(group_key)
@@ -398,12 +409,19 @@ def gradient_support_for_constraint_spec(spec: ConstraintSpec) -> GradientSuppor
 
 
 def _flush_scoring_groups(
-    group_order: list[tuple[Any, ...]],
-    group_by_key: dict[tuple[Any, ...], list[CompiledConstraint]],
+    group_order: list[tuple[str, tuple[Any, ...]]],
+    group_by_key: dict[tuple[str, tuple[Any, ...]], list[CompiledConstraint]],
     outputs: list[list[float]],
     mask: list[bool],
 ) -> None:
     """Evaluate queued forward scoring groups and clear the queues."""
-    outputs.extend(af2m.evaluate_scoring_group(group_by_key[group_key], mask) for group_key in group_order)
+    for group_key in group_order:
+        backend, _key = group_key
+        if backend == "af2":
+            outputs.append(af2m.evaluate_scoring_group(group_by_key[group_key], mask))
+        elif backend == "esmfold":
+            outputs.append(esmfold.evaluate_scoring_group(group_by_key[group_key], mask))
+        else:
+            raise ValueError(f"Unknown scoring compiler backend {backend!r}.")
     group_order.clear()
     group_by_key.clear()

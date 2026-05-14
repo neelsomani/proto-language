@@ -205,6 +205,8 @@ class Optimizer(ABC):
             ValueError: If optimizer is not properly initialized or operation is not 'add' or 'multiply'.
         """
         self._validate_optimizer()
+        if operation not in ("add", "multiply"):
+            raise ValueError(f"Optimizer aggregation operation must be 'add' or 'multiply', got {operation!r}")
 
         num_sequences = len(self.segments[0].proposal_sequences) if self.segments else 0
         passed = [True] * num_sequences
@@ -232,11 +234,26 @@ class Optimizer(ABC):
             passed = [p and bool(r) for p, r in zip(passed, results, strict=True)]
 
         # Pass 2: Score passing proposals (skip rejected proposals for performance)
-        all_scores = []
-        for idx, constraint in enumerate(scorers):
+        if operation == "add":
+            # The compiler groups backend-compatible scoring constraints, e.g. many
+            # AF2 multimer terms over the same proposal become one weighted model call.
+            from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+
             if self.verbose:
-                logger.info(f"Constraint {idx + 1}: {constraint.label}")
-            all_scores.append(constraint.evaluate(mask=passed, verbose=self.verbose))
+                for idx, constraint in enumerate(scorers):
+                    logger.info(f"Constraint {idx + 1}: {constraint.label}")
+            all_scores = evaluate_scoring_constraints(scorers, mask=passed, verbose=self.verbose)
+        else:
+            all_scores = []
+            for idx, constraint in enumerate(scorers):
+                if self.verbose:
+                    logger.info(f"Constraint {idx + 1}: {constraint.label}")
+                scores: list[float] = []
+                for score in constraint.evaluate(mask=passed, verbose=self.verbose):
+                    if isinstance(score, bool):
+                        raise TypeError(f"Scoring constraint '{constraint.label}' returned boolean score {score!r}.")
+                    scores.append(float(score))
+                all_scores.append(scores)
 
         # Warn if no scoring constraints exist (all are filters)
         if not all_scores:
@@ -250,10 +267,8 @@ class Optimizer(ABC):
         # NaN propagates through sum/prod operations, resulting in NaN if any constraint is unevaluated.
         if operation == "add":
             self.energy_scores = [sum(s[i] for s in all_scores) for i in range(num_sequences)]
-        elif operation == "multiply":
-            self.energy_scores = [math.prod(s[i] for s in all_scores) for i in range(num_sequences)]
         else:
-            raise ValueError(f"Optimizer aggregation operation must be 'add' or 'multiply', got {operation!r}")
+            self.energy_scores = [math.prod(s[i] for s in all_scores) for i in range(num_sequences)]
 
         # Check for inconsistent state
         if len(self.energy_scores) != num_sequences:

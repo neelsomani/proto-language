@@ -575,6 +575,7 @@ class TestScoreEnergy:
 
         with pytest.raises(ValueError, match=r"operation must be 'add' or 'multiply'"):
             optimizer.score_energy(operation="invalid")
+        constraint.evaluate.assert_not_called()
 
 
 class TestFilterConstraints:

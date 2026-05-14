@@ -15,6 +15,7 @@ rest of the language layer.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -389,9 +390,10 @@ def group_key(constraint: Constraint, config: StructureBasedConstraintConfig) ->
 
     Two constraints may share one AF2M call only if they reference the same
     segment objects in the same order and have identical AF2M config content.
-    The key intentionally uses segment identity, not sequence value, because the
-    provider must update metadata and structures on those exact proposal
-    objects.
+    Runtime seeds are excluded because grouped public objectives intentionally
+    share one stochastic AF2 evaluation. The key intentionally uses segment
+    identity, not sequence value, because the provider must update metadata and
+    structures on those exact proposal objects.
 
     Args:
         constraint (Constraint): Constraint being considered for grouping.
@@ -401,7 +403,8 @@ def group_key(constraint: Constraint, config: StructureBasedConstraintConfig) ->
         tuple[Any, ...]: Hashable key combining input identities and serialized AF2M config.
     """
     input_ids = tuple(id(segment) for segment in constraint.inputs)
-    config_json = config.alphafold2_multimer_config.model_dump_json()
+    config_payload = config.alphafold2_multimer_config.model_dump(mode="json", exclude={"seed"})
+    config_json = json.dumps(config_payload, sort_keys=True)
     return (*input_ids, config_json)
 
 

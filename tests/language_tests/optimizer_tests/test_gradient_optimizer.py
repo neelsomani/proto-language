@@ -631,6 +631,30 @@ class TestCompiledConstraints:
         assert mock_esm.call_args.args[1].loss_weights == {"plddt": 2.0, "ptm": 0.5}
         assert {"esmfold_plddt", "esmfold_ptm"}.issubset(metadata)
 
+    def test_groups_esmfold_scoring_terms_into_one_prediction_call(self) -> None:
+        from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from tests.helpers.mock_structure import PDL1_PDB
+
+        binder, _construct, constraints = _esmfold_confidence_problem()
+        structure = Structure(
+            structure=PDL1_PDB.read_text(),
+            structure_format="pdb",
+            metrics={"avg_plddt": 0.8, "ptm": 0.4, "avg_pae": 6.0},
+        )
+
+        with patch(
+            "proto_language.language.optimizer.constraint_compiler.esmfold_provider.predict_structures"
+        ) as mock_esm:
+            mock_esm.return_value = SimpleNamespace(structures=[structure])
+            scores = evaluate_scoring_constraints(constraints, mask=[True])
+
+        assert scores == [[pytest.approx(0.7)]]
+        assert mock_esm.call_count == 1
+        assert mock_esm.call_args.args[1] == "esmfold"
+        metadata = binder.proposal_sequences[0]._constraints_metadata
+        assert {"esmfold_plddt", "esmfold_ptm"}.issubset(metadata)
+        assert binder.proposal_sequences[0].structure is structure
+
     def test_esmfold_tool_failure_surfaces_captured_error(self) -> None:
         binder, construct, constraints = _esmfold_confidence_problem()
         failed_output = SimpleNamespace(
@@ -729,6 +753,43 @@ class TestCompiledConstraints:
             AF2_MULTIMER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
         }
         assert "af2_plddt" in metadata and "af2_ipae" in metadata
+
+    def test_score_energy_uses_grouped_af2_scoring(self) -> None:
+        from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
+        from tests.helpers.mock_structure import PDL1_PDB
+
+        binder, _target, construct, constraints = _af2_multimer_confidence_problem()
+        output = SimpleNamespace(
+            gradient=None,
+            loss=4.0,
+            metrics={"plddt": 1.0, "ipae": 2.0},
+            structure=Structure(structure=PDL1_PDB.read_text(), structure_format="pdb"),
+        )
+
+        with patch(
+            "proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            return_value=output,
+        ) as mock_af2:
+            generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
+            generator.assign(binder)
+            opt = GradientOptimizer(
+                target_segment=binder,
+                constructs=[construct],
+                generators=[generator],
+                constraints=constraints,
+                config=GradientOptimizerConfig(num_results=1, num_steps=1, lr=0.1, seed=7),
+            )
+            opt._prepare_run()
+            opt.score_energy()
+
+        assert opt.energy_scores == [pytest.approx(4.0)]
+        assert mock_af2.call_count == 1
+        assert mock_af2.call_args[0][1].loss_weights == {
+            "plddt": 2.0,
+            AF2_MULTIMER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
+        }
+        assert "af2_plddt" in binder.proposal_sequences[0]._constraints_metadata
+        assert "af2_ipae" in binder.proposal_sequences[0]._constraints_metadata
 
     def test_af2_multimer_tool_failure_surfaces_captured_error(self) -> None:
         binder, _target, construct, constraints = _af2_multimer_confidence_problem()

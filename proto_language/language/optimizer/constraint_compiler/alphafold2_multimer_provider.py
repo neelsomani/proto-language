@@ -15,8 +15,11 @@ rest of the language layer.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -84,6 +87,33 @@ AF2_MULTIMER_STRUCTURE_LOSS_BY_FUNCTION = {
     structure_distogram_cce_constraint: "dgram_cce",
     structure_termini_distance_constraint: "NC",
 }
+
+
+@lru_cache(maxsize=256)
+def _file_sha256(path: str, _size: int, _mtime_ns: int) -> str:
+    """Hash a file path, using size and mtime as cache invalidators."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _target_pdb_group_identity(target_pdb: str) -> tuple[str, ...]:
+    """Return a stable grouping identity for a target PDB value.
+
+    Equivalent PDB files can be referenced through different local paths. When
+    the value points to an existing file, group by content hash; otherwise
+    preserve the literal value for inline PDB content or unresolved paths.
+    """
+    try:
+        path = Path(target_pdb)
+        stat_result = path.stat()
+    except (OSError, ValueError):
+        return ("value", target_pdb)
+    if not path.is_file():
+        return ("value", target_pdb)
+    return ("file_sha256", path.suffix.lower(), _file_sha256(str(path), stat_result.st_size, stat_result.st_mtime_ns))
 
 
 class AF2MultimerGradientProvider(GradientProvider):
@@ -391,9 +421,10 @@ def group_key(constraint: Constraint, config: StructureBasedConstraintConfig) ->
     Two constraints may share one AF2M call only if they reference the same
     segment objects in the same order and have identical AF2M config content.
     Runtime seeds are excluded because grouped public objectives intentionally
-    share one stochastic AF2 evaluation. The key intentionally uses segment
-    identity, not sequence value, because the provider must update metadata and
-    structures on those exact proposal objects.
+    share one stochastic AF2 evaluation. Existing target PDB files are keyed by
+    content hash so equivalent file references still compile into one provider.
+    The key intentionally uses segment identity, not sequence value, because the
+    provider must update metadata and structures on those exact proposal objects.
 
     Args:
         constraint (Constraint): Constraint being considered for grouping.
@@ -403,9 +434,11 @@ def group_key(constraint: Constraint, config: StructureBasedConstraintConfig) ->
         tuple[Any, ...]: Hashable key combining input identities and serialized AF2M config.
     """
     input_ids = tuple(id(segment) for segment in constraint.inputs)
-    config_payload = config.alphafold2_multimer_config.model_dump(mode="json", exclude={"seed"})
+    config_payload = config.alphafold2_multimer_config.model_dump(mode="json", exclude={"seed", "target_pdb"})
+    target_pdb = config.alphafold2_multimer_config.target_pdb
+    target_pdb_identity = _target_pdb_group_identity(target_pdb)
     config_json = json.dumps(config_payload, sort_keys=True)
-    return (*input_ids, config_json)
+    return (*input_ids, target_pdb_identity, config_json)
 
 
 def add_gradient_constraint(provider: AF2MultimerGradientProvider, compiled: CompiledConstraint) -> None:

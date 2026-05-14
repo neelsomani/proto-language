@@ -754,6 +754,93 @@ class TestCompiledConstraints:
         }
         assert "af2_plddt" in metadata and "af2_ipae" in metadata
 
+    @pytest.mark.parametrize("mode", ["gradient", "scoring"])
+    def test_groups_af2_structure_terms_with_equivalent_target_pdb_files(self, tmp_path, mode: str) -> None:
+        from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+            StructureBasedConstraintConfig,
+        )
+        from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
+        from tests.helpers.mock_structure import PDL1_PDB
+
+        binder, target, construct, original_constraints = _af2_multimer_confidence_problem()
+        first_path = tmp_path / "upload_a.pdb"
+        second_path = tmp_path / "upload_b.pdb"
+        first_path.write_text(PDL1_PDB.read_text())
+        second_path.write_text(PDL1_PDB.read_text())
+        constraints: list[Constraint] = []
+        for original, target_pdb in zip(original_constraints, [first_path, second_path], strict=True):
+            assert original.function is not None
+            assert isinstance(original.function_config, StructureBasedConstraintConfig)
+            config = original.function_config.model_copy(deep=True)
+            config.alphafold2_multimer_config.target_pdb = str(target_pdb)
+            constraints.append(
+                Constraint(
+                    inputs=[binder, target],
+                    function=original.function,
+                    function_config=config,
+                    label=original.label,
+                    weight=original.weight,
+                )
+            )
+
+        if mode == "scoring":
+            binder.proposal_sequences = [binder.original_sequence]
+            target.proposal_sequences = [target.original_sequence]
+        output = SimpleNamespace(
+            gradient=[[0.1] * 20 for _ in range(5)] if mode == "gradient" else None,
+            loss=3.5,
+            metrics={"plddt": 1.0, "ipae": 2.0},
+            structure=Structure(structure=PDL1_PDB.read_text(), structure_format="pdb"),
+        )
+
+        with patch(
+            "proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            return_value=output,
+        ) as mock_af2:
+            if mode == "gradient":
+                generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
+                generator.assign(binder)
+                opt = GradientOptimizer(
+                    target_segment=binder,
+                    constructs=[construct],
+                    generators=[generator],
+                    constraints=constraints,
+                    config=GradientOptimizerConfig(num_results=1, num_steps=1, lr=0.1, normalize_gradients=False),
+                )
+                opt.run()
+            else:
+                scores = evaluate_scoring_constraints(constraints, mask=[True])
+                assert scores == [[pytest.approx(3.5)]]
+
+        assert mock_af2.call_count == 1
+        assert mock_af2.call_args[0][0].target_pdb.source == str(first_path)
+        assert mock_af2.call_args[0][1].loss_weights == {
+            "plddt": 2.0,
+            AF2_MULTIMER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
+        }
+
+    def test_af2_group_key_separates_different_target_pdb_files(self, tmp_path) -> None:
+        from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+            StructureBasedConstraintConfig,
+        )
+        from proto_language.language.optimizer.constraint_compiler import alphafold2_multimer_provider as af2m
+        from tests.helpers.mock_structure import PDL1_PDB
+
+        _binder, _target, _construct, constraints = _af2_multimer_confidence_problem()
+        first_path = tmp_path / "upload_a.pdb"
+        second_path = tmp_path / "upload_b.pdb"
+        first_path.write_text(PDL1_PDB.read_text())
+        second_path.write_text(f"{PDL1_PDB.read_text()}\nREMARK different uploaded file\n")
+        group_keys = []
+        for original, target_pdb in zip(constraints, [first_path, second_path], strict=True):
+            assert isinstance(original.function_config, StructureBasedConstraintConfig)
+            config = original.function_config.model_copy(deep=True)
+            config.alphafold2_multimer_config.target_pdb = str(target_pdb)
+            group_keys.append(af2m.group_key(original, config))
+
+        assert group_keys[0] != group_keys[1]
+
     def test_score_energy_uses_grouped_af2_scoring(self) -> None:
         from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
         from tests.helpers.mock_structure import PDL1_PDB

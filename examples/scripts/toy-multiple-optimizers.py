@@ -58,7 +58,6 @@ def rs_custom_logger(step, segments):
 rs_config = RejectionSamplingOptimizerConfig(
     num_samples=10,
     num_results=3,
-    samples_per_round=2,
     verbose=True,
 )
 

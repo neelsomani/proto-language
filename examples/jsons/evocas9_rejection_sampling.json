@@ -126,7 +126,6 @@
         "config": {
           "num_samples": 2000,
           "num_results": 2000,
-          "samples_per_round": 100,
           "verbose": false
         }
       }

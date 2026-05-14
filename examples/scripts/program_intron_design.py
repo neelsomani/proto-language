@@ -35,7 +35,6 @@ CONTEXT_LENGTH = 4000
 # Design defaults.
 INTRON_LENGTH = 301
 N_STEPS = 5_000
-SAMPLES_PER_ROUND = 10
 
 
 def _enable_mcmc_energy_logging() -> None:
@@ -455,7 +454,6 @@ if __name__ == "__main__":
         optimizer_config = RejectionSamplingOptimizerConfig(
             num_samples=args.n_steps,
             num_results=args.n_steps,
-            samples_per_round=SAMPLES_PER_ROUND,
             verbose=True,
         )
         optimizer = RejectionSamplingOptimizer(

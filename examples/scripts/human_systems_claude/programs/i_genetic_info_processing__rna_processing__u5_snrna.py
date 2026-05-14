@@ -264,7 +264,6 @@ def create_u5_snrna_program() -> Program:
     rejection_sampling_optimizer_config = RejectionSamplingOptimizerConfig(
         num_samples=N_SAMPLES,
         num_results=1,
-        samples_per_round=N_SAMPLES,
         verbose=True,
     )
     u5_snrna_optimizer = RejectionSamplingOptimizer(

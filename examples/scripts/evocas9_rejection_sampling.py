@@ -509,7 +509,6 @@ def build_program(
     optimizer_config = RejectionSamplingOptimizerConfig(
         num_samples=n_samples,
         num_results=n_samples,
-        samples_per_round=batch_size,
         verbose=verbose,
     )
     optimizer = RejectionSamplingOptimizer(

@@ -48,7 +48,6 @@ gc_constraint = Constraint(
 config = RejectionSamplingOptimizerConfig(
     num_samples=BATCH_SIZE * 2,
     energy_threshold=0.0,
-    samples_per_round=BATCH_SIZE,
     verbose=True,
 )
 

@@ -959,7 +959,6 @@ def _redesign_and_validate(
         config=RejectionSamplingOptimizerConfig(
             num_samples=config.mpnn_num_seqs,
             num_results=config.mpnn_num_seqs,
-            samples_per_round=config.mpnn_num_seqs,
         ),
     )
     Program(optimizers=[stage_redesign], num_results=config.mpnn_num_seqs, seed=traj_idx).run_stage(0)

@@ -41,8 +41,7 @@
         "method": "rejection-sampling",
         "config": {
           "num_samples": 100,
-          "num_results": 10,
-          "samples_per_round": 10
+          "num_results": 10
         }
       }
     },

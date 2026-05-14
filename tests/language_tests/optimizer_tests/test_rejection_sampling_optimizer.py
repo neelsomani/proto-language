@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
+from pydantic import BaseModel
 
 from proto_language.language.constraint import (
     gc_content_constraint,
@@ -42,6 +43,18 @@ class _NoOpGenerator(Generator):
         self._validate_generator()
 
 
+class _BatchSizeConfig(BaseModel):
+    batch_size: int | None = None
+
+
+def _batch_size_test_constraint(input_sequences, config):
+    return []
+
+
+_batch_size_test_constraint._constraint_supported_sequence_types = ["dna"]
+_batch_size_test_constraint._constraint_num_input_sequences_per_tuple = 1
+
+
 def _make_noop_generator(segment):
     """Create a no-op generator assigned to a segment, with registry mocking."""
     gen = _NoOpGenerator()
@@ -52,6 +65,81 @@ def _make_noop_generator(segment):
         with patch.object(GeneratorRegistry, "get_key", return_value="noop"):
             gen.assign(segment)
     return gen
+
+
+def _make_batch_size_constraint(segment, *, function_config=None, backward_config=None):
+    """Create a constraint whose configs can carry batch_size for inference tests."""
+    return Constraint(
+        inputs=[segment],
+        function=_batch_size_test_constraint,
+        function_config=function_config,
+        backward_config=backward_config,
+    )
+
+
+class TestRejectionSamplingProposalBatchSizeInference:
+    """Test auto-inference of proposal_batch_size from batched components."""
+
+    def test_infers_from_generator_batch_size(self):
+        segment = Segment(sequence="ATCG", sequence_type="dna")
+        gen = _make_noop_generator(segment)
+        gen.batch_size = 7
+
+        assert (
+            RejectionSamplingOptimizer._resolve_proposal_batch_size(
+                generators=[gen],
+                constraints=[],
+                num_samples=20,
+                configured=None,
+            )
+            == 7
+        )
+
+    def test_infers_from_constraint_config_batch_size(self):
+        segment = Segment(sequence="ATCG", sequence_type="dna")
+        constraint = _make_batch_size_constraint(segment, function_config={"batch_size": 5})
+
+        assert (
+            RejectionSamplingOptimizer._resolve_proposal_batch_size(
+                generators=[],
+                constraints=[constraint],
+                num_samples=20,
+                configured=None,
+            )
+            == 5
+        )
+
+    def test_uses_largest_component_batch_size(self):
+        segment = Segment(sequence="ATCG", sequence_type="dna")
+        gen = _make_noop_generator(segment)
+        gen.batch_size = 3
+        function_constraint = _make_batch_size_constraint(segment, function_config={"batch_size": 6})
+        backward_constraint = _make_batch_size_constraint(segment, backward_config=_BatchSizeConfig(batch_size=9))
+
+        assert (
+            RejectionSamplingOptimizer._resolve_proposal_batch_size(
+                generators=[gen],
+                constraints=[function_constraint, backward_constraint],
+                num_samples=20,
+                configured=None,
+            )
+            == 9
+        )
+
+    def test_caps_inferred_batch_size_at_num_samples(self):
+        segment = Segment(sequence="ATCG", sequence_type="dna")
+        gen = _make_noop_generator(segment)
+        gen.batch_size = 100
+
+        assert (
+            RejectionSamplingOptimizer._resolve_proposal_batch_size(
+                generators=[gen],
+                constraints=[],
+                num_samples=12,
+                configured=None,
+            )
+            == 12
+        )
 
 
 class TestRejectionSamplingOptimizerStandardMode:
@@ -82,7 +170,7 @@ class TestRejectionSamplingOptimizerStandardMode:
         )
 
         assert optimizer.num_samples == 10
-        assert optimizer.samples_per_round == 1  # Default
+        assert optimizer.proposal_batch_size == 1  # Default inferred from components
         assert optimizer.energy_threshold is None  # Standard mode
         assert optimizer.num_results == 5
         assert len(optimizer.constraints) == 1
@@ -278,8 +366,8 @@ class TestRejectionSamplingOptimizerStandardMode:
         # Verify sequences were restored (not all G's - restoration happened)
         assert any(seq.sequence != "GGGGGGGG" for seq in segment.result_sequences)
 
-    def test_rejection_sampling_with_proposals_per_round(self):
-        """Test Rejection Sampling with samples_per_round > 1 for efficient batching."""
+    def test_rejection_sampling_with_proposal_batch_size(self):
+        """Test Rejection Sampling with proposal_batch_size > 1 for efficient batching."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
@@ -294,7 +382,7 @@ class TestRejectionSamplingOptimizerStandardMode:
             function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        config = RejectionSamplingOptimizerConfig(num_samples=20, num_results=3, samples_per_round=5, verbose=False)
+        config = RejectionSamplingOptimizerConfig(num_samples=20, num_results=3, proposal_batch_size=5, verbose=False)
         optimizer = RejectionSamplingOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -303,19 +391,26 @@ class TestRejectionSamplingOptimizerStandardMode:
         )
 
         assert optimizer.num_samples == 20
-        assert optimizer.samples_per_round == 5
+        assert optimizer.proposal_batch_size == 5
         assert optimizer.num_results == 3
 
         optimizer.run()
 
         assert len(segment.result_sequences) == 3
         assert len(optimizer.energy_scores) == 3
+        assert [entry["time_step"] for entry in optimizer.history] == list(range(1, 21))
+        assert all(entry["optimizer"]["iteration_kind"] == "proposal" for entry in optimizer.history)
 
         for i in range(len(optimizer.energy_scores) - 1):
             assert optimizer.energy_scores[i] <= optimizer.energy_scores[i + 1]
 
-    def test_rejection_sampling_rounds_up_num_samples(self):
-        """Test Rejection Sampling rounds num_samples up to nearest samples_per_round multiple."""
+    def test_samples_per_round_is_not_a_valid_config_field(self):
+        """samples_per_round was removed; use proposal_batch_size for internal batching."""
+        with pytest.raises(ValueError, match="samples_per_round"):
+            RejectionSamplingOptimizerConfig(num_samples=10, num_results=5, samples_per_round=3)
+
+    def test_proposal_batch_size_does_not_round_num_samples(self):
+        """proposal_batch_size controls internal batches without changing num_samples."""
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])
 
@@ -330,8 +425,13 @@ class TestRejectionSamplingOptimizerStandardMode:
             function_config={"min_gc": 40.0, "max_gc": 60.0},
         )
 
-        # 10 samples with samples_per_round=3 → rounded up to 12 (4 rounds)
-        config = RejectionSamplingOptimizerConfig(num_samples=10, num_results=5, samples_per_round=3, verbose=False)
+        # 10 samples with proposal_batch_size=3 -> batches of 3,3,3,1.
+        config = RejectionSamplingOptimizerConfig(
+            num_samples=10,
+            num_results=5,
+            proposal_batch_size=3,
+            verbose=False,
+        )
         optimizer = RejectionSamplingOptimizer(
             constructs=[construct],
             generators=[gen],
@@ -339,14 +439,14 @@ class TestRejectionSamplingOptimizerStandardMode:
             config=config,
         )
 
-        # num_samples rounded up to nearest multiple of samples_per_round
-        assert optimizer.num_samples == 12
-        assert optimizer.num_samples // optimizer.samples_per_round == 4
+        assert optimizer.num_samples == 10
+        assert optimizer.proposal_batch_size == 3
 
         optimizer.run()
 
         assert len(segment.result_sequences) == 5
         assert len(optimizer.energy_scores) == 5
+        assert [entry["time_step"] for entry in optimizer.history] == list(range(1, 11))
 
     def test_inf_and_nan_energy_rejection(self):
         """Test that Rejection Sampling optimizer skips inf/nan energies."""
@@ -686,11 +786,11 @@ class TestRejectionSamplingOptimizerTrajectoryPreservation:
         )
 
         # num_results=6 with 3 source sequences → cycling produces [A, C, G, A, C, G]
-        # samples_per_round=6 means 6 proposals per round
+        # proposal_batch_size=6 means 6 proposals per internal batch
         config = RejectionSamplingOptimizerConfig(
             num_samples=6,  # Generate 6 samples total
             num_results=6,  # Keep top 6
-            samples_per_round=6,
+            proposal_batch_size=6,
             verbose=False,
         )
         optimizer = RejectionSamplingOptimizer(
@@ -704,8 +804,8 @@ class TestRejectionSamplingOptimizerTrajectoryPreservation:
         optimizer._initialize_sequence_pools()
         optimizer._capture_initial_state()
 
-        # Run one sampling round (no-op generator keeps sequences as their seeds)
-        optimizer._run_sampling_round(0)
+        # Run one proposal batch (no-op generator keeps sequences as their seeds)
+        optimizer._run_proposal_batch(batch_num=1, first_proposal_number=1, batch_size=optimizer.proposal_batch_size)
 
         # Verify that proposals come from different seeds (cycled pattern)
         # With the fix: proposals should be [AAAA, CCCC, GGGG, AAAA, CCCC, GGGG]
@@ -760,7 +860,7 @@ class TestRejectionSamplingOptimizerTrajectoryPreservation:
             function_config={"target_length": 4},
         )
 
-        config = RejectionSamplingOptimizerConfig(num_samples=4, num_results=4, samples_per_round=4, verbose=False)
+        config = RejectionSamplingOptimizerConfig(num_samples=4, num_results=4, proposal_batch_size=4, verbose=False)
         optimizer = RejectionSamplingOptimizer(
             constructs=[construct],
             generators=[gen1, gen2],
@@ -770,7 +870,7 @@ class TestRejectionSamplingOptimizerTrajectoryPreservation:
 
         optimizer._initialize_sequence_pools()
         optimizer._capture_initial_state()
-        optimizer._run_sampling_round(0)
+        optimizer._run_proposal_batch(batch_num=1, first_proposal_number=1, batch_size=optimizer.proposal_batch_size)
 
         # Verify result coherence: index i in segment1 should pair with index i in segment2
         proposals1 = [seq.sequence for seq in segment1.proposal_sequences]
@@ -996,6 +1096,78 @@ class TestRejectionSamplingProposalTracking:
 
         assert all_rejectors.issubset(valid_rejectors)
 
+    def test_proposal_rows_are_emitted_without_proposal_tracking_payload(self):
+        """track_proposals=False still records proposal iterations, but omits proposal_results."""
+        segment = Segment(sequence="ATCGATCG", sequence_type="dna")
+        construct = Construct([segment])
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        gen.assign(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
+        )
+        optimizer = RejectionSamplingOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=RejectionSamplingOptimizerConfig(
+                num_samples=5,
+                num_results=2,
+                verbose=False,
+                track_proposals=False,
+            ),
+        )
+        optimizer.run()
+
+        assert [entry["time_step"] for entry in optimizer.history] == [1, 2, 3, 4, 5]
+        assert all(entry["optimizer"]["iteration_kind"] == "proposal" for entry in optimizer.history)
+        assert all("proposal_results" not in entry for entry in optimizer.history)
+
+    def test_final_proposal_is_not_duplicated_when_history_is_cleared_after_append(self):
+        """API progress callbacks clear history after persisting each appended snapshot."""
+
+        class ClearingHistory(list):
+            def __init__(self):
+                super().__init__()
+                self.saved: list[dict] = []
+
+            def append(self, entry):
+                self.saved.append(entry)
+                super().append(entry)
+                self.clear()
+
+        segment = Segment(sequence="ATCGATCG", sequence_type="dna")
+        construct = Construct([segment])
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        gen.assign(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config={"min_gc": 40.0, "max_gc": 60.0},
+        )
+        optimizer = RejectionSamplingOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=RejectionSamplingOptimizerConfig(
+                num_samples=5,
+                num_results=2,
+                proposal_batch_size=2,
+                verbose=False,
+            ),
+        )
+        history = ClearingHistory()
+        optimizer.history = history
+
+        optimizer.run()
+
+        assert [entry["time_step"] for entry in history.saved] == [1, 2, 3, 4, 5]
+
 
 class TestRejectionSamplingTrackingInterval:
     """Test tracking_interval in Rejection Sampling optimizer."""
@@ -1027,7 +1199,7 @@ class TestRejectionSamplingTrackingInterval:
         )
         optimizer.run()
 
-        # 10 rounds with interval=2: rounds 2,4,6,8,10 (no step 0 for Rejection Sampling)
+        # 10 proposal iterations with interval=2: proposals 2,4,6,8,10.
         saved_steps = {entry["time_step"] for entry in optimizer.history}
         assert saved_steps == {2, 4, 6, 8, 10}
 
@@ -1059,9 +1231,8 @@ class TestRejectionSamplingTrackingInterval:
         )
         optimizer.run()
 
-        # Threshold should be met well before round 1000
-        num_sampling_rounds = config.num_samples // optimizer.samples_per_round
-        assert len(optimizer.history) < num_sampling_rounds
+        # Threshold should be met well before proposal 1000
+        assert len(optimizer.history) < config.num_samples
 
         # The last snapshot should reflect the round where threshold was met
         saved_steps = sorted(entry["time_step"] for entry in optimizer.history)

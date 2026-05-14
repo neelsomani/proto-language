@@ -8,7 +8,6 @@ from tap import Tap
 from examples.scripts.program_intron_design import (
     INTRON_LENGTH,
     N_STEPS,
-    SAMPLES_PER_ROUND,
     _enable_mcmc_energy_logging,
     _get_constraints_metadata,
     get_initial_intron,
@@ -630,7 +629,6 @@ if __name__ == "__main__":
         optimizer_config = RejectionSamplingOptimizerConfig(
             num_samples=args.n_steps,
             num_results=args.n_steps,
-            samples_per_round=SAMPLES_PER_ROUND,
             verbose=True,
         )
         optimizer = RejectionSamplingOptimizer(

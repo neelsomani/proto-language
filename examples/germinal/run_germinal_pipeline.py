@@ -965,7 +965,6 @@ def run_trajectory(
         config=RejectionSamplingOptimizerConfig(
             num_samples=geom.num_seqs,
             num_results=geom.max_mpnn_sequences,
-            samples_per_round=geom.num_seqs,
         ),
     )
     print(

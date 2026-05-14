@@ -257,7 +257,6 @@ def create_creb_dna_program() -> Program:
     rejection_sampling_optimizer_config = RejectionSamplingOptimizerConfig(
         num_samples=N_SAMPLES,
         num_results=1,
-        samples_per_round=N_SAMPLES,
         verbose=True,
     )
     creb_dna_optimizer = RejectionSamplingOptimizer(

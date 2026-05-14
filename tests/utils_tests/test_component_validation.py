@@ -45,7 +45,8 @@ GOOD_CONSTRAINT_SOURCE = textwrap.dedent(
 
 GOOD_GENERATOR_SOURCE = textwrap.dedent(
     """
-    from proto_language import BaseConfig, Generator, generator
+    from proto_language import BaseConfig, generator
+    from proto_language.language.core import Generator, GeneratorInputType
 
 
     class ToyGeneratorConfig(BaseConfig):
@@ -57,10 +58,11 @@ GOOD_GENERATOR_SOURCE = textwrap.dedent(
         label="Toy",
         config=ToyGeneratorConfig,
         description="Toy.",
-        category="mutation",
         supported_sequence_types=["dna"],
     )
     class ToyGenerator(Generator):
+        input_type = GeneratorInputType.STARTING_SEQUENCE
+
         def __init__(self, config: ToyGeneratorConfig):
             super().__init__()
             self.config = config

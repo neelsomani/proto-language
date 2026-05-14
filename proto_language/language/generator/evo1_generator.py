@@ -11,7 +11,7 @@ from proto_tools import (
 from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator
+from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -105,7 +105,6 @@ class Evo1GeneratorConfig(BaseConfig):
     description="Evo1 genome language model for DNA sequence generation",
     uses_gpu=True,
     tools_called=["evo1"],
-    category="autoregressive",
     supported_sequence_types=["dna"],
 )
 @final
@@ -130,6 +129,8 @@ class Evo1Generator(Generator):
         >>> gen.assign(segment)  # num_tokens = 1003 - 3 = 1000
         >>> gen.sample()
     """
+
+    input_type = GeneratorInputType.PROMPT
 
     def __init__(self, config: Evo1GeneratorConfig) -> None:
         """Initialize the Evo1 generator with model and sampling configuration."""

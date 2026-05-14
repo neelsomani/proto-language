@@ -9,7 +9,7 @@ from proto_tools.tools.masked_models.esm3.esm3_sample import (
 from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator
+from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -170,7 +170,6 @@ class ESM3GeneratorConfig(BaseConfig):
     description="ESM-3 open masked protein language model for local sequence mutation/refinement",
     uses_gpu=True,
     tools_called=["esm3-sample"],
-    category="mutation",
     supported_sequence_types=["protein"],
 )
 @final
@@ -210,6 +209,8 @@ class ESM3Generator(Generator):
         >>> gen.assign(segment)
         >>> gen.sample()  # Refines 5 highest-uncertainty positions
     """
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
 
     def __init__(self, config: ESM3GeneratorConfig) -> None:
         """Initialize the ESM3 generator with model and sampling configuration.

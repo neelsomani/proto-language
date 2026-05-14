@@ -719,8 +719,8 @@ class TestMCMCOptimizer:
 
     def test_single_generator_can_populate_multiple_construct_segments(self):
         """One generator can drive multiple segments across separate constructs."""
-        segment1 = Segment(length=8, sequence_type="protein")
-        segment2 = Segment(length=8, sequence_type="protein")
+        segment1 = Segment(sequence="A" * 8, sequence_type="protein")
+        segment2 = Segment(sequence="A" * 8, sequence_type="protein")
         generator = RandomProteinGenerator(RandomProteinGeneratorConfig())
         generator.assign([segment1, segment2])
 

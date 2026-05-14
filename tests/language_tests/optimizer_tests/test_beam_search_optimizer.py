@@ -11,7 +11,14 @@ from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
     GCContentConfig,
 )
-from proto_language.language.core import Constraint, ConstraintOutput, Construct, Generator, Segment
+from proto_language.language.core import (
+    Constraint,
+    ConstraintOutput,
+    Construct,
+    Generator,
+    GeneratorInputType,
+    Segment,
+)
 from proto_language.language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
@@ -21,6 +28,8 @@ from proto_language.language.optimizer import (
 
 class MockAutoregressiveGenerator(Generator):
     """Mock autoregressive generator for testing without GPU."""
+
+    input_type = GeneratorInputType.PROMPT
 
     def __init__(self, use_kv_caching: bool = True):
         super().__init__()
@@ -68,6 +77,8 @@ class MockAutoregressiveGeneratorNoKVCacheRelease(MockAutoregressiveGenerator):
 class TrackingKVCacheGenerator(Generator):
     """Deterministic autoregressive generator that tracks cache handle lifecycle."""
 
+    input_type = GeneratorInputType.PROMPT
+
     batch_size = 2
 
     def __init__(self):
@@ -108,6 +119,8 @@ class TrackingKVCacheGenerator(Generator):
 class MockMutationGenerator(Generator):
     """Mock non-autoregressive generator for testing rejection."""
 
+    input_type = GeneratorInputType.STARTING_SEQUENCE
+
     def __init__(self):
         super().__init__()
         self.kv_caches: list[dict] = []
@@ -115,12 +128,14 @@ class MockMutationGenerator(Generator):
     def assign(self, segments: Segment | Iterable[Segment]) -> None:
         self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
 
-    def _sample(self, prompts=None, prepend_prompt=None, old_kv_cache=None) -> None:
+    def _sample(self) -> None:
         pass
 
 
 class MockAutoregressiveGeneratorNoKVCache(Generator):
     """Mock autoregressive generator without KV caching support."""
+
+    input_type = GeneratorInputType.PROMPT
 
     def __init__(self):
         super().__init__()

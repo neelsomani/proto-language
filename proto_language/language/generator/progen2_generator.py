@@ -13,7 +13,7 @@ from proto_tools.tools.causal_models.progen2.progen2_sample import (
 from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator
+from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -198,12 +198,13 @@ class ProGen2GeneratorConfig(BaseConfig):
     description="ProGen2 autoregressive protein language model for protein sequence generation",
     uses_gpu=True,
     tools_called=["progen2-sample"],
-    category="autoregressive",
     supported_sequence_types=["protein"],
 )
 @final
 class ProGen2Generator(Generator):
     """Protein sequence generator using ProGen2 autoregressive language model."""
+
+    input_type = GeneratorInputType.PROMPT
 
     def __init__(self, config: ProGen2GeneratorConfig) -> None:
         """Initialize ProGen2 generator from config."""

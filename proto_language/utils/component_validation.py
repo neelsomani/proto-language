@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import copy
 import math
 import re
 import typing
@@ -54,7 +53,6 @@ _VALIDATION_RULES: dict[ComponentType, dict[str, Any]] = {
         "config_base": "BaseConfig",
         "required_imports": {
             "BaseConfig": "base_config",
-            "Generator": "language.core",
             "generator": "generator_registry",
         },
         "required_decorator_args": [
@@ -62,7 +60,6 @@ _VALIDATION_RULES: dict[ComponentType, dict[str, Any]] = {
             "label",
             "config",
             "description",
-            "category",
             "supported_sequence_types",
         ],
         "recommended_decorator_args": [
@@ -91,6 +88,7 @@ _PUBLIC_IMPORT_MODULES: dict[str, frozenset[str]] = {
     "ConfigField": frozenset({"proto_language", "proto_language.base_config"}),
     "ConstraintOutput": frozenset({"proto_language", "proto_language.language"}),
     "Generator": frozenset({"proto_language", "proto_language.language"}),
+    "GeneratorInputType": frozenset({"proto_language", "proto_language.language"}),
     "Optimizer": frozenset({"proto_language", "proto_language.language"}),
     "Sequence": frozenset({"proto_language", "proto_language.language"}),
     "constraint": frozenset({"proto_language", "proto_language.language"}),
@@ -334,7 +332,7 @@ def test_generator(
     """
     if load is not None:
         _exec_component_file(load)
-    from proto_language.language.core import Segment
+    from proto_language.language.core import Segment, Sequence
     from proto_language.language.generator import GeneratorRegistry
 
     try:
@@ -348,7 +346,10 @@ def test_generator(
             message=f"{key}: config validation failed",
         )
     segment = Segment(length=segment_length, sequence_type=sequence_type)
-    segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(n_samples)]
+    # Placeholder template — mutation gens require one; AR/IF gens overwrite it.
+    # "A" is valid for DNA/RNA/protein.
+    placeholder = "A" * segment_length
+    segment.proposal_sequences = [Sequence(sequence=placeholder, sequence_type=sequence_type) for _ in range(n_samples)]
 
     generator.assign(segment)
     generator.sample()
@@ -675,8 +676,10 @@ def _check_component_shape(
     if not isinstance(node, ast.ClassDef):
         return
     base_class = rules["base_class"]
-    if not any(_base_name(base) == base_class for base in node.bases):
-        errors.append(f"{component_type.title()} class '{node.name}' must inherit from {base_class}")
+    allowed_bases = base_class if isinstance(base_class, tuple) else (base_class,)
+    if not any(_base_name(base) in allowed_bases for base in node.bases):
+        pretty = " | ".join(allowed_bases) if isinstance(base_class, tuple) else base_class
+        errors.append(f"{component_type.title()} class '{node.name}' must inherit from {pretty}")
 
     methods = {item.name: item for item in node.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))}
     required_method = "_sample" if component_type == "generator" else "run"

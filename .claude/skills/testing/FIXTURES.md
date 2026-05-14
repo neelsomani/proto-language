@@ -7,14 +7,21 @@ Detailed reference for conftest.py fixtures and mock scoring functions. Load thi
 All fixtures below are `autouse=True` — they apply to every test automatically.
 
 ### `mock_generator_registry` (autouse)
-Patches `GeneratorRegistry.get_key()` and `.get()` to handle mock generators:
-- `MockAutoregressiveGenerator` -> category `"autoregressive"`, types `["dna"]`
-- `MockMutationGenerator` -> category `"mutation"`, types `["dna"]`
-- `MockInverseFoldingGenerator` -> category `"inverse_folding"`, types `["protein"]`
-- `MockAutoregressiveGeneratorNoKVCache` -> category `"autoregressive"`
-- `ControlledMockGenerator` -> category `"autoregressive"`
-- `SegmentAwareMockGenerator` -> category `"autoregressive"`
-- `AccumulativeTrackingGenerator` -> category `"autoregressive"`
+Patches `GeneratorRegistry.get_key()` and `.find_key()` to map mock generator class names to real registry keys, so mocks inherit the real generator's `input_type` and `supported_sequence_types`:
+
+| Mock class | Maps to registry key | Effective category / `input_type` |
+|---|---|---|
+| `MockAutoregressiveGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `MockAutoregressiveGeneratorNoKVCache` | `evo1` | autoregressive / `PROMPT` |
+| `ControlledMockGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `SegmentAwareMockGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `AccumulativeTrackingGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `TrackingKVCacheGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `MockMutationGenerator` | `random-protein` | mutation / `STARTING_SEQUENCE` |
+| `MockCyclingGenerator` | `random-protein` | mutation / `STARTING_SEQUENCE` |
+| `MockInverseFoldingGenerator` | `proteinmpnn` | inverse folding / `STRUCTURE` |
+
+Each mock class should also declare its own `input_type` classvar to match (see the test files in `tests/language_tests/optimizer_tests/`).
 
 ### `setup_test_logging` (session-scoped, autouse)
 Configures logging to `logs/pytest_{timestamp}.log`. Suppresses noisy third-party loggers.

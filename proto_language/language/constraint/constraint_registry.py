@@ -69,7 +69,7 @@ class ConstraintSpec(BaseSpec):
 
 
 class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
-    """Registry for constraint discovery and API/client integration.
+    """Registry for constraint discovery and JSON schema export.
 
     All forward constraint functions use a standardized signature:
         (input_sequences: list[tuple[Sequence, ...]], config) -> list[ConstraintOutput]
@@ -269,7 +269,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     ) -> Constraint:
         """Factory method to create a Constraint from JSON-compatible config.
 
-        This is the primary integration point with API/client layers. When the
+        It validates and instantiates a constraint from a JSON-compatible config dict. When the
         registered constraint has a ``backward`` callable, the returned
         ``Constraint`` supports ``compute_gradient()`` (discoverable via
         ``constraint.supports_gradient``).
@@ -277,7 +277,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
         Args:
             key (str): Registered constraint identifier (e.g., "gc-content")
             segments (list[Segment]): List of Segment objects to evaluate
-            config_dict (dict[str, Any]): Configuration as plain dict (from JSON/client).
+            config_dict (dict[str, Any]): Configuration as a plain dict.
                 Used for the scoring function config; also used for backward config
                 when ``backward_config_dict`` is not provided.
             backward_config_dict (dict[str, Any] | None): Configuration for the backward

@@ -305,7 +305,7 @@ class StructureBasedConstraintConfig(BaseConfig):
     This base class standardizes how structure prediction tools and their
     configurations are specified across all structure-based constraints.
     Each tool has its own dedicated config field gated by ``depends_on``,
-    so the client renders only the config form for the selected tool.
+    so only the selected tool's config is active at a time.
 
     Subclasses can optionally restrict which tools are supported by overriding
     the structure_tool field with a narrower Literal type.

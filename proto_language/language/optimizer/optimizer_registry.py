@@ -1,6 +1,6 @@
 """Provides a decorator-based API for registering optimizer classes with metadata and.
 
-automatic schema generation for API/client integration.
+JSON schema export for tooling.
 """
 
 from collections.abc import Callable
@@ -20,7 +20,7 @@ class OptimizerSpec(BaseSpec):
     Attributes:
         key (str): Unique kebab-case registry identifier.
         label (str): Human-readable display name.
-        description (str): Short description shown in the client UI.
+        description (str): Short description of the optimizer.
         uses_gpu (bool): Whether this component requires GPU resources.
         config_model (type[BaseModel]): Pydantic model class for the component configuration.
         targets_single_segment (bool): Whether this optimizer operates on a single segment at a time.

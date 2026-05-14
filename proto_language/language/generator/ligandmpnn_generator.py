@@ -16,7 +16,7 @@ from proto_tools import (
 from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator
+from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -201,7 +201,6 @@ class LigandMPNNGeneratorConfig(BaseConfig):
     description="LigandMPNN structure-conditioned protein sequence design with ligand awareness",
     uses_gpu=True,
     tools_called=["ligandmpnn-sample"],
-    category="inverse_folding",
     supported_sequence_types=["protein"],
 )
 @final
@@ -235,6 +234,8 @@ class LigandMPNNGenerator(Generator):
         >>> gen.assign(segment)
         >>> gen.sample()  # Generates num_proposals sequences from the backbone
     """
+
+    input_type = GeneratorInputType.STRUCTURE
 
     def __init__(self, config: LigandMPNNGeneratorConfig) -> None:
         """Initialize the LigandMPNN generator with structure and sampling configuration.

@@ -8,7 +8,7 @@ from proto_tools import MSA
 from pydantic import ConfigDict, field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator, GeneratorInputType, Segment
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -76,7 +76,6 @@ class MSAGeneratorConfig(BaseConfig):
     label="MSA Generator",
     config=MSAGeneratorConfig,
     description="Sample mutations from MSA position-specific distributions",
-    category="mutation",
     uses_gpu=False,
 )
 @final
@@ -109,6 +108,8 @@ class MSAGenerator(Generator):
         >>> gen.assign(segment)
         >>> gen.sample()  # Position 0 has 2/3 chance of M, 1/3 chance of A
     """
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
 
     def __init__(self, config: MSAGeneratorConfig) -> None:
         """Initialize the MSA generator.

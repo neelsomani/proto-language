@@ -29,7 +29,7 @@ from proto_language.language.core.constraint import (
     InputSlot,
 )
 from proto_language.language.core.construct import Construct
-from proto_language.language.core.generator import Generator
+from proto_language.language.core.generator import Generator, GeneratorInputType
 from proto_language.language.core.optimizer import Optimizer
 from proto_language.language.core.program import Program
 
@@ -55,6 +55,7 @@ __all__ = [
     "GradientConstraintOutput",
     "InputSlot",
     "Generator",
+    "GeneratorInputType",
     "Optimizer",
     "Program",
     "BaseRegistry",

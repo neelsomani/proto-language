@@ -13,7 +13,7 @@ from proto_tools.tools.mutagenesis.random_protein.random_protein_sample import (
 from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator
+from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -74,7 +74,6 @@ class RandomProteinGeneratorConfig(BaseConfig):
     description="Random amino acid mutations using codon scheme-biased sampling",
     uses_gpu=False,
     tools_called=["random-protein-sample"],
-    category="mutation",
     supported_sequence_types=["protein"],
 )
 @final
@@ -87,10 +86,9 @@ class RandomProteinGenerator(Generator):
     codon synthesis.
 
     The generator category is ``"mutation"``, indicating it modifies proposal
-    sequences at selected positions.
-
-    If assigned to a length-only segment, the base generator seeds random
-    starting sequences before applying mutations.
+    sequences at selected positions. A starting sequence is required —
+    ``segment.input_sequence`` must be set (or an upstream optimizer stage must
+    write to the segment); ``_validate_generator`` raises otherwise.
 
     Attributes:
         masking_strategy (MaskingStrategy): Strategy for selecting positions to mutate.
@@ -107,6 +105,8 @@ class RandomProteinGenerator(Generator):
         >>> gen.assign(segment)
         >>> gen.sample()  # Introduces 2 random amino acid mutations
     """
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
 
     def __init__(self, config: RandomProteinGeneratorConfig) -> None:
         """Initialize the random protein generator.

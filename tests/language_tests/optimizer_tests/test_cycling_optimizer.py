@@ -1010,7 +1010,7 @@ class TestCyclingOptimizerPipelineResolution:
 
         config = CyclingOptimizerConfig(num_steps=2, num_results=2, pipeline="protein-hunter")
 
-        with pytest.raises(ValueError, match="requires a inverse_folding generator"):
+        with pytest.raises(ValueError, match=r"requires a generator with input_type=.*STRUCTURE"):
             CyclingOptimizer(
                 target_segment=target_segment,
                 constructs=[construct],

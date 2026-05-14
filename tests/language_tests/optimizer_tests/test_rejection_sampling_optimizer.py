@@ -15,6 +15,7 @@ from proto_language.language.core import (
     Constraint,
     Construct,
     Generator,
+    GeneratorInputType,
     Segment,
     Sequence,
 )
@@ -31,6 +32,8 @@ from proto_language.language.optimizer import RejectionSamplingOptimizer, Reject
 
 class _NoOpGenerator(Generator):
     """Generator that does not mutate sequences. Used for testing optimizer logic."""
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
 
     def __init__(self):
         super().__init__()

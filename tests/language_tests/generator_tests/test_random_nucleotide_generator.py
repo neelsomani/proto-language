@@ -29,9 +29,10 @@ class TestRandomNucleotideGenerator:
         assert gen.masking_strategy.mask_fraction is None
 
     def test_assign_and_initialization(self):
-        """Tests the assign method initializes the output segment correctly."""
+        """Tests assign sets segments and that sample mutates an input template."""
         seq_len = 20
-        segment = Segment(length=seq_len, sequence_type="rna")
+        predefined_seq = "A" * seq_len
+        segment = Segment(sequence=predefined_seq, sequence_type="rna")
         config = RandomNucleotideGeneratorConfig(
             masking_strategy=MaskingStrategy(num_mutations=1),
         )
@@ -40,18 +41,10 @@ class TestRandomNucleotideGenerator:
 
         assert gen._assigned_segments == (segment,)
         assert segment.num_results == 1
-        assert len(segment.proposal_sequences[0].sequence) == 0
-        assert all(c in "ACGU" for c in segment.proposal_sequences[0].sequence)
 
         gen.sample()
         assert len(segment.proposal_sequences[0].sequence) == seq_len
         assert all(c in "ACGU" for c in segment.proposal_sequences[0].sequence)
-
-        # Test assign with a pre-defined sequence
-        predefined_seq = "A" * seq_len
-        segment_pre = Segment(sequence=predefined_seq, sequence_type="rna")
-        gen.assign(segment_pre)
-        assert segment_pre.result_sequences[0].sequence == predefined_seq
 
     def test_sample_mutates_sequence(self):
         """Tests the sample method masks and fills one position."""

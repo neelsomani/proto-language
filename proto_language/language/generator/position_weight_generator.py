@@ -7,7 +7,7 @@ import numpy as np
 from pydantic import field_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator, GeneratorInputType, Segment
 from proto_language.language.generator.generator_registry import generator
 from proto_language.utils import mean_peak_probability, softmax
 from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
@@ -90,7 +90,6 @@ class PositionWeightGeneratorConfig(BaseConfig):
     description="Sample sequences from position-specific logit distributions",
     uses_gpu=False,
     tools_called=[],
-    category="mutation",
     supported_sequence_types=["dna", "rna", "protein"],
 )
 @final
@@ -126,6 +125,8 @@ class PositionWeightGenerator(Generator):
         >>> segment.proposal_sequences[0].sequence
         'ACGT'
     """
+
+    input_type = GeneratorInputType.LOGITS
 
     def __init__(self, config: PositionWeightGeneratorConfig) -> None:
         """Initialize the position-weight generator."""

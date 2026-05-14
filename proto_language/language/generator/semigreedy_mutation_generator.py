@@ -10,6 +10,7 @@ from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import (
     PROTEIN_AMINO_ACIDS,
     Generator,
+    GeneratorInputType,
     Segment,
     Sequence,
 )
@@ -117,7 +118,6 @@ class SemigreedyMutationGeneratorConfig(BaseConfig):
     description="Logit-guided single-point mutations for semigreedy discrete refinement",
     uses_gpu=False,
     tools_called=[],
-    category="mutation",
     supported_sequence_types=["protein"],
 )
 @final
@@ -143,6 +143,10 @@ class SemigreedyMutationGenerator(Generator):
     Germinal's ``design_semigreedy`` phase (``MCMCOptimizer`` at near-zero
     temperature, ``proposals_per_result > 1``).
 
+    Note:
+        ``clear_logits=False`` (default) requires upstream ``GradientOptimizer`` logits at
+        runtime; ``clear_logits=True`` runs as pure sequence-only mutation.
+
     Attributes:
         config (SemigreedyMutationGeneratorConfig): Generator configuration.
         position_weighting (Literal["uniform", "entropy", "plddt"]): Position
@@ -163,6 +167,8 @@ class SemigreedyMutationGenerator(Generator):
         >>> gen.sample()
         >>> # Exactly one position differs from "ACDEF"
     """
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
 
     def __init__(self, config: SemigreedyMutationGeneratorConfig) -> None:
         """Initialize the semigreedy mutation generator."""

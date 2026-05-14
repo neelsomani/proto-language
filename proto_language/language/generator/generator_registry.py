@@ -1,7 +1,4 @@
-"""Provides a decorator-based API for registering generator classes with metadata and.
-
-automatic schema generation for API/client integration.
-"""
+"""Decorator-based registration for generator classes with metadata and JSON schema export."""
 
 from collections.abc import Callable
 from typing import Any, ClassVar, Literal
@@ -10,8 +7,17 @@ import pydantic
 from pydantic import BaseModel, Field
 
 from proto_language.base_registry import BaseRegistry, BaseSpec
-from proto_language.language.core import Generator
+from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.utils.helpers import format_pydantic_error
+
+GeneratorCategory = Literal["autoregressive", "mutation", "inverse_folding", "gradient"]
+
+INPUT_TYPE_TO_CATEGORY: dict[GeneratorInputType, GeneratorCategory] = {
+    GeneratorInputType.STARTING_SEQUENCE: "mutation",
+    GeneratorInputType.PROMPT: "autoregressive",
+    GeneratorInputType.STRUCTURE: "inverse_folding",
+    GeneratorInputType.LOGITS: "gradient",
+}
 
 
 class GeneratorSpec(BaseSpec):
@@ -22,20 +28,35 @@ class GeneratorSpec(BaseSpec):
     Attributes:
         key (str): Unique kebab-case registry identifier.
         label (str): Human-readable display name.
-        description (str): Short description shown in the client UI.
+        description (str): Short description of the generator.
         uses_gpu (bool): Whether this component requires GPU resources.
         config_model (type[BaseModel]): Pydantic model class for the component configuration.
-        category (Literal['autoregressive', 'mutation', 'inverse_folding']): Generator category grouping (e.g. 'language_model', 'mutation').
+        category (GeneratorCategory): Generator category bucket — one of
+            ``"autoregressive"``, ``"mutation"``, ``"inverse_folding"``, ``"gradient"``.
+            Derived from the generator subclass's ``input_type`` classvar (see
+            ``INPUT_TYPE_TO_CATEGORY``).
+        input_type (GeneratorInputType): Typed declaration of what kind of starting input
+            this generator consumes (``prompt`` / ``starting_sequence`` / ``structure`` /
+            ``logits``).
         tools_called (list[str]): List of external tool keys this generator invokes.
         supported_sequence_types (list[str]): Sequence types this generator can produce (e.g. 'protein', 'dna').
         generator_class (type[Generator]): Generator subclass implementing the generation logic.
     """
 
-    category: Literal["autoregressive", "mutation", "inverse_folding"] = Field(
-        description="Generator category: 'autoregressive' (left-to-right, e.g. Evo2), 'mutation' (bidirectional/masked, e.g. ESM2), or 'inverse_folding' (structure-conditioned, e.g. ProteinMPNN)"
+    category: GeneratorCategory = Field(
+        description=(
+            "Generator category bucket: 'autoregressive', 'mutation', 'inverse_folding', or 'gradient'. "
+            "Derived from the input_type classvar on the Generator subclass via INPUT_TYPE_TO_CATEGORY."
+        )
+    )
+    input_type: GeneratorInputType = Field(
+        description=(
+            "Typed declaration of what kind of starting input this generator consumes: 'prompt', "
+            "'starting_sequence', 'structure', or 'logits'."
+        )
     )
     tools_called: list[str] = Field(
-        description="List of tool keys this generator calls (e.g., ['esm3-sample', 'evo2-sample']). Helps agent find relevant tool documentation."
+        description="List of tool keys this generator calls. Helps agent find relevant tool documentation."
     )
     supported_sequence_types: list[str] = Field(
         description="List of supported sequence types (e.g., ['dna', 'protein']). Empty list means supports all types."
@@ -49,7 +70,7 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     """Registry for generator discovery and schema generation.
 
     Inherits common registry functionality from BaseRegistry and adds
-    generator-specific metadata (category, uses_gpu).
+    generator-specific metadata (input_type, category, uses_gpu).
 
     Public Methods:
     - register(): Decorator to register generator classes
@@ -65,12 +86,13 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         ...     key="random-nucleotide",
         ...     config=RandomNucleotideGeneratorConfig,
         ...     description="Random nucleotide mutations",
-        ...     category="mutation",
         ...     uses_gpu=False,
         ... )
         ... class RandomNucleotideGenerator(Generator):
+        ...     input_type = GeneratorInputType.STARTING_SEQUENCE
+        ...
         ...     def __init__(self, config: RandomNucleotideGeneratorConfig):
-        ...         super().__init__(batch_size=config.batch_size)
+        ...         super().__init__()
         ...         # Implementation
 
         API/Client Usage:
@@ -101,23 +123,19 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         label: str,
         config: type[BaseModel],
         description: str,
-        category: Literal["autoregressive", "mutation", "inverse_folding"],
         uses_gpu: bool = False,
         tools_called: list[str] | None = None,
         supported_sequence_types: list[str] | None = None,
     ) -> Callable[[type[Generator]], type[Generator]]:
         """Decorator to register a generator class.
 
-        This is the generator-specific implementation of the abstract register()
-        method from BaseRegistry.
+        The generator's ``category`` is derived from its ``input_type`` classvar via :data:`INPUT_TYPE_TO_CATEGORY`; the class must declare an ``input_type`` classvar.
 
         Args:
             key (str): Unique identifier (e.g., "random-nucleotide", "evo2")
             label (str): Readable external name (e.g., "Random Nucleotide Generator", "EVO2 Generator")
             config (type[BaseModel]): Pydantic model class for configuration validation
             description (str): Readable description
-            category (Literal['autoregressive', 'mutation', 'inverse_folding']): "autoregressive" (left-to-right), "mutation" (bidirectional/masked),
-                or "inverse_folding" (structure-conditioned)
             uses_gpu (bool): If True, generator requires GPU for computation
             tools_called (list[str] | None): List of tool keys this generator calls
             supported_sequence_types (list[str] | None): List of supported sequence types (e.g., ["dna", "protein"]).
@@ -126,18 +144,23 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
         Returns:
             Callable[[type[Generator]], type[Generator]]: Decorator that registers the class and returns it unchanged
 
+        Raises:
+            TypeError: If the decorated class does not declare a concrete ``input_type`` classvar.
+
         Examples:
             >>> @generator(
             ...     key="random-nucleotide",
             ...     label="Random Nucleotide",
             ...     config=RandomNucleotideGeneratorConfig,
             ...     description="Random nucleotide mutations",
-            ...     category="mutation",
             ...     uses_gpu=False,
             ...     supported_sequence_types=["dna", "rna"],
             ... )
             ... class RandomNucleotideGenerator(Generator):
+            ...     input_type = GeneratorInputType.STARTING_SEQUENCE
+            ...
             ...     def __init__(self, config: RandomNucleotideGeneratorConfig):
+            ...         super().__init__()
             ...         # Implementation
             ...         pass
         """
@@ -147,8 +170,15 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
             tools_called = []
 
         def decorator(generator_class: type[Generator]) -> type[Generator]:
-            # Prevent duplicate registration using base class helper
             cls._check_duplicate(key, generator_class.__name__)
+
+            input_type = getattr(generator_class, "input_type", None)
+            if not isinstance(input_type, GeneratorInputType):
+                raise TypeError(
+                    f"Generator class {generator_class.__name__!r} must declare an ``input_type`` "
+                    f"classvar set to a GeneratorInputType member (e.g. "
+                    f"``input_type = GeneratorInputType.STARTING_SEQUENCE``)."
+                )
 
             cls._registry[key] = GeneratorSpec(
                 key=key,
@@ -156,7 +186,8 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
                 description=description,
                 config_model=config,
                 generator_class=generator_class,
-                category=category,
+                category=INPUT_TYPE_TO_CATEGORY[input_type],
+                input_type=input_type,
                 uses_gpu=uses_gpu,
                 tools_called=tools_called,
                 supported_sequence_types=supported_sequence_types,
@@ -173,14 +204,14 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     ) -> Generator:
         """Factory method to create Generator instance from JSON-compatible config.
 
-        This is the primary integration point with API/client layers. It:
+        It:
         1. Retrieves the registered generator specification
         2. Validates config_dict using Pydantic (catches errors early)
         3. Creates a Generator instance with validated config
 
         Args:
             key (str): Registered generator identifier (e.g., "random-nucleotide")
-            config_dict (dict[str, Any]): Configuration as plain dict (from JSON/client)
+            config_dict (dict[str, Any]): Configuration as a plain dict.
 
         Returns:
             Generator: Configured Generator instance ready to use

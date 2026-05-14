@@ -27,6 +27,7 @@ from proto_language.language.core import (
     ConstraintOutput,
     Construct,
     Generator,
+    GeneratorInputType,
     Program,
     Segment,
     Sequence,
@@ -58,13 +59,20 @@ from proto_language.language.optimizer import (
 # =============================================================================
 
 
+class _MockARConfig(BaseModel):
+    prompts: list[str] = ["ATCG"]
+
+
 class MockAutoregressiveGenerator(Generator):
     """Mock autoregressive generator for BeamSearch testing without GPU."""
+
+    input_type = GeneratorInputType.PROMPT
 
     def __init__(self, use_kv_caching: bool = True):
         super().__init__()
         self.use_kv_caching = use_kv_caching
         self.kv_caches: list[dict] = []
+        self.config = _MockARConfig()
 
     def assign(self, segments: Segment | Iterable[Segment]) -> None:
         self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
@@ -97,11 +105,18 @@ class MockAutoregressiveGenerator(Generator):
         pass
 
 
+class _MockIFConfig(BaseModel):
+    structure_inputs: list[dict] = [{"mock": True}]
+
+
 class MockCyclingGenerator(Generator):
     """Mock generator for CyclingOptimizer testing."""
 
+    input_type = GeneratorInputType.STRUCTURE
+
     def __init__(self):
         super().__init__()
+        self.config = _MockIFConfig()
 
     def assign(self, segments: Segment | Iterable[Segment]) -> None:
         self._assigned_segments = (segments,) if isinstance(segments, Segment) else tuple(segments)
@@ -217,7 +232,7 @@ class TestRejectionSamplingTransitions:
 
     def test_1_rs_to_rs(self):
         """RS -> RS: Second optimizer uses sorted results from first."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_rejection_sampling_optimizer(construct, segment, num_samples=15, num_results=3)
@@ -236,7 +251,7 @@ class TestRejectionSamplingTransitions:
 
     def test_2_rs_to_mcmc(self):
         """RS -> MCMC: MCMC inherits sorted sequences from Rejection Sampling."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_rejection_sampling_optimizer(construct, segment, num_samples=15, num_results=3)
@@ -252,7 +267,7 @@ class TestRejectionSamplingTransitions:
 
     def test_3_rs_to_beamsearch(self):
         """RS -> BeamSearch: BeamSearch IGNORES Rejection Sampling results, starts from prompt."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_rejection_sampling_optimizer(construct, segment, num_samples=10, num_results=3)
@@ -272,7 +287,7 @@ class TestRejectionSamplingTransitions:
 
     def test_4_rs_to_cycling(self):
         """RS -> CyclingOptimizer: Cycling inherits sorted sequences."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_rejection_sampling_optimizer(construct, segment, num_samples=10, num_results=3)
@@ -294,7 +309,7 @@ class TestMCMCTransitions:
 
     def test_5_mcmc_to_rs(self):
         """MCMC -> RS: Rejection Sampling uses MCMC's results."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_mcmc_optimizer(construct, segment, num_results=3, num_steps=10)
@@ -310,7 +325,7 @@ class TestMCMCTransitions:
 
     def test_6_mcmc_to_mcmc(self):
         """MCMC -> MCMC: Second MCMC inherits and continues optimization."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_mcmc_optimizer(construct, segment, num_results=3, num_steps=10)
@@ -328,7 +343,7 @@ class TestMCMCTransitions:
 
     def test_7_mcmc_to_beamsearch(self):
         """MCMC -> BeamSearch: BeamSearch IGNORES MCMC results."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_mcmc_optimizer(construct, segment, num_results=3, num_steps=10)
@@ -344,7 +359,7 @@ class TestMCMCTransitions:
 
     def test_8_mcmc_to_cycling(self):
         """MCMC -> CyclingOptimizer: Cycling inherits MCMC's results."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_mcmc_optimizer(construct, segment, num_results=3, num_steps=10)
@@ -365,7 +380,7 @@ class TestBeamSearchTransitions:
 
     def test_9_beamsearch_to_rs(self):
         """BeamSearch -> RS: Rejection Sampling uses BeamSearch's results."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_beamsearch_optimizer(construct, segment, num_results=3, beam_length=10, prompt="AAAA")
@@ -383,7 +398,7 @@ class TestBeamSearchTransitions:
 
     def test_10_beamsearch_to_mcmc(self):
         """BeamSearch -> MCMC: MCMC refines BeamSearch results."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_beamsearch_optimizer(construct, segment, num_results=3, beam_length=10, prompt="TTTT")
@@ -400,7 +415,7 @@ class TestBeamSearchTransitions:
 
     def test_11_beamsearch_to_beamsearch(self):
         """BeamSearch -> BeamSearch: Second ignores first, starts from its own prompt."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_beamsearch_optimizer(construct, segment, num_results=2, beam_length=10, prompt="AAAA")
@@ -419,7 +434,7 @@ class TestBeamSearchTransitions:
 
     def test_12_beamsearch_to_cycling(self):
         """BeamSearch -> CyclingOptimizer: Cycling uses BeamSearch results."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_beamsearch_optimizer(construct, segment, num_results=3, beam_length=10, prompt="GGGG")
@@ -440,7 +455,7 @@ class TestCyclingOptimizerTransitions:
 
     def test_13_cycling_to_rs(self):
         """CyclingOptimizer -> RS: Rejection Sampling uses Cycling's results."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_cycling_optimizer(construct, segment, num_results=3, num_steps=5)
@@ -457,7 +472,7 @@ class TestCyclingOptimizerTransitions:
 
     def test_14_cycling_to_mcmc(self):
         """CyclingOptimizer -> MCMC: MCMC refines Cycling's results."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_cycling_optimizer(construct, segment, num_results=3, num_steps=5)
@@ -472,7 +487,7 @@ class TestCyclingOptimizerTransitions:
 
     def test_15_cycling_to_beamsearch(self):
         """CyclingOptimizer -> BeamSearch: BeamSearch IGNORES Cycling's results."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_cycling_optimizer(construct, segment, num_results=3, num_steps=3)
@@ -488,7 +503,7 @@ class TestCyclingOptimizerTransitions:
 
     def test_16_cycling_to_cycling(self):
         """CyclingOptimizer -> CyclingOptimizer: Second continues from first."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_cycling_optimizer(construct, segment, num_results=3, num_steps=3)
@@ -515,7 +530,7 @@ class TestSortingContent:
 
     def test_mcmc_results_not_necessarily_sorted(self):
         """MCMC results are not sorted by energy (no Program-level sort)."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_mcmc_optimizer(construct, segment, num_results=5, num_steps=20)
@@ -528,7 +543,7 @@ class TestSortingContent:
 
     def test_rejection_sampling_energies_ascending(self):
         """Rejection Sampling energy scores are always in ascending order (sorted internally)."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_rejection_sampling_optimizer(construct, segment, num_samples=30, num_results=5)
@@ -543,7 +558,7 @@ class TestCyclingContent:
 
     def test_cycling_preserves_source_sequences(self):
         """Cycling should repeat source sequences in order."""
-        segment = Segment(length=30, sequence_type="dna")
+        segment = Segment(sequence="A" * 30, sequence_type="dna")
         construct = Construct([segment])
 
         opt1 = create_rejection_sampling_optimizer(construct, segment, num_samples=10, num_results=2)

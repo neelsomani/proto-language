@@ -5,50 +5,60 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any
+from enum import Enum
+from typing import Any, ClassVar
 
 from proto_language.language.core.segment import Segment
 
 logger = logging.getLogger(__name__)
 
 
+class GeneratorInputType(str, Enum):
+    """Kind of starting input a generator consumes.
+
+    Attributes:
+        PROMPT (str): Starting prompt sequence (autoregressive).
+        STARTING_SEQUENCE (str): Starting sequence to mutate.
+        STRUCTURE (str): Starting 3D structure to design from.
+        LOGITS (str): Per-position logits from an upstream gradient optimizer.
+    """
+
+    PROMPT = "prompt"
+    STARTING_SEQUENCE = "starting_sequence"
+    STRUCTURE = "structure"
+    LOGITS = "logits"
+
+
 class Generator(ABC):
     """Generator base class that modifies proposal_sequences of assigned segments during optimization.
-
-    Mutation generators can operate on length-only segments by first seeding
-    random starting sequences in ``_validate_generator``. That fallback provides
-    initial proposal sequences for the mutation step.
 
     A generator may be assigned one segment or a tuple of "tied" segments that
     share the same generated value (e.g. protomers of a symmetric homo-oligomer).
     Subclasses implement ``_sample()`` writing to ``self.segment.proposal_sequences``;
-    the public ``sample()`` orchestrator calls ``_sample()`` then mirrors those
-    proposals to any tied segments via deepcopy.
-
-    Subclasses must implement ``__init__()`` and ``_sample()``. Override
-    ``assign()`` only to add extra validation (call ``super().assign()`` first).
+    the public ``sample()`` orchestrator calls ``_sample()`` then deep-copies primary
+    proposals onto any tied segments.
 
     Attributes:
         batch_size (int): Number of sequences to generate per batch.
+        input_type (GeneratorInputType): Required classvar; the kind of starting input the generator consumes.
     """
 
-    batch_size: int = 1  # GPU generators override to higher values
+    batch_size: int = 1  # GPU generators override
+
+    input_type: ClassVar[GeneratorInputType]
 
     @abstractmethod
     def __init__(self) -> None:
         """Initialize the generator with configuration parameters."""
         self._assigned_segments: tuple[Segment, ...] | None = None
-        self.__spec: "GeneratorSpec | None" = None  # type: ignore[name-defined]  # noqa: F821, UP037 -- circular import; lazy-loaded via property
+        self.__spec: "GeneratorSpec | None" = None  # type: ignore[name-defined]  # noqa: F821, UP037 -- circular; lazy-loaded
         self._rng: random.Random | None = None
 
-    # Required lazy loading for mock generators to function in tests.
     @property
-    def _spec(self) -> "GeneratorSpec":  # type: ignore[name-defined]  # noqa: F821 -- circular import; resolved at runtime
+    def _spec(self) -> "GeneratorSpec":  # type: ignore[name-defined]  # noqa: F821 -- circular; resolved at runtime
         """Lazy-load the generator spec from the registry."""
         if self.__spec is None:
-            from proto_language.language.generator.generator_registry import (
-                GeneratorRegistry,
-            )
+            from proto_language.language.generator.generator_registry import GeneratorRegistry
 
             self.__spec = GeneratorRegistry.get(GeneratorRegistry.get_key(self))
         return self.__spec
@@ -107,7 +117,8 @@ class Generator(ABC):
             if supported_types and segment.sequence_type not in supported_types:
                 supported_types_str = ", ".join(supported_types)
                 raise ValueError(
-                    f"Generator {self.__class__.__name__} does not support sequence type '{segment.sequence_type}'. Supported types: [{supported_types_str}]"
+                    f"Generator {self.__class__.__name__} does not support sequence type "
+                    f"'{segment.sequence_type}'. Supported types: [{supported_types_str}]"
                 )
 
         primary = normalized[0]
@@ -139,7 +150,7 @@ class Generator(ABC):
         self._sample(*args, **kwargs)
         primary = self.segments[0]
 
-        if self._spec.category == "autoregressive":
+        if self.input_type == GeneratorInputType.PROMPT:
             target = primary.sequence_length
             lengths = [len(p.sequence) for p in primary.proposal_sequences]
             if any(length < target for length in lengths):
@@ -159,12 +170,20 @@ class Generator(ABC):
             for segment in self.segments[1:]:
                 segment.proposal_sequences = [copy.deepcopy(sequence) for sequence in primary.proposal_sequences]
 
+        # New sequences invalidate prior per-proposal logits/structures, except for their producers.
+        for segment in self.segments:
+            for proposal in segment.proposal_sequences:
+                if self.input_type != GeneratorInputType.LOGITS:
+                    proposal.logits = None
+                if self.input_type != GeneratorInputType.STRUCTURE:
+                    proposal.structure = None
+
     @abstractmethod
     def _sample(self, *args: Any, **kwargs: Any) -> None:
         """Subclass hook: write proposals to ``self.segment.proposal_sequences`` in-place.
 
-        Subclasses define their own typed signature (e.g. autoregressive generators
-        take ``prompts``, ``num_tokens``, …); ``sample()`` forwards args here.
+        Subclasses pin their own typed signature (e.g. autoregressive takes ``prompts``,
+        inverse folding takes ``structure_inputs``). ``sample()`` forwards args here.
         """
         raise NotImplementedError(f"Subclass {self.__class__.__name__} must implement the _sample() method.")
 
@@ -179,48 +198,46 @@ class Generator(ABC):
         return self._rng.randint(0, 2**31 - 1)
 
     def _validate_generator(self) -> None:
-        """Validate the primary segment and lazy-init its proposals if needed.
+        """Validate the primary segment is ready for sampling; dispatch on ``input_type``.
 
-        Only the primary segment is validated/seeded; ``sample()`` mirrors its
-        proposals onto any tied segments afterward, so tied segments don't
-        need their own initialization here.
+        Mutation generators raise on empty proposals. Autoregressive generators warn if
+        proposals are already populated (will be overwritten). Inverse folding generators
+        seed ``'X'`` on empty proposals and log INFO. Only the primary segment is
+        validated/seeded; ``sample()`` mirrors proposals onto tied segments afterward.
         """
         segment = self.segment  # raises RuntimeError if not assigned
 
         if not segment.proposal_sequences:
             raise RuntimeError(f"Segment '{segment.label or 'unlabeled'}' has an empty proposal_sequences pool.")
 
-        # Warn if the segment already has populated sequences that will be overwritten (autoregressive only)
-        if self._spec.category == "autoregressive" and segment.proposals_populated:
+        if self.input_type == GeneratorInputType.STARTING_SEQUENCE and not segment.proposals_populated:
+            raise RuntimeError(
+                f"{self.__class__.__name__} requires a starting sequence on segment "
+                f"{(segment.label or 'unlabeled')!r}. Set segment.input_sequence, or place a prior "
+                f"optimizer stage that writes to this segment."
+            )
+
+        if self.input_type == GeneratorInputType.PROMPT and segment.proposals_populated:
             logger.warning(
                 "Segment %r input sequence will be overwritten by autoregressive generator %s",
                 segment.label or "unlabeled",
                 self.__class__.__name__,
             )
 
-        # Lazy-init random starting sequences for mutation generators if no input template was provided.
-        if self._spec.category == "mutation" and not segment.proposals_populated:
-            logger.warning(
-                "Mutation generator %s has no input proposals; seeding %d random starting sequences",
-                self.__class__.__name__,
-                len(segment.proposal_sequences),
-            )
-            assert segment.valid_chars is not None  # noqa: S101 -- mypy type narrowing
-            valid_chars = list(segment.valid_chars - set(" "))
-            rng = self._rng or random.Random()  # noqa: S311 -- non-cryptographic
-            for sequence in segment.proposal_sequences:
-                random_sequence = "".join(rng.choice(valid_chars) for _ in range(segment.sequence_length))
-                sequence.sequence = random_sequence
-
-        # Lazy-init unknown (X) sequences for inverse folding generators if no input sequence was provided.
-        if self._spec.category == "inverse_folding" and not segment.proposals_populated:
+        if self.input_type == GeneratorInputType.STRUCTURE and not segment.proposals_populated:
             unknown_sequence = "X" * segment.sequence_length
+            logger.info(
+                "%s: seeding %d positions as 'X' (unknown) on segment %r; structure determines residues.",
+                self.__class__.__name__,
+                segment.sequence_length,
+                segment.label or "unlabeled",
+            )
             for sequence in segment.proposal_sequences:
                 sequence.sequence = unknown_sequence
 
         logger.debug(
-            "Generator validated: %s, category=%s, segments=%d",
+            "Generator validated: %s, input_type=%s, segments=%d",
             self.__class__.__name__,
-            self._spec.category,
+            self.input_type,
             len(self.segments),
         )

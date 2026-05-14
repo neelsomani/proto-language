@@ -17,7 +17,7 @@ class BaseSpec(BaseModel):
     Attributes:
         key (str): Unique kebab-case registry identifier.
         label (str): Human-readable display name.
-        description (str): Short description shown in the client UI.
+        description (str): Short description of the component.
         uses_gpu (bool): Whether this component requires GPU resources.
         config_model (type[BaseModel]): Pydantic model class for the component configuration.
     """
@@ -43,7 +43,7 @@ class BaseSpec(BaseModel):
         """Serialize config_model as standard JSON Schema.
 
         Returns the full Pydantic JSON Schema including properties, required fields,
-        and metadata. This provides a standard format for client form generation
+        and metadata. Provides a standard format for tooling and validation
         and validation.
 
         Args:
@@ -121,7 +121,7 @@ class BaseRegistry(ABC, Generic[SpecType]):
         """Get the JSON schema for a specific component's configuration.
 
         The schema includes parameter names, types, defaults, validation rules,
-        and descriptions - everything needed to generate a client form.
+        and descriptions for tooling and validation.
 
         Args:
             key (str): Component identifier

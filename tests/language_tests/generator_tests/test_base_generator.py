@@ -1,27 +1,69 @@
 """tests/language_tests/generator_tests/test_base_generator.py."""
 
 import logging
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from proto_language.language.core import Generator, Segment, Sequence
+from proto_language.language.core import (
+    Generator,
+    GeneratorInputType,
+    Segment,
+    Sequence,
+)
 from proto_language.language.generator.generator_registry import (
     GeneratorRegistry,
     GeneratorSpec,
 )
 
 
-# Concrete implementation for testing the abstract base class
-class ConcreteGenerator(Generator):
-    """Concrete implementation of Generator for testing purposes."""
+class ConcreteMutationGenerator(Generator):
+    """Concrete mutation generator used as the default test generator."""
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
 
     def __init__(self) -> None:
-        """Minimal implementation of abstract __init__."""
         super().__init__()
 
     def _sample(self) -> None:
-        """Dummy sample implementation that does nothing."""
+        pass
+
+
+class ConcreteAutoregressiveGenerator(Generator):
+    """Concrete autoregressive generator used for prompt-driven tests."""
+
+    input_type = GeneratorInputType.PROMPT
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _sample(self, *args: object, **kwargs: object) -> None:
+        pass
+
+
+class ConcreteInverseFoldingGenerator(Generator):
+    """Concrete inverse folding generator used for structure-driven tests."""
+
+    input_type = GeneratorInputType.STRUCTURE
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _sample(self, *args: object, **kwargs: object) -> None:
+        pass
+
+
+class ConcreteLogitsGenerator(Generator):
+    """Concrete logits-input generator used for logits-driven tests."""
+
+    input_type = GeneratorInputType.LOGITS
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _sample(self, *args: object, **kwargs: object) -> None:
+        pass
 
 
 def _mock_spec(category: str = "mutation", supported_types: list[str] | None = None) -> MagicMock:
@@ -50,7 +92,7 @@ class TestGeneratorBase:
 
     def test_assign_sets_segment_and_allows_all_types_when_empty(self):
         """Tests that assign sets segment and allows any type when supported_sequence_types is empty."""
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
         assert gen._assigned_segments is None
 
         p_get, p_key = _patch_registry(_mock_spec())
@@ -63,7 +105,7 @@ class TestGeneratorBase:
 
     def test_assign_rejects_ligand_and_incompatible_type(self):
         """Tests that assign rejects ligand segments and incompatible sequence types."""
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
 
         with pytest.raises(ValueError, match="Cannot assign generator to ligand segment"):
             gen.assign(Segment(sequence="CCC", sequence_type="ligand"))
@@ -75,7 +117,7 @@ class TestGeneratorBase:
 
     def test_assign_multiple_segments(self):
         """Tests that assign can record multiple target segments."""
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
         segments = [
             Segment(sequence="MKKL", sequence_type="protein"),
             Segment(sequence="MAAA", sequence_type="protein"),
@@ -91,7 +133,7 @@ class TestGeneratorBase:
 
     def test_assign_multiple_segments_requires_tie_compatible_segments(self):
         """Tests that tied segments must describe the same value space."""
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
 
         p_get, p_key = _patch_registry(_mock_spec())
         with p_get, p_key:
@@ -112,7 +154,7 @@ class TestGeneratorBase:
 
     def test_assign_rejects_duplicate_segment_instances(self):
         """Reusing one Segment object as multiple tied entries is rejected (defeats tying)."""
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
         seg = Segment(sequence="MKKL", sequence_type="protein")
         p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
         with p_get, p_key, pytest.raises(ValueError, match="duplicate Segment instances"):
@@ -120,7 +162,7 @@ class TestGeneratorBase:
 
     def test_assign_rejects_empty_iterable(self):
         """An empty iterable must raise rather than leave the generator in a half-assigned state."""
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
         p_get, p_key = _patch_registry(_mock_spec())
         with p_get, p_key, pytest.raises(ValueError, match="at least one segment"):
             gen.assign([])
@@ -132,7 +174,7 @@ class TestGeneratorBase:
         Without this guard, a primary's mirror would silently overwrite a tied
         segment with characters outside that segment's allowed alphabet.
         """
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
         p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
         with p_get, p_key, pytest.raises(ValueError, match="different valid character sets"):
             gen.assign(
@@ -146,7 +188,7 @@ class TestGeneratorBase:
         """``sample()`` deep-copies primary proposals onto every tied segment."""
         from proto_language.language.core import Sequence
 
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
         segments = [
             Segment(sequence="MKKL", sequence_type="protein"),
             Segment(sequence="MAAA", sequence_type="protein"),
@@ -173,7 +215,7 @@ class TestGeneratorBase:
         """Single-segment ``sample()`` skips the deepcopy path."""
         from proto_language.language.core import Sequence
 
-        gen = ConcreteGenerator()
+        gen = ConcreteMutationGenerator()
         segment = Segment(sequence="MKKL", sequence_type="protein")
         p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
         with p_get, p_key:
@@ -185,64 +227,94 @@ class TestGeneratorBase:
         # Same instance — no copying happened.
         assert segment.proposal_sequences[0] is original
 
-    def test_mutation_generator_lazy_init_and_preserves_existing(self):
-        """Tests lazy random init for length-only segments and preservation of existing sequences."""
-        from proto_tools.transforms.masking import MaskingStrategy
-
-        from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
-
-        config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
-
-        # Length-only segment: lazy random init on sample()
-        gen = RandomNucleotideGenerator(config)
-        segment = Segment(length=20, sequence_type="dna")
-        assert not segment.has_original_sequence
-        gen.assign(segment)
-        assert segment.original_sequence.sequence == ""
-        gen.sample()
-        assert len(segment.proposal_sequences[0].sequence) == 20
-        assert all(c in "ACGT" for c in segment.proposal_sequences[0].sequence)
-        assert not segment.has_original_sequence
-
-        # Predefined sequence: preserved after sample
-        gen2 = RandomNucleotideGenerator(config)
-        segment2 = Segment(sequence="ATCGATCG", sequence_type="dna")
-        gen2.assign(segment2)
-        gen2.sample()
-        assert segment2.has_original_sequence
-        assert len(segment2.proposal_sequences[0].sequence) == 8
-
-    def test_mutation_proposals_get_unique_random_sequences(self):
-        """Regression: each proposal must get a unique random sequence."""
-        import random
-
-        from proto_tools.transforms.masking import MaskingStrategy
-
-        from proto_language.language.core import Sequence
-        from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
-
-        random.seed(123)
-        segment = Segment(length=50, sequence_type="dna")
-        gen = RandomNucleotideGenerator(
-            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
-        )
-        gen.assign(segment)
-        segment.proposal_sequences = [Sequence(sequence="", sequence_type="dna") for _ in range(5)]
-        gen._validate_generator()
-
-        sequences = [s.sequence for s in segment.proposal_sequences]
-        assert all(len(s) == 50 for s in sequences)
-        assert len(set(sequences)) > 1, "All proposals got the same random sequence"
-
-    def test_autoregressive_generator_no_random_init(self):
-        """Tests that autoregressive generators don't initialize random sequences."""
-        gen = ConcreteGenerator()
-        segment = Segment(length=20, sequence_type="dna")
-
-        p_get, p_key = _patch_registry(_mock_spec(category="autoregressive"))
+    def test_mutation_generator_raises_on_empty_starting_sequence(self):
+        """Mutation generators must raise when ``segment.proposal_sequences[].sequence`` is empty."""
+        gen = ConcreteMutationGenerator()
+        segment = Segment(length=20, sequence_type="dna", label="binder")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["dna"]))
         with p_get, p_key:
             gen.assign(segment)
-        assert segment.original_sequence.sequence == ""
+        # Length-only segment with no starting sequence — proposals exist but have empty sequences.
+        segment.proposal_sequences = [Sequence(sequence="", sequence_type="dna")]
+
+        with pytest.raises(RuntimeError, match="requires a starting sequence"):
+            gen._validate_generator()
+
+    def test_sample_clears_stale_logits_for_non_logits_generators(self):
+        """Non-LOGITS generators must clear ``proposal.logits`` since the new sequence makes them stale."""
+        import numpy as np
+
+        from proto_language.language.core import Sequence
+
+        gen = ConcreteMutationGenerator()  # input_type == STARTING_SEQUENCE
+        segment = Segment(sequence="MKKL", sequence_type="protein")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign(segment)
+        proposal = Sequence(sequence="MAAA", sequence_type="protein")
+        proposal.logits = np.zeros((4, 20))
+        segment.proposal_sequences = [proposal]
+
+        gen.sample()
+
+        assert segment.proposal_sequences[0].logits is None
+
+    def test_sample_preserves_logits_for_logits_generators(self):
+        """LOGITS-input generators are the producers of logits — ``sample()`` must not clear them."""
+        import numpy as np
+
+        from proto_language.language.core import Sequence
+
+        gen = ConcreteLogitsGenerator()  # input_type == LOGITS
+        segment = Segment(sequence="MKKL", sequence_type="protein")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign(segment)
+        proposal = Sequence(sequence="MAAA", sequence_type="protein")
+        kept_logits = np.zeros((4, 20))
+        proposal.logits = kept_logits
+        segment.proposal_sequences = [proposal]
+
+        gen.sample()
+
+        assert segment.proposal_sequences[0].logits is kept_logits
+
+    def test_sample_clears_stale_structure_for_non_structure_generators(self):
+        """Non-STRUCTURE generators must clear ``proposal.structure`` since the new sequence makes it stale."""
+        from proto_language.language.core import Sequence
+        from tests.helpers.mock_structure import MockStructure
+
+        gen = ConcreteMutationGenerator()  # input_type == STARTING_SEQUENCE
+        segment = Segment(sequence="MKKL", sequence_type="protein")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign(segment)
+        proposal = Sequence(sequence="MAAA", sequence_type="protein")
+        proposal.structure = MockStructure()
+        segment.proposal_sequences = [proposal]
+
+        gen.sample()
+
+        assert segment.proposal_sequences[0].structure is None
+
+    def test_sample_preserves_structure_for_structure_generators(self):
+        """STRUCTURE-input generators tag proposals with the structure they were designed for — keep it."""
+        from proto_language.language.core import Sequence
+        from tests.helpers.mock_structure import MockStructure
+
+        gen = ConcreteInverseFoldingGenerator()  # input_type == STRUCTURE
+        segment = Segment(sequence="MKKL", sequence_type="protein")
+        p_get, p_key = _patch_registry(_mock_spec(supported_types=["protein"]))
+        with p_get, p_key:
+            gen.assign(segment)
+        proposal = Sequence(sequence="MAAA", sequence_type="protein")
+        kept_structure = MockStructure()
+        proposal.structure = kept_structure
+        segment.proposal_sequences = [proposal]
+
+        gen.sample()
+
+        assert segment.proposal_sequences[0].structure is kept_structure
 
     def test_validate_generator_empty_proposal_pool_raises(self):
         """Tests that _validate_generator raises on empty proposal_sequences."""
@@ -267,7 +339,7 @@ class TestGeneratorRegistry:
     def test_unknown_key_raises(self):
         """Tests that get_key and create raise for unregistered generators."""
         with pytest.raises(ValueError, match="is not registered"):
-            GeneratorRegistry.get_key(ConcreteGenerator())
+            GeneratorRegistry.get_key(ConcreteMutationGenerator())
         with pytest.raises(ValueError, match="Unknown generator"):
             GeneratorRegistry.create("nonexistent-generator", {})
 
@@ -281,14 +353,39 @@ class TestGeneratorRegistry:
             for attr in ("key", "label", "description", "category", "uses_gpu", "supported_sequence_types"):
                 assert hasattr(spec, attr)
 
+    def test_register_rejects_missing_input_type(self):
+        """Decorator must reject classes that omit ``input_type``."""
+        from pydantic import BaseModel
+
+        from proto_language.language.generator.generator_registry import generator
+
+        class _Cfg(BaseModel):
+            pass
+
+        with pytest.raises(TypeError, match="must declare an ``input_type`` classvar"):
+
+            @generator(key="missing-input-type", label="x", config=_Cfg, description="x")
+            class _NoInputType(Generator):
+                def __init__(self):
+                    super().__init__()
+
+                def _sample(self):
+                    pass
+
 
 class TestShortSequenceWarning:
     """Tests for the warning emitted from sample() when autoregressive output is shorter than target."""
 
     GENERATOR_LOGGER = "proto_language.language.core.generator"
 
-    def _assigned(self, category: str = "autoregressive", num_proposals: int = 3) -> tuple[ConcreteGenerator, Segment]:
-        gen = ConcreteGenerator()
+    _CONCRETE_BY_CATEGORY: ClassVar[dict[str, type[Generator]]] = {
+        "autoregressive": ConcreteAutoregressiveGenerator,
+        "mutation": ConcreteMutationGenerator,
+        "inverse_folding": ConcreteInverseFoldingGenerator,
+    }
+
+    def _assigned(self, category: str = "autoregressive", num_proposals: int = 3) -> tuple[Generator, Segment]:
+        gen = self._CONCRETE_BY_CATEGORY[category]()
         segment = Segment(length=50, sequence_type="protein", label="binder")
         p_get, p_key = _patch_registry(_mock_spec(category=category))
         with p_get, p_key:
@@ -297,7 +394,7 @@ class TestShortSequenceWarning:
         return gen, segment
 
     def _run(self, gen, target_segment, lengths: list[int], caplog) -> list[logging.LogRecord]:
-        def fake_sample() -> None:
+        def fake_sample(*args, **kwargs) -> None:
             for proposal, length in zip(target_segment.proposal_sequences, lengths, strict=True):
                 proposal.sequence = "M" * length
 
@@ -313,7 +410,7 @@ class TestShortSequenceWarning:
         assert records[0].levelno == logging.WARNING
         msg = records[0].getMessage()
         for fragment in (
-            "ConcreteGenerator",
+            "ConcreteAutoregressiveGenerator",
             "'binder'",
             "target_length=50 aa",  # protein segment → aa unit
             "candidate #0: 50 aa",  # full-length candidate is shown too
@@ -327,8 +424,8 @@ class TestShortSequenceWarning:
         "category, lengths",
         [
             ("autoregressive", [50, 50, 50]),  # gate passes but no proposals are short
-            ("mutation", [30, 30, 30]),  # category gated out
-            ("inverse_folding", [30, 30, 30]),  # category gated out
+            ("mutation", [30, 30, 30]),  # input_type gated out
+            ("inverse_folding", [30, 30, 30]),  # input_type gated out
         ],
     )
     def test_no_warning_when_gate_or_length_check_short_circuits(self, caplog, category, lengths):
@@ -336,7 +433,7 @@ class TestShortSequenceWarning:
         assert not self._run(gen, segment, lengths, caplog)
 
     def test_warning_fires_once_and_mirrors_to_tied_segments(self, caplog):
-        gen = ConcreteGenerator()
+        gen = ConcreteAutoregressiveGenerator()
         primary = Segment(length=50, sequence_type="protein", label="primary")
         tied = Segment(length=50, sequence_type="protein", label="tied")
         p_get, p_key = _patch_registry(_mock_spec(category="autoregressive", supported_types=["protein"]))

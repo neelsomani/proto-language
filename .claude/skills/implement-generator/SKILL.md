@@ -3,7 +3,7 @@ name: implement-generator
 description: >
   Implements, modifies, or debugs generators in the proto-language DSL.
   Covers the full lifecycle: config class, Generator subclass with __init__/assign/sample,
-  category-specific patterns (mutation, autoregressive, inverse folding),
+  input_type-specific patterns (mutation, autoregressive, inverse folding, gradient),
   decorator registration, export chain, and tests. Use when working with
   generators, sequence sampling, Evo2, ESM2, ESM3, ProteinMPNN, LigandMPNN,
   or mutation strategies.
@@ -21,11 +21,12 @@ allowed-tools:
 
 1. **Read the registry** to see all existing generators and naming conventions:
    - `proto_language/language/generator/__init__.py`
-2. **Find a similar implementation** by category:
+2. **Find a similar implementation** by `input_type`:
    - Mutation (CPU): `proto_language/language/generator/random_nucleotide_generator.py`
    - Mutation (GPU tool): `proto_language/language/generator/esm2_generator.py`
    - Autoregressive: `proto_language/language/generator/evo2_generator.py`
    - Inverse folding: `proto_language/language/generator/proteinmpnn_generator.py`
+   - Gradient: `proto_language/language/generator/position_weight_generator.py`
 3. **Read the base class**: `proto_language/language/core/generator.py`
 4. **Read the decorator/registry**: `proto_language/language/generator/generator_registry.py`
 
@@ -33,38 +34,47 @@ allowed-tools:
 
 ```python
 class Generator(ABC):
+    # Required ClassVar on every concrete subclass:
+    input_type: ClassVar[GeneratorInputType]        # what kind of starting input
+
     @abstractmethod
     def __init__(self) -> None:
-        self._assigned_segment: Segment | None = None  # backing field
-        # self.segment property returns Segment (raises if not assigned)
+        # Always call super().__init__()
 
-    def assign(self, assigned_segment: Segment) -> None:
-        # Validates: not ligand, sequence type compatible
-        # Category-specific init: mutation->random, autoregressive->none, inverse_folding->"X"
+    def assign(self, segments: Segment | Iterable[Segment]) -> None:
+        # Validates: not ligand, sequence type compatible, tied segments agree on type/length
 
     @abstractmethod
-    def sample(self) -> None:
+    def _sample(self, *args, **kwargs) -> None:
         # Modifies self.segment.proposal_sequences IN PLACE
 
     def _validate_generator(self) -> None:
-        # Called at start of sample(). Validates state, performs lazy initialization.
+        # Called at start of _sample(). Dispatches on self.input_type:
+        # - STARTING_SEQUENCE: raises if proposals empty (no random fallback)
+        # - PROMPT: warns if proposals already populated (will be overwritten)
+        # - STRUCTURE: seeds 'X' * length if empty, logs INFO
+        # - LOGITS: no special init
 ```
 
 **Critical rules**:
 - Always call `super().__init__()` in `__init__`
-- Always call `super().assign(assigned_segment)` as first line in custom `assign()`
-- Always call `self._validate_generator()` as first line in `sample()`
+- Always call `super().assign(segments)` as first line in custom `assign()`
+- Always call `self._validate_generator()` as first line in `_sample()`
 - Always use `@final` decorator on the class to prevent subclassing
-- `sample()` modifies sequences **in-place** — it returns nothing
+- `_sample()` modifies sequences **in-place** — it returns nothing
+- Declare the `input_type` classvar on the concrete class (no default on the base — every concrete generator must set it). For generators that take dynamic conditioning data via `CyclingOptimizer`, the conditioning data is passed as the **first non-self positional argument** to `_sample()` — make that the conditioning kwarg (`prompts` for autoregressive, `structure_inputs` for inverse folding).
 - Per-proposal diagnostics go to ``proposal._generator_metadata[self._spec.key]`` (dict), namespaced by the registry key. Don't write to ``proposal._metadata``: that's a free-form user bag and prefixed keys collide across generators.
 
-## Category Behavior
+## Input Kinds
 
-| Category | `assign()` auto-init | `sample()` behavior |
-|----------|---------------------|---------------------|
-| `"mutation"` | Random sequence from `valid_chars` if empty | Refines existing sequences |
-| `"autoregressive"` | No initialization | Generates from scratch (left-to-right) |
-| `"inverse_folding"` | `"X" * length` if empty | Structure-conditioned design |
+Each generator declares its `input_type` via a classvar. The client reads this from `GeneratorRegistry` to render the right input UI. The Program-build validator (`Program._validate_generator_inputs` in `core/program.py`) walks stages in order and verifies the input is satisfiable; failures raise at `Program.__init__` time.
+
+| `input_type` | Category | Examples | Runtime input source |
+|---|---|---|---|
+| `STARTING_SEQUENCE` | `mutation` | ESM2, ESM3, MSA, Random*, SemigreedyMutation | `segment.proposal_sequences[].sequence` (from `segment.input_sequence` or prior stage) — **required**, raises if empty |
+| `PROMPT` | `autoregressive` | Evo1, Evo2, ProGen2 | `config.prompts` or `_sample(prompts=...)` (first positional kwarg) from CyclingOptimizer |
+| `STRUCTURE` | `inverse_folding` | ProteinMPNN, LigandMPNN | `config.structure_inputs` or `_sample(structure_inputs=...)` (first positional kwarg) from CyclingOptimizer; segment seeded with `'X' * length` if no prior sequence |
+| `LOGITS` | `gradient` | PositionWeight | `segment.proposal_sequences[].logits` from a prior `GradientOptimizer` stage |
 
 ## Implementation Steps
 
@@ -85,10 +95,30 @@ Summary of the workflow:
 | `label` | `str` | Yes | Human-readable name for UI |
 | `config` | `Type[BaseModel]` | Yes | Pydantic config class |
 | `description` | `str` | Yes | What this generator does |
-| `category` | `str` | Yes | `"mutation"`, `"autoregressive"`, or `"inverse_folding"` |
 | `uses_gpu` | `bool` | No | Whether generator requires GPU |
 | `tools_called` | `List[str]` | No | Default `[]` |
 | `supported_sequence_types` | `List[str]` | No | Default `[]` (= all types). Options: `"dna"`, `"rna"`, `"protein"`. Ligand segments are immutable fixed targets — `Generator.assign()` rejects them, so do not list `"ligand"` here. |
+
+`category` is **not** a decorator argument — it's auto-derived from the class's `input_type` classvar via `INPUT_TYPE_TO_CATEGORY` in `generator_registry.py`.
+
+Example registration:
+
+```python
+@generator(
+    key="my-generator",
+    label="My Generator",
+    config=MyGeneratorConfig,
+    description="...",
+    uses_gpu=False,
+)
+@final
+class MyGenerator(Generator):
+    input_type = GeneratorInputType.STARTING_SEQUENCE
+
+    def __init__(self, config: MyGeneratorConfig) -> None:
+        super().__init__()
+        ...
+```
 
 ## Export Chain
 
@@ -169,12 +199,14 @@ See the testing skill for complete test templates.
 Copy this and check off as you go:
 
 - [ ] Config class inherits `BaseConfig` with `ConfigField` (use `depends_on` for conditionally visible fields)
-- [ ] `@generator` decorator with unique kebab-case key and correct category
+- [ ] `@generator` decorator with unique kebab-case key (category is auto-derived from input_type)
 - [ ] `@final` decorator on class
+- [ ] `input_type` classvar set to the right `GeneratorInputType` value
+- [ ] If the generator takes dynamic conditioning data via `CyclingOptimizer`, the conditioning kwarg is the **first non-self positional argument** of `_sample()` (`prompts` for autoregressive, `structure_inputs` for inverse folding)
 - [ ] `__init__` calls `super().__init__()`
-- [ ] `assign()` calls `super().assign(assigned_segment)` first
-- [ ] `sample()` calls `self._validate_generator()` first
-- [ ] `sample()` modifies `proposal_sequences` in-place (returns nothing)
+- [ ] `assign()` calls `super().assign(segments)` first (only if overriding)
+- [ ] `_sample()` calls `self._validate_generator()` first
+- [ ] `_sample()` modifies `proposal_sequences` in-place (returns nothing)
 - [ ] No batching loop in generator (tool handles batching)
 - [ ] Export chain updated: `generator/__init__.py` (class + config)
 - [ ] Tests cover: init, assign, sample, batch, type validation, config validation

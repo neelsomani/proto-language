@@ -13,6 +13,7 @@ from proto_language.language.core import (
     Constraint,
     Construct,
     Generator,
+    GeneratorInputType,
     Optimizer,
     Segment,
     Sequence,
@@ -85,6 +86,8 @@ class ConcreteOptimizer(Optimizer):
 
 class MockGenerator(Generator):
     """Minimal mock generator for testing."""
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
 
     def __init__(self):
         super().__init__()

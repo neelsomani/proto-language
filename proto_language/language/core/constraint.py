@@ -62,7 +62,7 @@ class InputSlot(BaseModel):
     """Per-slot declaration used by ``@constraint(input_labels=[...])`` for swap-detection.
 
     Attributes:
-        label (str): Slot name, surfaced to the client and in error messages.
+        label (str): Slot name, surfaced in error messages.
         requires_logits (bool): Proposal Sequence in this slot must have ``.logits``.
         requires_structure (bool): Proposal Sequence in this slot must have ``.structure``.
     """

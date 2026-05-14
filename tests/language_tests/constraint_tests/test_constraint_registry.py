@@ -293,7 +293,7 @@ class TestDiscovery:
 
 
 class TestSchemaGeneration:
-    """Test JSON schema generation for client integration."""
+    """Test JSON schema generation."""
 
     def test_get_schema_returns_valid_json_schema(self):
         """Test that get_schema returns valid JSON Schema."""

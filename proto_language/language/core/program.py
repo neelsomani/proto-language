@@ -9,6 +9,7 @@ from typing import Any, Literal
 import pandas as pd
 from proto_tools.utils.tool_pool import ToolPool
 
+from proto_language.language.core.generator import GeneratorInputType
 from proto_language.language.core.optimizer import Optimizer, derive_seeds
 from proto_language.utils.export import (
     build_results,
@@ -302,6 +303,85 @@ class Program:
                             f"Constraint '{con.label}' reused across optimizer {prev_idx} and {opt_idx}. Each constraint instance can only be used once."
                         )
                     seen_constraints[id(con)] = opt_idx
+
+        # 7. Validate each generator's input_type contract is satisfiable in stage order.
+        self._validate_generator_inputs()
+
+    def _validate_generator_inputs(self) -> None:
+        """Walk optimizer stages in order; raise if any generator's declared input is unavailable at runtime.
+
+        Per-``input_type`` checks:
+            - ``STARTING_SEQUENCE``: target segment must already be populated (initial input or prior-stage output).
+            - ``PROMPT``: ``generator.config.prompts`` must be non-empty, unless the stage supplies prompts at
+              runtime (``CyclingOptimizer`` via pipeline/conditioning_fn; ``BeamSearchOptimizer`` via ``config.prompt``).
+            - ``STRUCTURE``: ``generator.config.structure_inputs`` must be non-empty, or the stage must be a
+              ``CyclingOptimizer`` (named pipeline or conditioning_fn supplies structures).
+
+        Note:
+            ``LOGITS`` is not checked here — ``PositionWeightGenerator`` raises a clear runtime error
+            (``"Proposal on segment 'X' has no logits."``) if wired outside a ``GradientOptimizer``.
+            Stale-logits/structure invalidation is also enforced at runtime in ``Generator.sample()``.
+
+        Raises:
+            ValueError: If any generator's declared ``input_type`` is not satisfied at its stage.
+        """
+        from proto_language.language.optimizer.beam_search_optimizer import BeamSearchOptimizer
+        from proto_language.language.optimizer.cycling_optimizer import CyclingOptimizer
+
+        # Segments with a usable starting sequence going into each stage; grows as stages write to them.
+        populated_segments: set[int] = {
+            id(segment)
+            for construct in self.constructs
+            for segment in construct.segments
+            if segment.populated_sequences
+        }
+
+        for stage_idx, optimizer in enumerate(self.optimizers):
+            # Cycling/BeamSearch supply input dynamically; skip the config-source check for those input_types.
+            under_cycling = isinstance(optimizer, CyclingOptimizer)
+            supplies_prompts = under_cycling or isinstance(optimizer, BeamSearchOptimizer)
+
+            for generator in optimizer.generators:
+                if not generator.is_assigned:
+                    continue
+
+                kind = generator.input_type
+                target_segments = list(generator.segments)
+                config = getattr(generator, "config", None)
+
+                # (1) PROMPT: autoregressive generators need non-empty config.prompts (unless stage-supplied).
+                if kind == GeneratorInputType.PROMPT and not supplies_prompts:
+                    prompts = getattr(config, "prompts", None)
+                    if not prompts:
+                        raise ValueError(
+                            f"Stage {stage_idx} autoregressive generator {generator.__class__.__name__} "
+                            f"requires non-empty prompts on its config (got {prompts!r})."
+                        )
+
+                # (2) STRUCTURE: inverse-folding generators need config.structure_inputs (unless under Cycling).
+                if kind == GeneratorInputType.STRUCTURE and not under_cycling:
+                    structure_inputs = getattr(config, "structure_inputs", None)
+                    if not structure_inputs:
+                        raise ValueError(
+                            f"Stage {stage_idx} inverse folding generator {generator.__class__.__name__} "
+                            f"requires structure_inputs on its config, or wrap the stage in a CyclingOptimizer."
+                        )
+
+                # Only the primary is consumed by ``_sample()``; tied segments are mirrored from it.
+                primary = target_segments[0]
+                primary_label = primary.label or "unlabeled"
+
+                # (3) STARTING_SEQUENCE: mutation generators need a sequence to mutate on the primary segment.
+                if kind == GeneratorInputType.STARTING_SEQUENCE and id(primary) not in populated_segments:
+                    raise ValueError(
+                        f"Stage {stage_idx} mutation generator {generator.__class__.__name__} "
+                        f"targets segment {primary_label!r} but no starting sequence is available. "
+                        f"Set segment.input_sequence, or place a prior optimizer stage that writes to it."
+                    )
+
+                # (4) Mark target segments as populated so downstream STARTING_SEQUENCE checks see them.
+                for target in target_segments:
+                    populated_segments.add(id(target))
 
     def _log_stage_results(self, stage_index: int, results: list[dict[str, Any]]) -> None:
         """Log results for a completed optimization stage."""

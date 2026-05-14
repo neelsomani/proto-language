@@ -41,7 +41,7 @@ def ConfigField(
     Args:
         default (Any): Default value for the configuration field.
         title (str | None): Human-readable display title for the field.
-        description (str | None): Short description shown in the client UI.
+        description (str | None): Short description of the component.
         advanced (bool): If True, field appears in "Advanced" section of UI.
         hidden (bool): If True, field is hidden from UI completely.
         depends_on (DependsOn | None): If set, field is only visible when the

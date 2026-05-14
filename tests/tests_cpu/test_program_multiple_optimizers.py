@@ -27,7 +27,7 @@ class TestMultipleOptimizers:
     def test_two_optimizers_sequential(self):
         """Test that two optimizers run sequentially and state persists."""
         # Setup
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         # First optimizer: Rejection Sampling
@@ -84,7 +84,7 @@ class TestMultipleOptimizers:
 
     def test_three_optimizers_sequential(self):
         """Test that three optimizers run in sequence."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         optimizers = []
@@ -118,7 +118,7 @@ class TestMultipleOptimizers:
 
     def test_optimizer_histories_preserved(self):
         """Test that each optimizer maintains separate history."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         # Create two optimizers with different numbers of steps
@@ -152,7 +152,7 @@ class TestMultipleOptimizers:
 
     def test_construct_validation_same_objects(self):
         """Test that validation passes when all optimizers share same constructs."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
@@ -196,8 +196,8 @@ class TestMultipleOptimizers:
 
     def test_construct_validation_different_objects_fails(self):
         """Test that validation fails when optimizers have different construct objects."""
-        segment1 = Segment(length=50, sequence_type="dna")
-        segment2 = Segment(length=50, sequence_type="dna")
+        segment1 = Segment(sequence="A" * 50, sequence_type="dna")
+        segment2 = Segment(sequence="A" * 50, sequence_type="dna")
         construct1 = Construct([segment1])
         construct2 = Construct([segment2])
 
@@ -241,7 +241,7 @@ class TestMultipleOptimizers:
 
     def test_construct_validation_different_lengths_fails(self):
         """Test that validation fails when optimizers have different numbers of constructs."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct1 = Construct([segment])
         construct2 = Construct([segment])
 
@@ -284,7 +284,7 @@ class TestMultipleOptimizers:
 
     def test_energy_scores_from_final_optimizer(self):
         """Test that energy_scores property returns results from final optimizer."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         optimizers = []
@@ -315,7 +315,7 @@ class TestMultipleOptimizers:
 
     def test_state_persistence_between_optimizers(self):
         """Test that sequence state persists from one optimizer to the next."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         # First optimizer
@@ -365,7 +365,7 @@ class TestMultipleOptimizers:
 
     def test_mcmc_to_rejection_sampling_sequence(self):
         """Test MCMC optimizer followed by Rejection Sampling optimizer."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         # MCMC first
@@ -414,7 +414,7 @@ class TestMultipleOptimizers:
 
     def test_generator_reuse_across_optimizers_fails(self):
         """Test that reusing the same generator instance across optimizers raises ValueError."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         # Create single generator instance
@@ -454,7 +454,7 @@ class TestMultipleOptimizers:
 
     def test_constraint_reuse_across_optimizers_fails(self):
         """Test that reusing the same constraint instance across optimizers raises ValueError."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
@@ -491,7 +491,7 @@ class TestMultipleOptimizers:
 
     def test_single_optimizer_no_reuse_validation(self):
         """Test that single optimizer programs don't trigger reuse validation."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
@@ -517,7 +517,7 @@ class TestMultipleOptimizers:
 
     def test_duplicate_generator_in_single_optimizer_fails(self):
         """Test that same generator instance appearing twice in one optimizer raises ValueError."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
@@ -541,7 +541,7 @@ class TestMultipleOptimizers:
 
     def test_duplicate_constraint_in_single_optimizer_fails(self):
         """Test that same constraint instance appearing twice in one optimizer raises ValueError."""
-        segment = Segment(length=50, sequence_type="dna")
+        segment = Segment(sequence="A" * 50, sequence_type="dna")
         construct = Construct([segment])
 
         gen_config = RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))

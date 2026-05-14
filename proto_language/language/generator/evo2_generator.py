@@ -13,7 +13,7 @@ from proto_tools.tools.causal_models.evo2.evo2_sample import EVO2_MODEL_CHECKPOI
 from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator
+from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
 
 
@@ -160,7 +160,6 @@ class Evo2GeneratorConfig(BaseConfig):
         description="Whether to stop at end-of-sequence token",
         advanced=True,
     )
-    # Determine how we want to handle this for the client.
     batched: bool = ConfigField(
         default=True,
         title="Batched",
@@ -222,7 +221,6 @@ class Evo2GeneratorConfig(BaseConfig):
     description="Evo2 genome language model for DNA sequence generation",
     uses_gpu=True,
     tools_called=["evo2-sample"],
-    category="autoregressive",
     supported_sequence_types=["dna"],
 )
 @final
@@ -256,6 +254,8 @@ class Evo2Generator(Generator):
         >>> gen.assign(segment)  # num_tokens = 1003 - 3 = 1000
         >>> gen.sample()  # Generates DNA sequences
     """
+
+    input_type = GeneratorInputType.PROMPT
 
     def __init__(self, config: Evo2GeneratorConfig) -> None:
         """Initialize the Evo2 generator with model configuration and sampling parameters.

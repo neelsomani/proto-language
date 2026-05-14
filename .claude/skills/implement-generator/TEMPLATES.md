@@ -1,13 +1,17 @@
 # Generator Implementation Templates
 
-Complete templates for config class and generator class by category. Load this file on demand when implementing a new generator.
+Complete templates for config class and generator class by `input_type`. Load this file on demand when implementing a new generator.
 
-## `_validate_generator()` Per-Category Behavior
+## `_validate_generator()` Per-`input_type` Behavior
 
-The category determines what `_validate_generator()` does at the start of `sample()`:
-- **mutation**: If proposal has no sequence, initializes random from `valid_chars`
-- **autoregressive**: No random init (generates entirely new sequences)
-- **inverse_folding**: If proposal has no sequence, initializes with `"X"` (unknown)
+The class's `input_type` classvar determines what `_validate_generator()` does at the start of `_sample()`:
+
+- **`STARTING_SEQUENCE`** (mutation): If proposals have no sequence, raises `RuntimeError`. No random-init fallback — the user must provide `segment.input_sequence` or rely on a prior optimizer stage's output.
+- **`PROMPT`** (autoregressive): If proposals are already populated, logs a warning (they will be overwritten).
+- **`STRUCTURE`** (inverse folding): If proposals have no sequence, seeds `"X" * length` and logs at INFO. The structure determines residues during design.
+- **`LOGITS`** (gradient): No special init. Each proposal must carry `seq.logits` from a prior `GradientOptimizer` stage; reading code raises if missing.
+
+A Program-build-time validator (`Program._validate_generator_inputs` in `core/program.py`) catches missing inputs at `Program.__init__` time — before any stage runs — with errors that name the offending stage and segment.
 
 ## Batching Data Flow
 
@@ -34,7 +38,7 @@ from typing import final
 from pydantic import field_validator, model_validator
 
 from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core import Generator, Segment
+from proto_language.language.core import Generator, GeneratorInputType, Segment
 from proto_language.language.generator.generator_registry import generator
 
 logger = logging.getLogger(__name__)
@@ -46,13 +50,11 @@ class MyGeneratorConfig(BaseConfig):
     Detailed description of what this generator does and its parameters.
     """
 
-    # Required parameter
     model_name: str = ConfigField(
         title="Model Name",
         description="Which model checkpoint to use",
     )
 
-    # Optional with default
     temperature: float = ConfigField(
         default=1.0,
         title="Temperature",
@@ -70,14 +72,6 @@ class MyGeneratorConfig(BaseConfig):
         advanced=True,
     )
 
-    # Conditional field example — only visible when a specific model is selected:
-    # model_variant: str = ConfigField(
-    #     default="base",
-    #     title="Model Variant",
-    #     description="Variant of model_a to use",
-    #     depends_on={"field": "model_name", "value": "model_a"},
-    # )
-
     @field_validator("model_name", mode="before")
     @classmethod
     def validate_model(cls, v):
@@ -87,15 +81,14 @@ class MyGeneratorConfig(BaseConfig):
         return v
 ```
 
-## Mutation Generator Template
+## Mutation Generator Template (`input_type = STARTING_SEQUENCE`)
 
 ```python
 @generator(
     key="my-generator",
     label="My Generator",
     config=MyGeneratorConfig,
-    description="Generates sequences using ...",
-    category="mutation",
+    description="Refines existing protein sequences using ...",
     uses_gpu=True,
     tools_called=["my-tool"],
     supported_sequence_types=["protein"],
@@ -107,6 +100,8 @@ class MyGenerator(Generator):
     Detailed description of the generation approach.
     """
 
+    input_type = GeneratorInputType.STARTING_SEQUENCE
+
     def __init__(self, config: MyGeneratorConfig) -> None:
         super().__init__()
         self.config = config
@@ -114,19 +109,12 @@ class MyGenerator(Generator):
         self.temperature = config.temperature
         self.batch_size = config.batch_size
 
-    def assign(self, assigned_segment: Segment) -> None:
-        super().assign(assigned_segment)
-        # Custom validation after base class validation
-        if assigned_segment.sequence_length < 10:
-            raise ValueError("Sequence must be at least 10 residues")
-
-    def sample(self) -> None:
+    def _sample(self) -> None:
         self._validate_generator()
 
         proposals = self.segment.proposal_sequences
         sequences = [seq.sequence for seq in proposals]
 
-        # Call external tool or compute locally
         result = run_my_tool(
             sequences=sequences,
             model=self.model_name,
@@ -142,44 +130,40 @@ class MyGenerator(Generator):
             proposal._generator_metadata[key] = {"score": score, "model": self.model_name}
 ```
 
-## Autoregressive Generator Template
+## Autoregressive Generator Template (`input_type = PROMPT`)
 
-Autoregressive generators often support prompts and KV caching:
+Autoregressive generators receive prompts via config or via the `prompts` kwarg injected by `CyclingOptimizer`:
 
 ```python
 @generator(
     key="my-autoregressive",
     label="My Autoregressive Generator",
     config=MyGeneratorConfig,
-    description="Generates sequences left-to-right using ...",
-    category="autoregressive",
+    description="Generates DNA sequences left-to-right using ...",
     uses_gpu=True,
     tools_called=["my-tool"],
     supported_sequence_types=["dna"],
 )
 @final
 class MyAutoregressiveGenerator(Generator):
+    input_type = GeneratorInputType.PROMPT
+
     def __init__(self, config: MyGeneratorConfig) -> None:
         super().__init__()
         self.config = config
+        self.prompts = config.prompts
         self.model_name = config.model_name
         self.temperature = config.temperature
 
-    def sample(
-        self,
-        prompts: list[str] | None = None,
-        prepend_prompt: bool | None = None,
-        old_kv_cache: dict | None = None,
-    ) -> None:
+    def _sample(self, prompts: list[str] | None = None) -> None:
         self._validate_generator()
-        # Use provided prompts or defaults
         sampling_prompts = prompts if prompts is not None else self.prompts
         ...
 ```
 
-## Inverse Folding Generator Template
+## Inverse Folding Generator Template (`input_type = STRUCTURE`)
 
-Inverse folding generators take structure inputs:
+Inverse folding generators receive structure inputs via config or via the `structure_inputs` kwarg from `CyclingOptimizer`:
 
 ```python
 @generator(
@@ -187,27 +171,58 @@ Inverse folding generators take structure inputs:
     label="My Inverse Folding Generator",
     config=MyGeneratorConfig,
     description="Designs sequences conditioned on structure using ...",
-    category="inverse_folding",
     uses_gpu=True,
     tools_called=["my-tool"],
     supported_sequence_types=["protein"],
 )
 @final
 class MyInverseFoldingGenerator(Generator):
+    input_type = GeneratorInputType.STRUCTURE
+
     def __init__(self, config: MyGeneratorConfig) -> None:
         super().__init__()
         self.config = config
+        self.structure_inputs = config.structure_inputs
         self.model_name = config.model_name
 
-    def sample(self, structure_inputs: list[...] | None = None) -> None:
+    def _sample(self, structure_inputs: list[...] | None = None) -> None:
         self._validate_generator()
         sampling_inputs = structure_inputs or self.structure_inputs
         if sampling_inputs is None:
             raise ValueError("No structure_inputs provided")
         # ... generate sequences ...
-        # Write generating structure onto proposals
-        for proposal, struct_input in zip(self.segment.proposal_sequences, sampling_inputs):
+        for proposal, struct_input in zip(self.segment.proposal_sequences, sampling_inputs, strict=True):
+            proposal.sequence = ...  # designed sequence
             proposal.structure = struct_input.structure
+```
+
+## Gradient Generator Template (`input_type = LOGITS`)
+
+Gradient generators read per-position logits written by an upstream `GradientOptimizer`:
+
+```python
+@generator(
+    key="my-gradient",
+    label="My Gradient Generator",
+    config=MyGeneratorConfig,
+    description="Decodes sequences from gradient-optimized logits using ...",
+    uses_gpu=False,
+    supported_sequence_types=["protein"],
+)
+@final
+class MyGradientGenerator(Generator):
+    input_type = GeneratorInputType.LOGITS
+
+    def __init__(self, config: MyGeneratorConfig) -> None:
+        super().__init__()
+        self.config = config
+
+    def _sample(self) -> None:
+        self._validate_generator()
+        for proposal in self.segment.proposal_sequences:
+            if proposal.logits is None:
+                raise RuntimeError(f"Proposal on segment '{self.segment.label}' has no logits.")
+            proposal.sequence = decode(proposal.logits, ...)
 ```
 
 ## Full Tool Integration Pattern
@@ -221,24 +236,21 @@ from proto_tools import (
     {Tool}Config,
 )
 
-def sample(self) -> None:
+def _sample(self) -> None:
     self._validate_generator()
 
     sequences = [seq.sequence for seq in self.segment.proposal_sequences]
 
-    # Build tool input/config
     tool_input = ToolInput(sequences=sequences)
     tool_config = ToolConfig(
         model=self.model_name,
         temperature=self.temperature,
         batch_size=self.batch_size,
+        seed=self._next_seed(),
     )
 
-    # Call tool
     result = run_tool(inputs=tool_input, config=tool_config)
-    generated = result.sequences
 
-    # Update proposals in-place
-    for i, sequence in enumerate(generated):
-        self.segment.proposal_sequences[i].sequence = sequence
+    for proposal, sequence in zip(self.segment.proposal_sequences, result.sequences, strict=True):
+        proposal.sequence = sequence
 ```

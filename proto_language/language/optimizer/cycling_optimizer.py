@@ -5,7 +5,6 @@ accept pattern for passing proposals.
 """
 
 import copy
-import inspect
 import logging
 import random
 from collections.abc import Callable
@@ -19,6 +18,7 @@ from proto_language.language.core import (
     Constraint,
     Construct,
     Generator,
+    GeneratorInputType,
     Optimizer,
     Segment,
     Sequence,
@@ -94,11 +94,11 @@ def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> 
     return conditioning_fn
 
 
-# Pipeline registry: factory + required generator category.
+# Pipeline registry: factory + required generator input_type.
 CYCLING_PIPELINES: dict[str, dict[str, Any]] = {
     "protein-hunter": {
         "factory": _create_protein_hunter_conditioning_fn,
-        "required_generator_category": "inverse_folding",
+        "required_input_type": GeneratorInputType.STRUCTURE,
     },
 }
 
@@ -109,27 +109,16 @@ CYCLING_PIPELINES: dict[str, dict[str, Any]] = {
 
 
 def _build_pipeline_conditioning_fn(config: "CyclingOptimizerConfig", generator: Generator) -> Callable[..., Any]:
-    """Build a conditioning_fn from a registered pipeline; validate the generator's category."""
+    """Build a conditioning_fn from a registered pipeline; validate the generator's input_type."""
     assert config.pipeline is not None  # noqa: S101 -- mypy type narrowing; caller checks
     spec = CYCLING_PIPELINES[config.pipeline]
-    required_category = spec["required_generator_category"]
-    from proto_language.language.generator import GeneratorRegistry
-
-    actual_category = GeneratorRegistry.get(GeneratorRegistry.get_key(generator)).category
-    if actual_category != required_category:
+    required_input_type: GeneratorInputType = spec["required_input_type"]
+    if generator.input_type != required_input_type:
         raise ValueError(
-            f"Pipeline '{config.pipeline}' requires a {required_category} generator, got {actual_category}."
+            f"Pipeline '{config.pipeline}' requires a generator with input_type={required_input_type!r}, "
+            f"got {generator.input_type!r}."
         )
     return spec["factory"](config)  # type: ignore[no-any-return]
-
-
-def _infer_conditioning_param_name(generator: Generator) -> str:
-    """Return the first non-self kwarg of `generator._sample()` — the conditioning input."""
-    sig = inspect.signature(generator._sample)
-    params = [name for name in sig.parameters if name != "self"]
-    if not params:
-        raise ValueError(f"{type(generator).__name__}._sample() has no conditioning kwarg.")
-    return params[0]
 
 
 # =============================================================================
@@ -160,7 +149,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
 
         pipeline (Literal['protein-hunter'] | None): Predefined conditioning pipeline.
             - ``"protein-hunter"``: Structure prediction -> inverse folding cycle.
-              Requires an inverse_folding generator (ProteinMPNN or LigandMPNN).
+              Requires an inverse_folding generator.
 
         protein_hunter (ProteinHunterPipelineConfig | None): Configuration for protein-hunter pipeline.
             Only used when ``pipeline="protein-hunter"``.
@@ -171,7 +160,7 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
 
     Note:
         - Pipeline-specific constraints:
-          - ``protein-hunter`` requires an inverse_folding generator (ProteinMPNN, LigandMPNN)
+          - ``protein-hunter`` requires an inverse_folding generator
         - Constraints are optional but if provided must be filter constraints
           (must have ``threshold`` set)
 
@@ -242,10 +231,9 @@ class CyclingOptimizer(Optimizer):
 
     Attributes:
         target_segment: The segment being optimized.
-        generator: The generator to use for sequence generation.
+        generator: The generator to use for sequence generation. Its ``_sample()`` must
+            accept the conditioning data as its first non-self positional argument.
         conditioning_fn: User-defined function that produces conditioning data.
-        conditioning_param_name: Generator ``_sample()`` kwarg the conditioning data is passed to;
-            inferred as the first non-self parameter.
         num_steps: Number of cycles to run.
         num_results: Number of independent proposal trajectories.
 
@@ -326,7 +314,6 @@ class CyclingOptimizer(Optimizer):
         self.target_segment: Segment = target_segment
         self.generator: Generator = generator
         self.conditioning_fn = conditioning_fn
-        self.conditioning_param_name: str = _infer_conditioning_param_name(generator)
         self.pipeline: str | None = config.pipeline
         self.protein_hunter: ProteinHunterPipelineConfig | None = config.protein_hunter
 
@@ -366,7 +353,6 @@ class CyclingOptimizer(Optimizer):
                 "num_steps": self.num_steps,
                 "num_results": self.num_results,
                 "num_proposals": self.num_proposals,
-                "conditioning_param_name": self.conditioning_param_name,
                 "pipeline": self.pipeline,
                 "proposal_count": len(self._proposal_outcomes),
                 "accepted_proposal_count": self._proposal_outcomes.count("accepted"),
@@ -383,9 +369,10 @@ class CyclingOptimizer(Optimizer):
                     f"conditioning_fn returned {len(conditioning_data)} items, expected {self.num_proposals}."
                 )
 
-            # 2. Generate proposals; MissingAssetError carve-out preserves the proto-tools skip hook.
+            # 2. Generate proposals — ``conditioning_data`` binds to the generator's first ``_sample()`` kwarg.
+            #    MissingAssetError carve-out preserves the proto-tools skip hook.
             try:
-                self.generator.sample(**{self.conditioning_param_name: conditioning_data})
+                self.generator.sample(conditioning_data)
             except MissingAssetError:
                 raise
             except Exception as exc:
@@ -419,7 +406,6 @@ class CyclingOptimizer(Optimizer):
                         "num_steps": self.num_steps,
                         "num_results": self.num_results,
                         "num_proposals": self.num_proposals,
-                        "conditioning_param_name": self.conditioning_param_name,
                         "pipeline": self.pipeline,
                         "proposal_count": len(self._proposal_outcomes),
                         "accepted_proposal_count": self._proposal_outcomes.count("accepted"),

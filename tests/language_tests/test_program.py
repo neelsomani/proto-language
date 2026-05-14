@@ -6,14 +6,40 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
+from pydantic import BaseModel
 
-from proto_language.language.constraint import ConstraintRegistry
-from proto_language.language.core import Construct, Program, Segment
+from proto_language.language.constraint import ConstraintRegistry, gc_content_constraint
+from proto_language.language.core import (
+    Constraint,
+    Construct,
+    Generator,
+    GeneratorInputType,
+    Program,
+    Segment,
+)
+from proto_language.language.core.constraint import ConstraintOutput, GradientConstraintOutput
 from proto_language.language.generator import (
+    ESM2Generator,
+    ESM2GeneratorConfig,
+    PositionWeightGenerator,
+    PositionWeightGeneratorConfig,
+    ProteinMPNNGenerator,
+    ProteinMPNNGeneratorConfig,
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
+    SemigreedyMutationGenerator,
+    SemigreedyMutationGeneratorConfig,
 )
-from proto_language.language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from proto_language.language.optimizer import (
+    CyclingOptimizer,
+    CyclingOptimizerConfig,
+    GradientOptimizer,
+    GradientOptimizerConfig,
+    MCMCOptimizer,
+    MCMCOptimizerConfig,
+    RejectionSamplingOptimizer,
+    RejectionSamplingOptimizerConfig,
+)
 from tests.helpers.mock_structure import MockStructure
 
 _UNSET = object()
@@ -671,6 +697,227 @@ class TestProgramValidation:
 
         with pytest.raises(ValueError, match=r"Constraint.*reused across optimizer"):
             Program(optimizers=[opt1, opt2], num_results=2)
+
+
+# Helpers for TestProgramGeneratorInputs ---------------------------------------
+
+
+def _gc(segment: Segment, *, threshold: float | None = None) -> Constraint:
+    return Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config={"min_gc": 0.0, "max_gc": 100.0},
+        threshold=threshold,
+    )
+
+
+def _protein_zero(input_sequences, config):
+    return [ConstraintOutput(score=0.0) for _ in input_sequences]
+
+
+_protein_zero._constraint_supported_sequence_types = ["protein"]
+_protein_zero._constraint_num_input_sequences_per_tuple = 1
+
+
+def _protein_constraint(segment: Segment, *, threshold: float | None = None) -> Constraint:
+    return Constraint(inputs=[segment], function=_protein_zero, function_config={}, threshold=threshold)
+
+
+def _rejection(construct, generators, constraints):
+    return RejectionSamplingOptimizer(
+        constructs=[construct],
+        generators=generators,
+        constraints=constraints,
+        config=RejectionSamplingOptimizerConfig(num_samples=3, num_results=2),
+    )
+
+
+def _mcmc(construct, generators, constraints):
+    return MCMCOptimizer(
+        constructs=[construct],
+        generators=generators,
+        constraints=constraints,
+        config=MCMCOptimizerConfig(num_results=2, num_steps=2),
+    )
+
+
+class _MockARConfig(BaseModel):
+    prompts: list[str] = []
+
+
+class MockAutoregressiveGenerator(Generator):
+    """Bypasses Evo2/ProGen2's empty-prompts rejection so the validator's PROMPT branch is reachable."""
+
+    input_type = GeneratorInputType.PROMPT
+
+    def __init__(self, prompts: list[str]) -> None:
+        super().__init__()
+        self.config = _MockARConfig(prompts=prompts)
+
+    def _sample(self, *args, **kwargs) -> None:
+        pass
+
+
+class _GradCfg(BaseModel):
+    pass
+
+
+def _grad_backward(input_sequences, *, config, **kwargs):
+    out = []
+    for (seq,) in input_sequences:
+        out.append(GradientConstraintOutput(gradient=(seq.logits - np.zeros_like(seq.logits),), loss=0.0, metrics={}))
+    return out
+
+
+def _grad_constraint(segment: Segment) -> Constraint:
+    return Constraint(
+        inputs=[segment],
+        function=_protein_zero,
+        function_config=_GradCfg(),
+        backward=_grad_backward,
+        backward_config=_GradCfg(),
+        label="grad",
+    )
+
+
+class TestProgramGeneratorInputs:
+    """Tests for ``Program._validate_generator_inputs`` (per-input_type contract enforcement)."""
+
+    # STARTING_SEQUENCE (mutation) -------------------------------------------
+
+    def test_starting_sequence_length_only_raises(self):
+        seg = Segment(length=8, sequence_type="dna")
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        gen.assign(seg)
+        with pytest.raises(ValueError, match="no starting sequence is available"):
+            Program(optimizers=[_rejection(Construct([seg]), [gen], [_gc(seg)])], num_results=2)
+
+    def test_starting_sequence_tied_secondary_length_only_ok(self):
+        """Tied segments are mirrored from the primary; secondary tied segments need no starting sequence."""
+        primary = Segment(sequence="MKKLLLAA", sequence_type="protein", label="primary")
+        tied = Segment(length=8, sequence_type="protein", label="tied")
+        construct = Construct([primary, tied])
+        gen = ESM2Generator(ESM2GeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
+        gen.assign([primary, tied])
+        Program(optimizers=[_rejection(construct, [gen], [_protein_constraint(primary)])], num_results=2)
+
+    def test_starting_sequence_multi_stage_inherits(self):
+        """Stage 2 has no segment.input_sequence; the validator credits Stage 1's output."""
+        seg = Segment(sequence="MKKLLLAA", sequence_type="protein")
+        construct = Construct([seg])
+
+        def _esm2_stage() -> RejectionSamplingOptimizer:
+            g = ESM2Generator(ESM2GeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
+            g.assign(seg)
+            return _rejection(construct, [g], [_protein_constraint(seg)])
+
+        Program(optimizers=[_esm2_stage(), _esm2_stage()], num_results=2)
+
+    # PROMPT (autoregressive) ------------------------------------------------
+
+    def test_prompt_empty_raises(self):
+        seg = Segment(length=10, sequence_type="dna")
+        gen = MockAutoregressiveGenerator(prompts=[])
+        gen.assign(seg)
+        with pytest.raises(ValueError, match="requires non-empty prompts"):
+            Program(optimizers=[_rejection(Construct([seg]), [gen], [_gc(seg)])], num_results=2)
+
+    # STRUCTURE (inverse folding) --------------------------------------------
+
+    def test_structure_no_input_no_cycling_raises(self):
+        seg = Segment(length=10, sequence_type="protein")
+        gen = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(structure_inputs=None))
+        gen.assign(seg)
+        with pytest.raises(ValueError, match="requires structure_inputs on its config"):
+            Program(
+                optimizers=[_rejection(Construct([seg]), [gen], [_protein_constraint(seg)])],
+                num_results=2,
+            )
+
+    def test_structure_under_protein_hunter_pipeline_ok(self):
+        """Cycling pipeline supplies structures dynamically; no config.structure_inputs required."""
+        seg = Segment(length=10, sequence_type="protein")
+        gen = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(structure_inputs=None))
+        gen.assign(seg)
+        opt = CyclingOptimizer(
+            target_segment=seg,
+            constructs=[Construct([seg])],
+            generators=[gen],
+            constraints=[_protein_constraint(seg, threshold=1.0)],
+            config=CyclingOptimizerConfig(num_steps=1, num_results=2, pipeline="protein-hunter"),
+        )
+        Program(optimizers=[opt], num_results=2)
+
+    def test_prompt_under_beam_search_ok(self):
+        """BeamSearchOptimizer supplies prompts from its own ``config.prompt`` — empty ``config.prompts`` is fine."""
+        from proto_language.language.optimizer import BeamSearchOptimizer, BeamSearchOptimizerConfig
+
+        seg = Segment(length=10, sequence_type="dna")
+        gen = MockAutoregressiveGenerator(prompts=[])
+        gen.assign(seg)
+        opt = BeamSearchOptimizer(
+            target_segment=seg,
+            constructs=[Construct([seg])],
+            generators=[gen],
+            constraints=[_gc(seg)],
+            config=BeamSearchOptimizerConfig(prompt="ATCG", beam_length=10, num_results=2, proposals_per_result=2),
+        )
+        Program(optimizers=[opt], num_results=2)
+
+    def test_prompt_under_cycling_ok(self):
+        """CyclingOptimizer (custom conditioning_fn) supplies prompts at runtime — empty ``config.prompts`` is fine."""
+        seg = Segment(length=10, sequence_type="dna")
+        gen = MockAutoregressiveGenerator(prompts=[])
+        gen.assign(seg)
+        opt = CyclingOptimizer(
+            target_segment=seg,
+            constructs=[Construct([seg])],
+            generators=[gen],
+            constraints=[_gc(seg, threshold=1.0)],
+            config=CyclingOptimizerConfig(num_steps=1, num_results=2),
+            conditioning_fn=lambda seqs: [["AT"]] * len(seqs),
+        )
+        Program(optimizers=[opt], num_results=2)
+
+    def test_structure_under_custom_cycling_conditioning_fn_ok(self):
+        """A user-supplied conditioning_fn (not a named pipeline) supplies structures at runtime."""
+        seg = Segment(length=10, sequence_type="protein")
+        gen = ProteinMPNNGenerator(ProteinMPNNGeneratorConfig(structure_inputs=None))
+        gen.assign(seg)
+        opt = CyclingOptimizer(
+            target_segment=seg,
+            constructs=[Construct([seg])],
+            generators=[gen],
+            constraints=[_protein_constraint(seg, threshold=1.0)],
+            config=CyclingOptimizerConfig(num_steps=1, num_results=2),
+            conditioning_fn=lambda seqs: [None] * len(seqs),
+        )
+        Program(optimizers=[opt], num_results=2)
+
+    # LOGITS (gradient) ------------------------------------------------------
+
+    def test_logits_gradient_then_semigreedy_ok(self):
+        """Canonical Germinal pattern: GradientOptimizer produces logits → MCMC + SemigreedyMutation refines."""
+        seg = Segment(sequence="MKKLLLAA", sequence_type="protein")
+        construct = Construct([seg])
+
+        pw = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        pw.assign(seg)
+        opt1 = GradientOptimizer(
+            target_segment=seg,
+            constructs=[construct],
+            generators=[pw],
+            constraints=[_grad_constraint(seg)],
+            config=GradientOptimizerConfig(num_results=2, num_steps=2, lr=0.1),
+        )
+
+        sg = SemigreedyMutationGenerator(SemigreedyMutationGeneratorConfig())
+        sg.assign(seg)
+        opt2 = _mcmc(construct, [sg], [_protein_constraint(seg)])
+
+        Program(optimizers=[opt1, opt2], num_results=2)
 
 
 class TestSerializeRestoreState:

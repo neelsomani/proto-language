@@ -38,7 +38,7 @@ def list_of_all_config_models() -> list[type]:
 def test_config_consistency(config_model: type):
     """Determines if config models are defined consistently throughout the codebase.
 
-    for consistency of the API and client.
+    for consistency across tooling.
     """
     # Check if config_model is subclass of BaseConfig (language or tools)
     assert issubclass(config_model, (LanguageBaseConfig, ToolsBaseConfig)), (
@@ -144,7 +144,7 @@ def list_tool_inputs_and_outputs() -> list[tuple[str, str]]:
 def test_tool_input_and_output_consistency(tool_input: type, tool_output: type):
     """Test if tool inputs and outputs are defined consistently throughout the codebase.
 
-    for consistency of the API and client.
+    for consistency across tooling.
     """
     # Ensure tool input inherits from BaseToolInput
     assert issubclass(tool_input, BaseToolInput), f"Tool input {tool_input} is not a subclass of BaseToolInput"

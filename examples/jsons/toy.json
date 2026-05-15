@@ -11,7 +11,7 @@
         {
           "id": "variable_dna",
           "label": "100 bp variable DNA",
-          "length": 100
+          "sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"
         }
       ]
     }

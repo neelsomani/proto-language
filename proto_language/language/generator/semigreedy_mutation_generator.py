@@ -196,6 +196,10 @@ class SemigreedyMutationGenerator(Generator):
             if len(self._frozen_positions) == seq_len:
                 raise ValueError("All positions are frozen; no mutation is possible.")
 
+    def _preserve_logits_after_sample(self) -> bool:
+        """Keep upstream gradient logits available for subsequent semigreedy MCMC proposals."""
+        return not self.clear_logits
+
     def _sample(self) -> None:
         """Introduce one single-point mutation per proposal.
 

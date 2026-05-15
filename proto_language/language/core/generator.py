@@ -170,12 +170,15 @@ class Generator(ABC):
             for segment in self.segments[1:]:
                 segment.proposal_sequences = [copy.deepcopy(sequence) for sequence in primary.proposal_sequences]
 
-        # New sequences invalidate prior per-proposal logits/structures, except for their producers.
+        preserve_logits = self._preserve_logits_after_sample()
+        preserve_structure = self._preserve_structure_after_sample()
+
+        # New sequences invalidate prior per-proposal metadata unless a generator declares it still valid.
         for segment in self.segments:
             for proposal in segment.proposal_sequences:
-                if self.input_type != GeneratorInputType.LOGITS:
+                if not preserve_logits:
                     proposal.logits = None
-                if self.input_type != GeneratorInputType.STRUCTURE:
+                if not preserve_structure:
                     proposal.structure = None
 
     @abstractmethod
@@ -186,6 +189,14 @@ class Generator(ABC):
         inverse folding takes ``structure_inputs``). ``sample()`` forwards args here.
         """
         raise NotImplementedError(f"Subclass {self.__class__.__name__} must implement the _sample() method.")
+
+    def _preserve_logits_after_sample(self) -> bool:
+        """Return whether proposal logits remain valid after ``_sample()`` mutates proposals."""
+        return self.input_type == GeneratorInputType.LOGITS
+
+    def _preserve_structure_after_sample(self) -> bool:
+        """Return whether proposal structures remain valid after ``_sample()`` mutates proposals."""
+        return self.input_type == GeneratorInputType.STRUCTURE
 
     def _set_program_seed(self, seed: int | None) -> None:
         """Set or clear the program-derived seed stream."""

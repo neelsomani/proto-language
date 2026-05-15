@@ -120,6 +120,22 @@ class TestSemigreedyMutationGenerator:
         with pytest.raises((ValueError, RuntimeError), match=error_match):
             gen.sample()
 
+    def test_logit_guided_mode_preserves_logits_between_samples(self):
+        """Default semigreedy keeps upstream logits for later MCMC proposal steps."""
+        logits = np.zeros((5, VOCAB_SIZE))
+        segment = Segment(sequence="ACDEF", sequence_type="protein")
+        segment.proposal_sequences[0].logits = logits.copy()
+        gen = SemigreedyMutationGenerator(SemigreedyMutationGeneratorConfig())
+        gen._set_program_seed(42)
+        gen.assign(segment)
+
+        gen.sample()
+        np.testing.assert_array_equal(segment.proposal_sequences[0].logits, logits)
+
+        # This second sample used to fail after the first sample cleared proposal.logits.
+        gen.sample()
+        np.testing.assert_array_equal(segment.proposal_sequences[0].logits, logits)
+
     @pytest.mark.parametrize(
         ("structure", "expect_error"),
         [
@@ -261,6 +277,18 @@ class TestSemigreedyMutationGenerator:
             sampled.add(segment.proposal_sequences[0].sequence)
         assert "A" not in sampled  # current AA always excluded
         assert len(sampled) >= 8  # uniform over 19 non-current → ~14 expected distinct in 30 trials
+
+    def test_clear_logits_mode_drops_stale_proposal_logits(self):
+        """clear_logits=True keeps sequence-only semantics by clearing any stale proposal logits."""
+        segment = Segment(sequence="ACD", sequence_type="protein")
+        segment.proposal_sequences[0].logits = np.zeros((3, VOCAB_SIZE))
+        gen = SemigreedyMutationGenerator(SemigreedyMutationGeneratorConfig(clear_logits=True))
+        gen._set_program_seed(42)
+        gen.assign(segment)
+
+        gen.sample()
+
+        assert segment.proposal_sequences[0].logits is None
 
     def test_clear_logits_rejects_entropy_weighting(self):
         """Config rejects the incoherent combination of clear_logits=True and entropy weighting."""

@@ -17,6 +17,8 @@ from proto_language.language.generator import (
     PositionWeightGeneratorConfig,
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
+    SemigreedyMutationGenerator,
+    SemigreedyMutationGeneratorConfig,
 )
 from proto_language.language.optimizer import (
     ConstraintWeightSchedule,
@@ -84,6 +86,14 @@ def _scorer(input_sequences: list[tuple], config: BaseModel) -> list[ConstraintO
 
 _scorer._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
 _scorer._constraint_num_input_sequences_per_tuple = 1  # type: ignore[attr-defined]
+
+
+def _zero_scorer(input_sequences: list[tuple], config: BaseModel) -> list[ConstraintOutput]:
+    return [ConstraintOutput(score=0.0) for _ in input_sequences]
+
+
+_zero_scorer._constraint_supported_sequence_types = ["protein"]  # type: ignore[attr-defined]
+_zero_scorer._constraint_num_input_sequences_per_tuple = 1  # type: ignore[attr-defined]
 
 
 def _make(num_steps: int = 5, num_results: int = 1, seed: int = 42, **kw: object) -> tuple[GradientOptimizer, Segment]:
@@ -1109,6 +1119,25 @@ class TestMultiStage:
 
         Program(optimizers=[opt1, opt2], num_results=1).run()
         assert opt2.energy_scores[0] < float("inf")
+
+    def test_gradient_then_semigreedy_mcmc_preserves_logits(self) -> None:
+        """Gradient logits stay available across accepted semigreedy MCMC proposal steps."""
+        seg = Segment(sequence="EVQLV", sequence_type="protein")
+        construct = Construct([seg])
+        opt1 = self._gradient_stage(seg, construct, "g", seed=42)
+
+        gen2 = SemigreedyMutationGenerator(SemigreedyMutationGeneratorConfig())
+        gen2.assign(seg)
+        con2 = Constraint(inputs=[seg], function=_zero_scorer, function_config=_Cfg(), label="flat")
+        opt2 = MCMCOptimizer(
+            constructs=[construct],
+            generators=[gen2],
+            constraints=[con2],
+            config=MCMCOptimizerConfig(num_results=1, proposals_per_result=2, num_steps=3, seed=7),
+        )
+
+        Program(optimizers=[opt1, opt2], num_results=1).run()
+        assert seg.result_sequences[0].logits is not None
 
     def test_germinal_presets_plug_into_program(self) -> None:
         """CPU proof that both Germinal presets chain into a Program and logits flow across stages."""

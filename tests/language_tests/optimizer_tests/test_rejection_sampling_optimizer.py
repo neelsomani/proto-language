@@ -14,6 +14,7 @@ from proto_language.language.constraint import (
 )
 from proto_language.language.core import (
     Constraint,
+    ConstraintOutput,
     Construct,
     Generator,
     GeneratorInputType,
@@ -44,6 +45,20 @@ class _NoOpGenerator(Generator):
         self._validate_generator()
 
 
+class _IndexedDnaGenerator(Generator):
+    """Generator that writes a distinct DNA sequence into each proposal slot."""
+
+    input_type = GeneratorInputType.STARTING_SEQUENCE
+
+    def __init__(self):
+        super().__init__()
+
+    def _sample(self) -> None:
+        self._validate_generator()
+        for idx, proposal in enumerate(self.segment.proposal_sequences):
+            proposal.sequence = "".join("AC"[(idx >> bit) & 1] for bit in range(8))
+
+
 class _BatchSizeConfig(BaseModel):
     batch_size: int | None = None
 
@@ -56,6 +71,14 @@ _batch_size_test_constraint._constraint_supported_sequence_types = ["dna"]
 _batch_size_test_constraint._constraint_num_input_sequences_per_tuple = 1
 
 
+def _echo_sequence_constraint(input_sequences, config):
+    return [ConstraintOutput(score=0.0, metadata={"observed_sequence": seq.sequence}) for (seq,) in input_sequences]
+
+
+_echo_sequence_constraint._constraint_supported_sequence_types = ["dna"]
+_echo_sequence_constraint._constraint_num_input_sequences_per_tuple = 1
+
+
 def _make_noop_generator(segment):
     """Create a no-op generator assigned to a segment, with registry mocking."""
     gen = _NoOpGenerator()
@@ -64,6 +87,18 @@ def _make_noop_generator(segment):
     mock_spec.category = "mutation"
     with patch.object(GeneratorRegistry, "get", return_value=mock_spec):
         with patch.object(GeneratorRegistry, "get_key", return_value="noop"):
+            gen.assign(segment)
+    return gen
+
+
+def _make_indexed_dna_generator(segment):
+    """Create a deterministic test generator assigned to a segment."""
+    gen = _IndexedDnaGenerator()
+    mock_spec = MagicMock(spec=GeneratorSpec)
+    mock_spec.supported_sequence_types = ["dna"]
+    mock_spec.category = "mutation"
+    with patch.object(GeneratorRegistry, "get", return_value=mock_spec):
+        with patch.object(GeneratorRegistry, "get_key", return_value="indexed-dna"):
             gen.assign(segment)
     return gen
 
@@ -1059,6 +1094,37 @@ class TestRejectionSamplingLabelDeduplication:
 
 class TestRejectionSamplingProposalTracking:
     """Test proposal_results tracking in Rejection Sampling history."""
+
+    def test_proposal_snapshot_constraint_metadata_matches_sequence(self):
+        """Proposal rows keep constraint metadata aligned with the serialized sequence."""
+        segment = Segment(sequence="AAAAAAAA", sequence_type="dna")
+        construct = Construct([segment])
+        gen = _make_indexed_dna_generator(segment)
+        constraint = Constraint(
+            inputs=[segment],
+            function=_echo_sequence_constraint,
+            label="Echo",
+        )
+        optimizer = RejectionSamplingOptimizer(
+            constructs=[construct],
+            generators=[gen],
+            constraints=[constraint],
+            config=RejectionSamplingOptimizerConfig(
+                num_samples=6,
+                num_results=3,
+                proposal_batch_size=6,
+                tracking_interval=1,
+                track_proposals=True,
+                verbose=False,
+            ),
+        )
+
+        optimizer.run()
+
+        for entry in optimizer.history:
+            segment_payload = entry["results"][0]["constructs"][0]["segments"][0]
+            constraint_data = segment_payload["constraints"]["Echo"]["data"]
+            assert constraint_data["observed_sequence"] == segment_payload["sequence"]
 
     def test_proposal_tracking(self):
         """History has proposal_results for proposals that did not enter the top-k."""

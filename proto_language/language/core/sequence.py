@@ -288,17 +288,17 @@ class Sequence:
             valid_chars = None
         logits = np.array(data["logits"], dtype=np.float64) if data.get("logits") is not None else None
         structure_data = data.get("structure")
-        structure = Structure(**structure_data) if structure_data is not None else None
+        structure = Structure(**copy.deepcopy(structure_data)) if structure_data is not None else None
         seq = cls(
             sequence=data["sequence"],
             sequence_type=data["sequence_type"],
             valid_chars=valid_chars,
-            metadata=data.get("metadata") or None,
+            metadata=copy.deepcopy(data.get("metadata")) or None,
             logits=logits,
             structure=structure,
         )
-        seq._constraints_metadata = data.get("constraints", {})
-        seq._generator_metadata = data.get("generators", {})
+        seq._constraints_metadata = copy.deepcopy(data.get("constraints") or {})
+        seq._generator_metadata = copy.deepcopy(data.get("generators") or {})
         return seq
 
 

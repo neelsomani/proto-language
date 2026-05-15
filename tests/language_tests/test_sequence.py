@@ -235,6 +235,28 @@ class TestSequenceSerialization:
         assert seq._metadata["scores"] == [1, 2, 3]
         assert seq._metadata["nested"]["a"] == 1
 
+    def test_from_dict_metadata_independence(self):
+        """Verify that from_dict does not reuse nested metadata objects."""
+        serialized = {
+            "sequence": "ATCG",
+            "sequence_type": "dna",
+            "valid_chars": None,
+            "metadata": {"nested": {"scores": [1]}},
+            "constraints": {"Echo": {"data": {"observed": ["ATCG"]}}},
+            "generators": {"test-generator": {"samples": ["ATCG"]}},
+        }
+
+        seq1 = Sequence.from_dict(serialized)
+        seq2 = Sequence.from_dict(serialized)
+
+        seq1._metadata["nested"]["scores"].append(2)
+        seq1._constraints_metadata["Echo"]["data"]["observed"].append("AAAA")
+        seq1._generator_metadata["test-generator"]["samples"].append("CCCC")
+
+        assert seq2._metadata["nested"]["scores"] == [1]
+        assert seq2._constraints_metadata["Echo"]["data"]["observed"] == ["ATCG"]
+        assert seq2._generator_metadata["test-generator"]["samples"] == ["ATCG"]
+
     def test_roundtrip_preserves_data(self):
         """Verify that to_dict/from_dict roundtrip preserves sequence data."""
         original = Sequence("ATCG", "dna", metadata={"custom": "value"})
@@ -366,6 +388,22 @@ class TestSequenceStructure:
         restored = Sequence.from_dict(serialized)
         assert restored.structure is not None
         assert restored.structure.metrics["avg_plddt"] == 85.0
+
+    def test_structure_from_dict_metrics_independence(self):
+        """Structure metrics restored from shared data are independent."""
+        struct = MockStructure(metrics={"pae": [[1.0, 2.0], [3.0, 4.0]]})
+        seq = Sequence("EVQLV", "protein", structure=struct)
+        serialized = seq.to_dict(include_structure=True)
+
+        seq1 = Sequence.from_dict(serialized)
+        seq2 = Sequence.from_dict(serialized)
+        assert seq1.structure is not None
+        assert seq2.structure is not None
+
+        seq1.structure.metrics["pae"][0][0] = 999.0
+
+        assert seq2.structure.metrics["pae"][0][0] == 1.0
+        assert serialized["structure"]["metrics"]["pae"][0][0] == 1.0
 
     def test_structure_serialization_none_with_flag(self):
         """to_dict omits structure when None even with include_structure=True."""

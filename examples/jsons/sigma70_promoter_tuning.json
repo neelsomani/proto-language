@@ -43,12 +43,26 @@
         {
           "key": "random-nucleotide",
           "targets": ["promoter"],
-          "config": { "masking_strategy": { "num_mutations": 2 } }
+          "config": {
+            "masking_strategy": {
+              "method": "random",
+              "num_mutations": 2,
+              "temperature": 1
+            },
+            "substitution_scheme": "N"
+          }
         },
         {
           "key": "random-nucleotide",
           "targets": ["terminator"],
-          "config": { "masking_strategy": { "num_mutations": 2 } }
+          "config": {
+            "masking_strategy": {
+              "method": "random",
+              "num_mutations": 2,
+              "temperature": 1
+            },
+            "substitution_scheme": "N"
+          }
         }
       ],
       "constraints": [
@@ -87,7 +101,11 @@
         "config": {
           "num_steps": 500,
           "max_temperature": 2.0,
-          "min_temperature": 0.001
+          "min_temperature": 0.001,
+          "temperature_schedule": "exponential",
+          "proposals_per_result": 1,
+          "tracking_interval": 1,
+          "track_proposals": false
         }
       }
     }

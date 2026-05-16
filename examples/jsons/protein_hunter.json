@@ -26,7 +26,9 @@
           "num_steps": 5,
           "num_results": 2,
           "pipeline": "protein-hunter",
-          "protein_hunter": { "structure_tool": "boltz2" }
+          "protein_hunter": { "structure_tool": "boltz2" },
+          "tracking_interval": 1,
+          "track_proposals": false
         }
       },
       "generators": [
@@ -34,8 +36,12 @@
           "key": "proteinmpnn",
           "targets": ["designed_protein"],
           "config": {
+            "model_choice": "proteinmpnn",
+            "device": "cuda",
+            "batch_size": 1,
             "temperature": 0.1,
-            "excluded_amino_acids": ["C"]
+            "excluded_amino_acids": ["C"],
+            "verbose": true
           }
         }
       ],

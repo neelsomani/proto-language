@@ -50,8 +50,11 @@
           "targets": ["protomer_1", "protomer_2", "protomer_3"],
           "config": {
             "masking_strategy": {
-              "num_mutations": 1
-            }
+              "method": "random",
+              "num_mutations": 1,
+              "temperature": 1
+            },
+            "codon_scheme": "UNIFORM"
           }
         }
       ],
@@ -89,6 +92,10 @@
           "num_steps": 3000,
           "max_temperature": 1.0,
           "min_temperature": 0.0001,
+          "temperature_schedule": "exponential",
+          "proposals_per_result": 1,
+          "tracking_interval": 1,
+          "track_proposals": false,
           "verbose": true
         }
       }

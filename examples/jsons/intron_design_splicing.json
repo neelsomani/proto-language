@@ -35,8 +35,11 @@
           "targets": ["intron"],
           "config": {
             "masking_strategy": {
-              "num_mutations": 1
-            }
+              "method": "random",
+              "num_mutations": 1,
+              "temperature": 1
+            },
+            "substitution_scheme": "N"
           }
         }
       ],
@@ -105,7 +108,11 @@
           "num_steps": 500,
           "max_temperature": 1.0,
           "min_temperature": 0.001,
-          "verbose": false
+          "temperature_schedule": "exponential",
+          "proposals_per_result": 1,
+          "tracking_interval": 1,
+          "track_proposals": false,
+          "verbose": true
         }
       }
     }

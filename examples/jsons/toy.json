@@ -23,7 +23,12 @@
           "key": "random-nucleotide",
           "targets": ["variable_dna"],
           "config": {
-            "masking_strategy": { "num_mutations": 2 }
+            "masking_strategy": {
+              "method": "random",
+              "num_mutations": 2,
+              "temperature": 1
+            },
+            "substitution_scheme": "N"
           }
         }
       ],
@@ -47,9 +52,14 @@
       "optimizer": {
         "method": "mcmc",
         "config": {
-          "num_steps": 100,
+          "num_steps": 20,
           "max_temperature": 1.0,
-          "min_temperature": 0.01
+          "min_temperature": 0.01,
+          "temperature_schedule": "exponential",
+          "proposals_per_result": 1,
+          "tracking_interval": 1,
+          "track_proposals": false,
+          "verbose": false
         }
       }
     }

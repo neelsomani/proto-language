@@ -933,6 +933,9 @@
         "target_segment": "binder",
         "config": {
           "num_steps": 3,
+          "tracking_interval": 1,
+          "track_proposals": false,
+          "verbose": true,
           "lr": 0.1,
           "soft_start": 0.0,
           "soft_end": 1.0,
@@ -4885,6 +4888,9 @@
         "target_segment": "binder",
         "config": {
           "num_steps": 2,
+          "tracking_interval": 1,
+          "track_proposals": false,
+          "verbose": true,
           "lr": 0.1,
           "soft_start": 1.0,
           "soft_end": 1.0,
@@ -5870,7 +5876,11 @@
           "num_steps": 3,
           "proposals_per_result": 2,
           "max_temperature": 0.01,
-          "min_temperature": 0.001
+          "min_temperature": 0.001,
+          "temperature_schedule": "exponential",
+          "tracking_interval": 1,
+          "track_proposals": false,
+          "verbose": true
         }
       }
     }

@@ -1,6 +1,6 @@
 {
   "name": "protein_quality_baseline",
-  "description": "Two-stage protein redesign on the streptococcal protein G B1 domain (GB1, 56 aa, PDB 2QMT; Gronenborn et al. 1991, Frericks Schmidt et al. 2007 for the high-resolution coordinates). Stage 1 uses rejection-sampling to broadly explore the local sequence neighborhood with ESM2-650M (Lin et al. 2023) at temperature 1.0 and a 3-mutation budget, retaining the top samples by ESMFold pLDDT. Stage 2 narrows to single-mutation MCMC at lower ESM2 temperature (0.7) and adds three additional constraints to discipline ESM2's tendency to drift toward low-complexity, high-pLDDT 'AAAEEK'-style sequences: `structure-ptm` rewards globally consistent fold prediction; `protein-complexity` (max_low_complexity 0.30) caps the SEG-style low-complexity fraction (Wootton & Federhen 1996); `balanced-aa` (min_aa_frequency=0.01, max_underrepresented_count=8) flags severe amino-acid collapse without penalizing the natural sparseness of a 56 aa protein (wild-type GB1 has 5 amino acids absent and 4 at 1.79% frequency, well within the relaxed thresholds). The thresholds are tuned for short-protein redesign; for full-length protein redesign use the constraint defaults (min_aa_frequency=0.02, max_underrepresented_count=3). Canonical baseline for the protein-quality teaching example.",
+  "description": "Protein redesign on the streptococcal protein G B1 domain (GB1, 56 aa, PDB 2QMT; Gronenborn et al. 1991, Frericks Schmidt et al. 2007 for the high-resolution coordinates). The program uses rejection-sampling to explore the local sequence neighborhood with ESM2-650M (Lin et al. 2023) at temperature 1.0 and a 15-mutation budget, retaining samples that satisfy ESMFold pLDDT and pTM thresholds while avoiding low-complexity and amino-acid-collapse artifacts. `protein-complexity` (max_low_complexity 0.30) caps the SEG-style low-complexity fraction (Wootton & Federhen 1996); `balanced-aa` (min_aa_frequency=0.01, max_underrepresented_count=8) flags severe amino-acid collapse without penalizing the natural sparseness of a 56 aa protein. The thresholds are tuned for short-protein redesign; for full-length protein redesign use the constraint defaults (min_aa_frequency=0.02, max_underrepresented_count=3). Canonical baseline for the protein-quality teaching example.",
   "version": "1.0",
   "num_results": 3,
   "constructs": [
@@ -25,8 +25,20 @@
           "targets": ["gb1"],
           "config": {
             "model_checkpoint": "esm2_t33_650M_UR50D",
+            "device": "cuda",
             "temperature": 1.0,
-            "masking_strategy": { "num_mutations": 3 }
+            "top_p": 1.0,
+            "temperature_annealing": true,
+            "schedule": "cosine",
+            "sampling_method": "single_pass",
+            "strategy": "random",
+            "num_steps": 20,
+            "batch_size": 250,
+            "masking_strategy": {
+              "method": "random",
+              "num_mutations": 15,
+              "temperature": 1
+            }
           }
         }
       ],
@@ -34,38 +46,13 @@
         {
           "key": "structure-plddt",
           "targets": ["gb1"],
-          "config": { "structure_tool": "esmfold" }
-        }
-      ],
-      "optimizer": {
-        "method": "rejection-sampling",
-        "config": {
-          "num_samples": 100,
-          "num_results": 10
-        }
-      }
-    },
-    {
-      "generators": [
-        {
-          "key": "esm2",
-          "targets": ["gb1"],
-          "config": {
-            "model_checkpoint": "esm2_t33_650M_UR50D",
-            "temperature": 0.7,
-            "masking_strategy": { "num_mutations": 1 }
-          }
-        }
-      ],
-      "constraints": [
-        {
-          "key": "structure-plddt",
-          "targets": ["gb1"],
+          "threshold": 0.2,
           "config": { "structure_tool": "esmfold" }
         },
         {
           "key": "structure-ptm",
           "targets": ["gb1"],
+          "threshold": 0.3,
           "config": { "structure_tool": "esmfold" }
         },
         {
@@ -80,11 +67,12 @@
         }
       ],
       "optimizer": {
-        "method": "mcmc",
+        "method": "rejection-sampling",
         "config": {
-          "num_steps": 50,
-          "max_temperature": 1.0,
-          "min_temperature": 0.01
+          "num_samples": 100,
+          "tracking_interval": 1,
+          "track_proposals": true,
+          "verbose": false
         }
       }
     }

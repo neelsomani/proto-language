@@ -140,3 +140,91 @@ class TestRandomProteinGeneratorValidation:
 
         error_msg = str(exc_info.value)
         assert "does not support sequence type" in error_msg
+
+
+class TestRandomProteinGeneratorEmptyInit:
+    """Test auto-initialization when the segment has no starting sequence."""
+
+    def test_empty_segment_initialized_randomly(self):
+        """Length-only segment is filled with a random protein sequence on first sample."""
+        seq_len = 40
+        config = RandomProteinGeneratorConfig()
+        gen = RandomProteinGenerator(config)
+        gen._set_program_seed(42)
+        segment = Segment(length=seq_len, sequence_type="protein")
+        gen.assign(segment)
+
+        assert not segment.proposal_sequences[0].sequence
+        gen.sample()
+
+        sampled = segment.proposal_sequences[0].sequence
+        assert len(sampled) == seq_len
+        assert "_" not in sampled
+
+    def test_empty_segment_with_custom_masking_strategy_ignored_on_init(self):
+        """A user-set masking_strategy is bypassed on the init call, then applies normally."""
+        seq_len = 30
+        config = RandomProteinGeneratorConfig(
+            masking_strategy=MaskingStrategy(num_mutations=2),
+        )
+        gen = RandomProteinGenerator(config)
+        gen._set_program_seed(7)
+        segment = Segment(length=seq_len, sequence_type="protein")
+        gen.assign(segment)
+
+        gen.sample()
+        init_seq = segment.proposal_sequences[0].sequence
+        assert len(init_seq) == seq_len
+        assert "_" not in init_seq
+
+        gen.sample()
+        mutated = segment.proposal_sequences[0].sequence
+        diff_count = sum(1 for a, b in zip(init_seq, mutated, strict=True) if a != b)
+        # num_mutations=2 -> at most 2 positions can differ (a replacement may match the original)
+        assert diff_count <= 2
+        assert len(mutated) == seq_len
+
+    def test_empty_segment_batch_all_initialized(self):
+        """When all proposals in a batch are empty, each gets its own random init."""
+        seq_len = 25
+        config = RandomProteinGeneratorConfig()
+        gen = RandomProteinGenerator(config)
+        gen._set_program_seed(13)
+        segment = Segment(length=seq_len, sequence_type="protein")
+        gen.assign(segment)
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(4)]
+
+        gen.sample()
+
+        for proposal in segment.proposal_sequences:
+            assert len(proposal.sequence) == seq_len
+            assert "_" not in proposal.sequence
+        assert len({p.sequence for p in segment.proposal_sequences}) > 1
+
+    def test_empty_segment_init_warns(self, caplog):
+        """Init emits a WARNING that mentions the segment label and codon scheme."""
+        config = RandomProteinGeneratorConfig(codon_scheme="NNK")
+        gen = RandomProteinGenerator(config)
+        segment = Segment(length=10, sequence_type="protein", label="binder")
+        gen.assign(segment)
+
+        with caplog.at_level("WARNING", logger="proto_language.language.generator.random_protein_generator"):
+            gen.sample()
+
+        init_warnings = [
+            r for r in caplog.records if r.levelname == "WARNING" and "binder" in r.message and "NNK" in r.message
+        ]
+        assert init_warnings, f"expected init warning, got: {[r.message for r in caplog.records]}"
+
+    def test_no_warning_on_populated_segment(self, caplog):
+        """No init warning is emitted when proposals are already populated."""
+        config = RandomProteinGeneratorConfig()
+        gen = RandomProteinGenerator(config)
+        segment = Segment(sequence="A" * 20, sequence_type="protein")
+        gen.assign(segment)
+
+        with caplog.at_level("WARNING", logger="proto_language.language.generator.random_protein_generator"):
+            gen.sample()
+
+        init_warnings = [r for r in caplog.records if "random init" in r.message]
+        assert not init_warnings

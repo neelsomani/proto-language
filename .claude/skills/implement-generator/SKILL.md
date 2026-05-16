@@ -50,7 +50,7 @@ class Generator(ABC):
 
     def _validate_generator(self) -> None:
         # Called at start of _sample(). Dispatches on self.input_type:
-        # - STARTING_SEQUENCE: raises if proposals empty (no random fallback)
+        # - STARTING_SEQUENCE: raises if proposals empty (subclasses may seed first; random mutation generators do)
         # - PROMPT: warns if proposals already populated (will be overwritten)
         # - STRUCTURE: seeds 'X' * length if empty, logs INFO
         # - LOGITS: no special init
@@ -71,7 +71,7 @@ Each generator declares its `input_type` via a classvar. The client reads this f
 
 | `input_type` | Category | Examples | Runtime input source |
 |---|---|---|---|
-| `STARTING_SEQUENCE` | `mutation` | ESM2, ESM3, MSA, Random*, SemigreedyMutation | `segment.proposal_sequences[].sequence` (from `segment.input_sequence` or prior stage) — **required**, raises if empty |
+| `STARTING_SEQUENCE` | `mutation` | ESM2, ESM3, MSA, Random*, SemigreedyMutation | `segment.proposal_sequences[].sequence` (from `segment.input_sequence` or prior stage); base validator raises if empty. Random mutation generators override `_sample()` to seed empty proposals with a fully random sequence on the first call. |
 | `PROMPT` | `autoregressive` | Evo1, Evo2, ProGen2 | `config.prompts` or `_sample(prompts=...)` (first positional kwarg) from CyclingOptimizer |
 | `STRUCTURE` | `inverse_folding` | ProteinMPNN, LigandMPNN | `config.structure_inputs` or `_sample(structure_inputs=...)` (first positional kwarg) from CyclingOptimizer; segment seeded with `'X' * length` if no prior sequence |
 | `LOGITS` | `gradient` | PositionWeight | `segment.proposal_sequences[].logits` from a prior `GradientOptimizer` stage |

@@ -183,3 +183,104 @@ class TestRandomNucleotideGeneratorValidation:
 
         error_msg = str(exc_info.value)
         assert "does not support sequence type" in error_msg
+
+
+class TestRandomNucleotideGeneratorEmptyInit:
+    """Test auto-initialization when the segment has no starting sequence."""
+
+    @pytest.mark.parametrize(("seq_type", "alphabet"), [("dna", "ACGT"), ("rna", "ACGU")])
+    def test_empty_segment_initialized_randomly(self, seq_type, alphabet):
+        """Length-only segment is filled with a random nucleotide sequence on first sample."""
+        seq_len = 40
+        config = RandomNucleotideGeneratorConfig()
+        gen = RandomNucleotideGenerator(config)
+        gen._set_program_seed(42)
+        segment = Segment(length=seq_len, sequence_type=seq_type)
+        gen.assign(segment)
+
+        assert not segment.proposal_sequences[0].sequence
+        gen.sample()
+
+        sampled = segment.proposal_sequences[0].sequence
+        assert len(sampled) == seq_len
+        assert all(c in alphabet for c in sampled)
+
+    def test_empty_segment_with_custom_masking_strategy_ignored_on_init(self):
+        """A user-set masking_strategy is bypassed on the init call, then applies normally."""
+        seq_len = 30
+        config = RandomNucleotideGeneratorConfig(
+            masking_strategy=MaskingStrategy(num_mutations=3),
+        )
+        gen = RandomNucleotideGenerator(config)
+        gen._set_program_seed(7)
+        segment = Segment(length=seq_len, sequence_type="dna")
+        gen.assign(segment)
+
+        gen.sample()
+        init_seq = segment.proposal_sequences[0].sequence
+        assert len(init_seq) == seq_len
+        assert all(c in "ACGT" for c in init_seq)
+
+        gen.sample()
+        mutated = segment.proposal_sequences[0].sequence
+        diff_count = sum(1 for a, b in zip(init_seq, mutated, strict=True) if a != b)
+        assert diff_count <= 3
+        assert len(mutated) == seq_len
+
+    def test_empty_segment_batch_all_initialized(self):
+        """When all proposals in a batch are empty, each gets its own random init."""
+        seq_len = 25
+        config = RandomNucleotideGeneratorConfig()
+        gen = RandomNucleotideGenerator(config)
+        gen._set_program_seed(13)
+        segment = Segment(length=seq_len, sequence_type="dna")
+        gen.assign(segment)
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence) for _ in range(4)]
+
+        gen.sample()
+
+        for proposal in segment.proposal_sequences:
+            assert len(proposal.sequence) == seq_len
+            assert all(c in "ACGT" for c in proposal.sequence)
+        assert len({p.sequence for p in segment.proposal_sequences}) > 1
+
+    def test_empty_segment_respects_substitution_scheme(self):
+        """Init samples nucleotides from the configured IUPAC pool."""
+        seq_len = 50
+        config = RandomNucleotideGeneratorConfig(substitution_scheme="R")
+        gen = RandomNucleotideGenerator(config)
+        gen._set_program_seed(11)
+        segment = Segment(length=seq_len, sequence_type="dna")
+        gen.assign(segment)
+
+        gen.sample()
+        sampled = segment.proposal_sequences[0].sequence
+        assert all(c in "AG" for c in sampled)
+
+    def test_empty_segment_init_warns(self, caplog):
+        """Init emits a WARNING that mentions the segment label and substitution scheme."""
+        config = RandomNucleotideGeneratorConfig(substitution_scheme="Y")
+        gen = RandomNucleotideGenerator(config)
+        segment = Segment(length=10, sequence_type="dna", label="promoter")
+        gen.assign(segment)
+
+        with caplog.at_level("WARNING", logger="proto_language.language.generator.random_nucleotide_generator"):
+            gen.sample()
+
+        init_warnings = [
+            r for r in caplog.records if r.levelname == "WARNING" and "promoter" in r.message and "Y" in r.message
+        ]
+        assert init_warnings, f"expected init warning, got: {[r.message for r in caplog.records]}"
+
+    def test_no_warning_on_populated_segment(self, caplog):
+        """No init warning is emitted when proposals are already populated."""
+        config = RandomNucleotideGeneratorConfig()
+        gen = RandomNucleotideGenerator(config)
+        segment = Segment(sequence="A" * 20, sequence_type="dna")
+        gen.assign(segment)
+
+        with caplog.at_level("WARNING", logger="proto_language.language.generator.random_nucleotide_generator"):
+            gen.sample()
+
+        init_warnings = [r for r in caplog.records if "random init" in r.message]
+        assert not init_warnings

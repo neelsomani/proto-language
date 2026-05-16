@@ -1,5 +1,6 @@
 """RandomProteinGenerator for CPU-based random protein mutagenesis."""
 
+import logging
 from typing import final
 
 from proto_tools import (
@@ -10,11 +11,13 @@ from proto_tools import (
 from proto_tools.tools.mutagenesis.random_protein.random_protein_sample import (
     CodonScheme,
 )
-from proto_tools.transforms.masking import MaskingStrategy
+from proto_tools.transforms.masking import MASK_TOKEN, MaskingStrategy
 
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
+
+logger = logging.getLogger(__name__)
 
 
 class RandomProteinGeneratorConfig(BaseConfig):
@@ -85,10 +88,13 @@ class RandomProteinGenerator(Generator):
     scheme, allowing simulation of library diversity achievable through degenerate
     codon synthesis.
 
-    The generator category is ``"mutation"``, indicating it modifies proposal
-    sequences at selected positions. A starting sequence is required —
-    ``segment.input_sequence`` must be set (or an upstream optimizer stage must
-    write to the segment); ``_validate_generator`` raises otherwise.
+    The generator category is ``"mutation"``. When the assigned segment has a
+    starting sequence (or an upstream optimizer stage has populated proposals),
+    ``masking_strategy`` controls which positions are mutated on each call. When
+    the segment has no starting sequence, the first ``sample()`` call fills each
+    proposal with a fully random sequence of the segment's length using the
+    configured ``codon_scheme``; subsequent calls then apply ``masking_strategy``
+    normally.
 
     Attributes:
         masking_strategy (MaskingStrategy): Strategy for selecting positions to mutate.
@@ -103,7 +109,8 @@ class RandomProteinGenerator(Generator):
         >>> gen = RandomProteinGenerator(config)
         >>> segment = Segment(length=100, sequence_type="protein")
         >>> gen.assign(segment)
-        >>> gen.sample()  # Introduces 2 random amino acid mutations
+        >>> gen.sample()  # First call: random init (no starting sequence)
+        >>> gen.sample()  # Second call onward: 2 random amino acid mutations
     """
 
     input_type = GeneratorInputType.STARTING_SEQUENCE
@@ -124,21 +131,39 @@ class RandomProteinGenerator(Generator):
         """Introduce random amino acid mutations at masked positions.
 
         Applies the masking strategy to select positions, then samples random
-        amino acids from the configured codon scheme at those positions.
+        amino acids from the configured codon scheme at those positions. When
+        the segment has no starting sequence (all proposals empty), seeds each
+        proposal with a fully masked sequence of the segment's length so the
+        underlying tool fills every position; ``masking_strategy`` is bypassed
+        for this initialization call only.
 
         Raises:
             RuntimeError: If called before assign().
         """
+        segment = self.segment
+        is_init = not any(seq.sequence for seq in segment.proposal_sequences)
+        if is_init:
+            mask_seq = MASK_TOKEN * segment.sequence_length
+            logger.warning(
+                "%s: empty segment %r; random init (len=%d, codon_scheme=%r).",
+                self.__class__.__name__,
+                segment.label or "unlabeled",
+                segment.sequence_length,
+                self.codon_scheme,
+            )
+            for sequence in segment.proposal_sequences:
+                sequence.sequence = mask_seq
+
         self._validate_generator()
 
-        sequences = [seq.sequence for seq in self.segment.proposal_sequences]
+        sequences = [seq.sequence for seq in segment.proposal_sequences]
         tool_input = RandomProteinSampleInput(sequences=sequences)
         tool_config = RandomProteinSampleConfig(
-            masking_strategy=self.masking_strategy,
+            masking_strategy=MaskingStrategy() if is_init else self.masking_strategy,
             codon_scheme=self.codon_scheme,
             seed=self._next_seed(),
         )
         result = run_random_protein_sample(inputs=tool_input, config=tool_config)
 
-        for proposal, sequence in zip(self.segment.proposal_sequences, result.sequences, strict=True):
+        for proposal, sequence in zip(segment.proposal_sequences, result.sequences, strict=True):
             proposal.sequence = sequence

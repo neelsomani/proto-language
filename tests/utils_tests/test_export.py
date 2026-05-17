@@ -1513,7 +1513,8 @@ def test_build_results_makes_metadata_dict_keys_json_safe():
 
 
 def test_build_results_carries_structure_and_logits_only_when_set():
-    """seq.structure/logits surface as opaque ``_structure``/``_logits`` keys (omitted when absent), and flatten functions never expose them."""
+    """seq.structure/logits surface as JSON-safe ``_structure``/``_logits`` keys (omitted when absent), and flatten functions never expose them."""
+    import json
     from unittest.mock import MagicMock
 
     import numpy as np
@@ -1539,10 +1540,21 @@ def test_build_results_carries_structure_and_logits_only_when_set():
 
     results = build_results([construct], [0.42])
     segments = results["results"][0]["constructs"][0]["segments"]
-    assert segments[0]["_structure"] is struct
-    assert segments[0]["_logits"] is logits
+
+    # _structure is a dict (Structure.model_dump form) carrying the original PDB content.
+    assert isinstance(segments[0]["_structure"], dict)
+    assert segments[0]["_structure"]["structure"] == struct.structure
+    assert segments[0]["_structure"]["structure_format"] == struct.structure_format
+
+    # _logits is a nested list (ndarray.tolist form) with the original shape.
+    assert isinstance(segments[0]["_logits"], list)
+    assert np.array_equal(np.asarray(segments[0]["_logits"]), logits)
+
     assert "_structure" not in segments[1]
     assert "_logits" not in segments[1]
+
+    # The whole results dict survives json.dumps without a custom encoder.
+    json.dumps(results)
 
     for flatten in (flatten_sequences, flatten_constraints, flatten_constructs):
         rows = flatten(results)
@@ -1631,7 +1643,8 @@ class TestBuildProposalResults:
         assert cand["constructs"][0]["segments"][0]["sequence"] == "ATCG"
 
     def test_structure_and_logits_payloads_surface(self):
-        """build_proposal_results carries the same _structure / _logits opaque keys."""
+        """build_proposal_results carries the same JSON-safe _structure / _logits keys as build_results."""
+        import json
         from unittest.mock import MagicMock
 
         import numpy as np
@@ -1650,9 +1663,14 @@ class TestBuildProposalResults:
         construct.sequence_type = "dna"
         construct.segments = [segment]
 
-        seg = build_proposal_results([construct], ["accepted"])[0]["constructs"][0]["segments"][0]
-        assert seg["_structure"] is struct
-        assert seg["_logits"] is logits
+        proposals = build_proposal_results([construct], ["accepted"])
+        seg = proposals[0]["constructs"][0]["segments"][0]
+
+        assert isinstance(seg["_structure"], dict)
+        assert seg["_structure"]["structure"] == struct.structure
+        assert isinstance(seg["_logits"], list)
+        assert np.array_equal(np.asarray(seg["_logits"]), logits)
+        json.dumps(proposals)
 
     def test_constraint_metadata_on_rejected_proposal(self):
         """Constraint metadata written to rejected proposals is exported."""
@@ -1901,8 +1919,6 @@ class TestExportProgramToFolder:
 
     def test_writes_structure_and_logits(self, tmp_path):
         """``_structure`` / ``_logits`` payloads land in assets/ and segments gain path cells."""
-        from types import SimpleNamespace
-
         import numpy as np
 
         from proto_language.utils.export import write_results_folder
@@ -1911,12 +1927,12 @@ class TestExportProgramToFolder:
             [
                 self._segment(
                     "s0",
-                    _structure=SimpleNamespace(structure="ATOM\n", structure_format="pdb"),
-                    _logits=np.zeros((3, 4), dtype=np.float32),
+                    _structure={"structure": "ATOM\n", "structure_format": "pdb"},
+                    _logits=np.zeros((3, 4), dtype=np.float32).tolist(),
                 ),
                 self._segment(
                     "s1",
-                    _structure=SimpleNamespace(structure="data_x\n", structure_format="cif"),
+                    _structure={"structure": "data_x\n", "structure_format": "cif"},
                 ),
             ]
         )
@@ -1929,14 +1945,10 @@ class TestExportProgramToFolder:
         assert results["results"][0]["constructs"][0]["segments"][0].get("_structure") is not None, "input not mutated"
 
     def test_structure_format_none_defaults_to_pdb(self, tmp_path):
-        """A Structure whose structure_format attribute is None (the model's default) writes a .pdb file."""
-        from types import SimpleNamespace
-
+        """A Structure dict whose ``structure_format`` is None (the model's default) writes a .pdb file."""
         from proto_language.utils.export import write_results_folder
 
-        results = self._results(
-            [self._segment("s0", _structure=SimpleNamespace(structure="ATOM\n", structure_format=None))]
-        )
+        results = self._results([self._segment("s0", _structure={"structure": "ATOM\n", "structure_format": None})])
 
         out = write_results_folder(results=results, path=tmp_path / "out")
 
@@ -1956,8 +1968,6 @@ class TestExportProgramToFolder:
 
     def test_surfaces_path_columns_in_sequences_table(self, tmp_path):
         """``structure_path`` / ``logits_path`` appear in sequences.csv for segments that had opaque payloads."""
-        from types import SimpleNamespace
-
         import numpy as np
 
         from proto_language.utils.export import write_results_folder
@@ -1966,8 +1976,8 @@ class TestExportProgramToFolder:
             [
                 self._segment(
                     "s0",
-                    _structure=SimpleNamespace(structure="ATOM\n", structure_format="pdb"),
-                    _logits=np.zeros((2, 2), dtype=np.float32),
+                    _structure={"structure": "ATOM\n", "structure_format": "pdb"},
+                    _logits=np.zeros((2, 2), dtype=np.float32).tolist(),
                 ),
                 self._segment("s1"),
             ]
@@ -1982,12 +1992,10 @@ class TestExportProgramToFolder:
 
     def test_surfaces_path_columns_across_multiple_results_and_constructs(self, tmp_path):
         """Path columns align with the right (result, construct, segment) row when iteration order has multiple results."""
-        from types import SimpleNamespace
-
         from proto_language.utils.export import write_results_folder
 
         def _struct(tag):
-            return SimpleNamespace(structure=f"PDB-{tag}\n", structure_format="pdb")
+            return {"structure": f"PDB-{tag}\n", "structure_format": "pdb"}
 
         results = {
             "results": [
@@ -2069,13 +2077,11 @@ class TestExportProgramToFolder:
 
     def test_filtered_export_preserves_path_columns_on_correct_row(self, tmp_path):
         """Regression: filtering out seg0 (with structure) must not surface its path onto seg1's row."""
-        from types import SimpleNamespace
-
         from proto_language.utils.export import write_results_folder
 
         results = self._results(
             [
-                self._segment("s0", _structure=SimpleNamespace(structure="ATOM-s0\n", structure_format="pdb")),
+                self._segment("s0", _structure={"structure": "ATOM-s0\n", "structure_format": "pdb"}),
                 self._segment("s1"),
             ]
         )

@@ -38,8 +38,8 @@ def build_results(
 
     Produces the canonical format consumed by all flatten/export functions.
     Infinite/NaN energy scores are converted to None for JSON compatibility.
-    When set, ``seq.structure`` / ``seq.logits`` are carried as opaque
-    ``_structure`` / ``_logits`` entries that external materializers consume.
+    When set, ``seq.structure`` / ``seq.logits`` are carried under
+    ``_structure`` / ``_logits`` in JSON-safe form (dict / nested list).
 
     Args:
         constructs (list[Any]): List of Construct objects.
@@ -100,9 +100,9 @@ def build_results(
                     "metadata": make_json_safe(copy.deepcopy(seq._metadata)),
                 }
                 if seq.structure is not None:
-                    seg_dict["_structure"] = seq.structure
+                    seg_dict["_structure"] = make_json_safe(seq.structure)
                 if seq.logits is not None:
-                    seg_dict["_logits"] = seq.logits
+                    seg_dict["_logits"] = make_json_safe(seq.logits)
                 structured_segments.append(seg_dict)
             structured_constructs.append(
                 {
@@ -190,9 +190,9 @@ def build_proposal_results(
                     "metadata": make_json_safe(copy.deepcopy(seq._metadata)),
                 }
                 if seq.structure is not None:
-                    seg_dict["_structure"] = seq.structure
+                    seg_dict["_structure"] = make_json_safe(seq.structure)
                 if seq.logits is not None:
-                    seg_dict["_logits"] = seq.logits
+                    seg_dict["_logits"] = make_json_safe(seq.logits)
                 structured_segments.append(seg_dict)
             structured_constructs.append(
                 {
@@ -927,17 +927,17 @@ def _materialize_segment_payloads(
     s_idx: int,
     assets_dir: Path,
 ) -> None:
-    """Pop ``_structure`` / ``_logits`` from *segment*, write them to *assets_dir*, and stamp path columns."""
+    """Pop ``_structure`` (dict) / ``_logits`` (nested list) from *segment*, write them to *assets_dir*, and stamp path columns."""
     structure = segment.pop("_structure", None)
     if structure is not None:
-        fmt = getattr(structure, "structure_format", None) or "pdb"
+        fmt = structure.get("structure_format") or "pdb"
         ext = ".cif" if fmt == "cif" else ".pdb"
         fname = f"res{r_idx}_con{c_idx}_seg{s_idx}_structure{ext}"
-        (assets_dir / fname).write_text(structure.structure)
+        (assets_dir / fname).write_text(structure["structure"])
         segment["structure_path"] = f"{_ASSETS_DIR_NAME}/{fname}"
 
     logits = segment.pop("_logits", None)
     if logits is not None:
         fname = f"res{r_idx}_con{c_idx}_seg{s_idx}_logits.npy"
-        np.save(assets_dir / fname, logits)
+        np.save(assets_dir / fname, np.asarray(logits))
         segment["logits_path"] = f"{_ASSETS_DIR_NAME}/{fname}"

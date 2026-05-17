@@ -11,7 +11,7 @@
         {
           "id": "variable_dna",
           "label": "100 bp variable DNA",
-          "sequence": "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"
+          "length": 100
         }
       ]
     }
@@ -52,7 +52,7 @@
       "optimizer": {
         "method": "mcmc",
         "config": {
-          "num_steps": 20,
+          "num_steps": 100,
           "max_temperature": 1.0,
           "min_temperature": 0.01,
           "temperature_schedule": "exponential",

@@ -57,11 +57,13 @@ Key: `Segment(sequence="ATCG", sequence_type="dna")` or `Segment(length=100, seq
 Both `Program` and `Optimizer` provide 3 export methods:
 
 ```python
-# Export files (csv/tsv/json/xlsx). All 4 tables or a single table.
-.export(path="./results/", format="csv")
-.export(path="seqs.csv", table="sequences")
+# Export to a folder: 4 tables + sequences.fasta + assets/ (PDBs from seq.structure, .npy from seq.logits).
+.export(path="./results/", format="csv")          # 4 separate files
+.export(path="./results/", format="xlsx")         # 1 workbook inside the folder
+.export(path="./s0/", stage=0)                    # multi-stage selection (Program only)
+.export(path="./binders/", segments={"binder"})   # row filtering
 
-# Get a pandas DataFrame
+# Get a pandas DataFrame for one table
 df = .to_dataframe(table="sequences")
 
 # FASTA output (string or file)

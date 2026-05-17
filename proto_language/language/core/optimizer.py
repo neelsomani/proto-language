@@ -25,9 +25,9 @@ from proto_language.language.core.sequence import Sequence
 from proto_language.utils.export import (
     build_proposal_results,
     build_results,
-    export_tables,
     flatten_table,
     to_fasta,
+    write_results_folder,
 )
 
 logger = logging.getLogger(__name__)
@@ -735,44 +735,32 @@ class Optimizer(ABC):
     def export(
         self,
         path: Path | str = "./results",
+        *,
         format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
-        table: Literal["sequences", "constraints", "constructs", "optimization"] | None = None,
         segments: set[str] | None = None,
         result_indices: set[int] | None = None,
         constraints: set[str] | None = None,
         include_proposals: bool = False,
     ) -> Path:
-        """Export results to files.
-
-        Without *table*: writes all 4 tables (sequences, constraints,
-        constructs, optimization).  csv/tsv/json produce a directory with one
-        file per table; xlsx produces a single workbook with 4 sheets.
-
-        With *table*: writes a single file to *path*.
+        """Export results to *path* as a folder: 4 tables + FASTA + ``assets/``.
 
         Args:
-            path (Path | str): Output directory (all tables) or file path (single table / xlsx).
-            format (Literal['csv', 'tsv', 'json', 'xlsx']): ``"csv"`` | ``"tsv"`` | ``"json"`` | ``"xlsx"``.
-            table (Literal['sequences', 'constraints', 'constructs', 'optimization'] | None): Single table name, or None for all.
+            path (Path | str): Output directory.
+            format (Literal['csv', 'tsv', 'json', 'xlsx']): Table format.
             segments (set[str] | None): Only include these segment labels.
             result_indices (set[int] | None): Only include these result indices.
             constraints (set[str] | None): Only include these constraint labels (constraints table only).
             include_proposals (bool): Include proposal rows (optimization table only).
         """
-        results = build_results(self.constructs, self.energy_scores)
-        return export_tables(
-            lambda t: flatten_table(
-                t,
-                results,
-                self.history,
-                segments=segments,
-                result_indices=result_indices,
-                constraints=constraints,
-                include_proposals=include_proposals,
-            ),
-            path,
-            format,
-            table,
+        return write_results_folder(
+            results=build_results(self.constructs, self.energy_scores),
+            history=self.history,
+            path=path,
+            format=format,
+            include_proposals=include_proposals,
+            segments=segments,
+            result_indices=result_indices,
+            constraints=constraints,
         )
 
     def to_dataframe(

@@ -133,24 +133,27 @@ optimizer = MCMCOptimizer(..., custom_logging=custom_logging)
 ```python
 program.run()
 
-# Export all 4 tables at once (sequences, constraints, constructs, optimization)
+# Always writes a folder: 4 tables + sequences.fasta + assets/ (PDBs, .npy, etc.)
 program.export(path="./results/", format="csv")
 
-# Export a single table
-program.export(path="sequences.json", table="sequences", format="json")
+# xlsx produces a single results.xlsx workbook inside the folder
+program.export(path="./results/", format="xlsx")
 
-# Get a DataFrame for analysis
+# Stage-specific export (multi-optimizer programs)
+program.export(path="./stage0/", stage=0)
+
+# Filter rows by segment / result_idx
+program.export(path="./binders/", segments={"binder"}, result_indices={0, 1})
+
+# Get a DataFrame for analysis (single-table API)
 df = program.to_dataframe(table="sequences")
 
 # FASTA output for bioinformatics pipelines
 fasta_str = program.to_fasta()
 program.to_fasta(path="results.fasta")
-
-# Stage-specific export (multi-optimizer programs)
-program.export(path="stage0.csv", table="sequences", stage=0)
 ```
 
-Optimizer instances also support the same export methods (without `stage`):
+Optimizer instances support the same export shape (without `stage`):
 ```python
 optimizer.export(path="./results/", format="csv")
 df = optimizer.to_dataframe(table="sequences")

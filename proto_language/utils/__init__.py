@@ -21,6 +21,7 @@ from proto_language.utils.export import (
     to_xlsx,
     to_xlsx_workbook,
     write_export,
+    write_results_folder,
 )
 from proto_language.utils.fasta import load_reference_sequences
 from proto_language.utils.gradients import (
@@ -114,6 +115,7 @@ __all__ = [
     "to_xlsx",
     "to_xlsx_workbook",
     "write_export",
+    "write_results_folder",
     "load_reference_sequences",
     # Gradient utilities
     "GradientMerger",

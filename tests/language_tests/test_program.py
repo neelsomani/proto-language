@@ -1147,37 +1147,29 @@ class TestProgramExport:
         self.program = _create_simple_program(num_stages=1)
         self.program.run()
 
-    def test_export_all_tables(self, tmp_path):
-        """export() without table writes all 4 table files."""
+    def test_export_writes_folder_with_4_tables_fasta_and_assets(self, tmp_path):
+        """export() always writes a folder: 4 CSVs + FASTA + assets/ (empty when no payloads)."""
         out = self.program.export(path=tmp_path / "results", format="csv")
-        assert out.is_dir()
+        assert out.is_dir() and out == tmp_path / "results"
         for name in ("sequences", "constraints", "constructs", "optimization"):
             assert (out / f"{name}.csv").stat().st_size > 0
+        assert (out / "sequences.fasta").exists()
+        assert (out / "assets").is_dir()
 
-    def test_export_single_table(self, tmp_path):
-        """export() with table writes one file with expected columns."""
-        path = tmp_path / "seqs.csv"
-        self.program.export(path=path, table="sequences")
-        content = path.read_text()
-        assert "result_idx" in content and "sequence" in content
+    def test_export_xlsx_writes_workbook_inside_folder(self, tmp_path):
+        """Xlsx format produces a single results.xlsx workbook inside the folder, alongside assets/."""
+        out = self.program.export(path=tmp_path / "results", format="xlsx")
+        assert (out / "results.xlsx").stat().st_size > 0
+        assert (out / "assets").is_dir()
 
-    def test_export_xlsx(self, tmp_path):
-        """export() with xlsx writes a workbook."""
-        path = tmp_path / "results.xlsx"
-        self.program.export(path=path, format="xlsx")
-        assert path.stat().st_size > 0
-
-    def test_export_stage_filter(self, tmp_path):
-        """export() with stage= filters to that stage."""
+    def test_export_stage_filter_writes_that_stage_only(self, tmp_path):
+        """export(stage=0) emits sequences only from stage 0's results."""
         program = _create_simple_program(num_stages=2)
         program.run()
-        path = tmp_path / "s0.csv"
-        program.export(path=path, table="sequences", stage=0)
-        assert path.exists()
-
-    def test_export_invalid_table_raises(self, tmp_path):
-        with pytest.raises(ValueError, match="Unknown table"):
-            self.program.export(path=tmp_path / "x.csv", table="nonexistent")
+        out = program.export(path=tmp_path / "s0", stage=0)
+        opt_csv = (out / "optimization.csv").read_text()
+        # stage-1 timepoints must not appear in the optimization table.
+        assert "stage_1" not in opt_csv
 
     @pytest.mark.parametrize(
         "table,expected_col",

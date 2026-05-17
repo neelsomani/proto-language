@@ -1842,3 +1842,249 @@ class TestFlattenOptimizationProposals:
         # All rows are result, no proposals
         assert len(result_rows) == 4
         assert len(proposals) == 0
+
+
+# =============================================================================
+# Test write_results_folder
+# =============================================================================
+
+
+class TestExportProgramToFolder:
+    """Tests for the folder-export orchestrator that owns asset materialization."""
+
+    @staticmethod
+    def _segment(label: str = "s0", *, extras: dict | None = None, **payloads):
+        seg = {
+            "label": label,
+            "sequence": "ACGT",
+            "constraints": dict(extras or {}),
+            "generators": {},
+            "metadata": {},
+        }
+        seg.update(payloads)
+        return seg
+
+    @classmethod
+    def _results(cls, segments: list[dict]):
+        return {
+            "results": [
+                {
+                    "result_idx": 0,
+                    "energy_score": 0.5,
+                    "constructs": [{"label": "c0", "type": "dna", "segments": segments}],
+                }
+            ],
+            "best_result_idx": 0,
+        }
+
+    @staticmethod
+    def _history():
+        return [
+            {
+                "time_step": 0,
+                "optimizer": {"type": "test", "iteration": 0},
+                "results": [
+                    {
+                        "result_idx": 0,
+                        "energy_score": 0.5,
+                        "constructs": [
+                            {
+                                "label": "c0",
+                                "type": "dna",
+                                "segments": [{"label": "s0", "sequence": "ACGT", "constraints": {}, "metadata": {}}],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
+    def test_writes_structure_and_logits(self, tmp_path):
+        """``_structure`` / ``_logits`` payloads land in assets/ and segments gain path cells."""
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        from proto_language.utils.export import write_results_folder
+
+        results = self._results(
+            [
+                self._segment(
+                    "s0",
+                    _structure=SimpleNamespace(structure="ATOM\n", structure_format="pdb"),
+                    _logits=np.zeros((3, 4), dtype=np.float32),
+                ),
+                self._segment(
+                    "s1",
+                    _structure=SimpleNamespace(structure="data_x\n", structure_format="cif"),
+                ),
+            ]
+        )
+
+        out = write_results_folder(results=results, path=tmp_path / "out", history=self._history())
+
+        assert (out / "assets" / "res0_con0_seg0_structure.pdb").read_text() == "ATOM\n"
+        assert np.load(out / "assets" / "res0_con0_seg0_logits.npy").shape == (3, 4)
+        assert (out / "assets" / "res0_con0_seg1_structure.cif").read_text() == "data_x\n"
+        assert results["results"][0]["constructs"][0]["segments"][0].get("_structure") is not None, "input not mutated"
+
+    def test_structure_format_none_defaults_to_pdb(self, tmp_path):
+        """A Structure whose structure_format attribute is None (the model's default) writes a .pdb file."""
+        from types import SimpleNamespace
+
+        from proto_language.utils.export import write_results_folder
+
+        results = self._results(
+            [self._segment("s0", _structure=SimpleNamespace(structure="ATOM\n", structure_format=None))]
+        )
+
+        out = write_results_folder(results=results, path=tmp_path / "out")
+
+        assert (out / "assets" / "res0_con0_seg0_structure.pdb").read_text() == "ATOM\n"
+
+    def test_emits_all_four_tables_and_fasta(self, tmp_path):
+        """All four tables and the FASTA file are written, named by *format*."""
+        from proto_language.utils.export import write_results_folder
+
+        results = self._results([self._segment("s0", extras={"gc": {"score": 0.1, "weight": 1.0, "data": {}}})])
+
+        out = write_results_folder(results=results, path=tmp_path / "out", history=self._history(), format="tsv")
+
+        for name in ("sequences", "constraints", "constructs", "optimization"):
+            assert (out / f"{name}.tsv").exists(), name
+        assert ">c0_s0_result0" in (out / "sequences.fasta").read_text()
+
+    def test_surfaces_path_columns_in_sequences_table(self, tmp_path):
+        """``structure_path`` / ``logits_path`` appear in sequences.csv for segments that had opaque payloads."""
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        from proto_language.utils.export import write_results_folder
+
+        results = self._results(
+            [
+                self._segment(
+                    "s0",
+                    _structure=SimpleNamespace(structure="ATOM\n", structure_format="pdb"),
+                    _logits=np.zeros((2, 2), dtype=np.float32),
+                ),
+                self._segment("s1"),
+            ]
+        )
+
+        out = write_results_folder(results=results, path=tmp_path / "out")
+
+        sequences_csv = (out / "sequences.csv").read_text()
+        assert "structure_path" in sequences_csv and "logits_path" in sequences_csv
+        assert "assets/res0_con0_seg0_structure.pdb" in sequences_csv
+        assert "assets/res0_con0_seg0_logits.npy" in sequences_csv
+
+    def test_surfaces_path_columns_across_multiple_results_and_constructs(self, tmp_path):
+        """Path columns align with the right (result, construct, segment) row when iteration order has multiple results."""
+        from types import SimpleNamespace
+
+        from proto_language.utils.export import write_results_folder
+
+        def _struct(tag):
+            return SimpleNamespace(structure=f"PDB-{tag}\n", structure_format="pdb")
+
+        results = {
+            "results": [
+                {
+                    "result_idx": 0,
+                    "energy_score": 0.1,
+                    "constructs": [
+                        {
+                            "label": "ca",
+                            "type": "dna",
+                            "segments": [
+                                self._segment("s0", _structure=_struct("r0_ca_s0")),
+                                self._segment("s1"),
+                            ],
+                        },
+                        {
+                            "label": "cb",
+                            "type": "dna",
+                            "segments": [
+                                self._segment("s0", _structure=_struct("r0_cb_s0")),
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "result_idx": 1,
+                    "energy_score": 0.2,
+                    "constructs": [
+                        {
+                            "label": "ca",
+                            "type": "dna",
+                            "segments": [
+                                self._segment("s0"),
+                                self._segment("s1", _structure=_struct("r1_ca_s1")),
+                            ],
+                        },
+                        {"label": "cb", "type": "dna", "segments": [self._segment("s0")]},
+                    ],
+                },
+            ],
+            "best_result_idx": 0,
+        }
+
+        out = write_results_folder(results=results, path=tmp_path / "out")
+
+        csv_text = (out / "sequences.csv").read_text()
+        rows = csv_text.splitlines()
+        header = rows[0].split(",")
+        path_col = header.index("structure_path")
+        # 6 data rows in flatten_sequences iteration order: r0/ca/s0, r0/ca/s1, r0/cb/s0, r1/ca/s0, r1/ca/s1, r1/cb/s0
+        cells = [r.split(",")[path_col] for r in rows[1:]]
+        assert cells == [
+            "assets/res0_con0_seg0_structure.pdb",
+            "",
+            "assets/res0_con1_seg0_structure.pdb",
+            "",
+            "assets/res1_con0_seg1_structure.pdb",
+            "",
+        ], cells
+
+    def test_forwards_filter_kwargs_to_flatten_table_and_fasta(self, tmp_path):
+        """segments/result_indices filters narrow both the sequences.csv rows AND the FASTA records."""
+        from proto_language.utils.export import write_results_folder
+
+        results = self._results(
+            [
+                self._segment("keep", extras={"gc": {"score": 0.1, "weight": 1.0, "data": {}}}),
+                self._segment("drop", extras={"gc": {"score": 0.2, "weight": 1.0, "data": {}}}),
+            ]
+        )
+
+        out = write_results_folder(results=results, path=tmp_path / "out", segments={"keep"})
+
+        csv_text = (out / "sequences.csv").read_text()
+        assert "keep" in csv_text and "drop" not in csv_text
+
+        fasta_text = (out / "sequences.fasta").read_text()
+        assert "keep" in fasta_text and "drop" not in fasta_text
+
+    def test_filtered_export_preserves_path_columns_on_correct_row(self, tmp_path):
+        """Regression: filtering out seg0 (with structure) must not surface its path onto seg1's row."""
+        from types import SimpleNamespace
+
+        from proto_language.utils.export import write_results_folder
+
+        results = self._results(
+            [
+                self._segment("s0", _structure=SimpleNamespace(structure="ATOM-s0\n", structure_format="pdb")),
+                self._segment("s1"),
+            ]
+        )
+
+        out = write_results_folder(results=results, path=tmp_path / "out", segments={"s1"})
+
+        csv_text = (out / "sequences.csv").read_text()
+        lines = csv_text.splitlines()
+        # Exactly one data row (s1) — and it must NOT carry s0's structure_path.
+        assert len(lines) == 2  # header + 1 row
+        assert "s1" in lines[1]
+        assert "res0_con0_seg0_structure.pdb" not in lines[1]

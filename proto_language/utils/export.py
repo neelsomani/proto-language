@@ -12,10 +12,11 @@ Supports CSV, TSV, JSON, FASTA, and Excel output formats.
 import copy
 import csv
 import json
-from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Literal
+
+import numpy as np
 
 from proto_language.utils.helpers import make_json_safe
 
@@ -339,6 +340,9 @@ def flatten_sequences(
                 row.update(_flatten_generator_columns(segment.get("generators", {})))
                 for key, value in segment.get("metadata", {}).items():
                     row[f"metadata.{key}"] = _serialize_value(value)
+                for path_key in ("structure_path", "logits_path"):
+                    if path_key in segment:
+                        row[path_key] = segment[path_key]
                 rows.append(row)
     return rows
 
@@ -796,38 +800,6 @@ def write_export(
     raise ValueError(f"Unsupported format: {format}")
 
 
-def export_tables(
-    flatten_fn: Callable[[str], list[dict[str, Any]]],
-    path: Path | str,
-    format: Format,
-    table: str | None = None,
-) -> Path:
-    """Write one or all result tables to *path*.
-
-    Without *table*: writes all 4 tables. csv/tsv/json produce a directory
-    with one file per table; xlsx produces a single workbook with 4 sheets.
-    With *table*: writes a single file to *path*.
-
-    Args:
-        flatten_fn (Callable[[str], list[dict[str, Any]]]): Called with a table name, returns flattened rows.
-        path (Path | str): Output directory (all tables) or file (single table / xlsx).
-        format (Format): Output format.
-        table (str | None): Single table name, or ``None`` to export all.
-    """
-    path = Path(path)
-    if table is not None:
-        write_export(flatten_fn(table), format, path)
-        return path
-    all_tables = {name: flatten_fn(name) for name in _ALL_TABLES}
-    if format == "xlsx":
-        to_xlsx_workbook(all_tables, path)
-    else:
-        path.mkdir(parents=True, exist_ok=True)
-        for name, rows in all_tables.items():
-            write_export(rows, format, path / f"{name}.{format}")
-    return path
-
-
 # =============================================================================
 # FASTA export
 # =============================================================================
@@ -880,3 +852,92 @@ def to_fasta(
         return fasta_str
     output.write(fasta_str)
     return fasta_str
+
+
+# =============================================================================
+# Folder export
+# =============================================================================
+
+_ASSETS_DIR_NAME = "assets"
+
+
+def write_results_folder(
+    *,
+    results: Results,
+    path: Path | str,
+    history: list[dict[str, Any]] | None = None,
+    format: Format = "csv",
+    include_proposals: bool = False,
+    segments: set[str] | None = None,
+    result_indices: set[int] | None = None,
+    constraints: set[str] | None = None,
+) -> Path:
+    """Write 4 tables + FASTA + ``assets/`` to *path* and return the directory.
+
+    Materializes any in-memory ``_structure`` / ``_logits`` on segments into
+    ``assets/`` and stamps ``structure_path`` / ``logits_path`` columns in the
+    sequences table. xlsx writes a single ``results.xlsx`` workbook inside the
+    folder. Filter kwargs forward to :func:`flatten_table`. See
+    :meth:`proto_language.language.core.Program.export` for the folder layout.
+    """
+    out_dir = Path(path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    assets_dir = out_dir / _ASSETS_DIR_NAME
+    assets_dir.mkdir(exist_ok=True)
+
+    rewritten: Results = copy.deepcopy(results)
+    rewritten_history = copy.deepcopy(history) if history else []
+
+    for result_entry in rewritten.get("results", []):
+        r_idx = result_entry["result_idx"]
+        for c_idx, construct in enumerate(result_entry["constructs"]):
+            for s_idx, segment in enumerate(construct["segments"]):
+                _materialize_segment_payloads(segment, r_idx, c_idx, s_idx, assets_dir)
+
+    rows_by_table = {
+        name: flatten_table(
+            name,
+            rewritten,
+            rewritten_history,
+            segments=segments,
+            result_indices=result_indices,
+            constraints=constraints,
+            include_proposals=include_proposals,
+        )
+        for name in _ALL_TABLES
+    }
+
+    if format == "xlsx":
+        to_xlsx_workbook(rows_by_table, out_dir / "results.xlsx")
+    else:
+        for name, rows in rows_by_table.items():
+            table_path = out_dir / f"{name}.{format}"
+            write_export(rows, format, table_path)
+            if not table_path.exists():
+                table_path.write_text("")
+    to_fasta(rewritten, segments=segments, result_indices=result_indices, output=out_dir / "sequences.fasta")
+
+    return out_dir
+
+
+def _materialize_segment_payloads(
+    segment: dict[str, Any],
+    r_idx: int,
+    c_idx: int,
+    s_idx: int,
+    assets_dir: Path,
+) -> None:
+    """Pop ``_structure`` / ``_logits`` from *segment*, write them to *assets_dir*, and stamp path columns."""
+    structure = segment.pop("_structure", None)
+    if structure is not None:
+        fmt = getattr(structure, "structure_format", None) or "pdb"
+        ext = ".cif" if fmt == "cif" else ".pdb"
+        fname = f"res{r_idx}_con{c_idx}_seg{s_idx}_structure{ext}"
+        (assets_dir / fname).write_text(structure.structure)
+        segment["structure_path"] = f"{_ASSETS_DIR_NAME}/{fname}"
+
+    logits = segment.pop("_logits", None)
+    if logits is not None:
+        fname = f"res{r_idx}_con{c_idx}_seg{s_idx}_logits.npy"
+        np.save(assets_dir / fname, logits)
+        segment["logits_path"] = f"{_ASSETS_DIR_NAME}/{fname}"

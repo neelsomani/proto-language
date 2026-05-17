@@ -411,12 +411,7 @@ def _run_epigenomics_morse_pipeline(cfg: RuntimeConfig) -> None:
         DeviceManager.get_instance().configure(allow_multiple_per_device=True)
     program = build_program(cfg)
     program.run()
-    program.export(
-        cfg.output_dir / "optimization_history.csv",
-        format="csv",
-        table="optimization",
-        include_proposals=True,
-    )
+    program.export(cfg.output_dir, format="csv", include_proposals=True)
 
     construct = program.constructs[0]
     best_sequence = construct.joined_sequences[0].sequence

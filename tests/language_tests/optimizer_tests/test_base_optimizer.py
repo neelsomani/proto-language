@@ -1102,19 +1102,14 @@ class TestOptimizerExport:
         segment.result_sequences = list(segment.proposal_sequences)
         self.optimizer._save_progress_snapshot(time_step=0, optimizer_metadata={"type": "test"})
 
-    def test_export_all_tables(self, tmp_path):
-        """export() without table creates directory with all table files."""
+    def test_export_writes_folder_with_4_tables_fasta_and_assets(self, tmp_path):
+        """export() writes a folder: 4 CSVs + FASTA + assets/ (empty when no payloads)."""
         out = self.optimizer.export(path=tmp_path / "results", format="csv")
         assert out.is_dir()
         for name in ("sequences", "constraints", "constructs", "optimization"):
             assert (out / f"{name}.csv").stat().st_size > 0
-
-    def test_export_single_table(self, tmp_path):
-        """export() with table writes one file."""
-        path = tmp_path / "seqs.csv"
-        self.optimizer.export(path=path, table="sequences")
-        content = path.read_text()
-        assert "result_idx" in content and "sequence" in content
+        assert (out / "sequences.fasta").exists()
+        assert (out / "assets").is_dir()
 
     @pytest.mark.parametrize(
         "table,expected_col",

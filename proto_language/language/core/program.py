@@ -13,9 +13,9 @@ from proto_language.language.core.generator import GeneratorInputType
 from proto_language.language.core.optimizer import Optimizer, derive_seeds
 from proto_language.utils.export import (
     build_results,
-    export_tables,
     flatten_table,
     to_fasta,
+    write_results_folder,
 )
 
 logger = logging.getLogger(__name__)
@@ -602,47 +602,48 @@ class Program:
     def export(
         self,
         path: Path | str = "./results",
+        *,
         format: Literal["csv", "tsv", "json", "xlsx"] = "csv",
-        table: Literal["sequences", "constraints", "constructs", "optimization"] | None = None,
         stage: int | None = None,
         segments: set[str] | None = None,
         result_indices: set[int] | None = None,
         constraints: set[str] | None = None,
         include_proposals: bool = False,
     ) -> Path:
-        """Export results to files.
+        """Export results to *path* as a folder: 4 tables + FASTA + ``assets/``.
 
-        Without *table*: writes all 4 tables (sequences, constraints,
-        constructs, optimization).  csv/tsv/json produce a directory with one
-        file per table; xlsx produces a single workbook with 4 sheets.
+        Layout::
 
-        With *table*: writes a single file to *path*.
+            <path>/
+            ├── sequences.<fmt>        one row per (result, construct, segment)
+            ├── constraints.<fmt>      one row per (result, construct, segment, constraint)
+            ├── constructs.<fmt>       one row per (result, construct) — joined ``full_sequence``
+            ├── optimization.<fmt>     one row per (timepoint, result) — from history
+            ├── sequences.fasta
+            └── assets/
+                ├── res{i}_con{c}_seg{s}_structure.{pdb|cif}    seq.structure
+                └── res{i}_con{c}_seg{s}_logits.npy             seq.logits via np.save
+
+        xlsx packs the four tables into a single ``<path>/results.xlsx`` workbook.
 
         Args:
-            path (Path | str): Output directory (all tables) or file path (single table / xlsx).
-            format (Literal['csv', 'tsv', 'json', 'xlsx']): ``"csv"`` | ``"tsv"`` | ``"json"`` | ``"xlsx"``.
-            table (Literal['sequences', 'constraints', 'constructs', 'optimization'] | None): Single table name, or None for all.
+            path (Path | str): Output directory.
+            format (Literal['csv', 'tsv', 'json', 'xlsx']): Table format.
             stage (int | None): Filter to this optimizer stage index.
             segments (set[str] | None): Only include these segment labels.
             result_indices (set[int] | None): Only include these result indices.
             constraints (set[str] | None): Only include these constraint labels (constraints table only).
             include_proposals (bool): Include proposal rows (optimization table only).
         """
-        results = self._results_for_stage(stage)
-        history = self._collect_history(stage)
-        return export_tables(
-            lambda t: flatten_table(
-                t,
-                results,
-                history,
-                segments=segments,
-                result_indices=result_indices,
-                constraints=constraints,
-                include_proposals=include_proposals,
-            ),
-            path,
-            format,
-            table,
+        return write_results_folder(
+            results=self._results_for_stage(stage),
+            history=self._collect_history(stage),
+            path=path,
+            format=format,
+            include_proposals=include_proposals,
+            segments=segments,
+            result_indices=result_indices,
+            constraints=constraints,
         )
 
     def to_dataframe(

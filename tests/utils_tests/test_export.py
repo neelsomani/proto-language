@@ -1462,6 +1462,8 @@ def test_build_results_makes_pydantic_generator_metrics_json_safe():
         _constraints_metadata={},
         _generator_metadata={"evo1": {"score": score}},
         _metadata={},
+        structure=None,
+        logits=None,
     )
     segment = SimpleNamespace(label="s", result_sequences=[seq], proposal_sequences=[seq])
     construct = SimpleNamespace(label="c", sequence_type="dna", segments=[segment])
@@ -1494,6 +1496,8 @@ def test_build_results_makes_metadata_dict_keys_json_safe():
         _constraints_metadata={np.int64(7): {("tuple", np.int64(2)): "constraint"}},
         _generator_metadata={"evo1": {("score", np.int64(1)): 0.5}},
         _metadata={np.int64(3): "three", ("window", np.int64(4)): {"value": np.float32(1.5)}},
+        structure=None,
+        logits=None,
     )
     segment = SimpleNamespace(label="s", result_sequences=[seq])
     construct = SimpleNamespace(label="c", sequence_type="dna", segments=[segment])
@@ -1506,6 +1510,45 @@ def test_build_results_makes_metadata_dict_keys_json_safe():
     assert segment_payload["metadata"]["3"] == "three"
     assert segment_payload["metadata"]['["window",4]']["value"] == 1.5
     json.dumps(results)
+
+
+def test_build_results_carries_structure_and_logits_only_when_set():
+    """seq.structure/logits surface as opaque ``_structure``/``_logits`` keys (omitted when absent), and flatten functions never expose them."""
+    from unittest.mock import MagicMock
+
+    import numpy as np
+
+    from proto_language.language.core import Construct, Segment, Sequence
+    from proto_language.utils.export import (
+        build_results,
+        flatten_constraints,
+        flatten_constructs,
+        flatten_sequences,
+    )
+    from tests.helpers.mock_structure import MockStructure
+
+    struct = MockStructure()
+    logits = np.zeros((4, 4), dtype=np.float32)
+    seq_with = Sequence("ACGT", sequence_type="dna", logits=logits, structure=struct)
+    seq_with._constraints_metadata = {"gc": {"score": 0.5, "weight": 1.0, "weighted_score": 0.5, "data": {}}}
+    seq_without = Sequence("ACGT", sequence_type="dna")
+
+    seg_with = MagicMock(spec=Segment, label="with", result_sequences=[seq_with])
+    seg_without = MagicMock(spec=Segment, label="without", result_sequences=[seq_without])
+    construct = MagicMock(spec=Construct, label="c0", sequence_type="dna", segments=[seg_with, seg_without])
+
+    results = build_results([construct], [0.42])
+    segments = results["results"][0]["constructs"][0]["segments"]
+    assert segments[0]["_structure"] is struct
+    assert segments[0]["_logits"] is logits
+    assert "_structure" not in segments[1]
+    assert "_logits" not in segments[1]
+
+    for flatten in (flatten_sequences, flatten_constraints, flatten_constructs):
+        rows = flatten(results)
+        assert rows, f"{flatten.__name__} produced no rows for the fixture"
+        for row in rows:
+            assert not any(k.startswith("_") for k in row), row
 
 
 # =============================================================================
@@ -1586,6 +1629,30 @@ class TestBuildProposalResults:
         assert cand["constructs"][0]["type"] == "dna"
         assert len(cand["constructs"][0]["segments"]) == 1
         assert cand["constructs"][0]["segments"][0]["sequence"] == "ATCG"
+
+    def test_structure_and_logits_payloads_surface(self):
+        """build_proposal_results carries the same _structure / _logits opaque keys."""
+        from unittest.mock import MagicMock
+
+        import numpy as np
+
+        from proto_language.language.core import Construct, Segment, Sequence
+        from tests.helpers.mock_structure import MockStructure
+
+        struct = MockStructure()
+        logits = np.zeros((4, 4), dtype=np.float32)
+        seq = Sequence("ATCG", sequence_type="dna", logits=logits, structure=struct)
+        segment = MagicMock(spec=Segment)
+        segment.label = "promoter"
+        segment.proposal_sequences = [seq]
+        construct = MagicMock(spec=Construct)
+        construct.label = "construct_0"
+        construct.sequence_type = "dna"
+        construct.segments = [segment]
+
+        seg = build_proposal_results([construct], ["accepted"])[0]["constructs"][0]["segments"][0]
+        assert seg["_structure"] is struct
+        assert seg["_logits"] is logits
 
     def test_constraint_metadata_on_rejected_proposal(self):
         """Constraint metadata written to rejected proposals is exported."""

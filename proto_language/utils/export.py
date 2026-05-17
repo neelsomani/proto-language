@@ -37,6 +37,8 @@ def build_results(
 
     Produces the canonical format consumed by all flatten/export functions.
     Infinite/NaN energy scores are converted to None for JSON compatibility.
+    When set, ``seq.structure`` / ``seq.logits`` are carried as opaque
+    ``_structure`` / ``_logits`` entries that external materializers consume.
 
     Args:
         constructs (list[Any]): List of Construct objects.
@@ -96,6 +98,10 @@ def build_results(
                     "generators": make_json_safe(copy.deepcopy(seq._generator_metadata)),
                     "metadata": make_json_safe(copy.deepcopy(seq._metadata)),
                 }
+                if seq.structure is not None:
+                    seg_dict["_structure"] = seq.structure
+                if seq.logits is not None:
+                    seg_dict["_logits"] = seq.logits
                 structured_segments.append(seg_dict)
             structured_constructs.append(
                 {
@@ -182,6 +188,10 @@ def build_proposal_results(
                     "generators": make_json_safe(copy.deepcopy(seq._generator_metadata)),
                     "metadata": make_json_safe(copy.deepcopy(seq._metadata)),
                 }
+                if seq.structure is not None:
+                    seg_dict["_structure"] = seq.structure
+                if seq.logits is not None:
+                    seg_dict["_logits"] = seq.logits
                 structured_segments.append(seg_dict)
             structured_constructs.append(
                 {

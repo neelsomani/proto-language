@@ -1,6 +1,143 @@
-# Test Templates
+# Testing
 
-Complete test templates for each component type. Load this file on demand when writing new tests.
+Long-form testing reference: markers, placement, templates, conftest fixtures, mock scoring functions. The `Commands` and `Test Conventions` sections in CLAUDE.md cover the high-leverage rules; this file is what to read when actually writing or debugging a test.
+
+## Markers
+
+| Marker | When to use | Effect |
+|--------|------------|--------|
+| `@pytest.mark.uses_gpu` | Test requires GPU (CUDA) | Auto-skipped without a visible GPU; force-include with `--gpu`; force-skip with `--cpu` |
+| `@pytest.mark.slow` | Test takes >30s | Skipped by default; needs `--all` or `--slow` |
+| `@pytest.mark.skip_ci` | Test can't run in GitHub Actions | Skipped with `--skip-ci` or in CI |
+| `@pytest.mark.integration` | Requires external tools (MAFFT, etc.) | Skipped by default; needs `--integration` or `--all` |
+| `@pytest.mark.asyncio` | Async test function | Required for `async def test_*` |
+| *(no marker)* | CPU test (fast) | Auto-marked `uses_cpu` by conftest |
+
+**Rule:** CPU tests need NO marker. Only add markers for GPU, slow, or special tests.
+
+## Test File Placement
+
+```
+tests/
+├── conftest.py                                     # Shared fixtures (auto-use)
+├── language_tests/
+│   ├── constraint_tests/
+│   │   ├── utils.py                                # Mock scoring functions
+│   │   ├── test_base_constraint.py                 # Constraint class tests
+│   │   ├── test_constraint_registry.py             # Registry tests
+│   │   ├── test_sequence_composition/
+│   │   │   ├── test_gc_content_constraint.py
+│   │   │   └── test_{name}_constraint.py
+│   │   ├── test_protein_structure/
+│   │   ├── test_protein_quality/
+│   │   ├── test_rna_secondary_structure/
+│   │   ├── test_rna_splicing/
+│   │   └── test_sequence_annotation/
+│   ├── generator_tests/
+│   │   ├── test_random_nucleotide_generator.py
+│   │   └── test_{name}_generator.py
+│   ├── optimizer_tests/
+│   │   ├── test_base_optimizer.py
+│   │   ├── test_mcmc_optimizer.py
+│   │   └── test_{name}_optimizer.py
+│   └── test_program.py
+```
+
+**Naming rules:**
+- File: `test_{component_name}.py` (e.g., `test_gc_content_constraint.py`)
+- Class: `Test{ComponentName}` (e.g., `TestGCContentConstraint`)
+- Method: `test_{behavior}` (e.g., `test_dna_sequences`, `test_wrong_sequence_type`)
+
+## Bug-Fixing Workflow
+
+1. **Write a failing test FIRST** that reproduces the bug.
+2. **Verify the test fails** as expected (`pytest -k "test_name" -x`).
+3. **Fix the bug** in the source code.
+4. **Verify the test passes** (`pytest -k "test_name" -x`).
+5. **Run broader suite** to check regressions: `pytest tests/ --cpu`.
+
+## Common Assertion Patterns
+
+```python
+# Exact float comparison with tolerance
+assert abs(actual - expected) < 1e-9
+
+# Approximate comparison
+assert actual == pytest.approx(expected, abs=1e-6)
+
+# Exception with message match
+with pytest.raises(ValueError, match="must be positive"):
+    do_something()
+
+# Exception type only
+with pytest.raises(TypeError):
+    do_something()
+
+# Parametrized tests
+@pytest.mark.parametrize("input,expected", [("A", 1), ("B", 2)])
+def test_mapping(self, input, expected):
+    assert func(input) == expected
+
+# Skip conditionally (GPU tests; auto-skipped without a visible GPU)
+@pytest.mark.uses_gpu
+def test_gpu_feature(self):
+    ...
+```
+
+## conftest.py Fixtures Reference (`tests/conftest.py`)
+
+All fixtures below are `autouse=True` — they apply to every test automatically.
+
+### `mock_generator_registry` (autouse)
+
+Patches `GeneratorRegistry.get_key()` and `.find_key()` to map mock generator class names to real registry keys, so mocks inherit the real generator's `input_type` and `supported_sequence_types`:
+
+| Mock class | Maps to registry key | Effective category / `input_type` |
+|---|---|---|
+| `MockAutoregressiveGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `MockAutoregressiveGeneratorNoKVCache` | `evo1` | autoregressive / `PROMPT` |
+| `ControlledMockGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `SegmentAwareMockGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `AccumulativeTrackingGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `TrackingKVCacheGenerator` | `evo1` | autoregressive / `PROMPT` |
+| `MockMutationGenerator` | `random-protein` | mutation / `STARTING_SEQUENCE` |
+| `MockCyclingGenerator` | `random-protein` | mutation / `STARTING_SEQUENCE` |
+| `MockInverseFoldingGenerator` | `proteinmpnn` | inverse folding / `STRUCTURE` |
+
+Each mock class should also declare its own `input_type` classvar to match (see the test files in `tests/language_tests/optimizer_tests/`).
+
+### `setup_test_logging` (session-scoped, autouse)
+
+Configures logging to `logs/pytest_{timestamp}.log`. Suppresses noisy third-party loggers.
+
+### `gpu_available` (session-scoped, NOT autouse)
+
+Returns `True` if GPU is available. Use in tests: `@pytest.mark.skipif(not gpu_available, reason="No GPU")`.
+
+## Mock Scoring Functions (`tests/language_tests/constraint_tests/utils.py`)
+
+For testing the `Constraint` class without real constraint functions:
+
+```python
+from tests.language_tests.constraint_tests.utils import (
+    mock_single_input_scoring_function,          # Scores by T-fraction in sequence
+    mock_multi_input_scoring_function,           # Same as single (batched)
+    mock_multi_input_scoring_function_disjoint,  # Two-sequence tuples (T% + C%)
+    mock_dna_only_scoring_function,              # Only supports DNA
+    mock_protein_only_scoring_function,          # Only supports protein
+)
+```
+
+### Creating Custom Mock Scoring Functions
+
+```python
+def my_mock_scoring(input_sequences, config=None):
+    return [0.5 for _ in input_sequences]
+
+# REQUIRED: Set these attributes (normally set by @constraint decorator)
+my_mock_scoring._constraint_config_class = None
+my_mock_scoring._constraint_supported_sequence_types = ["dna", "rna", "protein"]
+```
 
 ## Constraint Test Template
 
@@ -16,8 +153,8 @@ class TestMyConstraint:
         "sequence, param, expected_score",
         [
             ("GCGCGAATTA", 50, 0.0),   # Perfect score
-            ("AAAAAAAAAA", 50, 1.0),    # Worst score
-            ("GCATATAT", 50, 0.5),      # Partial score
+            ("AAAAAAAAAA", 50, 1.0),   # Worst score
+            ("GCATATAT", 50, 0.5),     # Partial score
             ("", 50, 1.0),             # Empty edge case
         ],
     )
@@ -61,12 +198,10 @@ class TestMyConstraint:
         )
         constraint.evaluate()
 
-        # Check metadata on proposal sequences. Constraint outputs land under
-        # _constraints_metadata[<label>]["data"].
+        # Constraint outputs land under _constraints_metadata[<label>]["data"]
         constraints_meta = segment.proposal_sequences[0]._constraints_metadata
         assert "my_constraint" in constraints_meta
         assert "data" in constraints_meta["my_constraint"]
-        # Check specific metadata fields
         assert "my_metric" in constraints_meta["my_constraint"]["data"]
 
     def test_rna_sequences(self):
@@ -121,7 +256,7 @@ class TestMyGenerator:
         mutated = segment.proposal_sequences[0].sequence
 
         assert len(mutated) == 50
-        assert mutated != initial  # Something changed
+        assert mutated != initial
 
     def test_sample_batch(self):
         """sample() handles multiple proposals independently."""
@@ -149,20 +284,8 @@ class TestMyGenerator:
         config = MyGeneratorConfig(model_name="model_a")
         gen = MyGenerator(config)
         segment = Segment(sequence="ATCG", sequence_type="dna")
-        # If generator only supports protein:
         with pytest.raises(ValueError, match="does not support sequence type"):
             gen.assign(segment)
-
-
-class TestMyGeneratorValidation:
-    """Sequence type compatibility tests."""
-
-    def test_accepts_supported_type(self):
-        config = MyGeneratorConfig(model_name="model_a")
-        gen = MyGenerator(config)
-        segment = Segment(length=50, sequence_type="protein")
-        gen.assign(segment)
-        assert gen.segment is segment
 ```
 
 ## Optimizer Test Template
@@ -175,7 +298,11 @@ from pydantic import BaseModel
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
 from proto_language.language.core import Constraint, Construct, Segment
-from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig, MaskingStrategy
+from proto_language.language.generator import (
+    MaskingStrategy,
+    RandomNucleotideGenerator,
+    RandomNucleotideGeneratorConfig,
+)
 from proto_language.language.optimizer import MyOptimizer, MyOptimizerConfig
 
 
@@ -187,7 +314,9 @@ def _setup_components(
 ):
     """Helper to create optimizer with standard test components."""
     segment = Segment(sequence="A" * seq_length, sequence_type="dna")
-    gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
+    gen = RandomNucleotideGenerator(
+        RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+    )
     gen.assign(segment)
 
     construct = Construct([segment])
@@ -209,20 +338,17 @@ def _setup_components(
 
 class TestMyOptimizer:
     def test_initialization(self):
-        """Optimizer initializes with correct config values."""
         opt, _, _, _ = _setup_components()
         assert opt.num_results == 5
         assert len(opt.generators) == 1
         assert len(opt.constraints) == 1
 
     def test_config_validation(self):
-        """Invalid config raises ValidationError."""
         from pydantic import ValidationError
         with pytest.raises(ValidationError):
             MyOptimizerConfig(num_results=-1, num_steps=10)
 
     def test_run_completes(self):
-        """run() completes without error."""
         opt, _, _, _ = _setup_components(num_steps=5)
         opt.run()
         assert len(opt.history) > 0
@@ -231,14 +357,11 @@ class TestMyOptimizer:
         """Scores should generally improve over optimization."""
         opt, _, _, _ = _setup_components(num_steps=50)
         opt.run()
-
         initial_score = opt.history[0]["energy_scores"][0]
         final_score = opt.history[-1]["energy_scores"][0]
-        # Final should be <= initial (lower = better)
-        assert final_score <= initial_score
+        assert final_score <= initial_score  # lower = better
 
     def test_history_tracking(self):
-        """Snapshots saved at correct intervals."""
         opt, _, _, _ = _setup_components(num_steps=20)
         opt.run()
         tracked_steps = [h["time_step"] for h in opt.history]
@@ -248,8 +371,9 @@ class TestMyOptimizer:
     def test_unassigned_generator_raises(self):
         """Unassigned generator should raise RuntimeError."""
         segment = Segment(sequence="A" * 10, sequence_type="dna")
-        gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
-        # NOT calling gen.assign(segment)
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
 
         def dummy(input_sequences, config=None):
             return [0.0 for _ in input_sequences]
@@ -268,17 +392,18 @@ class TestMyOptimizer:
             )
 
     def test_filter_constraints(self):
-        """Filter constraints (with threshold) reject bad proposals."""
+        """Filter constraints (threshold set) reject bad proposals."""
         segment = Segment(sequence="A" * 20, sequence_type="dna")
-        gen = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
+        gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
         gen.assign(segment)
 
-        # Filter: only accept sequences with GC in [40, 60]
         filter_constraint = Constraint(
             inputs=[segment],
             function=gc_content_constraint,
             function_config=GCContentConfig(min_gc=40, max_gc=60),
-            threshold=0.1,  # Makes it a filter
+            threshold=0.1,  # makes it a filter
         )
 
         config = MyOptimizerConfig(num_results=5, num_steps=10)
@@ -288,5 +413,20 @@ class TestMyOptimizer:
             constraints=[filter_constraint],
             config=config,
         )
-        opt.run()  # Should complete without error
+        opt.run()  # should complete without error
 ```
+
+## Validation Checklist
+
+Copy and check off as you go:
+
+- [ ] Test file placed in correct directory (`tests/language_tests/{component}_tests/`)
+- [ ] Test class named `Test{ComponentName}`
+- [ ] Correct markers applied (`uses_gpu`, `slow`, `skip_ci`)
+- [ ] Parametrized scoring tests cover edge cases (empty, boundary, perfect, worst)
+- [ ] Wrong sequence type test included
+- [ ] Invalid config test included
+- [ ] Metadata propagation test included (for constraints)
+- [ ] Tests pass: `pytest tests/language_tests/{area}_tests/ --cpu -x`
+- [ ] Lint passes: `ruff check tests/`
+- [ ] Type check passes: `mypy proto_language/`

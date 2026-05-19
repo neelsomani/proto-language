@@ -71,10 +71,15 @@ Each generator declares its `input_type` via a classvar. The client reads this f
 
 | `input_type` | Category | Examples | Runtime input source |
 |---|---|---|---|
-| `STARTING_SEQUENCE` | `mutation` | ESM2, ESM3, MSA, Random*, SemigreedyMutation | `segment.proposal_sequences[].sequence` (from `segment.input_sequence` or prior stage); base validator raises if empty. Random mutation generators override `_sample()` to seed empty proposals with a fully random sequence on the first call. |
+| `STARTING_SEQUENCE` | `mutation` | ESM2, ESM3, MSA, RandomNucleotide, RandomProtein, SemigreedyMutation | `segment.proposal_sequences[].sequence` (from `segment.input_sequence` or prior stage); base validator raises if empty. RandomNucleotide / RandomProtein override `_sample()` to seed empty proposals with a fully random sequence on the first call. |
 | `PROMPT` | `autoregressive` | Evo1, Evo2, ProGen2 | `config.prompts` or `_sample(prompts=...)` (first positional kwarg) from CyclingOptimizer |
 | `STRUCTURE` | `inverse_folding` | ProteinMPNN, LigandMPNN | `config.structure_inputs` or `_sample(structure_inputs=...)` (first positional kwarg) from CyclingOptimizer; segment seeded with `'X' * length` if no prior sequence |
 | `LOGITS` | `gradient` | PositionWeight | `segment.proposal_sequences[].logits` from a prior `GradientOptimizer` stage |
+
+## Input Field Rules
+
+- **No `starting_` prefix on conditioning kwargs.** Use bare nouns: `prompt`, `template_sequence`, `structure`, `logits`. The kwarg name describes what the input *is*, not how the optimizer happens to use it.
+- **Mutation generators require an explicit template.** `STARTING_SEQUENCE` generators (including the `Random*` family) no longer accept random-init as a silent fallback — the `Program._validate_generator_inputs` walker raises at `Program.__init__` time if no upstream stage or `segment.input_sequence` supplies one. Wire a `RandomNucleotide` / `RandomProtein` first stage if you want random initialization.
 
 ## Implementation Steps
 

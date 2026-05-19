@@ -7,5 +7,8 @@ For personal discoveries (debugging patterns, tool quirks found during a session
 ## Index
 
 - `batching.md`: Batching architecture across generator, language, tool, and GPU boundaries.
+- `claude-code.md`: Skills, CI integration, and common workflows for the Claude Code layer.
 - `dev.md`: Setup, submodule sync, CI checks, docs generation.
+- `error-handling.md`: Raise-vs-soft-fail rules inside Constraint / Generator / Optimizer; `format_pydantic_error()`.
 - `seeding.md`: Program/optimizer/generator/constraint seed hierarchy.
+- `testing.md`: Markers, placement, templates per component type, conftest fixtures, mock scoring functions.

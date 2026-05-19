@@ -133,7 +133,8 @@ optimizer = MCMCOptimizer(..., custom_logging=custom_logging)
 ```python
 program.run()
 
-# Always writes a folder: 4 tables + sequences.fasta + assets/ (PDBs, .npy, etc.)
+# Always writes a folder:
+# 4 tables + sequences.fasta + assets/ (PDBs, .npy, nested CSV sidecars, etc.)
 program.export(path="./results/", format="csv")
 
 # xlsx produces a single results.xlsx workbook inside the folder

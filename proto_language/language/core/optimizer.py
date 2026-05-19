@@ -802,6 +802,10 @@ class Optimizer(ABC):
         When *path* is ``None``, names the folder per the unified convention
         (``{project}__{YYYY-MM-DD_HHMMSS}``) under CWD.
 
+        ``assets/`` holds materialized PDB/CIF and logits payloads, plus CSV
+        sidecars for row-shaped nested metadata referenced from the parent table
+        cells.
+
         Args:
             path (Path | str | None): Output directory; ``None`` uses the convention.
             format (Literal['csv', 'tsv', 'json', 'xlsx']): Table format.

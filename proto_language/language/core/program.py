@@ -640,9 +640,10 @@ class Program:
             ├── constructs.<fmt>       one row per (result, construct) — joined ``full_sequence``
             ├── optimization.<fmt>     one row per (timepoint, result) — from history
             ├── sequences.fasta
-            └── assets/
-                ├── res{i}_con{c}_seg{s}_structure.{pdb|cif}    seq.structure
-                └── res{i}_con{c}_seg{s}_logits.npy             seq.logits via np.save
+            ├── assets/
+            │   ├── res{i}_con{c}_seg{s}_structure.{pdb|cif}    seq.structure
+            │   ├── res{i}_con{c}_seg{s}_logits.npy             seq.logits via np.save
+            │   └── *.csv              row-shaped nested metadata sidecars
 
         xlsx packs the four tables into a single ``<path>/results.xlsx`` workbook.
 

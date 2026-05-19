@@ -57,7 +57,7 @@ Key: `Segment(sequence="ATCG", sequence_type="dna")` or `Segment(length=100, seq
 Both `Program` and `Optimizer` provide 3 export methods:
 
 ```python
-# Export to a folder: 4 tables + sequences.fasta + assets/ (PDBs from seq.structure, .npy from seq.logits).
+# Export to a folder: 4 tables + sequences.fasta + assets/ sidecars.
 .export(path="./results/", format="csv")          # 4 separate files
 .export(path="./results/", format="xlsx")         # 1 workbook inside the folder
 .export(path="./s0/", stage=0)                    # multi-stage selection (Program only)
@@ -72,6 +72,8 @@ fasta = .to_fasta()
 ```
 
 Tables: `sequences`, `constraints`, `constructs`, `optimization`.
+Large row-shaped metadata values, such as per-ORF prediction records, are written
+as `assets/*.csv` sidecars and referenced by path from the parent table.
 `Program` also accepts `stage=` to filter by optimizer stage.
 Underlying utilities live in `proto_language/utils/export.py`.
 

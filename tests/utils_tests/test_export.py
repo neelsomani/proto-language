@@ -1,8 +1,10 @@
 """Tests for proto_language.utils.export module."""
 
+import csv
 import json
 import math
 import tempfile
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -20,6 +22,7 @@ from proto_language.utils.export import (
     to_json,
     to_tsv,
     write_export,
+    write_results_folder,
 )
 
 # =============================================================================
@@ -1989,6 +1992,156 @@ class TestExportProgramToFolder:
         assert "structure_path" in sequences_csv and "logits_path" in sequences_csv
         assert "assets/res0_con0_seg0_structure.pdb" in sequences_csv
         assert "assets/res0_con0_seg0_logits.npy" in sequences_csv
+
+    def test_externalizes_row_shaped_metadata_to_nested_csv(self, tmp_path):
+        """List-of-dict metadata becomes a sidecar instead of inline JSON."""
+        results = self._results(
+            [
+                self._segment(
+                    "crispr_locus",
+                    extras={
+                        "orf_filter": {
+                            "score": 0.0,
+                            "weight": 1.0,
+                            "weighted_score": 0.0,
+                            "data": {
+                                "orfipy_orf_count": 2,
+                                "orfipy_orfs": [
+                                    {
+                                        "parent_id": "seq_73",
+                                        "orf_id": "ORF.1",
+                                        "strand": "+",
+                                        "nucleotide_start": 193,
+                                        "metrics": {"confidence": 0.9},
+                                    },
+                                    {
+                                        "parent_id": "seq_73",
+                                        "orf_id": "ORF.2",
+                                        "strand": "+",
+                                        "nucleotide_start": 283,
+                                        "metrics": {},
+                                    },
+                                ],
+                            },
+                        }
+                    },
+                )
+            ]
+        )
+
+        out_dir = write_results_folder(results=results, path=tmp_path / "out")
+
+        constraints_csv = (out_dir / "constraints.csv").read_text()
+        assert "orfipy_orf_count" in constraints_csv
+        assert "assets/" in constraints_csv
+        assert "ORF.1" not in constraints_csv
+
+        nested_files = list((out_dir / "assets").glob("*.csv"))
+        assert len(nested_files) == 1
+        assert "orfipy_orfs" in nested_files[0].name
+
+        nested_rows = list(csv.DictReader(StringIO(nested_files[0].read_text())))
+        assert nested_rows[0]["parent_id"] == "seq_73"
+        assert nested_rows[0]["orf_id"] == "ORF.1"
+        assert nested_rows[0]["nucleotide_start"] == "193"
+        assert nested_rows[0]["metrics"] == '{"confidence": 0.9}'
+
+    def test_externalizes_nested_row_shaped_metadata_recursively(self, tmp_path):
+        """A sidecar CSV cell can reference another CSV sidecar under assets/."""
+        results = self._results(
+            [
+                self._segment(
+                    "crispr_locus",
+                    extras={
+                        "orf_filter": {
+                            "score": 0.0,
+                            "weight": 1.0,
+                            "data": {
+                                "orfipy_orfs": [
+                                    {
+                                        "orf_id": "ORF.1",
+                                        "domains": [
+                                            {"domain_id": "D1", "start": 1},
+                                            {"domain_id": "D2", "start": 13},
+                                        ],
+                                    }
+                                ],
+                            },
+                        }
+                    },
+                )
+            ]
+        )
+
+        out_dir = write_results_folder(results=results, path=tmp_path / "out")
+
+        constraints_row = next(csv.DictReader(StringIO((out_dir / "constraints.csv").read_text())))
+        orfs_path = constraints_row["orfipy_orfs"]
+        assert orfs_path.startswith("assets/") and orfs_path.endswith(".csv")
+
+        orfs_row = next(csv.DictReader(StringIO((out_dir / orfs_path).read_text())))
+        domains_path = orfs_row["domains"]
+        assert domains_path.startswith("assets/") and domains_path.endswith(".csv")
+
+        domain_rows = list(csv.DictReader(StringIO((out_dir / domains_path).read_text())))
+        assert [row["domain_id"] for row in domain_rows] == ["D1", "D2"]
+
+    def test_externalizes_nested_metadata_on_history_proposals(self, tmp_path):
+        """Proposal results in optimization history get the same nested CSV sidecars."""
+        results = self._results([self._segment("baseline")])
+        history = [
+            {
+                "time_step": 7,
+                "optimizer": {"type": "test", "iteration": 7},
+                "results": [],
+                "proposal_results": [
+                    {
+                        "proposal_idx": 2,
+                        "accepted": False,
+                        "rejected_by": "orf_filter",
+                        "energy_score": None,
+                        "constructs": [
+                            {
+                                "label": "c0",
+                                "type": "dna",
+                                "segments": [
+                                    self._segment(
+                                        "crispr_locus",
+                                        extras={
+                                            "orf_filter": {
+                                                "score": 0.0,
+                                                "weight": 1.0,
+                                                "data": {
+                                                    "orfipy_orfs": [
+                                                        {
+                                                            "parent_id": "seq_73",
+                                                            "orf_id": "ORF.1",
+                                                            "nucleotide_start": 193,
+                                                        }
+                                                    ],
+                                                },
+                                            }
+                                        },
+                                    )
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
+        out_dir = write_results_folder(results=results, path=tmp_path / "out", history=history, include_proposals=True)
+
+        optimization_rows = list(csv.DictReader(StringIO((out_dir / "optimization.csv").read_text())))
+        proposal_row = next(row for row in optimization_rows if row.get("pool") == "proposal")
+        orfs_path = next(value for key, value in proposal_row.items() if key.endswith("orfipy_orfs"))
+        assert orfs_path.startswith("assets/") and orfs_path.endswith(".csv")
+        assert "timepoint-7__proposal-2" in Path(orfs_path).name
+
+        nested_rows = list(csv.DictReader(StringIO((out_dir / orfs_path).read_text())))
+        assert nested_rows[0]["orf_id"] == "ORF.1"
+        assert nested_rows[0]["nucleotide_start"] == "193"
 
     def test_surfaces_path_columns_across_multiple_results_and_constructs(self, tmp_path):
         """Path columns align with the right (result, construct, segment) row when iteration order has multiple results."""

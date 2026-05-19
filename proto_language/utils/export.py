@@ -6,12 +6,18 @@
 - optimization: One row per (timepoint, result_idx)
 - fasta:        Standard FASTA format for bioinformatics pipelines
 
+Row-shaped nested metadata is written as ``assets/*.csv`` sidecars, with the
+parent table cell replaced by the sidecar path.
+
 Supports CSV, TSV, JSON, FASTA, and Excel output formats.
 """
 
 import copy
 import csv
+import hashlib
 import json
+import re
+import unicodedata
 from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Literal
@@ -859,6 +865,10 @@ def to_fasta(
 # =============================================================================
 
 _ASSETS_DIR_NAME = "assets"
+_NESTED_STEM_MAX_LEN = 220
+_NESTED_STEM_PART_MAX_LEN = 64
+_BAD_FILENAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1F\x7F]')
+_WS_RUN = re.compile(r"\s+")
 
 
 def write_results_folder(
@@ -873,7 +883,7 @@ def write_results_folder(
     constraints: set[str] | None = None,
     project: str | None = None,
 ) -> Path:
-    """Write 4 tables + FASTA + ``assets/`` to *path* and return the directory.
+    """Write 4 tables + FASTA + ``assets/`` sidecars and return the directory.
 
     When *path* is ``None``, names the folder per the unified convention
     (``{project}__{YYYY-MM-DD_HHMMSS}``) under CWD. *project* only consulted then.
@@ -893,6 +903,8 @@ def write_results_folder(
         for c_idx, construct in enumerate(result_entry["constructs"]):
             for s_idx, segment in enumerate(construct["segments"]):
                 _materialize_segment_payloads(segment, r_idx, c_idx, s_idx, assets_dir)
+
+    _externalize_nested_tables(rewritten, rewritten_history, assets_dir)
 
     rows_by_table = {
         name: flatten_table(
@@ -918,6 +930,108 @@ def write_results_folder(
     to_fasta(rewritten, segments=segments, result_indices=result_indices, output=out_dir / "sequences.fasta")
 
     return out_dir
+
+
+def _externalize_nested_tables(results: Results, history: list[dict[str, Any]], nested_dir: Path) -> None:
+    """Write row-shaped metadata values to sidecar CSVs and replace them with paths."""
+    for result_entry in results.get("results", []):
+        result_idx = result_entry.get("result_idx", 0)
+        _externalize_result_entry(result_entry, nested_dir, [f"result-{result_idx}"])
+
+    for entry_idx, entry in enumerate(history):
+        timepoint = entry.get("time_step", entry_idx)
+        scope = [f"timepoint-{timepoint}"]
+        for result_entry in entry.get("results", []):
+            result_idx = result_entry.get("result_idx", 0)
+            _externalize_result_entry(result_entry, nested_dir, [*scope, f"result-{result_idx}"])
+        for proposal in entry.get("proposal_results", []):
+            proposal_idx = proposal.get("proposal_idx", 0)
+            _externalize_result_entry(proposal, nested_dir, [*scope, f"proposal-{proposal_idx}"])
+
+
+def _externalize_result_entry(result_entry: dict[str, Any], nested_dir: Path, context: list[str]) -> None:
+    """Externalize nested tabular metadata under one result/proposal entry."""
+    for construct_idx, construct in enumerate(result_entry.get("constructs", [])):
+        construct_label = construct.get("label") or f"construct-{construct_idx}"
+        for segment_idx, segment in enumerate(construct.get("segments", [])):
+            segment_label = segment.get("label") or f"segment-{segment_idx}"
+            base_context = [
+                *context,
+                f"construct-{construct_label}",
+                f"segment-{segment_label}",
+            ]
+            _externalize_mapping(segment.get("metadata"), nested_dir, [*base_context, "metadata"])
+
+            for constraint_label, cdata in segment.get("constraints", {}).items():
+                _externalize_mapping(
+                    cdata.get("data"),
+                    nested_dir,
+                    [*base_context, f"constraint-{constraint_label}"],
+                )
+
+            for generator_key, gdata in segment.get("generators", {}).items():
+                _externalize_mapping(gdata, nested_dir, [*base_context, f"generator-{generator_key}"])
+
+
+def _externalize_mapping(fields: Any, nested_dir: Path, context: list[str]) -> None:
+    """Replace row-shaped list values in *fields* with sidecar CSV paths."""
+    if not isinstance(fields, dict):
+        return
+    for field, value in list(fields.items()):
+        rows = _nested_table_rows(value, nested_dir, [*context, str(field)])
+        if rows is None:
+            continue
+        fields[field] = _write_nested_table(rows, nested_dir, [*context, str(field)])
+
+
+def _nested_table_rows(value: Any, nested_dir: Path, context: list[str]) -> list[dict[str, Any]] | None:
+    """Return CSV-ready rows for non-empty ``list[dict]`` metadata values."""
+    if not isinstance(value, list) or not value:
+        return None
+    if not all(isinstance(row, dict) for row in value):
+        return None
+    return [
+        {str(k): _serialize_nested_cell(v, nested_dir, [*context, f"row-{row_idx}", str(k)]) for k, v in row.items()}
+        for row_idx, row in enumerate(value)
+    ]
+
+
+def _serialize_nested_cell(value: Any, nested_dir: Path, context: list[str]) -> Any:
+    """Serialize one sidecar cell, recursively externalizing row-shaped values."""
+    rows = _nested_table_rows(value, nested_dir, context)
+    if rows is not None:
+        return _write_nested_table(rows, nested_dir, context)
+    return _serialize_value(value)
+
+
+def _write_nested_table(rows: list[dict[str, Any]], nested_dir: Path, context: list[str]) -> str:
+    """Write one nested CSV sidecar and return its export-relative path.
+
+    Sidecar tables are always CSV, even when the parent export uses another table format.
+    """
+    stem = "__".join(_sanitize_filename_part(part) for part in context if part)
+    if len(stem) > _NESTED_STEM_MAX_LEN:
+        digest = hashlib.sha256(stem.encode()).hexdigest()[:8]
+        prefix = stem[: _NESTED_STEM_MAX_LEN - 9].rstrip(" ._\t")
+        stem = f"{prefix}_{digest}"
+    filename = f"{stem}.csv"
+    path = nested_dir / filename
+    counter = 2
+    while path.exists():
+        filename = f"{stem}-{counter}.csv"
+        path = nested_dir / filename
+        counter += 1
+    to_csv(rows, path)
+    return f"{_ASSETS_DIR_NAME}/{filename}"
+
+
+def _sanitize_filename_part(value: str) -> str:
+    """Sanitize one filename component using the unified export convention."""
+    part = _BAD_FILENAME_CHARS.sub("_", unicodedata.normalize("NFC", str(value)))
+    part = _WS_RUN.sub(" ", part).strip(" .\t")
+    if len(part) > _NESTED_STEM_PART_MAX_LEN:
+        part = part[:_NESTED_STEM_PART_MAX_LEN].rstrip(" ._\t")
+    return part or "value"
 
 
 def _materialize_segment_payloads(

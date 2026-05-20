@@ -13,8 +13,8 @@ class TestProGen2Generator:
     def test_progen2_single_prompt_sampling(self):
         """Test ProGen2 generator with a single prompt sequence."""
         prompts = ["<|pf03668|>1MEVVIVTGMSGAGK"]
-        num_tokens = 100
-        expected_length = len(prompts[0]) + num_tokens
+        max_new_tokens = 100
+        expected_length = len(prompts[0]) + max_new_tokens
         config = ProGen2GeneratorConfig(
             prompts=prompts,
         )
@@ -34,8 +34,8 @@ class TestProGen2Generator:
     def test_progen2_batch_sampling(self):
         """Test ProGen2 generator with multiple prompt sequences."""
         prompts = ["1MEVVIVTGMSGAGK", "1EVQLVESGGGLVQP"]
-        num_tokens = 150
-        expected_length = len(prompts[0]) + num_tokens
+        max_new_tokens = 150
+        expected_length = len(prompts[0]) + max_new_tokens
         config = ProGen2GeneratorConfig(
             prompts=prompts,
         )
@@ -74,8 +74,8 @@ class TestProGen2Generator:
     def test_progen2_custom_parameters(self):
         """Test ProGen2 generator with custom generation parameters."""
         prompts = ["<|pf03668|>1MEVVIVTGMSGAGK"]
-        num_tokens = 50
-        expected_length = len(prompts[0]) + num_tokens
+        max_new_tokens = 50
+        expected_length = len(prompts[0]) + max_new_tokens
         config = ProGen2GeneratorConfig(
             prompts=prompts,
             temperature=0.8,

@@ -886,6 +886,7 @@ def summarize_candidates(binder: Segment, energies: list[float]) -> list[dict[st
                 "avg_pae": af2_data.get("avg_pae"),
                 "af2_loss": af2_data.get("loss"),
                 "ablang_log_likelihood": ablang_data.get("ablang_log_likelihood"),
+                "ablang_avg_log_likelihood": ablang_data.get("ablang_avg_log_likelihood"),
                 "ablang_loss": ablang_data.get("ablang_loss"),
             }
         )

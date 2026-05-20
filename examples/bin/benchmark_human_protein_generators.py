@@ -265,7 +265,7 @@ def sample_evo2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[
                     top_k=4,
                     temperature=temperature,
                     device="cuda",
-                    num_tokens=n_tokens,
+                    max_new_tokens=n_tokens,
                     force_prompt_threshold=1,
                 )
 

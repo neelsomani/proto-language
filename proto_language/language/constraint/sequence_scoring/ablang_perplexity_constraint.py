@@ -207,6 +207,7 @@ def ablang_perplexity_gradient_backward(
                 metrics={
                     **output.metrics,
                     "ablang_log_likelihood": output.metrics.get("log_likelihood"),
+                    "ablang_avg_log_likelihood": output.metrics.get("avg_log_likelihood"),
                     "ablang_loss": output.loss,
                     "ablang_nll": output.loss,
                     "ablang_perplexity": perplexity,
@@ -240,8 +241,9 @@ def ablang_perplexity_constraint(
     The returned score is raw AbLang mean negative log-likelihood by default,
     so lower is better and the forward score matches the loss used by
     ``ablang_perplexity_gradient_backward``. Set ``score_mode="ppl"`` to return
-    perplexity instead. Metadata always includes ``ablang_log_likelihood``,
-    ``ablang_nll``, ``ablang_loss``, and ``ablang_perplexity``.
+    perplexity instead. Metadata always includes ``ablang_log_likelihood``
+    (sum of per-residue log-likelihoods), ``ablang_avg_log_likelihood``
+    (mean), ``ablang_nll``, ``ablang_loss``, and ``ablang_perplexity``.
 
     With no slices, the whole binder is scored as a heavy-only VHH/nanobody.
     With ``heavy_slice`` and ``light_slice`` set, the function extracts VH and
@@ -285,6 +287,7 @@ def ablang_perplexity_constraint(
                 metadata={
                     **output.metrics,
                     "ablang_log_likelihood": output.metrics.get("log_likelihood"),
+                    "ablang_avg_log_likelihood": output.metrics.get("avg_log_likelihood"),
                     "ablang_loss": output.loss,
                     "ablang_nll": output.loss,
                     "ablang_perplexity": perplexity,

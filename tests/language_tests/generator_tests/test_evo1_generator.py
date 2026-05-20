@@ -14,8 +14,8 @@ class TestEvo1Generator:
     def test_evo1_generation(self):
         """Test generation: custom params, batching, and prompt replication."""
         prompts = ["ATCG"]
-        num_tokens = 50
-        expected_length = len(prompts[0]) + num_tokens
+        max_new_tokens = 50
+        expected_length = len(prompts[0]) + max_new_tokens
         config = Evo1GeneratorConfig(
             prompts=prompts,
             temperature=0.8,
@@ -86,8 +86,8 @@ class TestEvo1GeneratorValidation:
             Evo1GeneratorConfig(prompts=["ATCG", "AT"])
 
     @patch("proto_language.language.generator.evo1_generator.run_evo1_sample")
-    def test_num_tokens_computed_with_prepend_override(self, mock_run):
-        """num_tokens adjusts when sample() gets prepend_prompt override."""
+    def test_max_new_tokens_computed_with_prepend_override(self, mock_run):
+        """max_new_tokens adjusts when sample() gets prepend_prompt override."""
         config = Evo1GeneratorConfig(prompts="ATCG")  # len=4
         gen = Evo1Generator(config)
         segment = Segment(length=100, sequence_type="dna")
@@ -100,4 +100,4 @@ class TestEvo1GeneratorValidation:
 
         # prepend_prompt=True → should subtract prompt len: 100 - 4 = 96
         gen.sample(prepend_prompt=True)
-        assert mock_run.call_args[1]["config"].num_tokens == 96
+        assert mock_run.call_args[1]["config"].max_new_tokens == 96

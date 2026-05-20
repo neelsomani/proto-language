@@ -64,7 +64,7 @@ class Evo2GeneratorConfig(BaseConfig):
             Default: ``None``.
 
         stop_at_eos (bool): Whether to stop generation when end-of-sequence token
-            is encountered. If ``False``, always generates exactly ``num_tokens``.
+            is encountered. If ``False``, always generates exactly ``max_new_tokens``.
             Default: ``True``.
 
         batched (bool): Whether to use batched generation when multiple prompts
@@ -236,7 +236,7 @@ class Evo2Generator(Generator):
         >>> gen = Evo2Generator(config)
         >>> # Segment length determines how many tokens to generate
         >>> segment = Segment(length=1003, sequence_type="dna")
-        >>> gen.assign(segment)  # num_tokens = 1003 - 3 = 1000
+        >>> gen.assign(segment)  # max_new_tokens = 1003 - 3 = 1000
         >>> gen.sample()  # Generates DNA sequences
     """
 
@@ -275,7 +275,7 @@ class Evo2Generator(Generator):
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
-        num_tokens: int | None = None,
+        max_new_tokens: int | None = None,
         old_kv_cache: Evo2KVCacheRef | None = None,
     ) -> None:
         """Generate sequences using the Evo2 model.
@@ -283,15 +283,15 @@ class Evo2Generator(Generator):
         Args:
             prompts (list[str] | None): Optional prompts to use instead of self.prompts.
             prepend_prompt (bool | None): Optional override for prepend_prompt setting.
-            num_tokens (int | None): Optional explicit token count (used by beam search).
+            max_new_tokens (int | None): Optional explicit token count (used by beam search).
             old_kv_cache (Evo2KVCacheRef | None): Optional worker-local cache handle to continue from.
         """
         self._validate_generator()
 
         sampling_prompts = prompts if prompts is not None else self._replicate_prompts(self.prompts)
         prepend_prompt = prepend_prompt if prepend_prompt is not None else self.prepend_prompt
-        if num_tokens is None:
-            num_tokens = self._compute_num_tokens(len(sampling_prompts[0]), prepend_prompt)
+        if max_new_tokens is None:
+            max_new_tokens = self._compute_max_new_tokens(len(sampling_prompts[0]), prepend_prompt)
 
         sample_config = Evo2SampleConfig(
             prepend_prompt=prepend_prompt,
@@ -301,7 +301,7 @@ class Evo2Generator(Generator):
             top_k=self.top_k,
             top_p=self.top_p,
             temperature=self.temperature,
-            num_tokens=num_tokens,
+            max_new_tokens=max_new_tokens,
             cached_generation=self.cached_generation,
             force_prompt_threshold=self.force_prompt_threshold,
             max_seqlen=self.max_seqlen,
@@ -334,10 +334,10 @@ class Evo2Generator(Generator):
             return prompts * num_proposals
         raise ValueError(f"Expected 1 or {num_proposals} prompts, got {len(prompts)}")
 
-    def _compute_num_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
+    def _compute_max_new_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
         """Compute tokens to generate based on segment length and prompt settings."""
         segment_length = self.segment.sequence_length
-        num_tokens = (segment_length - prompt_length) if prepend_prompt else segment_length
-        if num_tokens < 1:
+        max_new_tokens = (segment_length - prompt_length) if prepend_prompt else segment_length
+        if max_new_tokens < 1:
             raise ValueError(f"Prompt length ({prompt_length}) exceeds segment length ({segment_length})")
-        return num_tokens
+        return max_new_tokens

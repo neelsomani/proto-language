@@ -68,10 +68,6 @@ class ProGen2GeneratorConfig(BaseConfig):
         top_k (int): Limits sampling to the top-k most probable tokens at each
             generation step. Set to 0 to disable. Default: 0 (disabled, use top_p).
 
-        max_length: Maximum total sequence length including prompt.
-            Generation stops when this length is reached or a stop token is encountered.
-            Must be at least 1. Default: 256.
-
         truncate_at_stop (bool): Whether to truncate generated sequences at the
             first stop token ('1' or '2'). If ``True``, returns clean protein
             sequences. Default: ``True``.
@@ -227,7 +223,7 @@ class ProGen2Generator(Generator):
         self._validate_generator()
         sampling_prompts = prompts if prompts is not None else self._replicate_prompts(self.prompts)
         prepend_prompt = prepend_prompt if prepend_prompt is not None else self.prepend_prompt
-        max_length = self._compute_max_length(len(sampling_prompts[0]), prepend_prompt)
+        max_new_tokens = self._compute_max_new_tokens(len(sampling_prompts[0]), prepend_prompt)
 
         tool_input = ProGen2SampleInput(prompts=sampling_prompts)
 
@@ -238,7 +234,7 @@ class ProGen2Generator(Generator):
             temperature=self.temperature,
             top_p=self.top_p,
             top_k=self.top_k,
-            max_length=max_length,
+            max_new_tokens=max_new_tokens,
             truncate_at_stop=self.truncate_at_stop,
             strip_special_tokens=self.strip_special_tokens,
             prepend_prompt=prepend_prompt,
@@ -262,13 +258,13 @@ class ProGen2Generator(Generator):
             return prompts * num_proposals
         raise ValueError(f"Expected 1 or {num_proposals} prompts, got {len(prompts)}")
 
-    def _compute_max_length(self, prompt_length: int, prepend_prompt: bool) -> int:
-        """Compute max_length for ProGen2 based on segment length and prompt settings."""
+    def _compute_max_new_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
+        """Compute new-token count for ProGen2 based on segment length and prompt settings."""
         segment_length = self.segment.sequence_length
         if prepend_prompt:
             if prompt_length >= segment_length:
                 raise ValueError(
                     f"Prompt length ({prompt_length}) must be less than segment length ({segment_length}) when prepend_prompt=True"
                 )
-            return segment_length
-        return segment_length + prompt_length
+            return segment_length - prompt_length
+        return segment_length

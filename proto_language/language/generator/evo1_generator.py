@@ -120,7 +120,7 @@ class Evo1Generator(Generator):
         ... )
         >>> gen = Evo1Generator(config)
         >>> segment = Segment(length=1003, sequence_type="dna")
-        >>> gen.assign(segment)  # num_tokens = 1003 - 3 = 1000
+        >>> gen.assign(segment)  # max_new_tokens = 1003 - 3 = 1000
         >>> gen.sample()
     """
 
@@ -154,7 +154,7 @@ class Evo1Generator(Generator):
 
         sampling_prompts = prompts if prompts is not None else self._replicate_prompts(self.prompts)
         prepend_prompt = prepend_prompt if prepend_prompt is not None else self.prepend_prompt
-        num_tokens = self._compute_num_tokens(len(sampling_prompts[0]), prepend_prompt)
+        max_new_tokens = self._compute_max_new_tokens(len(sampling_prompts[0]), prepend_prompt)
 
         inputs = Evo1SampleInput(prompts=sampling_prompts)
         sample_config = Evo1SampleConfig(
@@ -162,7 +162,7 @@ class Evo1Generator(Generator):
             model_name=self.model_checkpoint,
             top_k=self.top_k,
             temperature=self.temperature,
-            num_tokens=num_tokens,
+            max_new_tokens=max_new_tokens,
             device=self.device,
             batch_size=self.batch_size,
             verbose=self.verbose,
@@ -188,10 +188,10 @@ class Evo1Generator(Generator):
             return prompts * num_proposals
         raise ValueError(f"Expected 1 or {num_proposals} prompts, got {len(prompts)}")
 
-    def _compute_num_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
+    def _compute_max_new_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
         """Compute tokens to generate based on segment length and prompt settings."""
         segment_length = self.segment.sequence_length
-        num_tokens = (segment_length - prompt_length) if prepend_prompt else segment_length
-        if num_tokens < 1:
+        max_new_tokens = (segment_length - prompt_length) if prepend_prompt else segment_length
+        if max_new_tokens < 1:
             raise ValueError(f"Prompt length ({prompt_length}) exceeds segment length ({segment_length})")
-        return num_tokens
+        return max_new_tokens

@@ -415,7 +415,7 @@ class BeamSearchOptimizer(Optimizer):
         self,
         beam_idx: int,
         prepend_prompt: bool = False,
-        num_tokens: int | None = None,
+        max_new_tokens: int | None = None,
     ) -> list[BeamState]:
         """Generate proposal BeamStates for a single beam.
 
@@ -424,7 +424,7 @@ class BeamSearchOptimizer(Optimizer):
         Args:
             beam_idx (int): Index of the beam to generate proposals for
             prepend_prompt (bool): Whether to prepend prompt to generated sequences
-            num_tokens (int | None): Number of tokens to generate per proposal.
+            max_new_tokens (int | None): Number of tokens to generate per proposal.
 
         Returns:
             list[BeamState]: List of BeamState proposals (length=proposals_per_result)
@@ -457,7 +457,7 @@ class BeamSearchOptimizer(Optimizer):
                 self.generator.sample(
                     prompts=prompts,
                     prepend_prompt=prepend_prompt,
-                    num_tokens=num_tokens,
+                    max_new_tokens=max_new_tokens,
                     old_kv_cache=kv_cache,
                 )
 
@@ -485,13 +485,13 @@ class BeamSearchOptimizer(Optimizer):
         return proposals
 
     def _generate_and_score_with_resampling(
-        self, prepend_prompt: bool = False, num_tokens: int | None = None
+        self, prepend_prompt: bool = False, max_new_tokens: int | None = None
     ) -> list[BeamState]:
         """Generate and score proposals, resampling beams until each has valid proposals.
 
         Args:
             prepend_prompt (bool): Whether to prepend prompt to generated sequences
-            num_tokens (int | None): Number of tokens to generate per proposal.
+            max_new_tokens (int | None): Number of tokens to generate per proposal.
 
         Returns:
             list[BeamState]: List of all valid proposal BeamStates with scores populated
@@ -506,7 +506,7 @@ class BeamSearchOptimizer(Optimizer):
         # Initial generation: Generate proposals for all beams
         all_proposals = []
         for beam_idx in range(self.num_results):
-            proposals = self._generate_proposals_for_beam(beam_idx, prepend_prompt, num_tokens)
+            proposals = self._generate_proposals_for_beam(beam_idx, prepend_prompt, max_new_tokens)
             all_proposals.extend(proposals)
 
         # Score all proposals on their FULL accumulated sequences
@@ -541,7 +541,7 @@ class BeamSearchOptimizer(Optimizer):
                 logger.info(f"Resampling {len(beams_to_resample)} beams (attempt {attempt}): counts={counts}")
 
             for beam_idx in beams_to_resample:
-                proposals = self._generate_proposals_for_beam(beam_idx, prepend_prompt, num_tokens)
+                proposals = self._generate_proposals_for_beam(beam_idx, prepend_prompt, max_new_tokens)
 
                 # Score proposals on their FULL accumulated sequences
                 self.target_segment.proposal_sequences = [

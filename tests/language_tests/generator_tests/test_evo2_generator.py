@@ -49,7 +49,7 @@ class TestEvo2Generator:
         call = mock_run.call_args.kwargs
         assert call["inputs"].prompts == ["ATCG", "GGCC"]
         config = call["config"]
-        assert config.num_tokens == 4
+        assert config.max_new_tokens == 4
         assert config.prepend_prompt is True
         assert config.return_kv_cache is True
         assert config.batch_size == 2
@@ -70,11 +70,11 @@ class TestEvo2Generator:
         segment = _segment_with_proposals(length=6, count=3)
         generator.assign(segment)
 
-        generator.sample(prepend_prompt=False, num_tokens=2, old_kv_cache=cache_ref)
+        generator.sample(prepend_prompt=False, max_new_tokens=2, old_kv_cache=cache_ref)
 
         call = mock_run.call_args.kwargs
         assert call["inputs"].prompts == ["ATCG", "ATCG", "ATCG"]
-        assert call["config"].num_tokens == 2
+        assert call["config"].max_new_tokens == 2
         assert call["config"].prepend_prompt is False
         assert call["config"].old_kv_cache == cache_ref
         assert call["config"].return_kv_cache is False
@@ -93,7 +93,7 @@ class TestEvo2Generator:
         mock_run.assert_not_called()
 
     @patch("proto_language.language.generator.evo2_generator.run_evo2_sample")
-    def test_num_tokens_uses_prepend_prompt_override(self, mock_run):
+    def test_max_new_tokens_uses_prepend_prompt_override(self, mock_run):
         mock_run.return_value = SimpleNamespace(sequences=["A" * 100], kv_caches=[])
         generator = Evo2Generator(Evo2GeneratorConfig(prompts="ATCG", prepend_prompt=False))
         segment = _segment_with_proposals(length=100, count=1)
@@ -101,7 +101,7 @@ class TestEvo2Generator:
 
         generator.sample(prepend_prompt=True)
 
-        assert mock_run.call_args.kwargs["config"].num_tokens == 96
+        assert mock_run.call_args.kwargs["config"].max_new_tokens == 96
 
     def test_valid_dna_assignment(self):
         generator = Evo2Generator(Evo2GeneratorConfig(prompts="ATGC"))

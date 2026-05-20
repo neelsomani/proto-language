@@ -43,16 +43,16 @@ class MockAutoregressiveGenerator(Generator):
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
-        num_tokens: int | None = None,
+        max_new_tokens: int | None = None,
         old_kv_cache: dict | None = None,
     ) -> None:
-        if num_tokens is None:
-            num_tokens = 100
+        if max_new_tokens is None:
+            max_new_tokens = 100
         if prompts is None:
             prompts = [""]
         sequences = []
         for prompt in prompts:
-            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
+            new_seq = "".join(random.choice("ATCG") for _ in range(max_new_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
         for proposal, sequence in zip(self.segment.proposal_sequences, sequences, strict=True):
             proposal.sequence = sequence
@@ -96,15 +96,15 @@ class TrackingKVCacheGenerator(Generator):
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
-        num_tokens: int | None = None,
+        max_new_tokens: int | None = None,
         old_kv_cache: str | None = None,
     ) -> None:
         assert prompts is not None
-        assert num_tokens is not None
+        assert max_new_tokens is not None
         self.sample_old_kv_caches.append(old_kv_cache)
         self._sample_idx += 1
 
-        suffix = "A" * num_tokens
+        suffix = "A" * max_new_tokens
         sequences = [prompt + suffix if prepend_prompt else suffix for prompt in prompts]
         for proposal, sequence in zip(self.segment.proposal_sequences, sequences, strict=True):
             proposal.sequence = sequence
@@ -148,16 +148,16 @@ class MockAutoregressiveGeneratorNoKVCache(Generator):
         self,
         prompts: list[str] | None = None,
         prepend_prompt: bool | None = None,
-        num_tokens: int | None = None,
+        max_new_tokens: int | None = None,
         old_kv_cache: dict | None = None,
     ) -> None:
-        if num_tokens is None:
-            num_tokens = 100
+        if max_new_tokens is None:
+            max_new_tokens = 100
         if prompts is None:
             prompts = [""]
         sequences = []
         for prompt in prompts:
-            new_seq = "".join(random.choice("ATCG") for _ in range(num_tokens))  # noqa: S311 -- non-cryptographic, test mock
+            new_seq = "".join(random.choice("ATCG") for _ in range(max_new_tokens))  # noqa: S311 -- non-cryptographic, test mock
             sequences.append(prompt + new_seq if prepend_prompt else new_seq)
         for proposal, sequence in zip(self.segment.proposal_sequences, sequences, strict=True):
             proposal.sequence = sequence

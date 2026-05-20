@@ -27,10 +27,19 @@ def _seq_with_logits(logits: np.ndarray) -> Sequence:
 
 
 def _mock_gradient_output(
-    *, gradient: list[list[float]] | None, loss: float = 0.5, log_likelihood: float = -0.5
+    *,
+    gradient: list[list[float]] | None,
+    loss: float = 0.5,
+    log_likelihood: float = -0.5,
+    avg_log_likelihood: float | None = None,
 ) -> SimpleNamespace:
     """Build a mock AbLangGradientOutput-shaped object."""
-    return SimpleNamespace(gradient=gradient, loss=loss, metrics={"log_likelihood": log_likelihood})
+    metrics = {
+        "log_likelihood": log_likelihood,
+        "avg_log_likelihood": avg_log_likelihood if avg_log_likelihood is not None else -loss,
+        "perplexity": float(np.exp(loss)),
+    }
+    return SimpleNamespace(gradient=gradient, loss=loss, metrics=metrics)
 
 
 class TestVHHMode:
@@ -65,6 +74,7 @@ class TestForward:
 
         assert result.score == expected_score
         assert result.metadata["ablang_log_likelihood"] == -2.0
+        assert result.metadata["ablang_avg_log_likelihood"] == pytest.approx(-2.0)
         assert result.metadata["ablang_loss"] == 2.0
         assert result.metadata["ablang_nll"] == 2.0
         assert result.metadata["ablang_perplexity"] == pytest.approx(np.exp(2.0))

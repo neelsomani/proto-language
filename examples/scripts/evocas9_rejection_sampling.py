@@ -386,7 +386,7 @@ def build_program(
     )
 
     # Segment: DNA sequence of length NUM_TOKENS (Evo1 output length)
-    # prepend_prompt=False means num_tokens = segment.sequence_length
+    # prepend_prompt=False means max_new_tokens = segment.sequence_length
     segment = Segment(
         length=NUM_TOKENS,
         sequence_type="dna",

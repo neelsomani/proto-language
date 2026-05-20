@@ -259,7 +259,7 @@ class ProGen2Generator(Generator):
         raise ValueError(f"Expected 1 or {num_proposals} prompts, got {len(prompts)}")
 
     def _compute_max_new_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
-        """Compute new-token count for ProGen2 based on segment length and prompt settings."""
+        """Max new-tokens to fill the segment: ``segment_length - prompt_length`` when prepending, else ``segment_length``."""
         segment_length = self.segment.sequence_length
         if prepend_prompt:
             if prompt_length >= segment_length:

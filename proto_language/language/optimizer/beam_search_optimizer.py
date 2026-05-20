@@ -424,7 +424,7 @@ class BeamSearchOptimizer(Optimizer):
         Args:
             beam_idx (int): Index of the beam to generate proposals for
             prepend_prompt (bool): Whether to prepend prompt to generated sequences
-            max_new_tokens (int | None): Number of tokens to generate per proposal.
+            max_new_tokens (int | None): Max newly generated tokens per proposal; ``None`` lets the generator derive it from the target segment.
 
         Returns:
             list[BeamState]: List of BeamState proposals (length=proposals_per_result)
@@ -491,7 +491,7 @@ class BeamSearchOptimizer(Optimizer):
 
         Args:
             prepend_prompt (bool): Whether to prepend prompt to generated sequences
-            max_new_tokens (int | None): Number of tokens to generate per proposal.
+            max_new_tokens (int | None): Max newly generated tokens per proposal; ``None`` lets the generator derive it from the target segment.
 
         Returns:
             list[BeamState]: List of all valid proposal BeamStates with scores populated

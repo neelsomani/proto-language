@@ -283,7 +283,7 @@ class Evo2Generator(Generator):
         Args:
             prompts (list[str] | None): Optional prompts to use instead of self.prompts.
             prepend_prompt (bool | None): Optional override for prepend_prompt setting.
-            max_new_tokens (int | None): Optional explicit token count (used by beam search).
+            max_new_tokens (int | None): Max newly generated tokens; ``None`` derives from segment length. Beam search passes this explicitly.
             old_kv_cache (Evo2KVCacheRef | None): Optional worker-local cache handle to continue from.
         """
         self._validate_generator()
@@ -335,7 +335,7 @@ class Evo2Generator(Generator):
         raise ValueError(f"Expected 1 or {num_proposals} prompts, got {len(prompts)}")
 
     def _compute_max_new_tokens(self, prompt_length: int, prepend_prompt: bool) -> int:
-        """Compute tokens to generate based on segment length and prompt settings."""
+        """Max new-tokens to fill the segment: ``segment_length - prompt_length`` when prepending, else ``segment_length``."""
         segment_length = self.segment.sequence_length
         max_new_tokens = (segment_length - prompt_length) if prepend_prompt else segment_length
         if max_new_tokens < 1:

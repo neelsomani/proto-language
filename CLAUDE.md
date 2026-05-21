@@ -83,6 +83,7 @@ Index of `notes/`:
 - `batching.md` — batching architecture across generator → tool → GPU boundary.
 - `seeding.md` — Program / Optimizer / Generator / Constraint seed hierarchy.
 - `error-handling.md` — raise vs soft-fail rules, `format_pydantic_error()`.
+- `filesystem.md` — where source, tests, examples, logs, and persistent caches live.
 - `testing.md` — markers, placement, templates per component type, conftest fixtures, mock scoring functions.
 - `claude-code.md` — skills, commands, CI integration, common workflows for the Claude Code layer.
 

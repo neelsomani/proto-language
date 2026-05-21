@@ -5,13 +5,11 @@
 [![Integration Tests](https://github.com/evo-design/proto-language/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/integration-tests.yml)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/evs3Unkegv)
 
-A framework for designing biological sequences (DNA, RNA, proteins) with constraint-based optimization.
+proto-language is a constraint-based optimization framework for designing biological sequences (DNA, RNA, proteins).
 
 ## Related Repositories
 
-- [`proto-tools`](https://github.com/evo-design/proto-tools) – Standalone tool layer for biological models
-- [`proto-client`](https://github.com/evo-design/proto-client) – Python SDK for Proto Bio APIs
-
+- [`proto-tools`](https://github.com/evo-design/proto-tools) — Standalone tool layer for biological models. Mounted here as a git submodule at `proto-tools/`.
 
 ## Installation
 
@@ -20,12 +18,10 @@ A framework for designing biological sequences (DNA, RNA, proteins) with constra
 Includes compilers and system libraries needed by tool environments.
 
 ```bash
-# 1. Clone and initialize submodules
 git clone https://github.com/evo-design/proto-language.git
 cd proto-language
 git submodule update --init --recursive
 
-# 2. Create conda environment (compilers, system libs, core Python deps, and tools)
 conda env create -f environment.yml
 conda activate proto-language
 ```
@@ -45,58 +41,63 @@ pip install -e ./proto-tools
 ### Developers
 
 ```bash
-# 3. (Optional) Install dev dependencies (testing, linting)
 pip install -e ".[dev]"
 pip install -e "./proto-tools[dev]"
-
 ```
+
+## Quickstart
+
+Working programs ship under [`examples/`](examples/):
+
+- **[`examples/jsons/`](examples/jsons/)** — declarative JSON program definitions, consumed via `Program.from_json()`. The fastest way to run something end-to-end.
+- **[`examples/scripts/`](examples/scripts/)** — Python programs covering broader workloads.
+- **[`examples/germinal/`](examples/germinal/)** and **[`examples/bindcraft/`](examples/bindcraft/)** — domain-specific design pipelines.
+
+## Architecture
+
+The framework is built around seven primitives in [`proto_language/core/`](proto_language/core/) — three data containers, three pluggable interfaces, and one orchestrator:
+
+- **`Sequence`** — typed string (DNA / RNA / protein) plus optional logits, folded structure, and namespaced metadata bags. The atomic unit of design.
+- **`Segment`** — one design region. Holds the proposal `Sequence`s for that region and the surviving result `Sequence`s after scoring.
+- **`Construct`** — an ordered list of `Segment`s that concatenate into a full biological construct (e.g. promoter + coding region; multi-chain protein; a designed gene).
+- **`Constraint`** *(registered via `@constraint`)* — scores a `Sequence` against a target property; returns a score plus namespaced metadata; can optionally provide gradients.
+- **`Generator`** *(registered via `@generator`)* — proposes new `Sequence`s for a `Segment`.
+- **`Optimizer`** *(registered via `@optimizer`)* — search strategy that drives the propose-score-refine loop.
+- **`Program`** — top-level orchestrator. Owns the `Construct` and composes one or more `Optimizer` stages.
+
+All three pluggable interfaces share a `BaseConfig` Pydantic config pattern and declare parameters with `ConfigField`.
+
+### The optimization loop
+
+`Program.run()` walks its optimizer stages. Each stage iterates:
+
+1. The `Optimizer` asks its `Generator` for proposal `Sequence`s on one or more `Segment`s.
+2. Each `Constraint` evaluates the proposals and writes its score + metadata onto the proposal `Sequence`s.
+3. The `Optimizer` aggregates the constraint scores and selects survivors. Those become the `Segment`'s result `Sequence`s and feed into the next iteration (or the next stage).
+
+When the program finishes, `Program.export(path=...)` writes a folder containing tables for sequences / constraints / constructs / optimization steps, a FASTA, and an `assets/` sidecar directory.
+
+## Repo Layout
+
+For the canonical guide to where source, tests, examples, logs, and persistent caches live — including how `PROTO_HOME` / `PROTO_MODEL_CACHE` are inherited from proto-tools — see [`notes/filesystem.md`](notes/filesystem.md).
 
 ## Tests
 
-Tests can be run with various filtering options based on hardware utilization and execution time.
-See [tests/README.md](tests/README.md) for more details. A few commonly used commands are listed below.
-
-- By default, slow tests *are skipped*. You must specify `--all` to run them.
-- By default, we don't filter tests by hardware utilization. Specify `--cpu` to run only CPU-based tests and `--gpu` to run only GPU-based tests.
-
-```bash
-# Run all tests that are not marked as slow (both CPU and GPU based)
-pytest
-
-# Run all tests, including slow ones (both CPU and GPU based)
-pytest --all
-
-# Run fast CPU-based tests
-pytest --cpu
-
-# Run all GPU-based tests
-pytest --gpu --all
-```
+Run `pytest`. See [`tests/README.md`](tests/README.md) for tiers, markers, and the full flag set; [`notes/testing.md`](notes/testing.md) for per-component conventions.
 
 ## HuggingFace Authentication
 
-Some tools (e.g. ESM3, AlphaGenome) use gated HuggingFace models that require both authentication and accepting the model's license/terms on the HuggingFace model page. See the [proto-tools README](./proto-tools/README.md#huggingface-authentication) for the full list of gated models and setup instructions.
+Some generators load gated HuggingFace models. Set `HF_TOKEN` in your environment after accepting the model's license. See [`proto-tools/README.md`](./proto-tools/README.md#step-3-gated-model-access-optional-) for the full setup flow and the list of gated models.
 
-## Using with Claude Code
+## Using with coding agents
 
-This repo includes [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills for both users writing programs and developers extending the framework. Launch `claude` from the repo root:
+Conventions live in [`CLAUDE.md`](CLAUDE.md) (symlinked as [`AGENTS.md`](AGENTS.md) and [`GEMINI.md`](GEMINI.md)); long-form references in [`notes/`](notes/).
 
-```bash
-claude
-```
+Per-task skills live under [`.claude/skills/`](.claude/skills/):
 
-### For users (writing programs)
+- **`write-program`** — composing optimization programs (segments, constructs, generators, constraints, optimizers).
+- **`implement-constraint`** — full constraint implementation lifecycle (categories, registry, gradient variants, tests).
+- **`implement-generator`** — full generator lifecycle (ABC contract, category-specific templates, batching, seeding).
+- **`implement-optimizer`** — full optimizer lifecycle (dual-pool architecture, templates, gradient compiler integration).
 
-- **write-program**: composing optimization programs in Python (segments, constructs, generators, constraints, optimizers)
-
-### For developers (extending the framework)
-
-Skills (auto-loaded when relevant):
-
-- **general-dev**: coding conventions, config patterns, registry system, data model, export chains
-- **implement-constraint**: full constraint implementation lifecycle with templates and examples
-- **implement-generator**: full generator implementation lifecycle (ABC contract, categories, templates)
-- **implement-optimizer**: full optimizer implementation lifecycle (dual-pool architecture, templates)
-- **testing**: comprehensive test patterns, fixtures, markers, templates for each component type
-
-The `proto-tools/` submodule has its own skills and commands; see its [README](./proto-tools/README.md#using-with-claude-code).
+The `proto-tools/` submodule carries its own agent-conventions doc and skills (`implement-tool`, `fix-env`).

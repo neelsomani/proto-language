@@ -51,7 +51,6 @@ coverage.xml
 
 # Project
 data/
-file_store/
 
 # Distribution / packaging
 .Python

@@ -4,11 +4,11 @@ from unittest.mock import Mock, patch
 
 from proto_tools import OrfipyOutput, StructurePredictionOutput
 
-from proto_language.language.constraint import protein_symmetry_ring_constraint
-from proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint import (
+from proto_language.constraint import protein_symmetry_ring_constraint
+from proto_language.constraint.protein_structure.protein_symmetry_ring_constraint import (
     ProteinSymmetryRingConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 from tests.helpers.mock_structure import MockStructure
 
 mock_pdb = """ATOM      1  N   MET A   1       0.000   0.000   0.000  1.00 90.00           N
@@ -52,7 +52,7 @@ class TestProteinSymmetryRingConstraint:
         config = ProteinSymmetryRingConfig()
 
         with patch(
-            "proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
+            "proto_language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
         ) as mock_run:
             # Create mock structure
             mock_structure = MockStructure(structure_content=mock_pdb)
@@ -121,7 +121,7 @@ class TestProteinSymmetryRingConstraint:
         with (
             patch("proto_language.utils.orf_selection.run_orfipy_prediction") as mock_orfipy,
             patch(
-                "proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
+                "proto_language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
             ) as mock_esmfold,
         ):
             # Setup mock return values
@@ -172,7 +172,7 @@ ATOM      4  CA  ALA D   1      -2.500   4.330   0.000  1.00 90.00           C
 ATOM      5  CA  ALA E   1      -5.000   0.000   0.000  1.00 90.00           C"""
 
         with patch(
-            "proto_language.language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
+            "proto_language.constraint.protein_structure.protein_symmetry_ring_constraint.run_esmfold"
         ) as mock_run:
             # Create mock structure
             mock_structure = MockStructure(structure_content=mock_pdb)

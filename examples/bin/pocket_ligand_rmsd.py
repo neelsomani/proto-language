@@ -1,5 +1,4 @@
-"""
-Compute pocket-aligned RMSD of ATP ligands using PyMOL's CEAlign.
+"""Compute pocket-aligned RMSD of ATP ligands using PyMOL's CEAlign.
 
 Usage:
     python pocket_ligand_rmsd.py reference.pdb design1.pdb design2.pdb
@@ -27,8 +26,7 @@ def get_pocket_selection(obj_name, ligand_name, distance):
 
 
 def compute_ligand_rmsd_pymol(ref_pdb, design_pdb, ligand_name, pocket_distance):
-    """
-    Align design to reference using CEAlign on pocket residues,
+    """Align design to reference using CEAlign on pocket residues,
     then compute ligand RMSD.
     """
     cmd.delete("all")

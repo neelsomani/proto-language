@@ -67,37 +67,30 @@ from proto_tools.tools.structure_scoring.pyrosetta import (
 from proto_tools.tools.structure_scoring.pyrosetta.shared_data_models import ScoringStructureInput
 from proto_tools.utils.tool_io import Metrics
 
-from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
+from proto_language import (
+    AlphaFold2MultimerStructureConfig,
+    MpnnPerplexityConfig,
+    ProteinMPNNGenerator,
+    ProteinMPNNGeneratorConfig,
+    SemigreedyMutationGenerator,
+    SemigreedyMutationGeneratorConfig,
+    StructureBasedConstraintConfig,
+    mpnn_perplexity_constraint,
+    structure_contact_constraint,
+    structure_helix_constraint,
+    structure_interface_contact_constraint,
     structure_ipae_constraint,
     structure_iptm_constraint,
     structure_pae_constraint,
     structure_plddt_constraint,
-)
-from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
-    StructureBasedConstraintConfig,
-)
-from proto_language.language.constraint.protein_structure.structure_geometry_constraint import (
-    structure_contact_constraint,
-    structure_helix_constraint,
-    structure_interface_contact_constraint,
     structure_radius_gyration_constraint,
 )
-from proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constraint import (
-    MpnnPerplexityConfig,
-    mpnn_perplexity_constraint,
-)
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.generator import (
+from proto_language.core import Constraint, Construct, Program, Segment
+from proto_language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
 )
-from proto_language.language.generator.proteinmpnn_generator import ProteinMPNNGenerator, ProteinMPNNGeneratorConfig
-from proto_language.language.generator.semigreedy_mutation_generator import (
-    SemigreedyMutationGenerator,
-    SemigreedyMutationGeneratorConfig,
-)
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     GradientOptimizer,
     GradientOptimizerConfig,
     MCMCOptimizer,

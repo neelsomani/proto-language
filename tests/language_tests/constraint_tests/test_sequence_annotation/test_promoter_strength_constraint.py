@@ -9,18 +9,16 @@ from proto_tools import (
     PromoterPrediction,
 )
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     ConstraintRegistry,
     promoter_strength_constraint,
 )
-from proto_language.language.constraint.sequence_annotation.promoter_strength_constraint import (
+from proto_language.constraint.sequence_annotation.promoter_strength_constraint import (
     PromoterStrengthConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
-PATCH_TARGET = (
-    "proto_language.language.constraint.sequence_annotation.promoter_strength_constraint.run_promoter_calculator"
-)
+PATCH_TARGET = "proto_language.constraint.sequence_annotation.promoter_strength_constraint.run_promoter_calculator"
 
 
 def _prediction(dG_total: float = -4.0, Tx_rate: float = 15000.0, strand: str = "+") -> PromoterPrediction:

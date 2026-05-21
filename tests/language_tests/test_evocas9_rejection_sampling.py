@@ -6,7 +6,7 @@ from examples.scripts.evocas9_rejection_sampling import (
     _append_filter_log_rows,
     _collect_filter_log_rows,
 )
-from proto_language.language.core import Segment, Sequence
+from proto_language.core import Segment, Sequence
 
 
 def test_filter_log_rows_mark_short_circuited_filters_as_skipped(tmp_path):

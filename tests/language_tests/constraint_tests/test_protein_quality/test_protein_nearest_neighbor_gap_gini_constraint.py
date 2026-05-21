@@ -4,11 +4,11 @@ from unittest.mock import patch
 
 from proto_tools import MafftOutput, Mmseqs2Hit, Mmseqs2SearchProteinsOutput, Mmseqs2SequenceSearchResult
 
-from proto_language.language.constraint import ConstraintRegistry, protein_nearest_neighbor_gap_gini_constraint
-from proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint import (
+from proto_language.constraint import ConstraintRegistry, protein_nearest_neighbor_gap_gini_constraint
+from proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint import (
     ProteinNearestNeighborGapGiniConfig,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 
 
 def _reference_fasta(tmp_path) -> str:
@@ -51,13 +51,13 @@ def test_passes_when_pairwise_gap_gini_is_below_threshold(tmp_path):
 
     with (
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.resolve_protein_complex_chains"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.resolve_protein_complex_chains"
         ) as mock_resolve,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mafft_align"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mafft_align"
         ) as mock_mafft,
     ):
         mock_resolve.return_value = [(["MKTAYIAK"], {"orfipy_orf_count": 1})]
@@ -94,13 +94,13 @@ def test_alignment_failure_returns_worst_score(tmp_path, caplog):
     )
     with (
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.resolve_protein_complex_chains"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.resolve_protein_complex_chains"
         ) as mock_resolve,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mafft_align"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mafft_align"
         ) as mock_mafft,
         caplog.at_level("WARNING"),
     ):
@@ -127,10 +127,10 @@ def test_no_hit_passes_when_configured(tmp_path):
 
     with (
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.resolve_protein_complex_chains"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.resolve_protein_complex_chains"
         ) as mock_resolve,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs,
     ):
         mock_resolve.return_value = [(["MKT"], {})]

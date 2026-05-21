@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import numpy as np
 from proto_tools.tools.sequence_scoring.borzoi import BORZOI_CONTEXT, BORZOI_OUTPUT_FLANK
 
-from proto_language.language.constraint import BorzoiChromatinAccessibilityMorseConfig
-from proto_language.language.constraint.sequence_annotation import borzoi_chromatin_accessibility_morse_constraint
-from proto_language.language.core import Sequence
+from proto_language import borzoi_chromatin_accessibility_morse_constraint
+from proto_language.constraint import BorzoiChromatinAccessibilityMorseConfig
+from proto_language.core import Sequence
 
 
 def test_borzoi_default_tracks_follow_organism():

@@ -31,29 +31,23 @@ from typing import Any
 
 from proto_tools.entities.structures import Structure
 
-from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
+from proto_language import (
+    AlphaFold2MultimerStructureConfig,
+    SemigreedyMutationGenerator,
+    SemigreedyMutationGeneratorConfig,
+    StructureBasedConstraintConfig,
+    structure_contact_constraint,
+    structure_helix_constraint,
+    structure_interface_contact_constraint,
     structure_ipae_constraint,
     structure_iptm_constraint,
     structure_pae_constraint,
     structure_plddt_constraint,
-)
-from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
-    StructureBasedConstraintConfig,
-)
-from proto_language.language.constraint.protein_structure.structure_geometry_constraint import (
-    structure_contact_constraint,
-    structure_helix_constraint,
-    structure_interface_contact_constraint,
     structure_radius_gyration_constraint,
 )
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
-from proto_language.language.generator.semigreedy_mutation_generator import (
-    SemigreedyMutationGenerator,
-    SemigreedyMutationGeneratorConfig,
-)
-from proto_language.language.optimizer import (
+from proto_language.core import Constraint, Construct, Program, Segment
+from proto_language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
+from proto_language.optimizer import (
     GradientOptimizer,
     GradientOptimizerConfig,
     MCMCOptimizer,

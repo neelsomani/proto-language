@@ -5,8 +5,8 @@ import copy
 import numpy as np
 import pytest
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import (
+from proto_language.core import Segment
+from proto_language.generator import (
     GeneratorRegistry,
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,

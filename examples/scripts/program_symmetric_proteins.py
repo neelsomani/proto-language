@@ -1,5 +1,4 @@
-"""
-Program symmetric proteins with configurable parameters.
+"""Program symmetric proteins with configurable parameters.
 
 Usage:
     python program_symmetric_proteins.py --monomer-length 50 --n-symmetric-units 3 --n-steps 3000 --output-dir ./outputs
@@ -11,25 +10,25 @@ import sys
 from datetime import datetime
 from typing import Any
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     protein_globularity_constraint,
     protein_symmetry_ring_constraint,
     structure_plddt_constraint,
     structure_ptm_constraint,
 )
-from proto_language.language.core import (
+from proto_language.core import (
     Constraint,
     Construct,
     Program,
     Segment,
     Sequence,
 )
-from proto_language.language.generator import (
+from proto_language.generator import (
     MaskingStrategy,
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
 )
-from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from proto_language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
 
 def parse_args():
@@ -120,7 +119,6 @@ def run_optimization(
     output_dir: str,
 ) -> None:
     """Run the symmetric protein optimization."""
-
     # Setup output directory
     run_dir = setup_output_dir(output_dir, monomer_length, n_symmetric_units, n_steps)
     print(f"Output directory: {run_dir}")
@@ -305,8 +303,10 @@ def run_optimization(
             f.write(f"# Timestamp: {datetime.now().isoformat()}\n")
             f.write("\n")
             f.write("Protomer sequences:\n")
-            for idx, protomer_sequence in enumerate(protomer_sequences):
-                f.write(f"Protomer {idx + 1}: {protomer_sequence.sequence}\n")
+            f.writelines(
+                f"Protomer {idx + 1}: {protomer_sequence.sequence}\n"
+                for idx, protomer_sequence in enumerate(protomer_sequences)
+            )
             f.write(f"\nFolded sequence (complex):\n{folded_sequence}\n")
             f.write(f"\nFinal pLDDT: {final_plddt}\n")
             f.write(f"Final pTM: {final_ptm}\n")

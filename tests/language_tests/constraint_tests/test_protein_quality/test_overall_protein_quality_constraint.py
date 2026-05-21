@@ -2,12 +2,12 @@
 
 import pytest
 
-from proto_language.language.constraint import overall_protein_quality_constraint
-from proto_language.language.constraint.protein_quality.overall_protein_quality_constraint import (
+from proto_language.constraint import overall_protein_quality_constraint
+from proto_language.constraint.protein_quality.overall_protein_quality_constraint import (
     OverallProteinQualityConfig,
     ProteinQualitySubConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 class TestOverallProteinQualityConstraint:

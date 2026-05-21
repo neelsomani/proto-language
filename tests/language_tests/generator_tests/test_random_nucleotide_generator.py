@@ -5,8 +5,8 @@ import copy
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import (
+from proto_language.core import Segment
+from proto_language.generator import (
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
@@ -264,7 +264,7 @@ class TestRandomNucleotideGeneratorEmptyInit:
         segment = Segment(length=10, sequence_type="dna", label="promoter")
         gen.assign(segment)
 
-        with caplog.at_level("WARNING", logger="proto_language.language.generator.random_nucleotide_generator"):
+        with caplog.at_level("WARNING", logger="proto_language.generator.random_nucleotide_generator"):
             gen.sample()
 
         init_warnings = [
@@ -279,7 +279,7 @@ class TestRandomNucleotideGeneratorEmptyInit:
         segment = Segment(sequence="A" * 20, sequence_type="dna")
         gen.assign(segment)
 
-        with caplog.at_level("WARNING", logger="proto_language.language.generator.random_nucleotide_generator"):
+        with caplog.at_level("WARNING", logger="proto_language.generator.random_nucleotide_generator"):
             gen.sample()
 
         init_warnings = [r for r in caplog.records if "random init" in r.message]

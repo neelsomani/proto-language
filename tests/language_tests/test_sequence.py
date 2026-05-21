@@ -6,8 +6,8 @@ import logging
 import numpy as np
 import pytest
 
-from proto_language.language.core import Sequence
-from proto_language.language.core.sequence import validate_smiles
+from proto_language.core import Sequence
+from proto_language.core.sequence import validate_smiles
 from tests.helpers.mock_structure import MockStructure
 
 
@@ -31,13 +31,13 @@ class TestSequence:
         assert seq.sequence == valid_seq
 
         # Test invalid character on creation
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             Sequence(valid_seq + invalid_char, seq_type)
         assert "Invalid characters" in caplog.text
         caplog.clear()
 
         # Test invalid character on setter
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             seq.sequence = valid_seq + invalid_char
         assert "Invalid characters" in caplog.text
 
@@ -46,7 +46,7 @@ class TestSequence:
         custom_chars = {"0", "1"}
         seq = Sequence("0101", valid_chars=custom_chars)
         assert seq.sequence == "0101"
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             seq.sequence = "01012"
         assert "Invalid characters" in caplog.text
 
@@ -66,7 +66,7 @@ class TestSequence:
 
     def test_metadata_identity_fields_cannot_be_shadowed(self, caplog):
         """Identity fields in .metadata always reflect the actual sequence."""
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             seq = Sequence(
                 "ATCG",
                 "dna",
@@ -81,7 +81,7 @@ class TestSequence:
 
     def test_metadata_reserved_key_warning(self, caplog):
         """Warn when user-provided metadata contains reserved keys."""
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             Sequence("ATCG", "dna", metadata={"constraints": {}})
         assert "reserved keys" in caplog.text
 
@@ -119,7 +119,7 @@ class TestLigandSequence:
     )
     def test_invalid_smiles(self, invalid_smiles, caplog):
         """Tests that invalid SMILES strings trigger a warning."""
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             Sequence(invalid_smiles, "ligand")
         assert "could not parse SMILES" in caplog.text
 
@@ -130,7 +130,7 @@ class TestLigandSequence:
         assert seq.sequence == "CCO"
         assert seq.metadata["sequence"] == "CCO"
 
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             seq.sequence = "invalid(("
         assert "could not parse SMILES" in caplog.text
 
@@ -145,12 +145,12 @@ class TestValidateSmiles:
         assert validate_smiles("C(C(C", verbose=False) is False
 
     def test_invalid_smiles_warns_when_verbose(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             validate_smiles("C(C(C", verbose=True)
         assert "could not parse SMILES" in caplog.text
 
     def test_valid_smiles_no_warning_when_verbose(self, caplog):
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.sequence"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.sequence"):
             validate_smiles("CCO", verbose=True)
         assert "could not parse SMILES" not in caplog.text
 
@@ -198,14 +198,14 @@ class TestConcatenatedSequence:
 
     def test_concatenated_sequence_empty_input_raises(self):
         """Concatenating an empty iterable should fail with a clear error."""
-        from proto_language.language.core.sequence import create_concatenated_sequence
+        from proto_language.core.sequence import create_concatenated_sequence
 
         with pytest.raises(ValueError, match="empty sequence list"):
             create_concatenated_sequence([])
 
     def test_concatenated_sequence_metadata_independence(self):
         """Verify that mutating source metadata doesn't corrupt joined sequence (B6)."""
-        from proto_language.language.core.sequence import create_concatenated_sequence
+        from proto_language.core.sequence import create_concatenated_sequence
 
         seq1 = Sequence("ATCG", "dna", metadata={"nested": {"score": 0.5}})
         seq2 = Sequence("GGGG", "dna", metadata={"nested": {"score": 0.8}})

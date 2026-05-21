@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-"""
-Batch render protein structures as matte surface visualizations.
+"""Batch render protein structures as matte surface visualizations.
 
 Usage:
     python render_structures.py path/to/af3_analysis_summary.tsv
@@ -84,8 +83,7 @@ def delete_low_plddt(
     cutoff: float = 50.0,
     min_fragment_size: int = 10,
 ) -> tuple[int, int]:
-    """
-    Delete residues with pLDDT (B-factor) below cutoff, then remove small fragments.
+    """Delete residues with pLDDT (B-factor) below cutoff, then remove small fragments.
 
     AF3 stores pLDDT in B-factor column from 0-100.
 
@@ -183,9 +181,7 @@ def render_structure(
     height: float = 3200,
     dpi: int = 300,
 ) -> dict[str, Any]:
-    """
-    Render a single PDB structure as matte surface visualization.
-    """
+    """Render a single PDB structure as matte surface visualization."""
     pdb_path = Path(pdb_path).resolve()
 
     # Clear previous state

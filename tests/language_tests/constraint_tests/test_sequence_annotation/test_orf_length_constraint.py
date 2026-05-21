@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 from proto_tools import ORF
 
-from proto_language.language.constraint import ConstraintRegistry, longest_orf_length_constraint
-from proto_language.language.constraint.sequence_annotation.orf_length_constraint import LongestOrfLengthConfig
-from proto_language.language.core import Sequence
+from proto_language.constraint import ConstraintRegistry, longest_orf_length_constraint
+from proto_language.constraint.sequence_annotation.orf_length_constraint import LongestOrfLengthConfig
+from proto_language.core import Sequence
 
 
 def _orf(nucleotide_length: int = 3000) -> ORF:
@@ -38,7 +38,7 @@ def test_passes_when_longest_orf_meets_min_length():
     config = LongestOrfLengthConfig(min_nucleotide_length=3000)
 
     with patch(
-        "proto_language.language.constraint.sequence_annotation.orf_length_constraint.predict_longest_canonical_cds"
+        "proto_language.constraint.sequence_annotation.orf_length_constraint.predict_longest_canonical_cds"
     ) as mock_predict:
         mock_predict.return_value = [(_orf(3000), {"orfipy_orf_count": 2})]
 
@@ -56,7 +56,7 @@ def test_fails_when_no_orf_is_found():
     config = LongestOrfLengthConfig(min_nucleotide_length=3000)
 
     with patch(
-        "proto_language.language.constraint.sequence_annotation.orf_length_constraint.predict_longest_canonical_cds"
+        "proto_language.constraint.sequence_annotation.orf_length_constraint.predict_longest_canonical_cds"
     ) as mock_predict:
         mock_predict.return_value = [(None, {"orfipy_orf_count": 0})]
 

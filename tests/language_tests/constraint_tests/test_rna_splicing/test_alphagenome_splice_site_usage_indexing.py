@@ -11,7 +11,7 @@ from proto_tools.tools.sequence_scoring.alphagenome import (
     run_alphagenome_predict_sequences,
 )
 
-from proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage import (
+from proto_language.constraint.rna_splicing.alphagenome_splice_site_usage import (
     _extract_splice_site_usage_track_payload,
     _extract_track_matrix,
     _extract_track_metadata_records,

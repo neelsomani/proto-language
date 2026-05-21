@@ -2,14 +2,14 @@
 
 import pytest
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     ConstraintRegistry,
     specific_kmer_constraint,
 )
-from proto_language.language.constraint.sequence_composition.specific_kmer_constraint import (
+from proto_language.constraint.sequence_composition.specific_kmer_constraint import (
     SpecificKmerConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 from proto_language.utils import MIN_ENERGY
 
 

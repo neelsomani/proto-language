@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Metascript to generate configuration files and Python programs
+"""Metascript to generate configuration files and Python programs
 for all complexes in the human biology spreadsheet.
 
 Usage:
@@ -37,8 +36,7 @@ DEFAULT_CONSTRAINT_BODY = """constraints = []
 
 
 def script_has_custom_modifications(script_path: str) -> bool:
-    """
-    Check if a generated script has been manually modified.
+    """Check if a generated script has been manually modified.
 
     Detects modifications by checking if the add_custom_constraints function
     has been changed from its default template.
@@ -73,8 +71,7 @@ def sanitize_filename(s: str) -> str:
 
 
 def parse_complex_string(complex_str: str) -> list[dict[str, Any]]:
-    """
-    Parse a complex definition string into structured data.
+    """Parse a complex definition string into structured data.
 
     Example input:
         "COMPLEX::ORC_core::ORC1,ORC2,ORC3; HOMO_FAMILY::PCNA_trimer::PCNA"
@@ -125,8 +122,7 @@ def parse_complex_string(complex_str: str) -> list[dict[str, Any]]:
 
 
 def parse_pdb_string(pdb_str: str) -> list[str]:
-    """
-    Parse PDB ID string into a list of IDs.
+    """Parse PDB ID string into a list of IDs.
 
     Handles formats like:
         "5UJM, 7JPS"
@@ -158,9 +154,7 @@ def parse_pdb_string(pdb_str: str) -> list[str]:
 
 
 def build_pdb_mapping(df_pdb: pd.DataFrame) -> dict[str, list[str]]:
-    """
-    Build a mapping from complex_id to list of PDB IDs.
-    """
+    """Build a mapping from complex_id to list of PDB IDs."""
     mapping = {}
 
     for _, row in df_pdb.iterrows():
@@ -190,8 +184,7 @@ def generate_row_config(
     row: pd.Series,
     pdb_mapping: dict[str, list[str]],
 ) -> tuple[str, dict[str, Any]]:
-    """
-    Generate configuration for a single row.
+    """Generate configuration for a single row.
 
     Returns:
         Tuple of (filename_base, config_dict)
@@ -259,9 +252,7 @@ def generate_row_config(
 
 
 def generate_program_script(config: dict[str, Any]) -> str:
-    """
-    Generate Python script content for a row configuration.
-    """
+    """Generate Python script content for a row configuration."""
     filename_base = config["filename_base"]
     category = config["category"]
     pathway = config["pathway"]
@@ -294,7 +285,7 @@ from lib import (
     gene_ids_to_program,
     score_complexes_in_program_with_af3,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # =============================================================================
@@ -321,7 +312,7 @@ def add_custom_constraints(
 
     Examples:
         # Conservation constraint for a specific residue
-        from proto_language.language.constraint import residue_constraint
+        from proto_language.constraint import residue_constraint
         constraints.append(Constraint(
             inputs=[gene_id_to_segment['ORC1']],
             function=residue_constraint,

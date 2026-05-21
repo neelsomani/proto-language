@@ -2,7 +2,7 @@
 
 import pytest
 
-from proto_language.language.core import Construct, Segment, Sequence
+from proto_language.core import Construct, Segment, Sequence
 
 
 class TestConstruct:

@@ -2,8 +2,8 @@
 
 import pytest
 
-from proto_language.language.constraint import ConstraintRegistry
-from proto_language.language.optimizer.constraint_compiler import gradient_support_for_constraint_spec
+from proto_language.constraint import ConstraintRegistry
+from proto_language.optimizer.constraint_compiler import gradient_support_for_constraint_spec
 
 
 @pytest.mark.parametrize(

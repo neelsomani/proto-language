@@ -7,8 +7,8 @@ from unittest.mock import patch
 import pytest
 from proto_tools import Evo2KVCacheRef
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
+from proto_language.core import Segment
+from proto_language.generator import Evo2Generator, Evo2GeneratorConfig
 
 
 def _segment_with_proposals(length: int, count: int) -> Segment:
@@ -18,7 +18,7 @@ def _segment_with_proposals(length: int, count: int) -> Segment:
 
 
 class TestEvo2Generator:
-    @patch("proto_language.language.generator.evo2_generator.run_evo2_sample")
+    @patch("proto_language.generator.evo2_generator.run_evo2_sample")
     def test_sample_dispatches_batched_prompts(self, mock_run):
         cache_refs = [
             {"type": "evo2_kv_cache", "cache_id": "cache-a"},
@@ -62,7 +62,7 @@ class TestEvo2Generator:
         assert [seq.sequence for seq in segment.proposal_sequences] == ["ATCGAAAA", "GGCCTTTT"]
         assert generator.kv_caches == cache_refs
 
-    @patch("proto_language.language.generator.evo2_generator.run_evo2_sample")
+    @patch("proto_language.generator.evo2_generator.run_evo2_sample")
     def test_single_prompt_replicates_across_proposals(self, mock_run):
         cache_ref = Evo2KVCacheRef(cache_id="prefix")
         mock_run.return_value = SimpleNamespace(sequences=["AA", "CC", "GG"], kv_caches=None)
@@ -81,7 +81,7 @@ class TestEvo2Generator:
         assert [seq.sequence for seq in segment.proposal_sequences] == ["AA", "CC", "GG"]
         assert generator.kv_caches == []
 
-    @patch("proto_language.language.generator.evo2_generator.run_evo2_sample")
+    @patch("proto_language.generator.evo2_generator.run_evo2_sample")
     def test_prompt_count_must_match_proposal_count(self, mock_run):
         generator = Evo2Generator(Evo2GeneratorConfig(prompts=["ATCG", "GGCC", "TTAA"]))
         segment = _segment_with_proposals(length=8, count=2)
@@ -92,7 +92,7 @@ class TestEvo2Generator:
 
         mock_run.assert_not_called()
 
-    @patch("proto_language.language.generator.evo2_generator.run_evo2_sample")
+    @patch("proto_language.generator.evo2_generator.run_evo2_sample")
     def test_max_new_tokens_uses_prepend_prompt_override(self, mock_run):
         mock_run.return_value = SimpleNamespace(sequences=["A" * 100], kv_caches=[])
         generator = Evo2Generator(Evo2GeneratorConfig(prompts="ATCG", prepend_prompt=False))
@@ -119,7 +119,7 @@ class TestEvo2Generator:
         with pytest.raises(ValueError, match="does not support sequence type"):
             generator.assign(segment)
 
-    @patch("proto_language.language.generator.evo2_generator.release_evo2_kv_caches")
+    @patch("proto_language.generator.evo2_generator.release_evo2_kv_caches")
     def test_release_kv_cache_delegates_to_proto_tools(self, mock_release):
         generator = Evo2Generator(Evo2GeneratorConfig(prompts="ATGC"))
         cache_ref = {"type": "evo2_kv_cache", "cache_id": "cache-a"}

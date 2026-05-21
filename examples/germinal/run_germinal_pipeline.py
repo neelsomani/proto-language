@@ -92,7 +92,22 @@ from proto_tools.tools.structure_scoring.pyrosetta.shared_data_models import Sco
 from proto_tools.utils.device_manager import DeviceManager
 from scipy.spatial import cKDTree
 
-from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
+from proto_language import (
+    AbLangPerplexityConfig,
+    AlphaFold2MultimerStructureConfig,
+    MpnnPerplexityConfig,
+    StructureBasedConstraintConfig,
+    ablang_perplexity_constraint,
+    ablang_perplexity_gradient_backward,
+    mpnn_perplexity_constraint,
+    structure_beta_strand_constraint,
+    structure_contact_constraint,
+    structure_distogram_cce_constraint,
+    structure_helix_constraint,
+    structure_interface_contact_constraint,
+    structure_radius_gyration_constraint,
+)
+from proto_language.constraint.protein_structure.structure_confidence_constraint import (
     PAE_MAXIMUM,
     structure_composite_constraint,
     structure_ipae_constraint,
@@ -101,29 +116,8 @@ from proto_language.language.constraint.protein_structure.structure_confidence_c
     structure_pae_constraint,
     structure_plddt_constraint,
 )
-from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
-    StructureBasedConstraintConfig,
-)
-from proto_language.language.constraint.protein_structure.structure_geometry_constraint import (
-    structure_beta_strand_constraint,
-    structure_contact_constraint,
-    structure_distogram_cce_constraint,
-    structure_helix_constraint,
-    structure_interface_contact_constraint,
-    structure_radius_gyration_constraint,
-)
-from proto_language.language.constraint.sequence_scoring.ablang_perplexity_constraint import (
-    AbLangPerplexityConfig,
-    ablang_perplexity_constraint,
-    ablang_perplexity_gradient_backward,
-)
-from proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constraint import (
-    MpnnPerplexityConfig,
-    mpnn_perplexity_constraint,
-)
-from proto_language.language.core import Constraint, Construct, Program, Segment, Sequence
-from proto_language.language.generator import (
+from proto_language.core import Constraint, Construct, Program, Segment, Sequence
+from proto_language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
     ProteinMPNNGenerator,
@@ -131,7 +125,7 @@ from proto_language.language.generator import (
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     GradientOptimizer,
     GradientOptimizerConfig,
     MCMCOptimizer,
@@ -139,7 +133,7 @@ from proto_language.language.optimizer import (
     RejectionSamplingOptimizer,
     RejectionSamplingOptimizerConfig,
 )
-from proto_language.language.optimizer.gradient_optimizer import ConstraintWeightSchedule
+from proto_language.optimizer.gradient_optimizer import ConstraintWeightSchedule
 from proto_language.utils import one_hot_protein_matrix
 from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 

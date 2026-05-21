@@ -6,8 +6,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
-from proto_language.language.core import (
+from proto_language import (
+    ConstraintOutput,
+    ConstraintRegistry,
+    GeneratorRegistry,
+    GradientConstraintOutput,
+    OptimizerRegistry,
+    ProteinMPNNGenerator,
+    ProteinMPNNGeneratorConfig,
+)
+from proto_language.core import (
     BaseConfig,
     Constraint,
     Construct,
@@ -17,22 +25,18 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
-from proto_language.language.core.constraint import ConstraintOutput, GradientConstraintOutput
-from proto_language.language.generator import (
+from proto_language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
 )
-from proto_language.language.generator.generator_registry import GeneratorRegistry
-from proto_language.language.generator.proteinmpnn_generator import ProteinMPNNGenerator, ProteinMPNNGeneratorConfig
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     GradientOptimizer,
     GradientOptimizerConfig,
     RejectionSamplingOptimizer,
     RejectionSamplingOptimizerConfig,
 )
-from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
 from proto_language.utils.base import BaseOptimizerConfig, ConfigField
 
 
@@ -660,7 +664,7 @@ class TestFilterConstraints:
             num_results=2,
         )
 
-        with caplog.at_level(logging.WARNING, logger="proto_language.language.core.optimizer"):
+        with caplog.at_level(logging.WARNING, logger="proto_language.core.optimizer"):
             optimizer.score_energy()
 
         assert any("All constraints are filters" in msg for msg in caplog.messages)
@@ -723,7 +727,7 @@ class TestFilterConstraints:
             verbose=True,
         )
 
-        with caplog.at_level(logging.DEBUG, logger="proto_language.language.core.optimizer"):
+        with caplog.at_level(logging.DEBUG, logger="proto_language.core.optimizer"):
             optimizer.score_energy()
 
         # Proposal 0 passed both filters
@@ -743,7 +747,7 @@ class TestToolCacheClearing:
         """Tests different cache clearing configurations."""
         construct, generator, constraint, _ = _setup_optimizer_components()
 
-        with patch("proto_language.language.core.optimizer.ToolCache") as MockCache:
+        with patch("proto_language.core.optimizer.ToolCache") as MockCache:
             mock_cache = MockCache.return_value
             mock_cache.current_size = 200
 
@@ -1079,7 +1083,7 @@ class TestOptimizerExport:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        from proto_language.language.constraint import ConstraintRegistry
+        from proto_language.constraint import ConstraintRegistry
 
         segment = Segment(sequence="ATCGATCG", sequence_type="dna")
         construct = Construct([segment])

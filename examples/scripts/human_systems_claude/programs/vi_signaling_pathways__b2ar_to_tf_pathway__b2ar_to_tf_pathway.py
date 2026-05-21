@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Diversification program for: b2AR to TF Pathway - b2AR to TF Pathway
+"""Diversification program for: b2AR to TF Pathway - b2AR to TF Pathway
 Category: VI. Signaling Pathways
 
 This script:
@@ -33,8 +32,8 @@ from vi_signaling_pathways__b2ar_to_tf_pathway__creb_dna import (
     generate_creb_dna_sequence,
 )
 
-from proto_language.language.constraint import structure_ensemble_rmsd_constraint
-from proto_language.language.core import Constraint, Construct, Segment
+from proto_language.constraint import structure_ensemble_rmsd_constraint
+from proto_language.core import Constraint, Construct, Segment
 from proto_language.utils import inverse_sigmoid_score
 
 # =============================================================================
@@ -45,8 +44,7 @@ from proto_language.utils import inverse_sigmoid_score
 def add_custom_constraints(
     gene_id_to_segment: dict[str, Segment],
 ) -> list[Constraint]:
-    """
-    Add custom constraints for this specific system.
+    """Add custom constraints for this specific system.
 
     This function is called during program construction. You can add
     constraints that:
@@ -62,7 +60,7 @@ def add_custom_constraints(
 
     Examples:
         # Conservation constraint for a specific residue
-        from proto_language.language.constraint import residue_constraint
+        from proto_language.constraint import residue_constraint
         constraints.append(Constraint(
             inputs=[gene_id_to_segment['ORC1']],
             function=residue_constraint,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from proto_language.language.constraint.sequence_alignment.gap_gini_constraint import (
+from proto_language.constraint.sequence_alignment.gap_gini_constraint import (
     GapGiniConfig,
     _gap_runs,
     _gini,
@@ -10,7 +10,7 @@ from proto_language.language.constraint.sequence_alignment.gap_gini_constraint i
     gap_gini_single,
     trim_alignment,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 
 # ============================================================================
 # Unit tests for helpers

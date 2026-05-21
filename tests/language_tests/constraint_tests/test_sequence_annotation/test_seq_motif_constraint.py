@@ -14,11 +14,11 @@ from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
-from proto_language.language.constraint import seq_motif_constraint
-from proto_language.language.constraint.sequence_annotation.seq_motif_constraint import (
+from proto_language.constraint import seq_motif_constraint
+from proto_language.constraint.sequence_annotation.seq_motif_constraint import (
     SeqMotifConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 class TestSeqMotifConstraint:
@@ -63,9 +63,9 @@ class TestSeqMotifConstraint:
 
         with (
             patch("builtins.open", mock_open(read_data=motif_file_content)),
-            patch("proto_language.language.constraint.sequence_annotation.seq_motif_constraint.subprocess.run") as _,
+            patch("proto_language.constraint.sequence_annotation.seq_motif_constraint.subprocess.run") as _,
             patch(
-                "proto_language.language.constraint.sequence_annotation.seq_motif_constraint.tempfile.TemporaryDirectory"
+                "proto_language.constraint.sequence_annotation.seq_motif_constraint.tempfile.TemporaryDirectory"
             ) as mock_temp,
         ):
             # Setup mock temp directory
@@ -105,9 +105,9 @@ class TestSeqMotifConstraint:
 
         with (
             patch("builtins.open", mock_open(read_data=motif_file_content)),
-            patch("proto_language.language.constraint.sequence_annotation.seq_motif_constraint.subprocess.run") as _,
+            patch("proto_language.constraint.sequence_annotation.seq_motif_constraint.subprocess.run") as _,
             patch(
-                "proto_language.language.constraint.sequence_annotation.seq_motif_constraint.tempfile.TemporaryDirectory"
+                "proto_language.constraint.sequence_annotation.seq_motif_constraint.tempfile.TemporaryDirectory"
             ) as mock_temp,
         ):
             mock_temp_dir = "/mock/test_temp"

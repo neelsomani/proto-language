@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 from proto_tools import CrisprTracrRNAOutput, CrisprTracrRNAPrediction, CrisprTracrRNASequenceResult
 
-from proto_language.language.constraint import ConstraintRegistry, crispr_tracr_rna_constraint
-from proto_language.language.constraint.sequence_annotation.tracr_rna_constraint import CrisprTracrRNAConstraintConfig
-from proto_language.language.core import Sequence
+from proto_language.constraint import ConstraintRegistry, crispr_tracr_rna_constraint
+from proto_language.constraint.sequence_annotation.tracr_rna_constraint import CrisprTracrRNAConstraintConfig
+from proto_language.core import Sequence
 
 
 def test_registry_integration():
@@ -31,9 +31,7 @@ def test_passes_when_top_candidate_has_intarna_interaction():
         results=[CrisprTracrRNASequenceResult(sequence_id="seq_0", candidates=[prediction])],
     )
 
-    with patch(
-        "proto_language.language.constraint.sequence_annotation.tracr_rna_constraint.run_crispr_tracr_rna"
-    ) as mock_run:
+    with patch("proto_language.constraint.sequence_annotation.tracr_rna_constraint.run_crispr_tracr_rna") as mock_run:
         mock_run.return_value = output
         result = crispr_tracr_rna_constraint([(sequence,)], CrisprTracrRNAConstraintConfig())[0]
 
@@ -55,9 +53,7 @@ def test_fails_without_required_intarna_interaction():
         results=[CrisprTracrRNASequenceResult(sequence_id="seq_0", candidates=[prediction])],
     )
 
-    with patch(
-        "proto_language.language.constraint.sequence_annotation.tracr_rna_constraint.run_crispr_tracr_rna"
-    ) as mock_run:
+    with patch("proto_language.constraint.sequence_annotation.tracr_rna_constraint.run_crispr_tracr_rna") as mock_run:
         mock_run.return_value = output
         result = crispr_tracr_rna_constraint([(sequence,)], CrisprTracrRNAConstraintConfig())[0]
 

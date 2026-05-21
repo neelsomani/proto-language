@@ -1,15 +1,12 @@
-"""
-Define a program for diversification of the U5 snRNA.
-"""
+"""Define a program for diversification of the U5 snRNA."""
 
 from collections.abc import Callable
 from itertools import islice
 
 from Bio import Align, SeqIO
 
-from proto_language.utils.base import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
-from proto_language.language.constraint.rna_secondary_structure import (
+from proto_language import ConstraintRegistry
+from proto_language.constraint.rna_secondary_structure import (
     RNABasePairSimilarityConfig,
     RNAFeatureSimilarityConfig,
     RNAMotifSimilarityConfig,
@@ -19,7 +16,7 @@ from proto_language.language.constraint.rna_secondary_structure import (
     rna_motif_similarity_constraint,
     rna_property_similarity_constraint,
 )
-from proto_language.language.core import (
+from proto_language.core import (
     Constraint,
     ConstraintOutput,
     Construct,
@@ -27,8 +24,9 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
-from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
-from proto_language.language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from proto_language.generator import Evo2Generator, Evo2GeneratorConfig
+from proto_language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from proto_language.utils.base import BaseConfig, ConfigField
 
 # Design constants.
 U5_SNRNA = "AUACUCUGGUUUCUCUUCAGAUCGCAUAAAUCUUUCGCCUUUUACUAAAGAUUUCCGUGGAGAGGAACAACUCUGAGUCUUAACCCAAUUUUUUGAGGCCUUGCUUUGGCAAGGCUA"
@@ -61,8 +59,7 @@ def _compute_rna_similarity(seq1: str, seq2: str) -> float:
 
 
 class Evo2RNAConstraintConfig(BaseConfig):
-    """
-    Let user pass in constraint function and config to Evo 2 constraint wrapper.
+    """Let user pass in constraint function and config to Evo 2 constraint wrapper.
 
     Attributes:
         constraint_func (Callable): Constraint function to evaluate.
@@ -94,8 +91,7 @@ def _evo2_rna_constraint_wrapper(
     input_sequences: list[tuple[Sequence, ...]],
     config: Evo2RNAConstraintConfig,
 ) -> list[ConstraintOutput]:
-    """
-    Wrap the RNA secondary structure constraints to ensure that the outputs of
+    """Wrap the RNA secondary structure constraints to ensure that the outputs of
     Evo 2 are compatible. For example, remove the ICL sep tokens and turn the DNA
     into an RNA sequence ('T' -> 'U').
     """
@@ -109,8 +105,7 @@ def _evo2_rna_constraint_wrapper(
 
 
 class RNAPairwiseSimilarityConfig(BaseConfig):
-    """
-    Compare RNA sequences against a reference sequence.
+    """Compare RNA sequences against a reference sequence.
 
     Attributes:
         constraint_func (Callable): Constraint function to evaluate.
@@ -138,8 +133,7 @@ def rna_pairwise_similarity_constraint(
     input_sequences: list[tuple[Sequence, ...]],
     config: RNAPairwiseSimilarityConfig,
 ) -> list[ConstraintOutput]:
-    """
-    Compute similarity of proposal RNA sequences to a reference.
+    """Compute similarity of proposal RNA sequences to a reference.
 
     Greater novelty (lower similarity) is considered better.
     """
@@ -152,9 +146,7 @@ def rna_pairwise_similarity_constraint(
 
 
 def create_u5_snrna_program() -> Program:
-    """
-    Make the U5 diversification program. Balance diversification with structural similarity.
-    """
+    """Make the U5 diversification program. Balance diversification with structural similarity."""
     # Construct the prompt.
 
     records = islice(SeqIO.parse(U5_PROMPT_FASTA, "fasta"), N_PROMPT_EXAMPLES)

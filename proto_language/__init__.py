@@ -1,6 +1,6 @@
 """Public API surface for proto-language."""
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     AbLangPerplexityConfig,
     AlphaFold2MultimerStructureConfig,
     BorzoiChromatinAccessibilityMorseConfig,
@@ -76,7 +76,7 @@ from proto_language.language.constraint import (
     structure_termini_distance_constraint,
     structure_tmscore_constraint,
 )
-from proto_language.language.core import (
+from proto_language.core import (
     BaseConfig,
     BaseRegistry,
     BaseSpec,
@@ -92,7 +92,7 @@ from proto_language.language.core import (
     Sequence,
     SequenceType,
 )
-from proto_language.language.generator import (
+from proto_language.generator import (
     ESM2Generator,
     ESM2GeneratorConfig,
     ESM3Generator,
@@ -123,7 +123,7 @@ from proto_language.language.generator import (
     SequenceLogitBiasConfig,
     generator,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,

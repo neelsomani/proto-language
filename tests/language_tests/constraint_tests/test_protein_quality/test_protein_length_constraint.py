@@ -2,11 +2,11 @@
 
 import pytest
 
-from proto_language.language.constraint import protein_length_constraint
-from proto_language.language.constraint.protein_quality.protein_length_constraint import (
+from proto_language.constraint import protein_length_constraint
+from proto_language.constraint.protein_quality.protein_length_constraint import (
     ProteinLengthConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # Tests for protein_length_constraint

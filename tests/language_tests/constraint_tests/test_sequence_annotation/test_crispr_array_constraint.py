@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 from proto_tools import CrisprArray, CrisprRepeatSpacer, MincedOutput, MincedSequenceResult
 
-from proto_language.language.constraint import ConstraintRegistry, crispr_array_constraint
-from proto_language.language.constraint.sequence_annotation.crispr_array_constraint import CrisprArrayConfig
-from proto_language.language.core import Sequence
+from proto_language.constraint import ConstraintRegistry, crispr_array_constraint
+from proto_language.constraint.sequence_annotation.crispr_array_constraint import CrisprArrayConfig
+from proto_language.core import Sequence
 
 
 def test_registry_integration():
@@ -30,7 +30,7 @@ def test_passes_when_minced_finds_array():
         results=[MincedSequenceResult(sequence_id="seq_0", crispr_arrays=[array])],
     )
 
-    with patch("proto_language.language.constraint.sequence_annotation.crispr_array_constraint.run_minced") as mock_run:
+    with patch("proto_language.constraint.sequence_annotation.crispr_array_constraint.run_minced") as mock_run:
         mock_run.return_value = output
         result = crispr_array_constraint([(sequence,)], CrisprArrayConfig())[0]
 
@@ -50,7 +50,7 @@ def test_fails_when_minced_finds_no_arrays():
         results=[MincedSequenceResult(sequence_id="seq_0", crispr_arrays=[])],
     )
 
-    with patch("proto_language.language.constraint.sequence_annotation.crispr_array_constraint.run_minced") as mock_run:
+    with patch("proto_language.constraint.sequence_annotation.crispr_array_constraint.run_minced") as mock_run:
         mock_run.return_value = output
         result = crispr_array_constraint([(sequence,)], CrisprArrayConfig())[0]
 

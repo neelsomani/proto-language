@@ -4,11 +4,11 @@ from unittest.mock import Mock, patch
 
 from proto_tools import BFactorType, OrfipyOutput, StructurePredictionOutput
 
-from proto_language.language.constraint import protein_globularity_constraint
-from proto_language.language.constraint.protein_structure.protein_globularity_constraint import (
+from proto_language.constraint import protein_globularity_constraint
+from proto_language.constraint.protein_structure.protein_globularity_constraint import (
     ProteinGlobularityConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 from tests.helpers.mock_structure import MockStructure
 
 mock_pdb = """ATOM      1  N   MET A   1       0.000   0.000   0.000  1.00 90.00           N
@@ -53,7 +53,7 @@ class TestProteinGlobularityConstraint:
 
         # Mock a compact globular structure (low std of distances)
         with patch(
-            "proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
+            "proto_language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
         ) as mock_run:
             # Create mock structure with PDB output
             mock_structure = MockStructure(
@@ -142,7 +142,7 @@ class TestProteinGlobularityConstraint:
         with (
             patch("proto_language.utils.orf_selection.run_orfipy_prediction") as mock_orfipy,
             patch(
-                "proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
+                "proto_language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
             ) as mock_esmfold,
         ):
             # Setup mock return values
@@ -180,7 +180,7 @@ class TestProteinGlobularityConstraint:
         segments = [Segment(sequence="MKTAYIAK", sequence_type="protein") for _ in range(3)]
         config = ProteinGlobularityConfig()
         with patch(
-            "proto_language.language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
+            "proto_language.constraint.protein_structure.protein_globularity_constraint.run_esmfold"
         ) as mock_run:
             # Create mock structure
             mock_structure = MockStructure(

@@ -2,11 +2,11 @@
 
 import warnings
 
-from proto_language.language.constraint import protein_repetitiveness_constraint
-from proto_language.language.constraint.protein_quality.protein_repetitiveness_constraint import (
+from proto_language.constraint import protein_repetitiveness_constraint
+from proto_language.constraint.protein_quality.protein_repetitiveness_constraint import (
     ProteinRepetitivenessConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # Tests for protein_repetitiveness_constraint

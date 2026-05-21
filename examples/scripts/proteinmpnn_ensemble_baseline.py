@@ -1,5 +1,4 @@
-"""
-Usage: python examples/scripts/proteinmpnn_ensemble_baseline.py
+"""Usage: python examples/scripts/proteinmpnn_ensemble_baseline.py
 
 Sample sequences from ProteinMPNN given a backbone, and use BioEmu to predict the resulting
 structural ensemble of the lowest perplexity sample.
@@ -14,10 +13,10 @@ from proto_tools import (
     run_bioemu,
 )
 
-from proto_language.language.core import (
+from proto_language.core import (
     Segment,
 )
-from proto_language.language.generator import (
+from proto_language.generator import (
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
 )

@@ -116,7 +116,7 @@ This enables the `target_segment` field for single-segment selection.
 
 ## Config Class Template
 
-File: `proto_language/language/optimizer/{name}_optimizer.py`
+File: `proto_language/optimizer/{name}_optimizer.py`
 
 ```python
 import copy
@@ -126,8 +126,8 @@ from typing import Callable, final
 from pydantic import model_validator
 
 from proto_language.utils.base import BaseOptimizerConfig, ConfigField
-from proto_language.language.core import Construct, Constraint, Generator, Optimizer
-from proto_language.language.optimizer.optimizer_registry import optimizer
+from proto_language.core import Construct, Constraint, Generator, Optimizer
+from proto_language.optimizer.optimizer_registry import optimizer
 
 logger = logging.getLogger(__name__)
 
@@ -310,10 +310,10 @@ def _update_results(self, step):
 Every optimizer test file should have a `_setup_components()` helper:
 
 ```python
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
-from proto_language.language.core import Constraint, Construct, Segment
-from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig, MaskingStrategy
+from proto_language.constraint import gc_content_constraint
+from proto_language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+from proto_language.core import Constraint, Construct, Segment
+from proto_language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig, MaskingStrategy
 
 def _setup_components(
     seq_length=10,

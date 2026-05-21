@@ -2,11 +2,11 @@
 
 import pytest
 
-from proto_language.language.constraint import balanced_aa_constraint
-from proto_language.language.constraint.protein_quality.balanced_aa_constraint import (
+from proto_language.constraint import balanced_aa_constraint
+from proto_language.constraint.protein_quality.balanced_aa_constraint import (
     BalancedAaConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # Tests for balanced_aa_constraint

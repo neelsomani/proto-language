@@ -5,13 +5,13 @@ from types import SimpleNamespace
 import numpy as np
 from proto_tools.tools.sequence_scoring.enformer import ENFORMER_CONTEXT, ENFORMER_OUTPUT_FLANK
 
-from proto_language.language.constraint import EnformerChromatinAccessibilityMorseConfig
-from proto_language.language.constraint.sequence_annotation import enformer_chromatin_accessibility_morse_constraint
-from proto_language.language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
+from proto_language import enformer_chromatin_accessibility_morse_constraint
+from proto_language.constraint import EnformerChromatinAccessibilityMorseConfig
+from proto_language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
     build_binary_pattern_for_target,
     compute_morse_windows,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 
 
 def test_enformer_default_tracks_follow_organism():

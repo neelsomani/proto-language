@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from proto_language.language.core import (
+from proto_language.core import (
     ConstraintOutput,
     Sequence,
 )

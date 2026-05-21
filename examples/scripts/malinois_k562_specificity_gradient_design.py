@@ -4,10 +4,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from proto_language.language.constraint import MalinoisActivityConfig, malinois_activity_constraint
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
-from proto_language.language.optimizer import GradientOptimizer, GradientOptimizerConfig
+from proto_language.constraint import MalinoisActivityConfig, malinois_activity_constraint
+from proto_language.core import Constraint, Construct, Program, Segment
+from proto_language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
+from proto_language.optimizer import GradientOptimizer, GradientOptimizerConfig
 
 TARGET_CELL_TYPE = "K562"
 CONSTRAINT_LABELS = {
@@ -165,8 +165,7 @@ def main() -> None:
     program.run()
 
     sys.stdout.write(
-        f"Top {len(program.energy_scores)} designs by Malinois K562 specificity objective "
-        f"(K562 max, HepG2/SKNSH min)\n"
+        f"Top {len(program.energy_scores)} designs by Malinois K562 specificity objective (K562 max, HepG2/SKNSH min)\n"
     )
     for rank, (sequence, energy) in enumerate(zip(segment.result_sequences, program.energy_scores, strict=True), 1):
         raw_scores = {

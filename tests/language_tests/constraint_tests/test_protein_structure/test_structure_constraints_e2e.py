@@ -13,7 +13,8 @@ Tests cover:
 
 import pytest
 
-from proto_language.language.constraint import (
+from proto_language import StructureBasedConstraintConfig
+from proto_language.constraint import (
     structure_iptm_constraint,
     structure_pae_constraint,
     structure_plddt_constraint,
@@ -21,14 +22,11 @@ from proto_language.language.constraint import (
     structure_rmsd_constraint,
     structure_tmscore_constraint,
 )
-from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-    StructureBasedConstraintConfig,
-)
-from proto_language.language.constraint.protein_structure.structure_similarity_constraint import (
+from proto_language.constraint.protein_structure.structure_similarity_constraint import (
     StructureRMSDConfig,
     StructureTMScoreConfig,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 
 # ============================================================================
 # Test sequences

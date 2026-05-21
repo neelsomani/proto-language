@@ -5,9 +5,9 @@ from unittest.mock import patch
 from proto_tools import PyHmmsearchOutput
 from proto_tools.tools.gene_annotation.pyhmmer.shared_data_models import DomainHit, SequenceHit
 
-from proto_language.language.constraint import ConstraintRegistry, protein_profile_hmm_constraint
-from proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint import ProteinProfileHMMConfig
-from proto_language.language.core import Sequence
+from proto_language.constraint import ConstraintRegistry, protein_profile_hmm_constraint
+from proto_language.constraint.protein_quality.protein_profile_hmm_constraint import ProteinProfileHMMConfig
+from proto_language.core import Sequence
 
 
 def _sequence_hit(target_name: str = "seq_0", query_name: str = "cas9") -> SequenceHit:
@@ -84,10 +84,10 @@ def test_passes_on_any_sequence_level_hmm_hit(tmp_path):
 
     with (
         patch(
-            "proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint.resolve_protein_complex_chains"
+            "proto_language.constraint.protein_quality.protein_profile_hmm_constraint.resolve_protein_complex_chains"
         ) as mock_resolve,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint.run_pyhmmer_hmmsearch"
+            "proto_language.constraint.protein_quality.protein_profile_hmm_constraint.run_pyhmmer_hmmsearch"
         ) as mock_run,
     ):
         mock_resolve.return_value = [(["MKT"], {"orfipy_orf_count": 1})]
@@ -118,10 +118,10 @@ def test_required_profiles_are_matched_from_domain_hits(tmp_path):
 
     with (
         patch(
-            "proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint.resolve_protein_complex_chains"
+            "proto_language.constraint.protein_quality.protein_profile_hmm_constraint.resolve_protein_complex_chains"
         ) as mock_resolve,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint.run_pyhmmer_hmmsearch"
+            "proto_language.constraint.protein_quality.protein_profile_hmm_constraint.run_pyhmmer_hmmsearch"
         ) as mock_run,
     ):
         mock_resolve.return_value = [(["MKT"], {"input_chain_types": ["protein"]})]

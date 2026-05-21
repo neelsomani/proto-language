@@ -4,24 +4,24 @@ from pathlib import Path
 
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     splice_transformer_intron_boundary,
     splice_transformer_specificity,
 )
-from proto_language.language.core import (
+from proto_language.core import (
     Constraint,
     Construct,
     Program,
     Segment,
     Sequence,
 )
-from proto_language.language.generator import (
+from proto_language.generator import (
     Evo2Generator,
     Evo2GeneratorConfig,
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     MCMCOptimizer,
     MCMCOptimizerConfig,
     RejectionSamplingOptimizer,
@@ -38,10 +38,8 @@ N_STEPS = 5_000
 
 
 def _enable_mcmc_energy_logging() -> None:
-    """
-    Enable default per-iteration MCMC energy logs from the optimizer module.
-    """
-    mcmc_logger = logging.getLogger("proto_language.language.optimizer.mcmc_optimizer")
+    """Enable default per-iteration MCMC energy logs from the optimizer module."""
+    mcmc_logger = logging.getLogger("proto_language.optimizer.mcmc_optimizer")
     mcmc_logger.setLevel(logging.DEBUG)
     if not mcmc_logger.handlers:
         handler = logging.StreamHandler()
@@ -52,9 +50,7 @@ def _enable_mcmc_energy_logging() -> None:
 
 
 def _get_constraints_metadata(sequence: Sequence) -> dict[str, any]:
-    """
-    Return constraint metadata from a Sequence across old/new metadata layouts.
-    """
+    """Return constraint metadata from a Sequence across old/new metadata layouts."""
     metadata_view = getattr(sequence, "metadata", None)
     if isinstance(metadata_view, dict):
         constraints = metadata_view.get("constraints")
@@ -101,8 +97,7 @@ def process_splice_transformer_input(
     initial_intron: str,
     args: object,
 ) -> tuple[str, str, str, str, str, str, str]:
-    """
-    Process the input to SpliceTransformer.
+    """Process the input to SpliceTransformer.
 
     SpliceTransformer has a very particular input/output architecture, that takes in a 1-kb target
     sequence on which the model makes a prediction for each position. The model also takes in a 4-kb

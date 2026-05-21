@@ -13,10 +13,10 @@ AF2-backed structure confidence constraints.
 import numpy as np
 from pydantic import BaseModel
 
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.core.constraint import GradientConstraintOutput
-from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
-from proto_language.language.optimizer import GradientOptimizer, GradientOptimizerConfig
+from proto_language import GradientConstraintOutput
+from proto_language.core import Constraint, Construct, Program, Segment
+from proto_language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
+from proto_language.optimizer import GradientOptimizer, GradientOptimizerConfig
 
 # --- Mock backward (replace with real differentiable constraints for production) ---
 

@@ -6,21 +6,21 @@
   "domains": [
     {
       "name": "Constraints",
-      "root": "proto_language/language/constraint",
+      "root": "proto_language/constraint",
       "package_root": "proto_language",
       "registry_decorators": ["constraint"],
       "checks": ["all_consistency", "registry_exports"]
     },
     {
       "name": "Generators",
-      "root": "proto_language/language/generator",
+      "root": "proto_language/generator",
       "package_root": "proto_language",
       "registry_decorators": ["generator"],
       "checks": ["all_consistency", "registry_exports"]
     },
     {
       "name": "Optimizers",
-      "root": "proto_language/language/optimizer",
+      "root": "proto_language/optimizer",
       "package_root": "proto_language",
       "registry_decorators": ["optimizer"],
       "checks": ["all_consistency", "registry_exports"]

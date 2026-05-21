@@ -17,8 +17,7 @@ from tqdm import tqdm
 
 
 def collect_uniprot_data(uniprot_id: str, cluster_name: str = "UniRef50") -> dict[str, Any]:
-    """
-    For a given UniProt ID, get the wildtype sequence and all sequences from
+    """For a given UniProt ID, get the wildtype sequence and all sequences from
     its UniRef cluster.
     """
     wt_seq = None
@@ -42,9 +41,7 @@ def collect_uniprot_data(uniprot_id: str, cluster_name: str = "UniRef50") -> dic
 
 
 def sample_progen2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[str, Any]]:
-    """
-    Run and store the outputs of a basic sweep over ProGen2 configurations.
-    """
+    """Run and store the outputs of a basic sweep over ProGen2 configurations."""
     from proto_tools.tools.causal_models.progen2 import ProGen2Model
 
     model_checkpoints = [
@@ -96,10 +93,7 @@ def sample_progen2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[di
 
 
 def sample_esm3(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[str, Any]]:
-    """
-    Mutate the existing wildtype sequence with ESM3.
-    """
-
+    """Mutate the existing wildtype sequence with ESM3."""
     from proto_tools.tools.masked_models.esm3.standalone.inference import (
         ESM3Model,
     )
@@ -143,9 +137,7 @@ def sample_esm3(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[
 
 
 def human_codon_optimize(aa_seqs: list[str]) -> list[str]:
-    """
-    Use CodonTransformer to human-codon optimize proteins.
-    """
+    """Use CodonTransformer to human-codon optimize proteins."""
     import torch
     from CodonTransformer.CodonPrediction import predict_dna_sequence
     from transformers import AutoTokenizer, BigBirdForMaskedLM
@@ -171,8 +163,7 @@ def human_codon_optimize(aa_seqs: list[str]) -> list[str]:
 
 
 def sample_diverse_subset(sequences: list[str], k: int, kmer_size: int = 3, random_seed: int = 1337) -> list[str]:
-    """
-    Selects k maximally diverse sequences using Farthest Point Sampling (FPS)
+    """Selects k maximally diverse sequences using Farthest Point Sampling (FPS)
     on k-mer counts.
     """
     from sklearn.feature_extraction.text import CountVectorizer
@@ -215,9 +206,7 @@ def sample_diverse_subset(sequences: list[str], k: int, kmer_size: int = 3, rand
 
 
 def sample_evo2(uniprot_data: dict[str, Any], n_samples: int = 10) -> list[dict[str, Any]]:
-    """
-    Sample variation with in-context Evo 2 diversification.
-    """
+    """Sample variation with in-context Evo 2 diversification."""
     from proto_tools.tools.causal_models.evo2 import Evo2Model
 
     sep_sequence = "GGGGGGGG"  # Synthetic sequence that delimits generated CDSs.
@@ -325,9 +314,7 @@ def cached_esmfold(seq: str) -> dict[str, str]:
 
 
 def compute_ce_aligned_rmsd(pdb_text1: str, pdb_text2: str) -> dict[str, Any]:
-    """
-    Compute CE-aligned RMSD using PyMOL's cealign.
-    """
+    """Compute CE-aligned RMSD using PyMOL's cealign."""
     import pymol
     from pymol import cmd
 
@@ -432,8 +419,7 @@ def find_nearest_sequences(
     mmseqs_path: str = "mmseqs",
     keep_tmp: bool = False,
 ) -> dict[int, SequenceMatch | None]:
-    """
-    Find the nearest sequence in FASTA files for each query sequence.
+    """Find the nearest sequence in FASTA files for each query sequence.
 
     Proximity is scored as: query_coverage * percent_identity / 100
 
@@ -555,9 +541,7 @@ def find_nearest_sequences(
 
 
 def sample_sequences(uniprot_ids: list[str], output_fname: str, n_samples_per_condition: int = 10) -> None:
-    """
-    Conduct all of the sequence sampling.
-    """
+    """Conduct all of the sequence sampling."""
     data = []
     for uniprot_id in uniprot_ids:
         uniprot_data = collect_uniprot_data(uniprot_id, "UniRef50")
@@ -576,9 +560,7 @@ def score_sequences(
     run_esmfold_scoring: bool = True,
     run_mmseqs_scoring: bool = True,
 ) -> None:
-    """
-    Score sequences with ESMFold (structure) and mmseqs (sequence novelty).
-    """
+    """Score sequences with ESMFold (structure) and mmseqs (sequence novelty)."""
     designed_seqs = list(df["sample_seq"])
     seq_to_scores: dict[str, dict[str, float]] = {seq: {} for seq in designed_seqs}
 

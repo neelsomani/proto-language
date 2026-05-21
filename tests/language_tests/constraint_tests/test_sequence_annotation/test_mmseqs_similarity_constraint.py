@@ -10,14 +10,14 @@ from proto_tools import (
     Mmseqs2SequenceSearchResult,
 )
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     ConstraintRegistry,
     mmseqs_similarity_constraint,
 )
-from proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint import (
+from proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint import (
     MMseqsSimilarityConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 class TestMMseqsSimilarityConstraint:
@@ -63,7 +63,7 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 search with new output structure
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
@@ -107,7 +107,7 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with no results
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
@@ -151,7 +151,7 @@ class TestMMseqsSimilarityConstraint:
         # Mock MMseqs2 with results - note: for DNA, ORF prediction happens first
         # and might produce zero proteins if no ORFs are found in short sequences
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             # This test might not even call mmseqs if no ORFs are predicted
             # But if it does, we mock the response
@@ -191,7 +191,7 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with multiple hits for the single protein
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
@@ -228,7 +228,7 @@ class TestMMseqsSimilarityConstraint:
         # Create a segment with multiple proposals
         segment = Segment(sequence="MVLSPADKTN", sequence_type="protein")
         # Add another proposal sequence
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
 
         segment.proposal_sequences.append(Sequence("MKLLVVAAAA", "protein"))
 
@@ -240,7 +240,7 @@ class TestMMseqsSimilarityConstraint:
 
         # Mock MMseqs2 with results for both proteins
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             # The constraint evaluates proposals one at a time in batched mode
             # but mmseqs_similarity_constraint processes all proteins at once
@@ -281,7 +281,7 @@ class TestMMseqsSimilarityConstraint:
         )
 
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [
@@ -317,7 +317,7 @@ class TestMMseqsSimilarityConstraint:
         )
 
         with patch(
-            "proto_language.language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint.run_mmseqs2_search_proteins"
         ) as mock_mmseqs:
             mock_mmseqs.return_value = self._create_mock_output(
                 [

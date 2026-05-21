@@ -3,16 +3,13 @@
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
-    StructureBasedConstraintConfig,
-)
-from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
-from proto_language.language.core import Constraint, ConstraintOutput, Construct, Program, Segment
-from proto_language.language.core.optimizer import derive_seeds
-from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
-from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from proto_language import AlphaFold2MultimerStructureConfig, StructureBasedConstraintConfig
+from proto_language.constraint import gc_content_constraint
+from proto_language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+from proto_language.core import Constraint, ConstraintOutput, Construct, Program, Segment
+from proto_language.core.optimizer import derive_seeds
+from proto_language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
+from proto_language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 from proto_language.utils.alphafold2_multimer import next_af2_multimer_seed
 from proto_language.utils.base import BaseConfig, ConfigField
 

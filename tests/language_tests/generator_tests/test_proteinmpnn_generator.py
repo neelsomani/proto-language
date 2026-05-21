@@ -7,8 +7,8 @@ from types import SimpleNamespace
 import pytest
 from proto_tools import InverseFoldingStructureInput
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import (
+from proto_language.core import Segment
+from proto_language.generator import (
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
 )
@@ -123,7 +123,7 @@ class TestProteinMPNNGeneratorValidation:
             designed = SimpleNamespace(sequences=["AAAAA/CCCCC"], perplexity=[2.5], sequence_recovery=[0.4])
             return SimpleNamespace(designed_sequences=[designed])
 
-        proteinmpnn_module = import_module("proto_language.language.generator.proteinmpnn_generator")
+        proteinmpnn_module = import_module("proto_language.generator.proteinmpnn_generator")
         monkeypatch.setattr(proteinmpnn_module, "run_proteinmpnn_sample", fake_run_proteinmpnn_sample)
         generator = ProteinMPNNGenerator(
             ProteinMPNNGeneratorConfig(

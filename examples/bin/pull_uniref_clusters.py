@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Map UniProt IDs to UniRef clusters and retrieve all member sequences.
+"""Map UniProt IDs to UniRef clusters and retrieve all member sequences.
 
 Usage: python pull_uniref_clusters.py input_ids.txt --cluster-type UniRef50 --download-sequences --output-dir results/
 
@@ -27,8 +26,7 @@ REQUEST_DELAY = 1.0  # seconds between requests
 
 
 def submit_id_mapping_job(uniprot_ids: list[str], cluster_type: str) -> str:
-    """
-    Submit a batch ID mapping job to UniProt.
+    """Submit a batch ID mapping job to UniProt.
 
     Args:
         uniprot_ids: List of UniProt accessions
@@ -50,8 +48,7 @@ def submit_id_mapping_job(uniprot_ids: list[str], cluster_type: str) -> str:
 
 
 def poll_job_status(job_id: str, poll_interval: float = 3.0, max_wait: float = 300.0) -> bool:
-    """
-    Poll the ID mapping job until completion.
+    """Poll the ID mapping job until completion.
 
     Args:
         job_id: Job ID from submit_id_mapping_job
@@ -94,8 +91,7 @@ def poll_job_status(job_id: str, poll_interval: float = 3.0, max_wait: float = 3
 
 
 def get_mapping_results(job_id: str) -> dict[str, str]:
-    """
-    Retrieve results from a completed ID mapping job.
+    """Retrieve results from a completed ID mapping job.
 
     Args:
         job_id: Job ID from submit_id_mapping_job
@@ -137,8 +133,7 @@ def get_mapping_results(job_id: str) -> dict[str, str]:
 
 
 def get_cluster_members(cluster_id: str, max_members: int | None = None) -> list[dict]:
-    """
-    Retrieve all member sequences for a UniRef cluster.
+    """Retrieve all member sequences for a UniRef cluster.
 
     Args:
         cluster_id: UniRef cluster ID (e.g., UniRef50_P12345)
@@ -187,8 +182,7 @@ def get_cluster_members(cluster_id: str, max_members: int | None = None) -> list
 
 
 def get_member_sequences_fasta(cluster_id: str, output_path: Path, members: list[dict]) -> int:
-    """
-    Download member sequences as FASTA file by querying UniProtKB for the member IDs.
+    """Download member sequences as FASTA file by querying UniProtKB for the member IDs.
 
     Args:
         cluster_id: UniRef cluster ID

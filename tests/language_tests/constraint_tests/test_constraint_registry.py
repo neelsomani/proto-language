@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, Field
 
-from proto_language.language.constraint import ConstraintRegistry, constraint
-from proto_language.language.core import Constraint, ConstraintOutput, Segment
+from proto_language.constraint import ConstraintRegistry, constraint
+from proto_language.core import Constraint, ConstraintOutput, Segment
 
 # ============================================================================
 # Test Fixtures
@@ -36,9 +36,9 @@ class TestRegistration:
 
     def test_structure_based_config_is_publicly_reexported(self):
         """StructureBasedConstraintConfig should be available from the public API."""
+        from proto_language import StructureBasedConstraintConfig as ProteinConfig
         from proto_language import StructureBasedConstraintConfig as RootConfig
-        from proto_language.language.constraint import StructureBasedConstraintConfig as ConstraintConfig
-        from proto_language.language.constraint.protein_structure import StructureBasedConstraintConfig as ProteinConfig
+        from proto_language.constraint import StructureBasedConstraintConfig as ConstraintConfig
 
         assert RootConfig is ConstraintConfig is ProteinConfig
 
@@ -139,8 +139,8 @@ class TestRegistration:
         """@constraint(backward=separate_fn) path must still run slot validation in compute_gradient."""
         import numpy as np
 
-        from proto_language.language.constraint import InputSlot
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
+        from proto_language.constraint import InputSlot
 
         class TestConfig(BaseModel):
             pass
@@ -427,7 +427,7 @@ class TestFactoryMethod:
         """Backward callable in @constraint → create() returns Constraint with gradient support."""
         import numpy as np
 
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
 
         class _Cfg(BaseModel):
             min_gc: float = 40.0
@@ -471,7 +471,7 @@ class TestFactoryMethod:
         """Decorated function returning GradientConstraintOutput is auto-detected as backward callable."""
         import numpy as np
 
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
 
         class _Cfg(BaseModel):
             pass
@@ -503,7 +503,7 @@ class TestFactoryMethod:
         """Decorated function returning GradientConstraintOutput + backward= kwarg raises ValueError."""
         import numpy as np
 
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
 
         class _Cfg(BaseModel):
             pass
@@ -556,7 +556,7 @@ class TestModeAndBackwardConfig:
         """Both -> GradientConstraintOutput return type and backward= kwarg produce mode='gradient'."""
         import numpy as np
 
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
 
         class _Cfg(BaseModel):
             pass
@@ -592,7 +592,7 @@ class TestModeAndBackwardConfig:
         """backward_config_model serializes as its own JSON Schema, distinct from config_model."""
         import numpy as np
 
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
 
         class _ScoreCfg(BaseModel):
             threshold: float = 0.5
@@ -626,7 +626,7 @@ class TestModeAndBackwardConfig:
         """create() validates backward_config_dict against backward_config_model; rejects invalid input."""
         import numpy as np
 
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
 
         class _ScoreCfg(BaseModel):
             threshold: float = 0.5
@@ -679,7 +679,7 @@ class TestModeAndBackwardConfig:
         """Without backward_config_dict, backward config uses config_dict + config_model."""
         import numpy as np
 
-        from proto_language.language.core.constraint import GradientConstraintOutput
+        from proto_language import GradientConstraintOutput
 
         class _Cfg(BaseModel):
             x: float = 1.0

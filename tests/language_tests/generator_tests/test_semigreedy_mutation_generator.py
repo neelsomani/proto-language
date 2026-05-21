@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from proto_tools import Structure
 
-from proto_language.language.core import PROTEIN_AMINO_ACIDS, Segment
-from proto_language.language.generator import (
+from proto_language.core import PROTEIN_AMINO_ACIDS, Segment
+from proto_language.generator import (
     GeneratorRegistry,
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,

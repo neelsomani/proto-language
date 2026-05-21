@@ -11,8 +11,8 @@ from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.serialization import is_plain_int
 
 if TYPE_CHECKING:
-    from proto_language.language.core.segment import Segment
-    from proto_language.language.core.sequence import Sequence
+    from proto_language.core.segment import Segment
+    from proto_language.core.sequence import Sequence
 
 
 def one_hot_protein_matrix(sequence: str) -> list[list[float]]:
@@ -28,7 +28,7 @@ def one_hot_protein_matrix(sequence: str) -> list[list[float]]:
     Returns:
         list[list[float]]: One-hot matrix with shape ``(len(sequence), 20)``.
     """
-    from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
+    from proto_language.core.sequence import PROTEIN_AMINO_ACIDS
 
     aa_index = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
     n = len(PROTEIN_AMINO_ACIDS)

@@ -6,11 +6,11 @@ from unittest.mock import Mock, patch
 import pytest
 from Bio import SeqIO
 
-from proto_language.language.constraint import protein_domain_constraint
-from proto_language.language.constraint.protein_quality.protein_domain_constraint import (
+from proto_language.constraint import protein_domain_constraint
+from proto_language.constraint.protein_quality.protein_domain_constraint import (
     ProteinDomainConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 TEST_HMM = Path(__file__).parent.parent.parent.parent / "dummy_data" / "test_multiple_hmm.hmm"
 
@@ -106,7 +106,7 @@ class TestProteinDomainConstraint:
         segment = Segment(sequence="MKTAYIAKQRQISFVK", sequence_type="protein")
         config = ProteinDomainConfig(hmm_db="/nonexistent/path.hmm", keywords=["kinase"])
 
-        with patch("proto_language.language.constraint.protein_quality.protein_domain_constraint.Path") as mock_path:
+        with patch("proto_language.constraint.protein_quality.protein_domain_constraint.Path") as mock_path:
             mock_path_inst = Mock()
             mock_path_inst.exists.return_value = False
             mock_path.return_value = mock_path_inst
@@ -148,7 +148,7 @@ class TestProteinDomainConstraint:
 
         with (
             patch(
-                "proto_language.language.constraint.protein_quality.protein_domain_constraint.run_prodigal_prediction"
+                "proto_language.constraint.protein_quality.protein_domain_constraint.run_prodigal_prediction"
             ) as mock_prodigal,
         ):
             mock_prodigal.return_value = mock_prodigal_output
@@ -174,9 +174,9 @@ class TestProteinDomainConstraint:
         mock_prodigal_output.num_orfs_per_sequence = [0]
 
         with (
-            patch("proto_language.language.constraint.protein_quality.protein_domain_constraint.Path") as mock_path,
+            patch("proto_language.constraint.protein_quality.protein_domain_constraint.Path") as mock_path,
             patch(
-                "proto_language.language.constraint.protein_quality.protein_domain_constraint.run_prodigal_prediction"
+                "proto_language.constraint.protein_quality.protein_domain_constraint.run_prodigal_prediction"
             ) as mock_prodigal,
         ):
             mock_path_inst = Mock()

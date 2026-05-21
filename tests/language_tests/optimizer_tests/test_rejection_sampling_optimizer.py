@@ -8,11 +8,12 @@ import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 from pydantic import BaseModel
 
-from proto_language.language.constraint import (
+from proto_language import GeneratorRegistry, GeneratorSpec
+from proto_language.constraint import (
     gc_content_constraint,
     sequence_length_constraint,
 )
-from proto_language.language.core import (
+from proto_language.core import (
     Constraint,
     ConstraintOutput,
     Construct,
@@ -21,16 +22,12 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
-from proto_language.language.generator import (
+from proto_language.generator import (
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
-from proto_language.language.generator.generator_registry import (
-    GeneratorRegistry,
-    GeneratorSpec,
-)
-from proto_language.language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
-from proto_language.language.optimizer.rejection_sampling_optimizer import DID_NOT_ENTER_TOP_K
+from proto_language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from proto_language.optimizer.rejection_sampling_optimizer import DID_NOT_ENTER_TOP_K
 
 
 class _NoOpGenerator(Generator):
@@ -488,7 +485,7 @@ class TestRejectionSamplingOptimizerStandardMode:
         """Test that Rejection Sampling optimizer skips inf/nan energies."""
         import math
 
-        from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
+        from proto_language.constraint.sequence_composition.gc_content_constraint import (
             GCContentConfig,
         )
 
@@ -717,7 +714,7 @@ class TestRejectionSamplingOptimizerInternals:
         This is a regression test for a bug where the optimizer would crash with
         RuntimeError when all proposals had inf/nan energies.
         """
-        from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
+        from proto_language.constraint.sequence_composition.gc_content_constraint import (
             GCContentConfig,
         )
 
@@ -760,7 +757,7 @@ class TestRejectionSamplingOptimizerInternals:
 
     def test_partial_proposals_rejected_by_filter(self):
         """Test Rejection Sampling optimizer handles case where some but not all proposals pass filter."""
-        from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
+        from proto_language.constraint.sequence_composition.gc_content_constraint import (
             GCContentConfig,
         )
 

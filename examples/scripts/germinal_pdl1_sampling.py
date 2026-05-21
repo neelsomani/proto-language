@@ -36,43 +36,39 @@ from proto_tools.entities.structures import Structure
 from proto_tools.utils.device_manager import DeviceManager
 from proto_tools.utils.tool_pool import ToolPool
 
-from proto_language.language.constraint import ConstraintRegistry
-from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-    structure_ipae_constraint,
-    structure_iplddt_constraint,
-    structure_iptm_constraint,
-    structure_pae_constraint,
-    structure_plddt_constraint,
-)
-from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+from proto_language import (
+    AbLangPerplexityConfig,
     AlphaFold2MultimerStructureConfig,
     StructureBasedConstraintConfig,
-)
-from proto_language.language.constraint.protein_structure.structure_geometry_constraint import (
     structure_beta_strand_constraint,
     structure_contact_constraint,
     structure_distogram_cce_constraint,
     structure_helix_constraint,
     structure_interface_contact_constraint,
+    structure_ipae_constraint,
+    structure_iplddt_constraint,
+    structure_iptm_constraint,
+    structure_pae_constraint,
+    structure_plddt_constraint,
     structure_radius_gyration_constraint,
     structure_termini_distance_constraint,
 )
-from proto_language.language.constraint.sequence_scoring.ablang_perplexity_constraint import AbLangPerplexityConfig
-from proto_language.language.core import (
+from proto_language.constraint import ConstraintRegistry
+from proto_language.core import (
     Constraint,
     Construct,
     Program,
     Segment,
     Sequence,
 )
-from proto_language.language.generator import (
+from proto_language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,
     SequenceLogitBiasConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     GradientOptimizer,
     GradientOptimizerConfig,
     MCMCOptimizer,

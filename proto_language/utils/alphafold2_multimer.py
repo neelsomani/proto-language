@@ -19,11 +19,11 @@ from proto_tools.tools.structure_prediction.alphafold2 import (
 )
 from pydantic import BaseModel, ConfigDict
 
-from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+from proto_language.constraint.protein_structure.structure_constraint_config import (
     AlphaFold2MultimerStructureConfig,
     StructureBasedConstraintConfig,
 )
-from proto_language.language.core import ConstraintOutput, Sequence
+from proto_language.core import ConstraintOutput, Sequence
 from proto_language.utils.sequence_matrices import one_hot_protein_matrix
 
 AF2_MULTIMER_LOSS_TERMS: frozenset[str] = frozenset(

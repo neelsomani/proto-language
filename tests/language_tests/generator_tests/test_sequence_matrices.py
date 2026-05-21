@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from proto_language.language.core import Segment, Sequence
+from proto_language.core import Segment, Sequence
 from proto_language.utils.sequence_matrices import (
     SequenceLogitBiasConfig,
     build_sequence_logit_bias_matrix,

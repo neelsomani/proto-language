@@ -3,11 +3,11 @@
 import numpy as np
 import pytest
 
-from proto_language.language.constraint import max_homopolymer_constraint
-from proto_language.language.constraint.sequence_composition.max_homopolymer_constraint import (
+from proto_language.constraint import max_homopolymer_constraint
+from proto_language.constraint.sequence_composition.max_homopolymer_constraint import (
     MaxHomopolymerConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # Tests for max_homopolymer_constraint

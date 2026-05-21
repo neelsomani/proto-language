@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import Evo1Generator, Evo1GeneratorConfig
+from proto_language.core import Segment
+from proto_language.generator import Evo1Generator, Evo1GeneratorConfig
 
 
 @pytest.mark.uses_gpu
@@ -85,7 +85,7 @@ class TestEvo1GeneratorValidation:
         with pytest.raises(ValueError, match="same length"):
             Evo1GeneratorConfig(prompts=["ATCG", "AT"])
 
-    @patch("proto_language.language.generator.evo1_generator.run_evo1_sample")
+    @patch("proto_language.generator.evo1_generator.run_evo1_sample")
     def test_max_new_tokens_computed_with_prepend_override(self, mock_run):
         """max_new_tokens adjusts when sample() gets prepend_prompt override."""
         config = Evo1GeneratorConfig(prompts="ATCG")  # len=4

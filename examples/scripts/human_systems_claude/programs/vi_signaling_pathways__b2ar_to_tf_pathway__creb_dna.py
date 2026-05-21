@@ -11,9 +11,8 @@ from proto_tools import (
     run_borzoi,
 )
 
-from proto_language.utils.base import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry
-from proto_language.language.core import (
+from proto_language import ConstraintRegistry
+from proto_language.core import (
     Constraint,
     ConstraintOutput,
     Construct,
@@ -21,8 +20,9 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
-from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
-from proto_language.language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from proto_language.generator import Evo2Generator, Evo2GeneratorConfig
+from proto_language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
+from proto_language.utils.base import BaseConfig, ConfigField
 
 # Other Borzoi constants.
 BORZOI_OUTPUT_RESOLUTION = 32
@@ -39,8 +39,7 @@ RIGHT_FLANK_FNAME = "examples/data/creb_dna_design_right_flank.fasta"
 
 
 def _borzoi_input_to_output_mask(input_mask: np.ndarray[bool]) -> np.ndarray[bool]:
-    """
-    Convert a mask over a single-nucleotide Borzoi input to a mask over a binned,
+    """Convert a mask over a single-nucleotide Borzoi input to a mask over a binned,
     32-bp resolution Borzoi output.
     """
     assert len(input_mask.shape) == 1
@@ -56,8 +55,7 @@ def _borzoi_input_to_output_mask(input_mask: np.ndarray[bool]) -> np.ndarray[boo
 
 
 class BorzoiDNADesignConfig(BaseConfig):
-    """
-    Configuration for Borzoi DNA binding activity scoring.
+    """Configuration for Borzoi DNA binding activity scoring.
 
     Attributes:
         borzoi_config (BorzoiConfig): Configuration for Borzoi sequence scoring.
@@ -120,9 +118,7 @@ def _borzoi_creb_dna_design(
     input_sequences: list[tuple[Sequence, ...]],
     config: BorzoiDNADesignConfig,
 ) -> list[ConstraintOutput]:
-    """
-    Returns Borzoi-predicted activity of DNA sequence.
-    """
+    """Returns Borzoi-predicted activity of DNA sequence."""
     config.borzoi_config.verbose = False  # Suppress output that prints full input sequence.
 
     # For this constraint, always take the mean over all tracks.
@@ -152,10 +148,7 @@ def _borzoi_creb_dna_design(
 
 
 def create_creb_dna_program() -> Program:
-    """
-    Make the CREB design program. Maximize Borzoi-predicted CREB ChIP-seq activity.
-    """
-
+    """Make the CREB design program. Maximize Borzoi-predicted CREB ChIP-seq activity."""
     # =============================================================================
     # Input values and parameters.
     # =============================================================================
@@ -272,9 +265,7 @@ def create_creb_dna_program() -> Program:
 
 
 def generate_creb_dna_sequence() -> str:
-    """
-    Run the program and return the designed sequence.
-    """
+    """Run the program and return the designed sequence."""
     program = create_creb_dna_program()
     program.run()
     creb_dna = str(program.optimizers[0].constructs[0].segments[1].result_sequences[0])

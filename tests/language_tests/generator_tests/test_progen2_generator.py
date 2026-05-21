@@ -4,8 +4,8 @@ import copy
 
 import pytest
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import ProGen2Generator, ProGen2GeneratorConfig
+from proto_language.core import Segment
+from proto_language.generator import ProGen2Generator, ProGen2GeneratorConfig
 
 
 @pytest.mark.uses_gpu

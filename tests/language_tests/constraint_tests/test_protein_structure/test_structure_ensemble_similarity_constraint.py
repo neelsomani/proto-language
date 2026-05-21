@@ -5,11 +5,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from proto_tools import BioEmuConfig
 
-from proto_language.language.constraint.protein_structure.structure_ensemble_similarity_constraint import (
+from proto_language.constraint.protein_structure.structure_ensemble_similarity_constraint import (
     StructureEnsembleSimilarityConfig,
     structure_ensemble_rmsd_constraint,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 
 # Short test sequence
 TEST_SEQ = "MGDIQVQVNIDDNGKNFDYTYTVTTE"
@@ -81,7 +81,7 @@ class TestConstraintWithMocks:
     def mock_bioemu(self):
         """Mock run_bioemu to avoid GPU requirement."""
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_ensemble_similarity_constraint.run_bioemu"
+            "proto_language.constraint.protein_structure.structure_ensemble_similarity_constraint.run_bioemu"
         ) as mock:
             # Create mock ensemble with 3 frames
             mock_structure = MagicMock()
@@ -100,7 +100,7 @@ class TestConstraintWithMocks:
     def mock_pymol_rmsd(self):
         """Mock PyMOL RMSD computation."""
         with patch(
-            "proto_language.language.constraint.protein_structure."
+            "proto_language.constraint.protein_structure."
             "structure_ensemble_similarity_constraint._compute_pymol_aligned_rmsd"
         ) as mock:
             # Return decreasing RMSDs: 3.0, 2.0, 1.0
@@ -175,7 +175,7 @@ class TestConstraintWithMocks:
         """Test different RMSD aggregation methods produce different scores."""
         # Mock returns same RMSDs for each aggregation test
         with patch(
-            "proto_language.language.constraint.protein_structure."
+            "proto_language.constraint.protein_structure."
             "structure_ensemble_similarity_constraint._compute_pymol_aligned_rmsd"
         ) as mock_rmsd:
             agg_scores: dict[str, float] = {}
@@ -206,7 +206,7 @@ class TestConstraintWithMocks:
     def test_pymol_alignment_method_passed_to_rmsd_helper(self, mock_bioemu):
         """Configured PyMOL method is used for every ensemble-frame alignment."""
         with patch(
-            "proto_language.language.constraint.protein_structure."
+            "proto_language.constraint.protein_structure."
             "structure_ensemble_similarity_constraint._compute_pymol_aligned_rmsd"
         ) as mock_rmsd:
             mock_rmsd.side_effect = [

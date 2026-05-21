@@ -14,9 +14,9 @@ from constraint_tests.utils import (
     mock_multi_input_scoring_function_disjoint,
     mock_single_input_scoring_function,
 )
-from proto_language.language.constraint.constraint_registry import InputSlot
-from proto_language.language.core import Constraint, ConstraintOutput, Segment, Sequence
-from proto_language.language.core.constraint import GradientConstraintOutput
+from proto_language import GradientConstraintOutput
+from proto_language.constraint.constraint_registry import InputSlot
+from proto_language.core import Constraint, ConstraintOutput, Segment, Sequence
 from tests.helpers.mock_structure import MockStructure
 
 

@@ -4,11 +4,11 @@ from unittest.mock import patch
 
 from proto_tools import Structure, StructureMetricsOutput, StructureQualityMetrics
 
-from proto_language.language.constraint.protein_structure.gyration_radius_constraint import (
+from proto_language.constraint.protein_structure.gyration_radius_constraint import (
     GyrationRadiusConfig,
     gyration_radius_constraint,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 from proto_language.utils import MAX_ENERGY
 
 # Minimal valid PDB content; the constraint writes this to a temp file and the
@@ -42,7 +42,7 @@ def _mock_metrics_output(gyration_radius, longest_alpha_helix=5):
     )
 
 
-PATCH_TARGET = "proto_language.language.constraint.protein_structure.gyration_radius_constraint.run_structure_metrics"
+PATCH_TARGET = "proto_language.constraint.protein_structure.gyration_radius_constraint.run_structure_metrics"
 
 
 class TestGyrationRadiusConstraint:

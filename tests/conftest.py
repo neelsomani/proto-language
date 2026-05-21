@@ -23,7 +23,7 @@ def is_on_chimera() -> bool:
 @pytest.fixture(autouse=True)
 def mock_generator_registry(monkeypatch):
     """Patch GeneratorRegistry to return autoregressive category for mock generators."""
-    from proto_language.language.generator import generator_registry
+    from proto_language.generator import generator_registry
 
     original_get_key = generator_registry.GeneratorRegistry.get_key
 

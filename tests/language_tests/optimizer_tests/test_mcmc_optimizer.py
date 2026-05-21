@@ -6,24 +6,24 @@ import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 from pydantic import BaseModel
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     gc_content_constraint,
     sequence_length_constraint,
 )
-from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
+from proto_language.constraint.sequence_composition.gc_content_constraint import (
     GCContentConfig,
 )
-from proto_language.language.constraint.sequence_composition.sequence_length_constraint import (
+from proto_language.constraint.sequence_composition.sequence_length_constraint import (
     SequenceLengthConfig,
 )
-from proto_language.language.core import Constraint, ConstraintOutput, Construct, Segment
-from proto_language.language.generator import (
+from proto_language.core import Constraint, ConstraintOutput, Construct, Segment
+from proto_language.generator import (
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
 )
-from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from proto_language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
 
 # Empty config for test constraints

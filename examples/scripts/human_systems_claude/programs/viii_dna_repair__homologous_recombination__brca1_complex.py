@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Diversification program for: Homologous Recombination - BRCA1 Complex
+"""Diversification program for: Homologous Recombination - BRCA1 Complex
 Category: VIII. DNA Repair
 
 This script:
@@ -26,7 +25,7 @@ from lib import (
     score_complexes_in_program_with_af3,
 )
 
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 # =============================================================================
 # CUSTOMIZE HERE: Add row-specific constraints
@@ -36,8 +35,7 @@ from proto_language.language.core import Constraint, Segment
 def add_custom_constraints(
     gene_id_to_segment: dict[str, Segment],
 ) -> list[Constraint]:
-    """
-    Add custom constraints for this specific system.
+    """Add custom constraints for this specific system.
 
     This function is called during program construction. You can add
     constraints that:
@@ -53,7 +51,7 @@ def add_custom_constraints(
 
     Examples:
         # Conservation constraint for a specific residue
-        from proto_language.language.constraint import residue_constraint
+        from proto_language.constraint import residue_constraint
         constraints.append(Constraint(
             inputs=[gene_id_to_segment['ORC1']],
             function=residue_constraint,

@@ -20,19 +20,19 @@ allowed-tools:
 ## Before You Start
 
 1. **Read the registry** to see all existing constraints and naming conventions:
-   - `proto_language/language/constraint/__init__.py`
+   - `proto_language/constraint/__init__.py`
 2. **Find a similar implementation** to use as a template. Read both its source and tests:
-   - Simple (no tools): `proto_language/language/constraint/sequence_composition/gc_content_constraint.py`
-   - Tool-based: `proto_language/language/constraint/protein_quality/protein_complexity_constraint.py`
-   - Complex config: `proto_language/language/constraint/sequence_annotation/seq_motif_constraint.py`
-   - GPU + structure: `proto_language/language/constraint/protein_structure/structure_similarity_constraint.py`
-3. **Read the decorator/registry**: `proto_language/language/constraint/constraint_registry.py`
+   - Simple (no tools): `proto_language/constraint/sequence_composition/gc_content_constraint.py`
+   - Tool-based: `proto_language/constraint/protein_quality/protein_complexity_constraint.py`
+   - Complex config: `proto_language/constraint/sequence_annotation/seq_motif_constraint.py`
+   - GPU + structure: `proto_language/constraint/protein_structure/structure_similarity_constraint.py`
+3. **Read the decorator/registry**: `proto_language/constraint/constraint_registry.py`
 
 ## Complete Implementation Template
 
 ### Step 1: Config Class
 
-File: `proto_language/language/constraint/{category}/{name}_constraint.py`
+File: `proto_language/constraint/{category}/{name}_constraint.py`
 
 ```python
 import logging
@@ -40,8 +40,8 @@ import logging
 from pydantic import field_validator, model_validator
 
 from proto_language.utils.base import BaseConfig, ConfigField
-from proto_language.language.constraint.constraint_registry import constraint
-from proto_language.language.core import ConstraintOutput, Sequence
+from proto_language.constraint.constraint_registry import constraint
+from proto_language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
 
 logger = logging.getLogger(__name__)
@@ -195,7 +195,7 @@ decorator auto-detects the role from the return type annotation: `-> list[Gradie
 registers the function as the backward callable and sets `mode="gradient"`.
 
 ```python
-from proto_language.language.core.constraint import GradientConstraintOutput
+from proto_language.core.constraint import GradientConstraintOutput
 
 @constraint(
     key="my-gradient-only",
@@ -230,7 +230,7 @@ evaluator. Register ONE `@constraint` on the forward function and pair it with
 `backward=` for the gradient callable:
 
 ```python
-from proto_language.language.core.constraint import GradientConstraintOutput
+from proto_language.core.constraint import GradientConstraintOutput
 
 def my_backward(
     input_sequences: list[tuple[Sequence, ...]], *, config: MyConfig, temperature: float, **kwargs: Any,
@@ -272,7 +272,7 @@ identity depend on how it's used — backwards. Dual-mode:
   binder design), users can't accidentally configure one mode differently from the other.
 
 **Canonical in-tree example.** `af2-binder`
-(`proto_language/language/constraint/differentiable/af2_binder_constraint.py`)
+(`proto_language/constraint/differentiable/af2_binder_constraint.py`)
 registers `af2_binder_forward` as the forward callable, pairs with `af2_binder_backward`,
 and both paths construct the same `AlphaFold2BinderConfig` from shared `AF2BinderConstraintConfig`
 fields — only `soft`, `hard`, and `compute_gradient` differ between modes.
@@ -392,12 +392,12 @@ should NOT implement their own sequence chunking. Default `batch_size = 1` for s
 
 ## Export Chain
 
-1. **Category `__init__.py`**: `proto_language/language/constraint/{category}/__init__.py`
+1. **Category `__init__.py`**: `proto_language/constraint/{category}/__init__.py`
    ```python
    from .my_constraint import my_constraint
    ```
 
-2. **Constraint `__init__.py`**: `proto_language/language/constraint/__init__.py`
+2. **Constraint `__init__.py`**: `proto_language/constraint/__init__.py`
    ```python
    from .{category} import my_constraint
    # Add to __all__ list
@@ -451,7 +451,7 @@ Copy this and check off as you go:
 - [ ] UI visibility rules for conditionally relevant fields live in client overlays, not in `ConfigField`
 - [ ] Tests cover: parametrized scoring, wrong type, invalid config, metadata, edge cases
 - [ ] Tests pass: `pytest tests/language_tests/constraint_tests/ --cpu -x`
-- [ ] Lint passes: `ruff check proto_language/language/constraint/`
-- [ ] Type check passes: `mypy proto_language/language/constraint/`
+- [ ] Lint passes: `ruff check proto_language/constraint/`
+- [ ] Type check passes: `mypy proto_language/constraint/`
 
 If any check fails, fix before proceeding.

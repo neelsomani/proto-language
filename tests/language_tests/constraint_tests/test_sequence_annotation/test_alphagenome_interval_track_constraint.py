@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     ConstraintRegistry,
     alphagenome_interval_track_constraint,
 )
-from proto_language.language.constraint.sequence_annotation.alphagenome_interval_track_constraint import (
+from proto_language.constraint.sequence_annotation.alphagenome_interval_track_constraint import (
     AlphaGenomeIntervalTrackConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 class _DummyAlphaGenomePredictOutput:
@@ -90,7 +90,7 @@ def test_interval_track_scoring_maximize_with_sigmoid():
     )
 
     with patch(
-        "proto_language.language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
+        "proto_language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput([_DummyAlphaGenomePredictOutput(matrix, key="rna-seq")]),
     ):
         constraint = Constraint(
@@ -120,7 +120,7 @@ def test_interval_track_scoring_minimize_returns_thresholded_linear_score():
     )
 
     with patch(
-        "proto_language.language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
+        "proto_language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput([_DummyAlphaGenomePredictOutput(matrix)]),
     ):
         constraint = Constraint(
@@ -160,7 +160,7 @@ def test_interval_track_metadata_population():
     )
 
     with patch(
-        "proto_language.language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
+        "proto_language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput([_DummyAlphaGenomePredictOutput(matrix)]),
     ):
         constraint = Constraint(
@@ -208,7 +208,7 @@ def test_interval_track_prediction_timeout_passed_to_tool():
     )
 
     with patch(
-        "proto_language.language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
+        "proto_language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
         side_effect=_mock_predict,
     ):
         constraint = Constraint(
@@ -231,7 +231,7 @@ def test_interval_track_interval_out_of_bounds_errors():
     )
 
     with patch(
-        "proto_language.language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
+        "proto_language.constraint.sequence_annotation.alphagenome_interval_track_constraint.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput([_DummyAlphaGenomePredictOutput(matrix)]),
     ):
         constraint = Constraint(

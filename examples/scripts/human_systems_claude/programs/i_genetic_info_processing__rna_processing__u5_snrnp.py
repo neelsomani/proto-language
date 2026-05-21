@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Diversification program for: RNA Processing - U5 snRNP
+"""Diversification program for: RNA Processing - U5 snRNP
 Category: I. Genetic Info Processing
 
 This script:
@@ -26,7 +25,7 @@ from i_genetic_info_processing__rna_processing__u5_snrna import (
 )
 from lib import gene_ids_to_program, load_config, score_complexes_in_program_with_af3
 
-from proto_language.language.core import Constraint, Construct, Segment
+from proto_language.core import Constraint, Construct, Segment
 
 # =============================================================================
 # CUSTOMIZE HERE: Add row-specific constraints
@@ -36,8 +35,7 @@ from proto_language.language.core import Constraint, Construct, Segment
 def add_custom_constraints(
     gene_id_to_segment: dict[str, Segment],
 ) -> list[Constraint]:
-    """
-    Add custom constraints for this specific system.
+    """Add custom constraints for this specific system.
 
     This function is called during program construction. You can add
     constraints that:
@@ -53,7 +51,7 @@ def add_custom_constraints(
 
     Examples:
         # Conservation constraint for a specific residue
-        from proto_language.language.constraint import residue_constraint
+        from proto_language.constraint import residue_constraint
         constraints.append(Constraint(
             inputs=[gene_id_to_segment['ORC1']],
             function=residue_constraint,

@@ -8,8 +8,9 @@ import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 from pydantic import BaseModel
 
-from proto_language.language.constraint import ConstraintRegistry, gc_content_constraint
-from proto_language.language.core import (
+from proto_language import ConstraintOutput, GradientConstraintOutput
+from proto_language.constraint import ConstraintRegistry, gc_content_constraint
+from proto_language.core import (
     Constraint,
     Construct,
     Generator,
@@ -17,8 +18,7 @@ from proto_language.language.core import (
     Program,
     Segment,
 )
-from proto_language.language.core.constraint import ConstraintOutput, GradientConstraintOutput
-from proto_language.language.generator import (
+from proto_language.generator import (
     ESM2Generator,
     ESM2GeneratorConfig,
     PositionWeightGenerator,
@@ -32,7 +32,7 @@ from proto_language.language.generator import (
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     CyclingOptimizer,
     CyclingOptimizerConfig,
     GradientOptimizer,
@@ -884,7 +884,7 @@ class TestProgramGeneratorInputs:
 
     def test_prompt_under_beam_search_ok(self):
         """BeamSearchOptimizer supplies prompts from its own ``config.prompt`` — empty ``config.prompts`` is fine."""
-        from proto_language.language.optimizer import BeamSearchOptimizer, BeamSearchOptimizerConfig
+        from proto_language.optimizer import BeamSearchOptimizer, BeamSearchOptimizerConfig
 
         seg = Segment(length=10, sequence_type="dna")
         gen = MockAutoregressiveGenerator(prompts=[])

@@ -5,11 +5,11 @@ from unittest.mock import patch
 import pytest
 from proto_tools import SegmaskerMetrics, SegmaskerOutput
 
-from proto_language.language.constraint import protein_complexity_constraint
-from proto_language.language.constraint.protein_quality.protein_complexity_constraint import (
+from proto_language.constraint import protein_complexity_constraint
+from proto_language.constraint.protein_quality.protein_complexity_constraint import (
     ProteinComplexityConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 class TestProteinComplexityConstraint:
@@ -30,9 +30,7 @@ class TestProteinComplexityConstraint:
         config = ProteinComplexityConfig(max_low_complexity=max_low_complexity)
 
         # Mock run_segmasker
-        with patch(
-            "proto_language.language.constraint.protein_quality.protein_complexity_constraint.run_segmasker"
-        ) as mock_seg:
+        with patch("proto_language.constraint.protein_quality.protein_complexity_constraint.run_segmasker") as mock_seg:
             mock_output = SegmaskerOutput(
                 tool_id="segmasker",
                 execution_time=0.1,
@@ -68,9 +66,7 @@ class TestProteinComplexityConstraint:
         segment = Segment(sequence="MKTAYIAKQRQISFVK", sequence_type="protein")
         config = ProteinComplexityConfig(max_low_complexity=0.3)
 
-        with patch(
-            "proto_language.language.constraint.protein_quality.protein_complexity_constraint.run_segmasker"
-        ) as mock_seg:
+        with patch("proto_language.constraint.protein_quality.protein_complexity_constraint.run_segmasker") as mock_seg:
             mock_seg.side_effect = RuntimeError("Segmasker execution failed")
 
             constraint = Constraint(

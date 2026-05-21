@@ -13,23 +13,23 @@ from examples.scripts.program_intron_design import (
     get_initial_intron,
     process_splice_transformer_input,
 )
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     splice_transformer_intron_boundary,
     splice_transformer_specificity,
 )
-from proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage import (
+from proto_language.constraint.rna_splicing.alphagenome_splice_site_usage import (
     AlphaGenomeSpliceSiteUsageConfig,
     alphagenome_splice_site_usage,
 )
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.generator import (
+from proto_language.core import Constraint, Construct, Program, Segment
+from proto_language.generator import (
     Evo2Generator,
     Evo2GeneratorConfig,
     MaskingStrategy,
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     MCMCOptimizer,
     MCMCOptimizerConfig,
     RejectionSamplingOptimizer,

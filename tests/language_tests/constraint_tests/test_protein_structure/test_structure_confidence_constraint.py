@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from proto_tools import Structure, StructurePredictionOutput
 
-from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
+from proto_language import AlphaFold2MultimerStructureConfig, structure_contact_constraint
+from proto_language.constraint.protein_structure.structure_confidence_constraint import (
     PAE_MAXIMUM,
     TOOL_AVAILABLE_METRICS,
     StructureBasedConstraintConfig,
@@ -18,13 +19,7 @@ from proto_language.language.constraint.protein_structure.structure_confidence_c
     structure_plddt_constraint,
     structure_ptm_constraint,
 )
-from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
-)
-from proto_language.language.constraint.protein_structure.structure_geometry_constraint import (
-    structure_contact_constraint,
-)
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 from proto_language.utils.alphafold2_multimer import (
     AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC,
     AF2_MULTIMER_PAE_MAXIMUM,
@@ -98,7 +93,7 @@ class TestScoreCalculations:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=metric_value, ptm=0.8)])
 
@@ -121,7 +116,7 @@ class TestScoreCalculations:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=metric_value, ptm=0.8)])
 
@@ -143,7 +138,7 @@ class TestScoreCalculations:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=metric_value)])
 
@@ -165,7 +160,7 @@ class TestScoreCalculations:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)]
@@ -189,7 +184,7 @@ class TestScoreCalculations:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)]
@@ -213,7 +208,7 @@ class TestScoreCalculations:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=metric_value, avg_pae=0.85)]
@@ -236,7 +231,7 @@ class TestScoreCalculations:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=metric_value)]
@@ -261,7 +256,7 @@ class TestToolDispatching:
         config = StructureBasedConstraintConfig(structure_tool=tool_name)
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             if tool_name == "alphafold3":
                 mock_predict.return_value = make_mock_output(
@@ -374,7 +369,7 @@ class TestToolDispatching:
         config = StructureBasedConstraintConfig(structure_tool=tool_name)
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             if tool_name == "alphafold3":
                 mock_predict.return_value = make_mock_output(
@@ -397,7 +392,7 @@ class TestToolDispatching:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, ptm=0.8, iptm=0.7, avg_pae=8.5)]
@@ -423,7 +418,7 @@ class TestMetricAvailability:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=0.8)])
 
@@ -445,7 +440,7 @@ class TestMetricAvailability:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, ptm=0.8, iptm=0.7, avg_pae=5.0)]
@@ -463,7 +458,7 @@ class TestMetricAvailability:
         config = StructureBasedConstraintConfig(structure_tool="chai1")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=5.0)]
@@ -481,7 +476,7 @@ class TestMetricAvailability:
         config = StructureBasedConstraintConfig(structure_tool="boltz2")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.8, iptm=0.7, avg_pae=5.0)]
@@ -541,7 +536,7 @@ class TestMultimerSupport:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=0.8)])
 
@@ -560,7 +555,7 @@ class TestMultimerSupport:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.85, ptm=0.75)])
 
@@ -578,7 +573,7 @@ class TestMultimerSupport:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=88.0, ptm=0.78, iptm=0.72, avg_pae=5.0)]
@@ -599,7 +594,7 @@ class TestMultimerSupport:
         config = StructureBasedConstraintConfig(structure_tool="boltz2")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.82, ptm=0.7, iptm=0.65, avg_pae=7.5)]
@@ -621,7 +616,7 @@ class TestMultimerSupport:
         config = StructureBasedConstraintConfig(structure_tool="chai1")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [
@@ -644,7 +639,7 @@ class TestMultimerSupport:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=0.8)])
 
@@ -676,7 +671,7 @@ class TestToolConfigPassthrough:
         )
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=0.8)])
 
@@ -706,7 +701,7 @@ class TestToolConfigPassthrough:
         )
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, ptm=0.8, iptm=0.7, avg_pae=8.5)]
@@ -729,7 +724,7 @@ class TestToolConfigPassthrough:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=0.8)])
 
@@ -760,7 +755,7 @@ class TestMetadataStorage:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_struct = make_mock_structure(avg_plddt=0.92, ptm=0.88)
             mock_predict.return_value = make_mock_output([mock_struct])
@@ -776,7 +771,7 @@ class TestMetadataStorage:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([make_mock_structure(avg_plddt=0.9, ptm=0.85)])
 
@@ -790,7 +785,7 @@ class TestMetadataStorage:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, ptm=0.85, iptm=0.78, avg_pae=8.2)]
@@ -806,7 +801,7 @@ class TestMetadataStorage:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, ptm=0.85, iptm=0.78, avg_pae=8.8)]
@@ -817,14 +812,14 @@ class TestMetadataStorage:
 
     def test_structure_attached_to_first_input_only(self, protein_sequence, protein_sequence_b):
         """Test that predicted structure is attached to slot 0 only via Constraint.evaluate()."""
-        from proto_language.language.core import Constraint, Segment
+        from proto_language.core import Constraint, Segment
 
         seg_a = Segment(sequence=protein_sequence.sequence, sequence_type="protein")
         seg_b = Segment(sequence=protein_sequence_b.sequence, sequence_type="protein")
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, ptm=0.85, iptm=0.78, avg_pae=8.2)]
@@ -862,7 +857,7 @@ class TestErrorHandling:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.side_effect = RuntimeError("GPU out of memory")
 
@@ -875,7 +870,7 @@ class TestErrorHandling:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             # Return structure without the expected metric
             mock_predict.return_value = make_mock_output(
@@ -885,7 +880,7 @@ class TestErrorHandling:
             )
 
             with caplog.at_level(
-                "WARNING", logger="proto_language.language.constraint.protein_structure.structure_confidence_constraint"
+                "WARNING", logger="proto_language.constraint.protein_structure.structure_confidence_constraint"
             ):
                 results = structure_plddt_constraint(proposals, config)
 
@@ -898,7 +893,7 @@ class TestErrorHandling:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output([])
 
@@ -915,7 +910,7 @@ class TestErrorHandling:
         config = StructureBasedConstraintConfig(structure_tool="esmfold")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [
@@ -925,7 +920,7 @@ class TestErrorHandling:
             )
 
             with caplog.at_level(
-                "WARNING", logger="proto_language.language.constraint.protein_structure.structure_confidence_constraint"
+                "WARNING", logger="proto_language.constraint.protein_structure.structure_confidence_constraint"
             ):
                 results = structure_plddt_constraint(proposals, config)
 
@@ -989,7 +984,7 @@ class TestIntegrationScenarios:
         )
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=88.0, ptm=0.82, iptm=0.75, avg_pae=8.0)]
@@ -1010,7 +1005,7 @@ class TestIntegrationScenarios:
             config = StructureBasedConstraintConfig(structure_tool=tool)
 
             with patch(
-                "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+                "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
             ) as mock_predict:
                 # Simulate slightly different results per tool
                 plddt = {"esmfold": 0.85, "alphafold3": 92.0, "boltz2": 0.88, "chai1": 0.90}[tool]
@@ -1048,7 +1043,7 @@ class TestIntegrationScenarios:
         )
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             # Simulate varying quality predictions
             mock_predict.return_value = make_mock_output(
@@ -1096,7 +1091,7 @@ class TestStructureComposite:
         config = StructureBasedConstraintConfig(structure_tool=tool)
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=plddt, iptm=iptm, ptm=ptm, avg_pae=pae)]
@@ -1110,7 +1105,7 @@ class TestStructureComposite:
         config = StructureBasedConstraintConfig(structure_tool="chai1")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, ptm=0.7, avg_pae=3.0)]  # iptm absent
@@ -1127,7 +1122,7 @@ class TestStructureComposite:
         config = StructureBasedConstraintConfig(structure_tool="alphafold3")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=90.0, iptm=0.8, ptm=0.7, avg_pae=3.175)]
@@ -1157,7 +1152,7 @@ class TestStructureComposite:
         config = StructureBasedConstraintConfig(structure_tool="chai1")
 
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
         ) as mock_predict:
             mock_predict.return_value = make_mock_output(
                 [make_mock_structure(avg_plddt=0.9, iptm=0.8, ptm=0.7, avg_pae=3.0) for _ in range(n)]

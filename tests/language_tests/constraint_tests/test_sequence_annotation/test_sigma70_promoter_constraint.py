@@ -1,10 +1,10 @@
 """tests/language_tests/constraint_tests/test_sequence_annotation/test_sigma70_promoter_constraint.py."""
 
-from proto_language.language.constraint import sigma70_promoter_constraint
-from proto_language.language.constraint.sequence_annotation.sigma70_promoter_constraint import (
+from proto_language.constraint import sigma70_promoter_constraint
+from proto_language.constraint.sequence_annotation.sigma70_promoter_constraint import (
     Sigma70PromoterConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # Tests for sigma70_promoter_constraint

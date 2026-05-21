@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from proto_language.language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
+from proto_language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
     score_morse_signal,
 )
 

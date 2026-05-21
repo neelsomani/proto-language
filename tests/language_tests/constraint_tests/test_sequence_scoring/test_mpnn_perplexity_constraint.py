@@ -7,17 +7,17 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry, InputSlot
-from proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constraint import (
+from proto_language import (
     MpnnPerplexityConfig,
     mpnn_perplexity_constraint,
     mpnn_perplexity_gradient_backward,
 )
-from proto_language.language.core import Sequence
+from proto_language.constraint.constraint_registry import ConstraintRegistry, InputSlot
+from proto_language.core import Sequence
 from proto_language.utils import one_hot_protein_matrix
 from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 
-_TOOL_MODULE = "proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constraint"
+_TOOL_MODULE = "proto_language.constraint.sequence_scoring.mpnn_perplexity_constraint"
 
 
 def _seq_with_logits(logits: np.ndarray) -> Sequence:

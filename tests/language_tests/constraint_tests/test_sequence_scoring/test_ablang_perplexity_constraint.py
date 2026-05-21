@@ -6,17 +6,17 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from proto_language.language.constraint.constraint_registry import ConstraintRegistry, InputSlot
-from proto_language.language.constraint.sequence_scoring.ablang_perplexity_constraint import (
+from proto_language import (
     AbLangPerplexityConfig,
     ablang_perplexity_constraint,
     ablang_perplexity_gradient_backward,
 )
-from proto_language.language.core import Segment, Sequence
-from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
+from proto_language.constraint.constraint_registry import ConstraintRegistry, InputSlot
+from proto_language.core import Segment, Sequence
+from proto_language.core.sequence import PROTEIN_AMINO_ACIDS
 from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 
-_TOOL_MODULE = "proto_language.language.constraint.sequence_scoring.ablang_perplexity_constraint"
+_TOOL_MODULE = "proto_language.constraint.sequence_scoring.ablang_perplexity_constraint"
 _AA_IDX = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
 
 

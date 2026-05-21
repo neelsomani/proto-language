@@ -21,8 +21,9 @@ import numpy as np
 from proto_tools.transforms.masking import MaskingStrategy
 from pydantic import BaseModel
 
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.core import (
+from proto_language import GradientConstraintOutput
+from proto_language.constraint import gc_content_constraint
+from proto_language.core import (
     Constraint,
     ConstraintOutput,
     Construct,
@@ -32,8 +33,7 @@ from proto_language.language.core import (
     Segment,
     Sequence,
 )
-from proto_language.language.core.constraint import GradientConstraintOutput
-from proto_language.language.generator import (
+from proto_language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
     RandomNucleotideGenerator,
@@ -41,7 +41,7 @@ from proto_language.language.generator import (
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     CyclingOptimizer,

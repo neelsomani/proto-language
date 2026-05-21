@@ -7,11 +7,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.constraint.sequence_composition.gc_content_constraint import (
+from proto_language.constraint import gc_content_constraint
+from proto_language.constraint.sequence_composition.gc_content_constraint import (
     GCContentConfig,
 )
-from proto_language.language.core import (
+from proto_language.core import (
     Constraint,
     ConstraintOutput,
     Construct,
@@ -19,7 +19,7 @@ from proto_language.language.core import (
     GeneratorInputType,
     Segment,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
     BeamState,
@@ -692,7 +692,7 @@ class TestBeamSearchOptimizerGPU:
     """GPU-dependent integration tests."""
 
     def test_with_evo2_generator(self):
-        from proto_language.language.generator import (
+        from proto_language.generator import (
             Evo2Generator,
             Evo2GeneratorConfig,
         )

@@ -29,7 +29,7 @@ Generator.sample()
 
 ## Config Class Template
 
-File: `proto_language/language/generator/{name}_generator.py`
+File: `proto_language/generator/{name}_generator.py`
 
 ```python
 import logging
@@ -38,8 +38,8 @@ from typing import final
 from pydantic import field_validator, model_validator
 
 from proto_language.utils.base import BaseConfig, ConfigField
-from proto_language.language.core import Generator, GeneratorInputType, Segment
-from proto_language.language.generator.generator_registry import generator
+from proto_language.core import Generator, GeneratorInputType, Segment
+from proto_language.generator.generator_registry import generator
 
 logger = logging.getLogger(__name__)
 

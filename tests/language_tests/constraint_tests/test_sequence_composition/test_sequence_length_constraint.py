@@ -2,11 +2,11 @@
 
 import pytest
 
-from proto_language.language.constraint import sequence_length_constraint
-from proto_language.language.constraint.sequence_composition.sequence_length_constraint import (
+from proto_language.constraint import sequence_length_constraint
+from proto_language.constraint.sequence_composition.sequence_length_constraint import (
     SequenceLengthConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # Tests for sequence_length_constraint

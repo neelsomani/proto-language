@@ -32,7 +32,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from proto_language.language.core import ConstraintOutput
+from proto_language.core import ConstraintOutput
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -353,7 +353,13 @@ def build_program(
     """
     from proto_tools import CrisprTracrRNAConfig, MincedConfig, PyHmmsearchConfig
 
-    from proto_language.language.constraint import (
+    from proto_language import (
+        Evo1Generator,
+        Evo1GeneratorConfig,
+        RejectionSamplingOptimizer,
+        RejectionSamplingOptimizerConfig,
+    )
+    from proto_language.constraint import (
         crispr_array_constraint,
         crispr_tracr_rna_constraint,
         longest_orf_length_constraint,
@@ -361,29 +367,21 @@ def build_program(
         protein_nearest_neighbor_gap_gini_constraint,
         protein_profile_hmm_constraint,
     )
-    from proto_language.language.constraint.protein_quality.protein_max_identity_constraint import (
+    from proto_language.constraint.protein_quality.protein_max_identity_constraint import (
         ProteinMaxIdentityConfig,
     )
-    from proto_language.language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint import (
+    from proto_language.constraint.protein_quality.protein_nearest_neighbor_gap_gini_constraint import (
         ProteinNearestNeighborGapGiniConfig,
     )
-    from proto_language.language.constraint.protein_quality.protein_profile_hmm_constraint import (
+    from proto_language.constraint.protein_quality.protein_profile_hmm_constraint import (
         ProteinProfileHMMConfig,
     )
-    from proto_language.language.constraint.sequence_annotation.crispr_array_constraint import CrisprArrayConfig
-    from proto_language.language.constraint.sequence_annotation.orf_length_constraint import LongestOrfLengthConfig
-    from proto_language.language.constraint.sequence_annotation.tracr_rna_constraint import (
+    from proto_language.constraint.sequence_annotation.crispr_array_constraint import CrisprArrayConfig
+    from proto_language.constraint.sequence_annotation.orf_length_constraint import LongestOrfLengthConfig
+    from proto_language.constraint.sequence_annotation.tracr_rna_constraint import (
         CrisprTracrRNAConstraintConfig,
     )
-    from proto_language.language.core import Constraint, Construct, Program, Segment
-    from proto_language.language.generator.evo1_generator import (
-        Evo1Generator,
-        Evo1GeneratorConfig,
-    )
-    from proto_language.language.optimizer.rejection_sampling_optimizer import (
-        RejectionSamplingOptimizer,
-        RejectionSamplingOptimizerConfig,
-    )
+    from proto_language.core import Constraint, Construct, Program, Segment
 
     # Segment: DNA sequence of length NUM_TOKENS (Evo1 output length)
     # prepend_prompt=False means max_new_tokens = segment.sequence_length

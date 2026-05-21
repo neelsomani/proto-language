@@ -9,10 +9,10 @@ import pytest
 from proto_tools import Structure
 from pydantic import BaseModel
 
-from proto_language.language.core import Constraint, ConstraintOutput, Construct, Program, Segment
-from proto_language.language.core.constraint import GradientConstraintOutput
-from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
-from proto_language.language.generator import (
+from proto_language import GradientConstraintOutput
+from proto_language.core import Constraint, ConstraintOutput, Construct, Program, Segment
+from proto_language.core.sequence import PROTEIN_AMINO_ACIDS
+from proto_language.generator import (
     PositionWeightGenerator,
     PositionWeightGeneratorConfig,
     RandomProteinGenerator,
@@ -20,7 +20,7 @@ from proto_language.language.generator import (
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     ConstraintWeightSchedule,
     GradientOptimizer,
     GradientOptimizerConfig,
@@ -133,13 +133,11 @@ def _make_optimizer(
 
 
 def _af2_multimer_confidence_problem() -> tuple[Segment, Segment, Construct, list[Constraint]]:
-    from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-        structure_ipae_constraint,
-        structure_plddt_constraint,
-    )
-    from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+    from proto_language import (
         AlphaFold2MultimerStructureConfig,
         StructureBasedConstraintConfig,
+        structure_ipae_constraint,
+        structure_plddt_constraint,
     )
     from tests.helpers.mock_structure import PDL1_PDB
 
@@ -174,13 +172,7 @@ def _af2_multimer_confidence_problem() -> tuple[Segment, Segment, Construct, lis
 
 
 def _esmfold_confidence_problem() -> tuple[Segment, Construct, list[Constraint]]:
-    from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-        structure_plddt_constraint,
-        structure_ptm_constraint,
-    )
-    from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-        StructureBasedConstraintConfig,
-    )
+    from proto_language import StructureBasedConstraintConfig, structure_plddt_constraint, structure_ptm_constraint
 
     binder = Segment(sequence="EVQLV", sequence_type="protein", label="binder")
     construct = Construct([binder])
@@ -205,10 +197,7 @@ def _esmfold_confidence_problem() -> tuple[Segment, Construct, list[Constraint]]
 
 
 def _malinois_activity_problem() -> tuple[Segment, Construct, list[Constraint]]:
-    from proto_language.language.constraint.sequence_annotation.malinois_activity_constraint import (
-        MalinoisActivityConfig,
-        malinois_activity_constraint,
-    )
+    from proto_language import MalinoisActivityConfig, malinois_activity_constraint
 
     enhancer = Segment(sequence="ACGT" * 50, sequence_type="dna", label="enhancer")
     construct = Construct([enhancer])
@@ -268,7 +257,7 @@ class TestInitLogitsTemplateSoft:
     """Tests for the initial_logits + softmax_init_positions initialization path."""
 
     def test_softmax_positions_are_probabilities_and_framework_is_template(self) -> None:
-        from proto_language.language.optimizer.gradient_optimizer import _init_logits
+        from proto_language.optimizer.gradient_optimizer import _init_logits
 
         base = np.eye(5, 20, dtype=np.float64)
         original = base.copy()
@@ -282,7 +271,7 @@ class TestInitLogitsTemplateSoft:
             np.testing.assert_array_equal(result[pos], base[pos])
 
     def test_backward_compat_none(self) -> None:
-        from proto_language.language.optimizer.gradient_optimizer import _init_logits
+        from proto_language.optimizer.gradient_optimizer import _init_logits
 
         rng1, rng2 = np.random.default_rng(99), np.random.default_rng(99)
         np.testing.assert_array_equal(
@@ -640,9 +629,7 @@ class TestCompiledConstraints:
             structure=Structure(structure=PDL1_PDB.read_text(), structure_format="pdb"),
         )
 
-        with patch(
-            "proto_language.language.optimizer.constraint_compiler.esmfold_provider.run_esmfold_gradient"
-        ) as mock_esm:
+        with patch("proto_language.optimizer.constraint_compiler.esmfold_provider.run_esmfold_gradient") as mock_esm:
             mock_esm.return_value = output
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
             generator.assign(binder)
@@ -669,7 +656,7 @@ class TestCompiledConstraints:
         assert {"esmfold_plddt", "esmfold_ptm"}.issubset(metadata)
 
     def test_groups_esmfold_scoring_terms_into_one_prediction_call(self) -> None:
-        from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
         from tests.helpers.mock_structure import PDL1_PDB
 
         binder, _construct, constraints = _esmfold_confidence_problem()
@@ -679,9 +666,7 @@ class TestCompiledConstraints:
             metrics={"avg_plddt": 0.8, "ptm": 0.4, "avg_pae": 6.0},
         )
 
-        with patch(
-            "proto_language.language.optimizer.constraint_compiler.esmfold_provider.predict_structures"
-        ) as mock_esm:
+        with patch("proto_language.optimizer.constraint_compiler.esmfold_provider.predict_structures") as mock_esm:
             mock_esm.return_value = SimpleNamespace(structures=[structure])
             scores = evaluate_scoring_constraints(constraints, mask=[True])
 
@@ -694,7 +679,7 @@ class TestCompiledConstraints:
 
     @pytest.mark.parametrize(("mode", "tool_loss"), [("gradient", 1.25), ("scoring", 0.672354)])
     def test_groups_malinois_cell_type_terms_into_one_tool_call(self, mode: str, tool_loss: float) -> None:
-        from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
 
         enhancer, construct, constraints = _malinois_activity_problem()
         if mode == "scoring":
@@ -712,7 +697,7 @@ class TestCompiledConstraints:
                 seq_length=200,
             )
             with patch(
-                "proto_language.language.optimizer.constraint_compiler.malinois_provider.run_malinois_score",
+                "proto_language.optimizer.constraint_compiler.malinois_provider.run_malinois_score",
                 return_value=score_output,
             ) as mock_malinois:
                 scores = evaluate_scoring_constraints(constraints, mask=[True])
@@ -758,7 +743,7 @@ class TestCompiledConstraints:
                 vocab=["A", "C", "G", "T"],
             )
             with patch(
-                "proto_language.language.optimizer.constraint_compiler.malinois_provider.run_malinois_gradient",
+                "proto_language.optimizer.constraint_compiler.malinois_provider.run_malinois_gradient",
                 return_value=gradient_output,
             ) as mock_malinois:
                 generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -798,7 +783,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.language.optimizer.constraint_compiler.esmfold_provider.run_esmfold_gradient",
+            "proto_language.optimizer.constraint_compiler.esmfold_provider.run_esmfold_gradient",
             return_value=failed_output,
         ):
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -814,12 +799,7 @@ class TestCompiledConstraints:
                 opt.run()
 
     def test_rejects_esmfold_interface_metric_gradient(self) -> None:
-        from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-            structure_iptm_constraint,
-        )
-        from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-            StructureBasedConstraintConfig,
-        )
+        from proto_language import StructureBasedConstraintConfig, structure_iptm_constraint
 
         binder = Segment(sequence="EVQLV", sequence_type="protein", label="binder")
         constraint = Constraint(
@@ -839,7 +819,7 @@ class TestCompiledConstraints:
 
     @pytest.mark.parametrize(("mode", "tool_loss"), [("gradient", 3.0), ("scoring", 4.0)])
     def test_groups_af2_structure_terms_into_one_tool_call(self, mode: str, tool_loss: float) -> None:
-        from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
         from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
         from tests.helpers.mock_structure import PDL1_PDB
 
@@ -855,7 +835,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder"
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder"
         ) as mock_af2:
             mock_af2.return_value = output
             if mode == "gradient":
@@ -890,10 +870,8 @@ class TestCompiledConstraints:
 
     @pytest.mark.parametrize("mode", ["gradient", "scoring"])
     def test_groups_af2_structure_terms_with_equivalent_target_pdb_files(self, tmp_path, mode: str) -> None:
-        from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-            StructureBasedConstraintConfig,
-        )
-        from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from proto_language import StructureBasedConstraintConfig
+        from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
         from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
         from tests.helpers.mock_structure import PDL1_PDB
 
@@ -929,7 +907,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
             return_value=output,
         ) as mock_af2:
             if mode == "gradient":
@@ -955,10 +933,8 @@ class TestCompiledConstraints:
         }
 
     def test_af2_group_key_separates_different_target_pdb_files(self, tmp_path) -> None:
-        from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-            StructureBasedConstraintConfig,
-        )
-        from proto_language.language.optimizer.constraint_compiler import alphafold2_multimer_provider as af2m
+        from proto_language import StructureBasedConstraintConfig
+        from proto_language.optimizer.constraint_compiler import alphafold2_multimer_provider as af2m
         from tests.helpers.mock_structure import PDL1_PDB
 
         _binder, _target, _construct, constraints = _af2_multimer_confidence_problem()
@@ -988,7 +964,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
             return_value=output,
         ) as mock_af2:
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -1021,7 +997,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
             return_value=failed_output,
         ):
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -1038,7 +1014,7 @@ class TestCompiledConstraints:
 
     def test_scoring_compiler_evaluates_non_af2_dict_config_directly(self) -> None:
         """Non-AF2 constraints with dict configs should not be parsed as structure configs."""
-        from proto_language.language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
 
         seg = Segment(sequence="AA", sequence_type="protein")
         constraint = Constraint(inputs=[seg], function=_scorer, function_config={"unused": True}, label="plain")
@@ -1051,14 +1027,12 @@ class TestCompiledConstraints:
         """Compiler probes can be lenient, while execution paths preserve validation errors."""
         from pydantic import ValidationError
 
-        from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-            structure_plddt_constraint,
-        )
-        from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+        from proto_language import (
             AlphaFold2MultimerStructureConfig,
             StructureBasedConstraintConfig,
+            structure_plddt_constraint,
         )
-        from proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider import (
+        from proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider import (
             config_for_constraint,
         )
 
@@ -1083,10 +1057,10 @@ class TestCompiledConstraints:
             config_for_constraint(constraint, strict=True)
 
     def test_af2_term_score_missing_metric_warns_and_falls_back(self, caplog: pytest.LogCaptureFixture) -> None:
-        from proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider import _term_score
+        from proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider import _term_score
 
         with caplog.at_level(
-            "WARNING", logger="proto_language.language.optimizer.constraint_compiler.alphafold2_multimer_provider"
+            "WARNING", logger="proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider"
         ):
             score = _term_score({"iptm": 0.8}, "plddt", 4.0)
 
@@ -1106,12 +1080,10 @@ class TestCompiledConstraints:
             )
 
     def test_rejects_af2_ptm_gradient_even_though_forward_is_supported(self) -> None:
-        from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-            structure_ptm_constraint,
-        )
-        from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+        from proto_language import (
             AlphaFold2MultimerStructureConfig,
             StructureBasedConstraintConfig,
+            structure_ptm_constraint,
         )
         from tests.helpers.mock_structure import PDL1_PDB
 
@@ -1333,10 +1305,7 @@ class TestExport:
 
 
 def _ablang_constraint(seg: Segment, label: str = "ablang") -> Constraint:
-    from proto_language.language.constraint.sequence_scoring.ablang_perplexity_constraint import (
-        AbLangPerplexityConfig,
-        ablang_perplexity_gradient_backward,
-    )
+    from proto_language import AbLangPerplexityConfig, ablang_perplexity_gradient_backward
 
     return Constraint(
         inputs=[seg],
@@ -1347,7 +1316,7 @@ def _ablang_constraint(seg: Segment, label: str = "ablang") -> Constraint:
 
 
 def _mpnn_constraint(seg: Segment, structure_pdb: str, label: str = "mpnn") -> Constraint:
-    from proto_language.language.constraint.constraint_registry import ConstraintRegistry
+    from proto_language import ConstraintRegistry
 
     return ConstraintRegistry.create(
         key="mpnn-perplexity",
@@ -1365,12 +1334,10 @@ def _mpnn_constraint(seg: Segment, structure_pdb: str, label: str = "mpnn") -> C
 def _af2_constraint(
     binder: Segment, target: Segment, label: str = "af2", function: Callable | None = None
 ) -> Constraint:
-    from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-        structure_plddt_constraint,
-    )
-    from proto_language.language.constraint.protein_structure.structure_constraint_config import (
+    from proto_language import (
         AlphaFold2MultimerStructureConfig,
         StructureBasedConstraintConfig,
+        structure_plddt_constraint,
     )
     from tests.helpers.mock_structure import PDL1_PDB
 
@@ -1394,12 +1361,7 @@ def _af2_constraint(
 def _esmfold_constraint(binder: Segment, label: str = "esmfold", function: Callable | None = None) -> Constraint:
     from proto_tools import ESMFoldConfig
 
-    from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-        structure_plddt_constraint,
-    )
-    from proto_language.language.constraint.protein_structure.structure_constraint_config import (
-        StructureBasedConstraintConfig,
-    )
+    from proto_language import StructureBasedConstraintConfig, structure_plddt_constraint
 
     return Constraint(
         inputs=[binder],
@@ -1483,9 +1445,7 @@ class TestGradientOptimizerGPU:
 
     def test_af2_multimer_grouped_confidence_terms_end_to_end(self) -> None:
         """Real AF2 multimer run with grouped pLDDT+iPAE compiler objectives."""
-        from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-            structure_ipae_constraint,
-        )
+        from proto_language import structure_ipae_constraint
 
         binder = Segment(length=10, sequence_type="protein", label="binder")
         target = _target_segment()
@@ -1514,9 +1474,7 @@ class TestGradientOptimizerGPU:
 
     def test_esmfold_grouped_confidence_terms_end_to_end(self) -> None:
         """Real ESMFold run with grouped pLDDT+pTM compiler objectives."""
-        from proto_language.language.constraint.protein_structure.structure_confidence_constraint import (
-            structure_ptm_constraint,
-        )
+        from proto_language import structure_ptm_constraint
 
         binder = Segment(length=6, sequence_type="protein", label="binder")
         construct = Construct([binder])

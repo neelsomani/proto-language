@@ -215,10 +215,10 @@ from proto_language import (
     Constraint, Construct, GradientOptimizer, GradientOptimizerConfig,
     Program, Segment,
 )
-from proto_language.language.constraint.differentiable import af2_binder_backward, ablang_naturalness_gradient_backward
-from proto_language.language.constraint.differentiable.af2_binder_constraint import AF2BinderConstraintConfig
-from proto_language.language.constraint.differentiable.ablang_naturalness_constraint import AbLangConstraintConfig
-from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
+from proto_language.constraint.differentiable import af2_binder_backward, ablang_naturalness_gradient_backward
+from proto_language.constraint.differentiable.af2_binder_constraint import AF2BinderConstraintConfig
+from proto_language.constraint.differentiable.ablang_naturalness_constraint import AbLangConstraintConfig
+from proto_language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
 
 # Target template lives on the AF2 config (not on the target Segment's .structure slot).
 # After each AF2 call, binder.structure and target.structure hold each segment's own

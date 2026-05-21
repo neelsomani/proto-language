@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from proto_tools import ORF, OrfipyConfig, OrfipyInput, run_orfipy_prediction
 
 if TYPE_CHECKING:
-    from proto_language.language.core import Sequence
+    from proto_language.core import Sequence
 
 CANONICAL_START_CODONS = ["ATG"]
 CANONICAL_STOP_CODONS = ["TAA", "TAG", "TGA"]

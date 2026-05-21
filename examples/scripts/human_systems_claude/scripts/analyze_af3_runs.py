@@ -15,8 +15,7 @@ _NA_MAP = {"DA": "A", "DT": "T", "DG": "G", "DC": "C", "DI": "I", "A": "A", "U":
 
 
 def scan_pdb_for_nucleic_acids(pdb_path: Path) -> dict[str, Any]:
-    """
-    Scans a PDB file for DNA/RNA residues and extracts their sequences.
+    """Scans a PDB file for DNA/RNA residues and extracts their sequences.
     Robustness features:
       - Reads only the first MODEL (avoids duplicating sequences in NMR files).
       - Handles HETATM and ATOM records.

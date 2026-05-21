@@ -8,9 +8,9 @@ import pytest
 from proto_tools import BaseToolInput, BaseToolOutput, ToolRegistry
 from proto_tools.utils import BaseConfig as ToolsBaseConfig
 
-from proto_language.language.constraint import ConstraintRegistry
-from proto_language.language.generator import GeneratorRegistry
-from proto_language.language.optimizer import OptimizerRegistry
+from proto_language.constraint import ConstraintRegistry
+from proto_language.generator import GeneratorRegistry
+from proto_language.optimizer import OptimizerRegistry
 from proto_language.utils.base import BaseConfig as LanguageBaseConfig
 
 # Defines the maximum length of a field title in characters

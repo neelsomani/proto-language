@@ -1,16 +1,16 @@
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.core import (
+from proto_language.constraint import gc_content_constraint
+from proto_language.core import (
     Constraint,
     Construct,
     Program,
     Segment,
     Sequence,
 )
-from proto_language.language.generator import (
+from proto_language.generator import (
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
-from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from proto_language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
 # Construct Segment
 seq1 = Segment(length=20, sequence_type="dna")

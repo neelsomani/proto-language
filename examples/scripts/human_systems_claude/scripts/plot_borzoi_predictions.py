@@ -1,5 +1,4 @@
-"""
-Plot Borzoi predictions across all 4 replicates for a designed DNA sequence.
+"""Plot Borzoi predictions across all 4 replicates for a designed DNA sequence.
 
 This script takes a designed DNA sequence (e.g., from the CREB design program),
 embeds it in genomic flanking context, runs Borzoi predictions across all 4
@@ -84,8 +83,7 @@ def embed_sequence_in_context(
     left_flank_seq: str,
     right_flank_seq: str,
 ) -> str:
-    """
-    Embed a designed sequence in flanking genomic context to create
+    """Embed a designed sequence in flanking genomic context to create
     a full Borzoi input of exactly BORZOI_CONTEXT bp.
 
     Args:
@@ -119,8 +117,7 @@ def embed_sequence_in_context(
 
 
 def get_output_tracks(track_pattern: str, targets_file: str = BORZOI_HUMAN_TARGETS) -> list[int]:
-    """
-    Get Borzoi output track indices matching a pattern.
+    """Get Borzoi output track indices matching a pattern.
 
     Args:
         track_pattern: Pattern to match in track descriptions (e.g., 'CHIP:CREB1:HepG2')
@@ -142,8 +139,7 @@ def run_all_replicates(
     avg_tracks: bool = True,
     verbose: bool = True,
 ) -> np.ndarray:
-    """
-    Run Borzoi prediction across all 4 replicates.
+    """Run Borzoi prediction across all 4 replicates.
 
     Args:
         full_sequence: Full BORZOI_CONTEXT length sequence
@@ -178,8 +174,7 @@ def run_all_replicates(
 def compute_design_region_mask(
     design_len: int,
 ) -> tuple[np.ndarray, int, int]:
-    """
-    Compute which output bins correspond to the designed region.
+    """Compute which output bins correspond to the designed region.
 
     Args:
         design_len: Length of the designed sequence
@@ -229,8 +224,7 @@ def plot_borzoi_predictions(
     highlight_design: bool = True,
     zoom_window_bp: int | None = None,
 ):
-    """
-    Plot Borzoi predictions from all 4 replicates.
+    """Plot Borzoi predictions from all 4 replicates.
 
     Args:
         predictions: Array of shape (4, BORZOI_OUTPUT) with replicate predictions

@@ -145,7 +145,7 @@ def add_custom_constraints(gene_id_to_segment: Dict[str, Segment]) -> List[Const
     constraints = []
 
     # Example: conservation constraint
-    from proto_language.language.constraint import residue_constraint
+    from proto_language.constraint import residue_constraint
     constraints.append(Constraint(
         inputs=[gene_id_to_segment['ORC1']],
         function=residue_constraint,

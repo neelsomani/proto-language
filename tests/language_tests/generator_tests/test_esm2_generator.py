@@ -5,8 +5,8 @@ import copy
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import ESM2Generator, ESM2GeneratorConfig
+from proto_language.core import Segment
+from proto_language.generator import ESM2Generator, ESM2GeneratorConfig
 
 
 @pytest.mark.uses_gpu

@@ -8,14 +8,14 @@ import pytest
 from proto_tools import InverseFoldingStructureInput, Structure
 from pydantic import BaseModel, ValidationError
 
-from proto_language.language.core import Constraint, ConstraintOutput, Construct, Segment, Sequence
-from proto_language.language.generator import (
+from proto_language.core import Constraint, ConstraintOutput, Construct, Segment, Sequence
+from proto_language.generator import (
     LigandMPNNGenerator,
     LigandMPNNGeneratorConfig,
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
 )
-from proto_language.language.optimizer import CyclingOptimizer, CyclingOptimizerConfig
+from proto_language.optimizer import CyclingOptimizer, CyclingOptimizerConfig
 
 # =============================================================================
 # Helpers
@@ -123,7 +123,7 @@ class TestCyclingOptimizerConfig:
 
     def test_protein_hunter_rejects_alphafold2(self):
         """AF2 is deterministic in our codepath; keep it out of cycling pipelines."""
-        from proto_language.language.optimizer.cycling_optimizer import ProteinHunterPipelineConfig
+        from proto_language.optimizer.cycling_optimizer import ProteinHunterPipelineConfig
 
         with pytest.raises(ValidationError):
             ProteinHunterPipelineConfig(structure_tool="alphafold2")
@@ -999,7 +999,7 @@ class TestCyclingOptimizerPipelineResolution:
 
     def test_protein_hunter_requires_inverse_folding_generator(self):
         """Test that protein-hunter pipeline requires inverse_folding generator."""
-        from proto_language.language.generator import (
+        from proto_language.generator import (
             ESM2Generator,
             ESM2GeneratorConfig,
         )
@@ -1072,7 +1072,7 @@ class TestCyclingOptimizerPipelineResolution:
         via decorator-level unroll. The cycling code is responsible only for
         sending one deterministic seed per cycle when the optimizer is seeded.
         """
-        from proto_language.language.optimizer import cycling_optimizer as co
+        from proto_language.optimizer import cycling_optimizer as co
 
         captured: list[dict[str, Any]] = []
 
@@ -1112,7 +1112,7 @@ class TestCyclingOptimizerPipelineResolution:
         override calls into the closure's ``_reset_seed_state`` hook so the second run's
         per-cycle Boltz2 (etc.) seed matches the first.
         """
-        from proto_language.language.optimizer import cycling_optimizer as co
+        from proto_language.optimizer import cycling_optimizer as co
 
         captured_seeds: list[int | None] = []
 

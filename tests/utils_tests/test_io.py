@@ -1390,7 +1390,7 @@ def test_build_results_includes_generator_metadata():
     """build_results emits a 'generators' key per segment, parallel to 'constraints'."""
     from unittest.mock import MagicMock
 
-    from proto_language.language.core import Construct, Segment, Sequence
+    from proto_language.core import Construct, Segment, Sequence
     from proto_language.utils.io import build_results, flatten_sequences
 
     seq = Sequence("ACGT", sequence_type="dna")
@@ -1422,7 +1422,7 @@ def test_build_results_filters_inf_nan_in_metadata():
 
     import numpy as np
 
-    from proto_language.language.core import Construct, Segment, Sequence
+    from proto_language.core import Construct, Segment, Sequence
     from proto_language.utils.io import build_results
 
     seq = Sequence("ACGT", sequence_type="dna")
@@ -1522,7 +1522,7 @@ def test_build_results_carries_structure_and_logits_only_when_set():
 
     import numpy as np
 
-    from proto_language.language.core import Construct, Segment, Sequence
+    from proto_language.core import Construct, Segment, Sequence
     from proto_language.utils.io import (
         build_results,
         flatten_constraints,
@@ -1578,7 +1578,7 @@ class TestBuildProposalResults:
         """Helper to create mock constructs with proposal_sequences."""
         from unittest.mock import MagicMock
 
-        from proto_language.language.core import Construct, Segment, Sequence
+        from proto_language.core import Construct, Segment, Sequence
 
         segment = MagicMock(spec=Segment)
         segment.label = "promoter"
@@ -1652,7 +1652,7 @@ class TestBuildProposalResults:
 
         import numpy as np
 
-        from proto_language.language.core import Construct, Segment, Sequence
+        from proto_language.core import Construct, Segment, Sequence
         from tests.helpers.mock_structure import MockStructure
 
         struct = MockStructure()
@@ -1679,7 +1679,7 @@ class TestBuildProposalResults:
         """Constraint metadata written to rejected proposals is exported."""
         from unittest.mock import MagicMock
 
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
 
         seq = Sequence("ATCG", sequence_type="dna")
         seq._constraints_metadata = {

@@ -1,5 +1,4 @@
-"""
-Usage: pull_database_hits.py input_fasta output_dir --database-path mmseqs_db
+"""Usage: pull_database_hits.py input_fasta output_dir --database-path mmseqs_db
 
 Save all of the near-length sequences in an input UniProt FASTA retrieved from an
 mmseqs database.
@@ -17,8 +16,7 @@ TMP_DIR = "./mmseqs_tmp"
 
 
 def run_pipeline(sequences: list[str], uniprot_ids: list[str], output_dir: str) -> None:
-    """
-    Iterates over a list of sequences, queries UniRef50 locally,
+    """Iterates over a list of sequences, queries UniRef50 locally,
     filters by length (10%), and saves individual FASTA files.
     """
     if len(sequences) != len(uniprot_ids):

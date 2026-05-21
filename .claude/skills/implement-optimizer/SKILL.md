@@ -20,15 +20,15 @@ allowed-tools:
 ## Before You Start
 
 1. **Read the registry** to see all existing optimizers:
-   - `proto_language/language/optimizer/__init__.py`
+   - `proto_language/optimizer/__init__.py`
 2. **Find a similar implementation** by type:
-   - Iterative (MCMC): `proto_language/language/optimizer/mcmc_optimizer.py`
-   - Batch (greedy): `proto_language/language/optimizer/rejection_sampling_optimizer.py`
-   - Autoregressive (beam): `proto_language/language/optimizer/beam_search_optimizer.py`
-   - Cycling: `proto_language/language/optimizer/cycling_optimizer.py`
-   - Gradient-based: `proto_language/language/optimizer/gradient_optimizer.py`
-3. **Read the base class**: `proto_language/language/core/optimizer.py`
-4. **Read the decorator/registry**: `proto_language/language/optimizer/optimizer_registry.py`
+   - Iterative (MCMC): `proto_language/optimizer/mcmc_optimizer.py`
+   - Batch (greedy): `proto_language/optimizer/rejection_sampling_optimizer.py`
+   - Autoregressive (beam): `proto_language/optimizer/beam_search_optimizer.py`
+   - Cycling: `proto_language/optimizer/cycling_optimizer.py`
+   - Gradient-based: `proto_language/optimizer/gradient_optimizer.py`
+3. **Read the base class**: `proto_language/core/optimizer.py`
+4. **Read the decorator/registry**: `proto_language/optimizer/optimizer_registry.py`
 
 ## Optimizer ABC Contract (Summary)
 
@@ -119,7 +119,7 @@ If your optimizer only works with one segment (like BeamSearch or Cycling):
 
 ## Export Chain
 
-Add to `proto_language/language/optimizer/__init__.py`:
+Add to `proto_language/optimizer/__init__.py`:
 
 ```python
 from .my_optimizer import MyOptimizer, MyOptimizerConfig
@@ -163,7 +163,7 @@ Copy this and check off as you go:
 - [ ] Export chain updated: `optimizer/__init__.py`
 - [ ] Tests cover: init, config validation, run, score improvement, history, filter constraints
 - [ ] Tests pass: `pytest tests/language_tests/optimizer_tests/ --cpu -x`
-- [ ] Lint passes: `ruff check proto_language/language/optimizer/`
-- [ ] Type check passes: `mypy proto_language/language/optimizer/`
+- [ ] Lint passes: `ruff check proto_language/optimizer/`
+- [ ] Type check passes: `mypy proto_language/optimizer/`
 
 If any check fails, fix before proceeding.

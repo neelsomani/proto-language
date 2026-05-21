@@ -1,5 +1,4 @@
-"""
-Usage: python examples/scripts/human_systems_claude/scripts/mmseqs_nr_search.py \
+"""Usage: python examples/scripts/human_systems_claude/scripts/mmseqs_nr_search.py \
            input.tsv --db /path/to/nr_db --output results.tsv
 
 Sensitive MMseqs2 search against nr database for protein complexes and corresponding
@@ -61,8 +60,7 @@ def run_mmseqs_search(
     tmp_dir: str = None,
     split_memory_limit: str = "160G",
 ) -> pd.DataFrame:
-    """
-    Run highly sensitive MMseqs2 search against nr.
+    """Run highly sensitive MMseqs2 search against nr.
 
     Args:
         input_fasta: Path to input FASTA file
@@ -142,8 +140,7 @@ def run_mmseqs_search(
 
 
 def get_best_hit_per_query(df: pd.DataFrame) -> dict[str, MMseqsHit]:
-    """
-    Get the best hit (by coverage * identity score) for each query.
+    """Get the best hit (by coverage * identity score) for each query.
 
     Returns:
         Dictionary mapping query_id to best MMseqsHit
@@ -189,8 +186,7 @@ def process_complexes(
     iterations: int = 3,
     tmp_dir: str = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Process all complexes in the input TSV.
+    """Process all complexes in the input TSV.
 
     Args:
         input_tsv: Input TSV with sequences column
@@ -329,8 +325,7 @@ def mm_to_inches(mm: float) -> float:
 
 
 def plot_mmseqs_novelty(results_df: pd.DataFrame, output_path: Path, title: str = None):
-    """
-    Plot MMseqs2 results in the style of the reference figure:
+    """Plot MMseqs2 results in the style of the reference figure:
     x = % Sequence identity, y = % Query coverage, color = log10(E-value)
 
     Args:
@@ -421,8 +416,7 @@ def plot_mmseqs_novelty(results_df: pd.DataFrame, output_path: Path, title: str 
 
 
 def plot_correlations(df: pd.DataFrame, output_dir: str, all_hits_df: pd.DataFrame = None):
-    """
-    Create scatter plots of weighted score vs AF3 confidence metrics.
+    """Create scatter plots of weighted score vs AF3 confidence metrics.
 
     Args:
         df: DataFrame with mmseqs_weighted_score and AF3 metrics

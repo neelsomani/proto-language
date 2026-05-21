@@ -1,5 +1,4 @@
-"""
-Usage: python examples/bin/extract_creb_peak_context.py --output_dir peak_output
+"""Usage: python examples/bin/extract_creb_peak_context.py --output_dir peak_output
 
 Extract Borzoi-length context flanks around the highest activity peak.
 
@@ -24,8 +23,7 @@ def reverse_complement(seq: str) -> str:
 
 
 def load_creb_peaks(creb_peak_file: str) -> pd.DataFrame:
-    """
-    Load CREB peaks from a BED file (supports gzipped files).
+    """Load CREB peaks from a BED file (supports gzipped files).
 
     Args:
         creb_peak_file: Path to the CREB peaks BED file
@@ -62,8 +60,7 @@ def load_creb_peaks(creb_peak_file: str) -> pd.DataFrame:
 
 
 def get_max_activity_peak(creb_peaks: pd.DataFrame) -> pd.Series:
-    """
-    Get the peak with maximum activity (signalValue).
+    """Get the peak with maximum activity (signalValue).
 
     Ignore the mitochondrial chromosome.
 
@@ -80,8 +77,7 @@ def get_max_activity_peak(creb_peaks: pd.DataFrame) -> pd.Series:
 def extract_flanking_sequences(
     chrom: str, start: int, end: int, strand: str, hg38: Fasta, flank_length: int = FLANK_LENGTH
 ) -> tuple[str, str]:
-    """
-    Extract flanking sequences to the left and right of a peak.
+    """Extract flanking sequences to the left and right of a peak.
 
     Args:
         chrom: Chromosome name
@@ -135,8 +131,7 @@ def extract_flanking_sequences(
 def main(
     creb_peak_file: str = DEFAULT_CREB_PEAK_FILE, hg38_ref_file: str = HG38_REF_FILE, output_dir: str | None = None
 ) -> dict[str, dict | str]:
-    """
-    Main function to extract flanking sequences around max activity peak.
+    """Main function to extract flanking sequences around max activity peak.
 
     Args:
         creb_peak_file: Path to CREB peaks BED file

@@ -6,15 +6,15 @@ from unittest.mock import patch
 
 import pytest
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     structure_rmsd_constraint,
     structure_tmscore_constraint,
 )
-from proto_language.language.constraint.protein_structure.structure_similarity_constraint import (
+from proto_language.constraint.protein_structure.structure_similarity_constraint import (
     StructureRMSDConfig,
     StructureTMScoreConfig,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 from tests.helpers.mock_structure import MockStructure
 
 CRO_SEQ = "MRKKLDLKKFVEDKNQEYAARALGLSQKLIEEVLKRGLPVYVETNKDGNIKVYITQDGITQPFPP"
@@ -150,15 +150,13 @@ class TestStructureRMSDToolRouting:
     def test_pymol_alignment_method_passed_to_tool(self):
         with (
             patch(
-                "proto_language.language.constraint.protein_structure."
-                "structure_similarity_constraint._prepare_target_structure"
+                "proto_language.constraint.protein_structure.structure_similarity_constraint._prepare_target_structure"
             ) as mock_target,
             patch(
-                "proto_language.language.constraint.protein_structure.structure_similarity_constraint.predict_structures"
+                "proto_language.constraint.protein_structure.structure_similarity_constraint.predict_structures"
             ) as mock_predict,
             patch(
-                "proto_language.language.constraint.protein_structure."
-                "structure_similarity_constraint.run_pymol_rmsd_alignment"
+                "proto_language.constraint.protein_structure.structure_similarity_constraint.run_pymol_rmsd_alignment"
             ) as mock_pymol,
         ):
             mock_target.return_value = MockStructure().structure_pdb
@@ -188,7 +186,7 @@ class TestESMFoldTMscoreConstraint:
     def mock_predict(self):
         """Mocks the heavy folding function."""
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_similarity_constraint.predict_structures"
+            "proto_language.constraint.protein_structure.structure_similarity_constraint.predict_structures"
         ) as m:
             # Return a valid structure so the code proceeds
             m.return_value = MockResult(structures=[MockStructure()])
@@ -198,7 +196,7 @@ class TestESMFoldTMscoreConstraint:
     def mock_target_prep(self):
         """Mocks target preparation to avoid folding the target."""
         with patch(
-            "proto_language.language.constraint.protein_structure.structure_similarity_constraint._prepare_target_structure"
+            "proto_language.constraint.protein_structure.structure_similarity_constraint._prepare_target_structure"
         ) as m:
             m.return_value = "TARGET_PDB_CONTENT"
             yield m
@@ -206,9 +204,7 @@ class TestESMFoldTMscoreConstraint:
     @pytest.fixture
     def mock_tmalign(self):
         """Mocks the TMalign tool wrapper."""
-        with patch(
-            "proto_language.language.constraint.protein_structure.structure_similarity_constraint.run_tmalign"
-        ) as m:
+        with patch("proto_language.constraint.protein_structure.structure_similarity_constraint.run_tmalign") as m:
             from proto_tools import TMalignMetrics, TMalignOutput
 
             m.return_value = TMalignOutput(

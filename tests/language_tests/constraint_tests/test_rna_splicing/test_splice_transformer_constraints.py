@@ -13,16 +13,16 @@ from proto_tools import CONTEXT_LENGTH as SPLICE_TRANSFORMER_CONTEXT_LENGTH
 from proto_tools import TARGET_LENGTH as SPLICE_TRANSFORMER_TARGET_LENGTH
 from proto_tools import SpliceTransformerConfig
 
-from proto_language.language.constraint import ConstraintRegistry
-from proto_language.language.constraint.rna_splicing.splice_transformer_intron_boundary import (
+from proto_language.constraint import ConstraintRegistry
+from proto_language.constraint.rna_splicing.splice_transformer_intron_boundary import (
     SpliceTransformerIntronBoundaryConfig,
     splice_transformer_intron_boundary,
 )
-from proto_language.language.constraint.rna_splicing.splice_transformer_specificity import (
+from proto_language.constraint.rna_splicing.splice_transformer_specificity import (
     SpliceTransformerSpecificityConfig,
     splice_transformer_specificity,
 )
-from proto_language.language.core import Segment, Sequence
+from proto_language.core import Segment, Sequence
 
 # --- Registration ---
 
@@ -243,7 +243,7 @@ def test_splice_transformer_specificity_batches():
     )
 
     with patch(
-        "proto_language.language.constraint.rna_splicing.splice_transformer_specificity.run_splice_transformer",
+        "proto_language.constraint.rna_splicing.splice_transformer_specificity.run_splice_transformer",
         return_value=SimpleNamespace(prediction=predictions.tolist()),
     ) as mock_run:
         results = splice_transformer_specificity(
@@ -280,7 +280,7 @@ def test_splice_transformer_intron_boundary_batches():
     )
 
     with patch(
-        "proto_language.language.constraint.rna_splicing.splice_transformer_intron_boundary.run_splice_transformer",
+        "proto_language.constraint.rna_splicing.splice_transformer_intron_boundary.run_splice_transformer",
         return_value=SimpleNamespace(prediction=predictions.tolist()),
     ) as mock_run:
         results = splice_transformer_intron_boundary(

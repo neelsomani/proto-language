@@ -5,8 +5,8 @@ import copy
 import pytest
 from proto_tools import MSA
 
-from proto_language.language.core import Segment
-from proto_language.language.generator import MSAGenerator, MSAGeneratorConfig
+from proto_language.core import Segment
+from proto_language.generator import MSAGenerator, MSAGeneratorConfig
 
 
 class TestMSAGeneratorConfig:
@@ -379,7 +379,7 @@ class TestMSAGeneratorRegistry:
 
     def test_registered_in_registry(self):
         """Test that MSAGenerator is registered in GeneratorRegistry."""
-        from proto_language.language.generator import GeneratorRegistry
+        from proto_language.generator import GeneratorRegistry
 
         spec = GeneratorRegistry.get("msa")
         assert spec.key == "msa"
@@ -389,7 +389,7 @@ class TestMSAGeneratorRegistry:
 
     def test_create_from_registry(self):
         """Test creating MSAGenerator via registry."""
-        from proto_language.language.generator import GeneratorRegistry
+        from proto_language.generator import GeneratorRegistry
 
         gen = GeneratorRegistry.create(
             "msa",

@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 from proto_tools import Mmseqs2Hit, Mmseqs2SearchProteinsOutput, Mmseqs2SequenceSearchResult
 
-from proto_language.language.constraint import ConstraintRegistry, protein_max_identity_constraint
-from proto_language.language.constraint.protein_quality.protein_max_identity_constraint import ProteinMaxIdentityConfig
-from proto_language.language.core import Sequence
+from proto_language.constraint import ConstraintRegistry, protein_max_identity_constraint
+from proto_language.constraint.protein_quality.protein_max_identity_constraint import ProteinMaxIdentityConfig
+from proto_language.core import Sequence
 
 
 def _reference_fasta(tmp_path) -> str:
@@ -43,10 +43,10 @@ def test_passes_when_top_hit_identity_is_below_threshold(tmp_path):
 
     with (
         patch(
-            "proto_language.language.constraint.protein_quality.protein_max_identity_constraint.resolve_protein_complex_chains"
+            "proto_language.constraint.protein_quality.protein_max_identity_constraint.resolve_protein_complex_chains"
         ) as mock_resolve,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_max_identity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.protein_quality.protein_max_identity_constraint.run_mmseqs2_search_proteins"
         ) as mock_run,
     ):
         mock_resolve.return_value = [(["MKT"], {"orfipy_orf_count": 1})]
@@ -72,10 +72,10 @@ def test_no_hit_passes_when_configured(tmp_path):
 
     with (
         patch(
-            "proto_language.language.constraint.protein_quality.protein_max_identity_constraint.resolve_protein_complex_chains"
+            "proto_language.constraint.protein_quality.protein_max_identity_constraint.resolve_protein_complex_chains"
         ) as mock_resolve,
         patch(
-            "proto_language.language.constraint.protein_quality.protein_max_identity_constraint.run_mmseqs2_search_proteins"
+            "proto_language.constraint.protein_quality.protein_max_identity_constraint.run_mmseqs2_search_proteins"
         ) as mock_run,
     ):
         mock_resolve.return_value = [(["MKT"], {})]

@@ -323,16 +323,16 @@ def _plot_track_overlay(
     )
     from proto_tools.utils.tool_instance import ToolInstance
 
-    from proto_language.language.constraint import (
+    from proto_language.constraint import (
         BorzoiChromatinAccessibilityMorseConfig,
         EnformerChromatinAccessibilityMorseConfig,
     )
-    from proto_language.language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
+    from proto_language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
         compute_morse_windows,
         prepare_context_padded_candidate,
         reduce_2d_by_method,
     )
-    from proto_language.language.core import Sequence
+    from proto_language.core import Sequence
 
     run_config = _load_run_config(run_dir)
     borzoi_config = BorzoiChromatinAccessibilityMorseConfig(

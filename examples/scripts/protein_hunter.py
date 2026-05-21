@@ -1,5 +1,4 @@
-"""
-Protein Hunter Example
+"""Protein Hunter Example
 
 Demonstrates the CyclingOptimizer for de novo protein design using the
 Protein Hunter algorithm: iteratively cycling between structure prediction
@@ -24,12 +23,12 @@ from datetime import datetime
 
 from proto_tools import StructurePredictionComplex, predict_structures
 
-from proto_language.language.core import Construct, Program, Segment, Sequence
-from proto_language.language.generator import (
+from proto_language.core import Construct, Program, Segment, Sequence
+from proto_language.generator import (
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
 )
-from proto_language.language.optimizer import CyclingOptimizer, CyclingOptimizerConfig
+from proto_language.optimizer import CyclingOptimizer, CyclingOptimizerConfig
 
 # =============================================================================
 # Logging & Setup Helpers
@@ -114,7 +113,6 @@ def run_protein_hunter(
     output_dir: str,
 ) -> None:
     """Run the Protein Hunter pipeline."""
-
     # Setup output and logging.
     run_dir = setup_output_dir(output_dir, design_length, num_cycles, structure_tool)
     log_path = os.path.join(run_dir, "protein_hunter.log")
@@ -152,9 +150,7 @@ def run_protein_hunter(
 
         # Define conditioning function.
         def structure_conditioning_fn(sequences: list[Sequence]) -> list:
-            """
-            Predict 3D structures and store PDBs in metadata for retrieval later.
-            """
+            """Predict 3D structures and store PDBs in metadata for retrieval later."""
             complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
 
             structures = predict_structures(complexes, structure_tool, {}).structures

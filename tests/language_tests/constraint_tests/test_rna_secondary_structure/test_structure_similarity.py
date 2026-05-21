@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-from proto_language.language.constraint.rna_secondary_structure import (
+from proto_language.constraint.rna_secondary_structure import (
     structure_similarity_constraint as structure_similarity_module,
 )
-from proto_language.language.constraint.rna_secondary_structure.structure_similarity_constraint import (
+from proto_language.constraint.rna_secondary_structure.structure_similarity_constraint import (
     RNABasePairSimilarityConfig,
     RNAFeatureSimilarityConfig,
     RNAMotifSimilarityConfig,
@@ -16,7 +16,7 @@ from proto_language.language.constraint.rna_secondary_structure.structure_simila
     rna_motif_similarity_constraint,
     rna_property_similarity_constraint,
 )
-from proto_language.language.core import Sequence
+from proto_language.core import Sequence
 
 # Test sequences
 HAIRPIN_SEQ = "GCGCUUUUGCGC"  # Forms a simple hairpin

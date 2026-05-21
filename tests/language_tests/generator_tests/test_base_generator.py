@@ -6,15 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from proto_language.language.core import (
+from proto_language import GeneratorRegistry, GeneratorSpec
+from proto_language.core import (
     Generator,
     GeneratorInputType,
     Segment,
     Sequence,
-)
-from proto_language.language.generator.generator_registry import (
-    GeneratorRegistry,
-    GeneratorSpec,
 )
 
 
@@ -186,7 +183,7 @@ class TestGeneratorBase:
 
     def test_sample_mirrors_proposals_to_tied_segments(self):
         """``sample()`` deep-copies primary proposals onto every tied segment."""
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
 
         gen = ConcreteMutationGenerator()
         segments = [
@@ -213,7 +210,7 @@ class TestGeneratorBase:
 
     def test_sample_is_noop_mirror_for_single_segment(self):
         """Single-segment ``sample()`` skips the deepcopy path."""
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
 
         gen = ConcreteMutationGenerator()
         segment = Segment(sequence="MKKL", sequence_type="protein")
@@ -244,7 +241,7 @@ class TestGeneratorBase:
         """Non-LOGITS generators must clear ``proposal.logits`` since the new sequence makes them stale."""
         import numpy as np
 
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
 
         gen = ConcreteMutationGenerator()  # input_type == STARTING_SEQUENCE
         segment = Segment(sequence="MKKL", sequence_type="protein")
@@ -263,7 +260,7 @@ class TestGeneratorBase:
         """LOGITS-input generators are the producers of logits — ``sample()`` must not clear them."""
         import numpy as np
 
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
 
         gen = ConcreteLogitsGenerator()  # input_type == LOGITS
         segment = Segment(sequence="MKKL", sequence_type="protein")
@@ -281,7 +278,7 @@ class TestGeneratorBase:
 
     def test_sample_clears_stale_structure_for_non_structure_generators(self):
         """Non-STRUCTURE generators must clear ``proposal.structure`` since the new sequence makes it stale."""
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
         from tests.helpers.mock_structure import MockStructure
 
         gen = ConcreteMutationGenerator()  # input_type == STARTING_SEQUENCE
@@ -299,7 +296,7 @@ class TestGeneratorBase:
 
     def test_sample_preserves_structure_for_structure_generators(self):
         """STRUCTURE-input generators tag proposals with the structure they were designed for — keep it."""
-        from proto_language.language.core import Sequence
+        from proto_language.core import Sequence
         from tests.helpers.mock_structure import MockStructure
 
         gen = ConcreteInverseFoldingGenerator()  # input_type == STRUCTURE
@@ -320,7 +317,7 @@ class TestGeneratorBase:
         """Tests that _validate_generator raises on empty proposal_sequences."""
         from proto_tools.transforms.masking import MaskingStrategy
 
-        from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
+        from proto_language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 
         gen = RandomNucleotideGenerator(
             RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
@@ -372,7 +369,7 @@ class TestGeneratorRegistry:
         """Decorator must reject classes that omit ``input_type``."""
         from pydantic import BaseModel
 
-        from proto_language.language.generator.generator_registry import generator
+        from proto_language import generator
 
         class _Cfg(BaseModel):
             pass
@@ -391,7 +388,7 @@ class TestGeneratorRegistry:
 class TestShortSequenceWarning:
     """Tests for the warning emitted from sample() when autoregressive output is shorter than target."""
 
-    GENERATOR_LOGGER = "proto_language.language.core.generator"
+    GENERATOR_LOGGER = "proto_language.core.generator"
 
     _CONCRETE_BY_CATEGORY: ClassVar[dict[str, type[Generator]]] = {
         "autoregressive": ConcreteAutoregressiveGenerator,

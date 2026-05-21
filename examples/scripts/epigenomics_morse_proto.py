@@ -16,18 +16,18 @@ for path in (str(PROTO_TOOLS_ROOT), str(REPO_ROOT)):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     BorzoiChromatinAccessibilityMorseConfig,
     EnformerChromatinAccessibilityMorseConfig,
     borzoi_chromatin_accessibility_morse_constraint,
     enformer_chromatin_accessibility_morse_constraint,
 )
-from proto_language.language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
+from proto_language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
     compute_morse_windows,
 )
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.generator import Evo2Generator, Evo2GeneratorConfig
-from proto_language.language.optimizer import BeamSearchOptimizer, BeamSearchOptimizerConfig
+from proto_language.core import Constraint, Construct, Program, Segment
+from proto_language.generator import Evo2Generator, Evo2GeneratorConfig
+from proto_language.optimizer import BeamSearchOptimizer, BeamSearchOptimizerConfig
 
 logger = logging.getLogger(__name__)
 

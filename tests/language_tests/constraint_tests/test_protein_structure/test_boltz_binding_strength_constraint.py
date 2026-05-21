@@ -4,12 +4,12 @@ from unittest.mock import patch
 
 from proto_tools import BFactorType, StructurePredictionOutput
 
-from proto_language.language.constraint import ConstraintRegistry
-from proto_language.language.constraint.protein_structure.boltz_binding_strength_constraint import (
+from proto_language.constraint import ConstraintRegistry
+from proto_language.constraint.protein_structure.boltz_binding_strength_constraint import (
     DEFAULT_DESIRED_HIGHER,
     BoltzBindingStrengthConfig,
 )
-from proto_language.language.core import Segment
+from proto_language.core import Segment
 from tests.helpers.mock_structure import MockStructure
 
 mock_protein_protein_ligand_structure = MockStructure(
@@ -144,7 +144,7 @@ class TestBoltzBindingStrengthConstraint:
         constraint = ConstraintRegistry.create(key="boltz2-binding-strength", segments=complex_list, config_dict={})
 
         with patch(
-            "proto_language.language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",
+            "proto_language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",
             return_value=mock_protein_protein_ligand_output,
         ):
             _ = constraint.evaluate()
@@ -158,7 +158,7 @@ class TestBoltzBindingStrengthConstraint:
         constraint = ConstraintRegistry.create(key="boltz2-binding-strength", segments=complex_list, config_dict={})
 
         with patch(
-            "proto_language.language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",
+            "proto_language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",
             return_value=mock_protein_protein_output,
         ):
             _ = constraint.evaluate()
@@ -171,7 +171,7 @@ class TestBoltzBindingStrengthConstraint:
         constraint = ConstraintRegistry.create(key="boltz2-binding-strength", segments=complex_list, config_dict={})
 
         with patch(
-            "proto_language.language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",
+            "proto_language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",
             return_value=mock_monomer_output,
         ):
             _ = constraint.evaluate()

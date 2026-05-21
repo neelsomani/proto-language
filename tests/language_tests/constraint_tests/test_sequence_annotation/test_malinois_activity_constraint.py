@@ -13,15 +13,13 @@ from proto_tools import (
 from proto_tools.utils.device import number_of_visible_gpus
 from pydantic import ValidationError
 
-from proto_language.language.constraint import ConstraintRegistry, malinois_activity_constraint
-from proto_language.language.constraint.sequence_annotation.malinois_activity_constraint import (
-    MalinoisActivityConfig,
-)
-from proto_language.language.core import Constraint, Construct, Segment, Sequence
-from proto_language.language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
-from proto_language.language.optimizer import GradientOptimizer, GradientOptimizerConfig
+from proto_language import MalinoisActivityConfig
+from proto_language.constraint import ConstraintRegistry, malinois_activity_constraint
+from proto_language.core import Constraint, Construct, Segment, Sequence
+from proto_language.generator import PositionWeightGenerator, PositionWeightGeneratorConfig
+from proto_language.optimizer import GradientOptimizer, GradientOptimizerConfig
 
-PATCH_TARGET = "proto_language.language.constraint.sequence_annotation.malinois_activity_constraint.run_malinois_score"
+PATCH_TARGET = "proto_language.constraint.sequence_annotation.malinois_activity_constraint.run_malinois_score"
 
 
 def _skip_if_no_malinois_gpu() -> None:

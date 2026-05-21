@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Visualize aligned AlphaGenome and SpliceTransformer intron tracks.
+"""Visualize aligned AlphaGenome and SpliceTransformer intron tracks.
 
 This script rebuilds the 1 kb target sequence used by the intron design
 program, then plots four aligned track groups on the same target coordinate

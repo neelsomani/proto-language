@@ -4,11 +4,11 @@ import warnings
 
 import pytest
 
-from proto_language.language.constraint import protein_diversity_constraint
-from proto_language.language.constraint.protein_quality.protein_diversity_constraint import (
+from proto_language.constraint import protein_diversity_constraint
+from proto_language.constraint.protein_quality.protein_diversity_constraint import (
     ProteinDiversityConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 # Tests for protein_diversity_constraint

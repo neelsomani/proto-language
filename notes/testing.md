@@ -143,9 +143,9 @@ my_mock_scoring._constraint_supported_sequence_types = ["dna", "rna", "protein"]
 
 ```python
 import pytest
-from proto_language.language.core import Constraint, Segment
-from proto_language.language.constraint import my_constraint
-from proto_language.language.constraint.{category}.{name}_constraint import MyConstraintConfig
+from proto_language.core import Constraint, Segment
+from proto_language.constraint import my_constraint
+from proto_language.constraint.{category}.{name}_constraint import MyConstraintConfig
 
 
 class TestMyConstraint:
@@ -223,8 +223,8 @@ class TestMyConstraint:
 import copy
 
 import pytest
-from proto_language.language.core import Segment
-from proto_language.language.generator import MyGenerator, MyGeneratorConfig
+from proto_language.core import Segment
+from proto_language.generator import MyGenerator, MyGeneratorConfig
 
 
 class TestMyGenerator:
@@ -295,15 +295,15 @@ import copy
 import pytest
 from pydantic import BaseModel
 
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
-from proto_language.language.core import Constraint, Construct, Segment
-from proto_language.language.generator import (
+from proto_language.constraint import gc_content_constraint
+from proto_language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+from proto_language.core import Constraint, Construct, Segment
+from proto_language.generator import (
     MaskingStrategy,
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
-from proto_language.language.optimizer import MyOptimizer, MyOptimizerConfig
+from proto_language.optimizer import MyOptimizer, MyOptimizerConfig
 
 
 def _setup_components(

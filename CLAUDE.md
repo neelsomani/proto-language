@@ -4,10 +4,10 @@ proto-language: constraint-based optimization framework for designing biological
 
 ## Architecture
 
-- `proto_language/language/`: Constraints, Generators, Optimizers, Programs (DSL). All three components register via a `@constraint` / `@generator` / `@optimizer` decorator and are discovered/instantiated through `ConstraintRegistry` / `GeneratorRegistry` / `OptimizerRegistry`. See the `implement-{constraint,generator,optimizer}` skills for full implementation lifecycles.
+- `proto_language/`: Constraints, Generators, Optimizers, Programs (DSL). All three components register via a `@constraint` / `@generator` / `@optimizer` decorator and are discovered/instantiated through `ConstraintRegistry` / `GeneratorRegistry` / `OptimizerRegistry`. See the `implement-{constraint,generator,optimizer}` skills for full implementation lifecycles.
 - `proto-tools/`: bioinformatics tool wrappers. Git submodule (`evo-design/proto-tools`, branch `main`). Has its own `CLAUDE.md`, `notes/`, tests, and CI.
 
-### Data Model (`proto_language/language/core/`)
+### Data Model (`proto_language/core/`)
 
 `Sequence` (str + `sequence_type` + optional `logits` + optional `structure` + metadata bags) → `Segment` (groups `proposal_sequences` / `result_sequences` for one design region) → `Construct` (joins segments into a complete design, `list[Segment]`).
 
@@ -92,10 +92,10 @@ When code changes alter documented behavior, update the docs in the same commit:
 
 | Code area | Update |
 |---|---|
-| `proto_language/language/constraint/` | `implement-constraint` SKILL.md |
-| `proto_language/language/generator/` | `implement-generator` SKILL.md |
-| `proto_language/language/optimizer/` | `implement-optimizer` SKILL.md |
-| `proto_language/language/core/`, `proto_language/utils/base.py` | docstrings (code is the canonical surface for these data models and config patterns) |
+| `proto_language/constraint/` | `implement-constraint` SKILL.md |
+| `proto_language/generator/` | `implement-generator` SKILL.md |
+| `proto_language/optimizer/` | `implement-optimizer` SKILL.md |
+| `proto_language/core/`, `proto_language/utils/base.py` | docstrings (code is the canonical surface for these data models and config patterns) |
 | `tests/conftest.py`, pytest markers | this file + `notes/testing.md` |
 | Seed propagation | `notes/seeding.md` |
 | Error-handling rules | `notes/error-handling.md` |

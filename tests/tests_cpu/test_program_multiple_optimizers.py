@@ -7,13 +7,13 @@ different optimizer combinations work as expected.
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.core import Constraint, Construct, Program, Segment
-from proto_language.language.generator import (
+from proto_language.constraint import gc_content_constraint
+from proto_language.core import Constraint, Construct, Program, Segment
+from proto_language.generator import (
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
-from proto_language.language.optimizer import (
+from proto_language.optimizer import (
     MCMCOptimizer,
     MCMCOptimizerConfig,
     RejectionSamplingOptimizer,

@@ -20,7 +20,7 @@ from Bio import SeqIO
 from proto_tools.tools.masked_models.masking import MaskingStrategy
 from pymol import cmd
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     overall_protein_quality_constraint,
     structure_iptm_constraint,
     structure_pae_constraint,
@@ -29,14 +29,14 @@ from proto_language.language.constraint import (
     structure_rmsd_constraint,
     structure_tmscore_constraint,
 )
-from proto_language.language.core import (
+from proto_language.core import (
     Constraint,
     Construct,
     Program,
     Segment,
 )
-from proto_language.language.generator import ESM3Generator, ESM3GeneratorConfig
-from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from proto_language.generator import ESM3Generator, ESM3GeneratorConfig
+from proto_language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 from proto_language.utils import inverse_sigmoid_score
 
 from .stoichiometry import expand_gene_ids_by_stoichiometry

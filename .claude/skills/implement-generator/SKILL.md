@@ -20,15 +20,15 @@ allowed-tools:
 ## Before You Start
 
 1. **Read the registry** to see all existing generators and naming conventions:
-   - `proto_language/language/generator/__init__.py`
+   - `proto_language/generator/__init__.py`
 2. **Find a similar implementation** by `input_type`:
-   - Mutation (CPU): `proto_language/language/generator/random_nucleotide_generator.py`
-   - Mutation (GPU tool): `proto_language/language/generator/esm2_generator.py`
-   - Autoregressive: `proto_language/language/generator/evo2_generator.py`
-   - Inverse folding: `proto_language/language/generator/proteinmpnn_generator.py`
-   - Gradient: `proto_language/language/generator/position_weight_generator.py`
-3. **Read the base class**: `proto_language/language/core/generator.py`
-4. **Read the decorator/registry**: `proto_language/language/generator/generator_registry.py`
+   - Mutation (CPU): `proto_language/generator/random_nucleotide_generator.py`
+   - Mutation (GPU tool): `proto_language/generator/esm2_generator.py`
+   - Autoregressive: `proto_language/generator/evo2_generator.py`
+   - Inverse folding: `proto_language/generator/proteinmpnn_generator.py`
+   - Gradient: `proto_language/generator/position_weight_generator.py`
+3. **Read the base class**: `proto_language/core/generator.py`
+4. **Read the decorator/registry**: `proto_language/generator/generator_registry.py`
 
 ## Generator ABC Contract
 
@@ -127,7 +127,7 @@ class MyGenerator(Generator):
 
 ## Export Chain
 
-Add to `proto_language/language/generator/__init__.py`:
+Add to `proto_language/generator/__init__.py`:
 
 ```python
 # Import both class and config
@@ -216,7 +216,7 @@ Copy this and check off as you go:
 - [ ] Export chain updated: `generator/__init__.py` (class + config)
 - [ ] Tests cover: init, assign, sample, batch, type validation, config validation
 - [ ] Tests pass: `pytest tests/language_tests/generator_tests/ --cpu -x`
-- [ ] Lint passes: `ruff check proto_language/language/generator/`
-- [ ] Type check passes: `mypy proto_language/language/generator/`
+- [ ] Lint passes: `ruff check proto_language/generator/`
+- [ ] Type check passes: `mypy proto_language/generator/`
 
 If any check fails, fix before proceeding.

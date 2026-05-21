@@ -11,15 +11,15 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     ConstraintRegistry,
     alphagenome_splice_site_usage,
 )
-from proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage import (
+from proto_language.constraint.rna_splicing.alphagenome_splice_site_usage import (
     AlphaGenomeSpliceSiteUsageConfig,
     _integrate_cassette_into_context,
 )
-from proto_language.language.core import Constraint, Segment, Sequence
+from proto_language.core import Constraint, Segment, Sequence
 
 
 class _DummyAlphaGenomePredictOutput:
@@ -147,7 +147,7 @@ def test_ag_ssu_scoring_positive_strand_max_and_min():
     expected_raw = float(np.mean([0.8, 0.6, 1.0, 0.2]))
 
     with patch(
-        "proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
+        "proto_language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput(
             [_DummyAlphaGenomePredictOutput(matrix, metadata_records=metadata)]
         ),
@@ -175,7 +175,7 @@ def test_ag_ssu_missing_strand_metadata_fails_for_positive_filter():
     matrix = np.zeros((GENOMIC_CONTEXT_LEN, 2), dtype=float)
 
     with patch(
-        "proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
+        "proto_language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput(
             [_DummyAlphaGenomePredictOutput(matrix, metadata_records=None)]
         ),
@@ -201,7 +201,7 @@ def test_ag_ssu_out_of_bounds_splice_pos_errors():
     ]
 
     with patch(
-        "proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
+        "proto_language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput(
             [_DummyAlphaGenomePredictOutput(matrix, metadata_records=metadata)]
         ),
@@ -232,7 +232,7 @@ def test_ag_ssu_metadata_propagated_to_all_three_segments():
     ]
 
     with patch(
-        "proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
+        "proto_language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput(
             [_DummyAlphaGenomePredictOutput(matrix, metadata_records=metadata)]
         ),
@@ -284,7 +284,7 @@ def test_ag_ssu_batched_prediction_uses_single_call():
     expected = [0.9, 0.3]
 
     with patch(
-        "proto_language.language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
+        "proto_language.constraint.rna_splicing.alphagenome_splice_site_usage.run_alphagenome_predict_sequences",
         return_value=_DummyAlphaGenomePredictBatchOutput(
             [
                 _DummyAlphaGenomePredictOutput(matrix_a, metadata_records=metadata),

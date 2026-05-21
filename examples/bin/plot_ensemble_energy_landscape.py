@@ -1,5 +1,4 @@
-"""
-Generate a 2D free energy landscape from MD ensemble data.
+"""Generate a 2D free energy landscape from MD ensemble data.
 
 Usage:
     python plot_ensemble_energy_landscape.py <pdb1> <pdb2> <topology.pdb> <samples.xtc> [output.svg]
@@ -19,7 +18,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from scipy.ndimage import gaussian_filter
 
-from proto_language.language.constraint.protein_structure.structure_ensemble_similarity_constraint import (
+from proto_language.constraint.protein_structure.structure_ensemble_similarity_constraint import (
     _compute_ensemble_rmsds,
     _extract_chain_from_pdb,
 )
@@ -68,8 +67,7 @@ def free_energy_landscape(
     vmax: float = 5.0,
     output_path: str | None = None,
 ) -> tuple[Figure, Axes]:
-    """
-    Generate a 2D free energy landscape plot.
+    """Generate a 2D free energy landscape plot.
 
     Parameters
     ----------
@@ -92,7 +90,7 @@ def free_energy_landscape(
     output_path : str or None
         If provided, save SVG to this path.
 
-    Returns
+    Returns:
     -------
     tuple[Figure, Axes]
         Matplotlib figure and axes objects.

@@ -41,20 +41,20 @@ Every program follows this exact flow:
 ## Complete Template
 
 ```python
-from proto_language.language.core import (
+from proto_language.core import (
     Constraint,
     Construct,
     Program,
     Segment,
     Sequence,
 )
-from proto_language.language.constraint import gc_content_constraint
-from proto_language.language.generator import (
+from proto_language.constraint import gc_content_constraint
+from proto_language.generator import (
     MaskingStrategy,
     RandomNucleotideGenerator,
     RandomNucleotideGeneratorConfig,
 )
-from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
+from proto_language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 
 
 # === Step 1: Segments ===
@@ -120,7 +120,7 @@ Generators and constraints **cannot be reused** across optimizer stages. Create 
 Constraint(function_config={"min_gc": 40, "max_gc": 60}, ...)
 
 # Config object (explicit)
-from proto_language.language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+from proto_language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
 Constraint(function_config=GCContentConfig(min_gc=40, max_gc=60), ...)
 ```
 
@@ -143,17 +143,17 @@ Do NOT rely on hardcoded lists — always discover dynamically before writing a 
 ### Find constraints, generators, and optimizers via `__init__.py` files:
 
 ```
-proto_language/language/constraint/__init__.py   # All registered constraints
-proto_language/language/generator/__init__.py     # All registered generators
-proto_language/language/optimizer/__init__.py     # All registered optimizers
+proto_language/constraint/__init__.py   # All registered constraints
+proto_language/generator/__init__.py     # All registered generators
+proto_language/optimizer/__init__.py     # All registered optimizers
 ```
 
 ### Find config options for a specific component:
 
 Read the source file to see the config class and its `ConfigField` parameters:
-- Constraints: `proto_language/language/constraint/{category}/{name}_constraint.py`
-- Generators: `proto_language/language/generator/{name}_generator.py`
-- Optimizers: `proto_language/language/optimizer/{name}_optimizer.py`
+- Constraints: `proto_language/constraint/{category}/{name}_constraint.py`
+- Generators: `proto_language/generator/{name}_generator.py`
+- Optimizers: `proto_language/optimizer/{name}_optimizer.py`
 
 ### Component categories:
 

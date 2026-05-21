@@ -50,7 +50,7 @@ The full `List[Tuple[Sequence, ...]]` is passed at once. GPU memory management i
 
 ## Key Code Paths
 
-- **Generator `batch_size`**: `proto_language/language/core/generator.py`, `Generator` base class attribute
-- **`Constraint.evaluate()`**: `proto_language/language/core/constraint.py`, builds `input_sequences_to_evaluate` and calls function once
-- **`score_energy()` two-pass strategy**: `proto_language/language/core/optimizer.py`, filters first, then scorers on surviving proposals
-- **`BoltzBindingStrengthConfig`**: `proto_language/language/constraint/protein_structure/boltz_binding_strength_constraint.py`, no `batch_size` field (removed as dead code)
+- **Generator `batch_size`**: `proto_language/core/generator.py`, `Generator` base class attribute
+- **`Constraint.evaluate()`**: `proto_language/core/constraint.py`, builds `input_sequences_to_evaluate` and calls function once
+- **`score_energy()` two-pass strategy**: `proto_language/core/optimizer.py`, filters first, then scorers on surviving proposals
+- **`BoltzBindingStrengthConfig`**: `proto_language/constraint/protein_structure/boltz_binding_strength_constraint.py`, no `batch_size` field (removed as dead code)

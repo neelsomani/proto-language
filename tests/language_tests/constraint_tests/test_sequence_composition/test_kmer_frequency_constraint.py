@@ -5,14 +5,14 @@ For specific single-kmer tests, see test_specific_kmer_constraint.py.
 
 import pytest
 
-from proto_language.language.constraint import (
+from proto_language.constraint import (
     ConstraintRegistry,
     kmer_frequency_constraint,
 )
-from proto_language.language.constraint.sequence_composition.kmer_frequency_constraint import (
+from proto_language.constraint.sequence_composition.kmer_frequency_constraint import (
     KmerFrequencyConfig,
 )
-from proto_language.language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment
 
 
 class TestKmerFrequencyConstraint:

@@ -47,7 +47,7 @@ mypy proto_language/                  # Type check (strict)
 Things that differ from Python/Pydantic defaults — Claude won't infer these from the code:
 
 - **Logging**: `logging.getLogger(__name__)`, never `print()`.
-- **Pydantic**: inherit `BaseConfig`, use `ConfigField` (not Pydantic's `Field`). UI-presentation flags (`advanced`/`hidden`/`depends_on`) live in client overlays, not on the schema.
+- **Pydantic**: inherit `BaseConfig`, use `ConfigField` (not Pydantic's `Field`).
 - **Names**: registry keys are kebab-case (`"gc-content"`, `"mcmc"`); config classes `{Name}Config`; constraint function `{name}_constraint`; generator class `{Name}Generator`; optimizer class `{Name}Optimizer`; files `{name}_{component}.py`; tests `test_{name}.py`.
 - **Mypy strict**: every `# type: ignore` includes an error code. Prefer `assert` guards over `# type: ignore`. Do NOT use `cast()`, ad-hoc `Protocol`, or `TYPE_CHECKING` to dodge type errors.
 - **Seeding**: `Program(seed)` owns run-level determinism; it derives optimizer / generator / constraint seeds. `Optimizer.seed` is backed by `optimizer.config.seed`. Calls into `proto-tools` pass an explicit `seed`; never pass `seed_per_item` — proto-tools derives per-item seeds for `seed_sensitive=True` iterable tools. Full design: `notes/seeding.md`.
@@ -95,7 +95,7 @@ When code changes alter documented behavior, update the docs in the same commit:
 | `proto_language/language/constraint/` | `implement-constraint` SKILL.md |
 | `proto_language/language/generator/` | `implement-generator` SKILL.md |
 | `proto_language/language/optimizer/` | `implement-optimizer` SKILL.md |
-| `proto_language/language/core/`, `base_config.py` | docstrings (code is the canonical surface for these data models and config patterns) |
+| `proto_language/language/core/`, `proto_language/utils/base.py` | docstrings (code is the canonical surface for these data models and config patterns) |
 | `tests/conftest.py`, pytest markers | this file + `notes/testing.md` |
 | Seed propagation | `notes/seeding.md` |
 | Error-handling rules | `notes/error-handling.md` |

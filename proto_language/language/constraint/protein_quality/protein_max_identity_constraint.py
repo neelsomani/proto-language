@@ -5,10 +5,10 @@ from typing import Any
 
 from proto_tools import Mmseqs2SearchProteinsConfig, Mmseqs2SearchProteinsInput, run_mmseqs2_search_proteins
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY, load_fasta
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.orf_selection import resolve_protein_complex_chains
 
 logger = logging.getLogger(__name__)

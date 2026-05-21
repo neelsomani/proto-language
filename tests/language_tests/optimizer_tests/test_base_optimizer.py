@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.language.core import (
     BaseConfig,
@@ -34,6 +33,7 @@ from proto_language.language.optimizer import (
     RejectionSamplingOptimizerConfig,
 )
 from proto_language.language.optimizer.optimizer_registry import OptimizerRegistry
+from proto_language.utils.base import BaseOptimizerConfig, ConfigField
 
 
 class ConcreteOptimizerConfig(BaseOptimizerConfig):

@@ -6,8 +6,8 @@ from typing import Any, ClassVar, Literal
 import pydantic
 from pydantic import BaseModel, Field
 
-from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Generator, GeneratorInputType
+from proto_language.utils.base import BaseRegistry, BaseSpec
 from proto_language.utils.serialization import format_pydantic_error
 
 GeneratorCategory = Literal["autoregressive", "mutation", "inverse_folding", "gradient"]

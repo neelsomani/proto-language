@@ -1,6 +1,5 @@
 """Public API surface for proto-language."""
 
-from proto_language.base_config import ConfigField
 from proto_language.language.constraint import (
     AbLangPerplexityConfig,
     AlphaFold2MultimerStructureConfig,
@@ -140,6 +139,7 @@ from proto_language.language.optimizer import (
     RejectionSamplingOptimizerConfig,
     optimizer,
 )
+from proto_language.utils.base import ConfigField
 
 # Logging
 from proto_language.utils.logging_config import get_logger, setup_logging

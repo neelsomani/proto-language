@@ -23,10 +23,10 @@ from proto_tools import (
 )
 from pydantic import field_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, sigmoid_score
+from proto_language.utils.base import BaseConfig, ConfigField
 
 logger = getLogger(__name__)
 

@@ -3,10 +3,10 @@
 import logging
 from typing import Any
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.orf_selection import predict_longest_canonical_cds
 
 logger = logging.getLogger(__name__)

@@ -6,10 +6,10 @@ from typing import Literal, final
 import numpy as np
 from pydantic import field_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, GeneratorInputType, Segment
 from proto_language.language.generator.generator_registry import generator
 from proto_language.utils import mean_peak_probability, softmax
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
 
 

@@ -10,9 +10,9 @@ from proto_tools import (
     run_boltz2,
 )
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
+from proto_language.utils.base import BaseConfig, ConfigField
 
 # Default target values and tolerances for binding strength metrics
 DEFAULT_DESIRED_HIGHER = {

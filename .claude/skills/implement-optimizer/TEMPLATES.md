@@ -125,7 +125,7 @@ from typing import Callable, final
 
 from pydantic import model_validator
 
-from proto_language.base_config import BaseOptimizerConfig, ConfigField
+from proto_language.utils.base import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import Construct, Constraint, Generator, Optimizer
 from proto_language.language.optimizer.optimizer_registry import optimizer
 

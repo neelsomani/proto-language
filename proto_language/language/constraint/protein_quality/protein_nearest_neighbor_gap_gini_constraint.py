@@ -12,11 +12,11 @@ from proto_tools import (
     run_mmseqs2_search_proteins,
 )
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.sequence_alignment.gap_gini_constraint import gap_gini_single, trim_alignment
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY, load_fasta
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.orf_selection import resolve_protein_complex_chains
 
 logger = logging.getLogger(__name__)

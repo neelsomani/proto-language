@@ -13,9 +13,9 @@ from proto_tools.tools.mutagenesis.random_nucleotide.random_nucleotide_sample im
 )
 from proto_tools.transforms.masking import MASK_TOKEN, MaskingStrategy
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
+from proto_language.utils.base import BaseConfig, ConfigField
 
 logger = logging.getLogger(__name__)
 

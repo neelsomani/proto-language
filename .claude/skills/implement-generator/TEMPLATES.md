@@ -37,7 +37,7 @@ from typing import final
 
 from pydantic import field_validator, model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.language.core import Generator, GeneratorInputType, Segment
 from proto_language.language.generator.generator_registry import generator
 

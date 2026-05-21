@@ -4,9 +4,9 @@ from collections import Counter
 
 import numpy as np
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import PROTEIN_AMINO_ACIDS, ConstraintOutput, Sequence
+from proto_language.utils.base import BaseConfig, ConfigField
 
 
 class BalancedAaConfig(BaseConfig):

@@ -8,8 +8,8 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
-from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Optimizer
+from proto_language.utils.base import BaseRegistry, BaseSpec
 
 
 class OptimizerSpec(BaseSpec):

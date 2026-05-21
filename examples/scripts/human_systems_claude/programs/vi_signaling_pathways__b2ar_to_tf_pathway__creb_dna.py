@@ -11,7 +11,7 @@ from proto_tools import (
     run_borzoi,
 )
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.language.core import (
     Constraint,

@@ -3,8 +3,7 @@
 # ruff: noqa: I001
 # Import order matters: .sequence and .segment must come before .construct
 # because construct.py does `from . import Segment, Sequence`.
-from proto_language.base_config import BaseConfig
-from proto_language.base_registry import BaseRegistry, BaseSpec
+from proto_language.utils.base import BaseConfig, BaseRegistry, BaseSpec
 
 from proto_language.language.core.sequence import (
     DNA_NUCLEOTIDES,

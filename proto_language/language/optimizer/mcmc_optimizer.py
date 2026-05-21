@@ -9,7 +9,6 @@ from typing import Any, final
 import numpy as np
 from pydantic import model_validator
 
-from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -18,6 +17,7 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
+from proto_language.utils.base import BaseOptimizerConfig, ConfigField
 from proto_language.utils.scheduling import SCHEDULES, Schedule, Scheduler
 
 logger = logging.getLogger(__name__)

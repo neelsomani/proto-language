@@ -23,11 +23,11 @@ from proto_tools.tools.masked_models.ablang import (
 )
 from pydantic import model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.utils import one_hot_protein_matrix
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.sequence_matrices import (
     SequenceLogitBiasConfig,
     build_sequence_logit_bias_matrix_from_sequence,

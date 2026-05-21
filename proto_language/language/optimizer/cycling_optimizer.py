@@ -13,7 +13,6 @@ from typing import Any, Literal, final
 from proto_tools.utils.tool_io import MissingAssetError
 from pydantic import model_validator
 
-from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -24,6 +23,7 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
+from proto_language.utils.base import BaseConfig, BaseOptimizerConfig, ConfigField
 
 logger = logging.getLogger(__name__)
 

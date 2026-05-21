@@ -1,7 +1,6 @@
 """Optimizer registry and all registered optimization strategies."""
 
 # Registry and base infrastructure
-from proto_language.base_config import BaseOptimizerConfig
 from proto_language.language.optimizer.beam_search_optimizer import (
     BeamSearchOptimizer,
     BeamSearchOptimizerConfig,
@@ -21,6 +20,7 @@ from proto_language.language.optimizer.rejection_sampling_optimizer import (
     RejectionSamplingOptimizer,
     RejectionSamplingOptimizerConfig,
 )
+from proto_language.utils.base import BaseOptimizerConfig
 
 __all__ = [
     # Registry and base

@@ -17,12 +17,12 @@ import pandas as pd
 from numpy.random import SeedSequence
 from proto_tools.utils.tool_cache import ToolCache, _program_tool_cache
 
-from proto_language.base_config import BaseOptimizerConfig
 from proto_language.language.core.constraint import Constraint
 from proto_language.language.core.construct import Construct
 from proto_language.language.core.generator import Generator
 from proto_language.language.core.segment import Segment
 from proto_language.language.core.sequence import Sequence
+from proto_language.utils.base import BaseOptimizerConfig
 from proto_language.utils.io import (
     build_proposal_results,
     build_results,

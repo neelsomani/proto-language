@@ -5,7 +5,7 @@ from typing import Literal
 
 import numpy as np
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.utils.base import BaseConfig, ConfigField
 
 MLOptimizerType = Literal["sgd", "adam"]
 

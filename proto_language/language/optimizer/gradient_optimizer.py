@@ -8,7 +8,6 @@ from typing import Any, Literal, final
 import numpy as np
 from pydantic import ValidationInfo, field_validator, model_validator
 
-from proto_language.base_config import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.language.core import Constraint, Construct, Generator, Optimizer, Segment
 from proto_language.language.generator import PositionWeightGenerator
 from proto_language.language.optimizer.constraint_compiler import (
@@ -19,6 +18,7 @@ from proto_language.language.optimizer.constraint_compiler import (
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
 from proto_language.utils import softmax
+from proto_language.utils.base import BaseConfig, BaseOptimizerConfig, ConfigField
 from proto_language.utils.gradients import MERGERS, GradientMergerName, align_norms, normalize_gradient
 from proto_language.utils.ml_optimizers import ML_OPTIMIZERS, AdamConfig, MLOptimizerType
 from proto_language.utils.scheduling import SCHEDULES, Schedule, Scheduler

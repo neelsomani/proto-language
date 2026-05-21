@@ -22,13 +22,13 @@ from proto_tools import (
 )
 from pydantic import model_validator
 
-from proto_language.base_config import ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.protein_structure.structure_constraint_config import (
     StructureBasedConstraintConfig,
 )
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, sigmoid_score
+from proto_language.utils.base import ConfigField
 
 logger = getLogger(__name__)
 

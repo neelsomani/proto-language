@@ -6,7 +6,6 @@ import numpy as np
 from proto_tools import ProdigalConfig, ProdigalInput, run_prodigal_prediction
 from pydantic import model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.protein_quality.balanced_aa_constraint import (
     BalancedAaConfig,
@@ -29,6 +28,7 @@ from proto_language.language.constraint.sequence_composition.sequence_length_con
     sequence_length_constraint,
 )
 from proto_language.language.core import ConstraintOutput, Sequence
+from proto_language.utils.base import BaseConfig, ConfigField
 
 
 class ProteinQualitySubConfig(BaseConfig):

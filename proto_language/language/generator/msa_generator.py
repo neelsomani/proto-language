@@ -7,9 +7,9 @@ from typing import Any, final
 from proto_tools import MSA
 from pydantic import ConfigDict, field_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, GeneratorInputType, Segment
 from proto_language.language.generator.generator_registry import generator
+from proto_language.utils.base import BaseConfig, ConfigField
 
 
 class MSAGeneratorConfig(BaseConfig):

@@ -2,7 +2,6 @@
 
 from pydantic import model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import (
@@ -12,6 +11,7 @@ from proto_language.utils import (
     calculate_percentage_range_deviation,
     validate_range,
 )
+from proto_language.utils.base import BaseConfig, ConfigField
 
 
 class GCContentConfig(BaseConfig):

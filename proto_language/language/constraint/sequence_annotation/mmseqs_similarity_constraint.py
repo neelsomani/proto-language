@@ -16,7 +16,6 @@ from proto_tools import (
 )
 from pydantic import model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import DNA_NUCLEOTIDES, ConstraintOutput, Sequence
 from proto_language.utils import (
@@ -24,6 +23,7 @@ from proto_language.utils import (
     MIN_ENERGY,
     calculate_percentage_range_deviation,
 )
+from proto_language.utils.base import BaseConfig, ConfigField
 
 
 class MMseqsSimilarityConfig(BaseConfig):

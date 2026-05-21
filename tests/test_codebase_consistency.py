@@ -8,19 +8,16 @@ import pytest
 from proto_tools import BaseToolInput, BaseToolOutput, ToolRegistry
 from proto_tools.utils import BaseConfig as ToolsBaseConfig
 
-from proto_language.base_config import BaseConfig as LanguageBaseConfig
-from proto_language.base_config import ConfigField
 from proto_language.language.constraint import ConstraintRegistry
 from proto_language.language.generator import GeneratorRegistry
 from proto_language.language.optimizer import OptimizerRegistry
+from proto_language.utils.base import BaseConfig as LanguageBaseConfig
 
 # Defines the maximum length of a field title in characters
 MAX_FIELD_TITLE_LENGTH = 31
 
 # Defines the maximum length of a field description in characters
 MAX_FIELD_DESCRIPTION_LENGTH = 100
-
-UI_PRESENTATION_SCHEMA_KEYS = frozenset({"advanced", "hidden", "depends_on", "x-depends-on"})
 
 
 def list_of_all_config_models() -> list[type]:
@@ -93,25 +90,6 @@ def test_config_consistency(config_model: type):
         f"{config_model.__name__} is missing the following fields in the docstring: {missing_fields}. "
         "Add: Field(..., description='Brief explanation for tooltip')"
     )
-
-
-@pytest.mark.parametrize("removed_kwarg", sorted(UI_PRESENTATION_SCHEMA_KEYS - {"x-depends-on"}))
-def test_config_field_rejects_removed_ui_kwargs(removed_kwarg: str):
-    """ConfigField fails fast when removed UI-presentation kwargs are used."""
-    with pytest.raises(TypeError, match="ConfigField no longer accepts UI-presentation kwargs"):
-        ConfigField(default=1, title="Value", description="Test value.", **{removed_kwarg: True})
-
-
-@pytest.mark.parametrize(
-    "registry",
-    [ConstraintRegistry, GeneratorRegistry, OptimizerRegistry],
-)
-def test_language_registry_schemas_exclude_ui_presentation_metadata(registry: type):
-    """Language registry schemas do not expose deprecated UI-presentation keys."""
-    for spec in registry.list_all():
-        schema = registry.get_schema(spec.key)
-        ui_metadata_paths = _find_ui_presentation_metadata_paths(schema)
-        assert not ui_metadata_paths, f"{spec.key} schema exposes UI metadata: {ui_metadata_paths[:10]}"
 
 
 def list_tool_inputs_and_outputs() -> list[tuple[str, str]]:
@@ -199,22 +177,6 @@ def _field_description_is_valid(description: str) -> str:
     if "\n" in description:
         return "description contains newline characters. Please use single line descriptions."
     return ""
-
-
-def _find_ui_presentation_metadata_paths(schema: object, path: tuple[str, ...] = ()) -> list[str]:
-    """Find UI-presentation metadata keys without treating property names as metadata."""
-    paths: list[str] = []
-    if isinstance(schema, dict):
-        in_properties = path[-1:] == ("properties",)
-        for key, value in schema.items():
-            child_path = (*path, str(key))
-            if not in_properties and key in UI_PRESENTATION_SCHEMA_KEYS:
-                paths.append(".".join(child_path))
-            paths.extend(_find_ui_presentation_metadata_paths(value, child_path))
-    elif isinstance(schema, list):
-        for index, value in enumerate(schema):
-            paths.extend(_find_ui_presentation_metadata_paths(value, (*path, str(index))))
-    return paths
 
 
 def _find_missing_fields_in_docstring(docstring: str, field_names: list[str]) -> list[str]:

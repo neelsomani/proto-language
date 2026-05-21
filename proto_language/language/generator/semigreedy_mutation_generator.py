@@ -6,7 +6,6 @@ from typing import Any, Literal, final
 import numpy as np
 from pydantic import field_validator, model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import (
     PROTEIN_AMINO_ACIDS,
     Generator,
@@ -16,6 +15,7 @@ from proto_language.language.core import (
 )
 from proto_language.language.generator.generator_registry import generator
 from proto_language.utils import softmax
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
 
 

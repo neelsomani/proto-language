@@ -17,11 +17,11 @@ from proto_tools.tools.masked_models.esm2.esm2_gradient import (
 )
 from proto_tools.tools.masked_models.esm2.esm2_sample import ESM2_MODEL_CHECKPOINTS
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import InputSlot, constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.utils import one_hot_protein_matrix
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.sequence_matrices import (
     SequenceLogitBiasConfig,
     build_sequence_logit_bias_matrix_from_sequence,

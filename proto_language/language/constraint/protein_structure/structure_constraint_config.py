@@ -17,7 +17,7 @@ from proto_tools import (
 from proto_tools.utils import AminoAcid
 from pydantic import PrivateAttr, field_validator, model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.utils.base import BaseConfig, ConfigField
 
 
 class AlphaFold2MultimerStructureConfig(BaseConfig):
@@ -285,8 +285,7 @@ class StructureBasedConstraintConfig(BaseConfig):
 
     This base class standardizes how structure prediction tools and their
     configurations are specified across all structure-based constraints.
-    Each tool has its own dedicated config field. UI visibility for selecting
-    the active tool config lives in client overlays, not in this schema.
+    Each tool has its own dedicated config field.
 
     Subclasses can optionally restrict which tools are supported by overriding
     the structure_tool field with a narrower Literal type.

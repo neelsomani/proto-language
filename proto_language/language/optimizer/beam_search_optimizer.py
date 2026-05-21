@@ -13,7 +13,6 @@ from typing import Any, Literal
 import numpy as np
 from pydantic import model_validator
 
-from proto_language.base_config import BaseOptimizerConfig, ConfigField
 from proto_language.language.core import (
     Constraint,
     Construct,
@@ -23,6 +22,7 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
+from proto_language.utils.base import BaseOptimizerConfig, ConfigField
 
 logger = logging.getLogger(__name__)
 

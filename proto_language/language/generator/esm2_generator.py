@@ -8,9 +8,9 @@ from proto_tools.tools.masked_models.esm2.esm2_sample import (
 )
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core import Generator, GeneratorInputType
 from proto_language.language.generator.generator_registry import generator
+from proto_language.utils.base import BaseConfig, ConfigField
 
 
 class ESM2GeneratorConfig(BaseConfig):

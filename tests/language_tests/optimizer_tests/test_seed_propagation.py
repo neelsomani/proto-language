@@ -3,7 +3,6 @@
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint import gc_content_constraint
 from proto_language.language.constraint.protein_structure.structure_constraint_config import (
     AlphaFold2MultimerStructureConfig,
@@ -15,6 +14,7 @@ from proto_language.language.core.optimizer import derive_seeds
 from proto_language.language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 from proto_language.language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
 from proto_language.utils.alphafold2_multimer import next_af2_multimer_seed
+from proto_language.utils.base import BaseConfig, ConfigField
 
 # Full-sequence mutation leaves nucleotide sampling as the only random choice.
 _SEQ = "A" * 20

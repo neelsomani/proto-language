@@ -15,7 +15,6 @@ from proto_tools.tools.sequence_scoring.borzoi import (
 from proto_tools.tools.sequence_scoring.shared_data_models import SequenceTargetRange
 from pydantic import field_validator, model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.constraint.sequence_annotation.chromatin_accessibility_morse_utils import (
     PatternNormalization,
@@ -27,6 +26,7 @@ from proto_language.language.constraint.sequence_annotation.chromatin_accessibil
     score_morse_signal,
 )
 from proto_language.language.core import ConstraintOutput, Sequence
+from proto_language.utils.base import BaseConfig, ConfigField
 
 _Organism = Literal["human", "mouse"]
 

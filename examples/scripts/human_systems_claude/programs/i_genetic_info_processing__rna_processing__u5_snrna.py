@@ -7,7 +7,7 @@ from itertools import islice
 
 from Bio import Align, SeqIO
 
-from proto_language.base_config import BaseConfig, ConfigField
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import ConstraintRegistry
 from proto_language.language.constraint.rna_secondary_structure import (
     RNABasePairSimilarityConfig,

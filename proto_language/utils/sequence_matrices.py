@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 from pydantic import field_validator, model_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
-from proto_language.language.core.segment import Segment
-from proto_language.language.core.sequence import Sequence
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.serialization import is_plain_int
+
+if TYPE_CHECKING:
+    from proto_language.language.core.segment import Segment
+    from proto_language.language.core.sequence import Sequence
 
 
 def one_hot_protein_matrix(sequence: str) -> list[list[float]]:

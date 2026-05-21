@@ -11,9 +11,9 @@ import pydantic
 from pydantic import BaseModel, Field, field_serializer
 from pydantic.json_schema import SkipJsonSchema
 
-from proto_language.base_registry import BaseRegistry, BaseSpec
 from proto_language.language.core import Constraint, Segment
 from proto_language.language.core.constraint import GradientConstraintOutput, InputSlot
+from proto_language.utils.base import BaseRegistry, BaseSpec
 from proto_language.utils.serialization import format_pydantic_error
 
 __all__ = ["ConstraintRegistry", "ConstraintSpec", "InputSlot", "constraint"]

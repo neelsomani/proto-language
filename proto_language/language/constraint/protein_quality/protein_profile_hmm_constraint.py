@@ -7,10 +7,10 @@ from typing import Any, Literal
 from proto_tools import PyHmmsearchConfig, PyHmmsearchInput, run_pyhmmer_hmmsearch
 from pydantic import field_validator
 
-from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY, MIN_ENERGY
+from proto_language.utils.base import BaseConfig, ConfigField
 from proto_language.utils.orf_selection import resolve_protein_complex_chains
 
 logger = logging.getLogger(__name__)

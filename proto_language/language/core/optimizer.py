@@ -23,7 +23,7 @@ from proto_language.language.core.construct import Construct
 from proto_language.language.core.generator import Generator
 from proto_language.language.core.segment import Segment
 from proto_language.language.core.sequence import Sequence
-from proto_language.utils.export import (
+from proto_language.utils.io import (
     build_proposal_results,
     build_results,
     flatten_table,

@@ -15,7 +15,7 @@ from proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constra
 )
 from proto_language.language.core import Sequence
 from proto_language.utils import one_hot_protein_matrix
-from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
+from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 
 _TOOL_MODULE = "proto_language.language.constraint.sequence_scoring.mpnn_perplexity_constraint"
 

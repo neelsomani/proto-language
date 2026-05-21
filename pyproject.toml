@@ -210,7 +210,7 @@ omit = [
     # Constraint plugins: tool-bound, only @pytest.mark.integration tests
     "proto_language/language/constraint/*/*",
     # Logging stdlib wrapper: handler plumbing
-    "proto_language/logging_config.py",
+    "proto_language/utils/logging_config.py",
 ]
 
 [tool.coverage.report]

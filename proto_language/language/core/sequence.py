@@ -162,7 +162,7 @@ class Sequence:
         always take precedence over user-provided metadata with the same keys.
         Non-finite floats (NaN/Inf) are converted to None for JSON compatibility.
         """
-        from proto_language.utils.helpers import make_json_safe
+        from proto_language.utils.serialization import make_json_safe
 
         result = dict(self._metadata)
         result["sequence"] = self._sequence

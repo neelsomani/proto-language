@@ -16,7 +16,7 @@ from proto_language.language.core import (
 )
 from proto_language.language.generator.generator_registry import generator
 from proto_language.utils import softmax
-from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
+from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
 
 
 class SemigreedyMutationGeneratorConfig(BaseConfig):

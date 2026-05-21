@@ -18,7 +18,7 @@ Metadata bags on `Sequence` are **namespaced** — don't conflate them:
 
 ### Result Export
 
-Both `Program` and `Optimizer` expose three export methods: `.export(path=..., format="csv"|"xlsx")` writes a folder with 4 tables + `sequences.fasta` + `assets/` sidecars; `.to_dataframe(table=...)` returns a single pandas DataFrame; `.to_fasta(path=...)` returns FASTA (string or file). Tables: `sequences`, `constraints`, `constructs`, `optimization`. `Program.export()` also accepts `stage=N` to filter by optimizer stage. Underlying utilities: `proto_language/utils/export.py`.
+Both `Program` and `Optimizer` expose three export methods: `.export(path=..., format="csv"|"xlsx")` writes a folder with 4 tables + `sequences.fasta` + `assets/` sidecars; `.to_dataframe(table=...)` returns a single pandas DataFrame; `.to_fasta(path=...)` returns FASTA (string or file). Tables: `sequences`, `constraints`, `constructs`, `optimization`. `Program.export()` also accepts `stage=N` to filter by optimizer stage. Underlying utilities: `proto_language/utils/io.py`.
 
 ## Environment
 

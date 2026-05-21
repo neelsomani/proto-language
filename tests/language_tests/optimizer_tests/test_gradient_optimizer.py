@@ -28,7 +28,7 @@ from proto_language.language.optimizer import (
     MCMCOptimizerConfig,
 )
 from proto_language.utils.scheduling import hinge_schedule
-from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
+from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 
 
 class _Cfg(BaseModel):

@@ -1,4 +1,4 @@
-"""Tests for proto_language.utils.export module."""
+"""Tests for proto_language.utils.io module."""
 
 import csv
 import json
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from proto_language.utils.export import (
+from proto_language.utils.io import (
     _flatten_generator_columns,
     _serialize_value,
     build_proposal_results,
@@ -1391,7 +1391,7 @@ def test_build_results_includes_generator_metadata():
     from unittest.mock import MagicMock
 
     from proto_language.language.core import Construct, Segment, Sequence
-    from proto_language.utils.export import build_results, flatten_sequences
+    from proto_language.utils.io import build_results, flatten_sequences
 
     seq = Sequence("ACGT", sequence_type="dna")
     seq._generator_metadata = {"proteinmpnn": {"perplexity": 1.8}, "evo1": {"score": -2.5}}
@@ -1423,7 +1423,7 @@ def test_build_results_filters_inf_nan_in_metadata():
     import numpy as np
 
     from proto_language.language.core import Construct, Segment, Sequence
-    from proto_language.utils.export import build_results
+    from proto_language.utils.io import build_results
 
     seq = Sequence("ACGT", sequence_type="dna")
     seq._constraints_metadata = {"alphagenome-track": {"data": {"minimize_clipped_signal": math.nan}}}
@@ -1452,7 +1452,7 @@ def test_build_results_makes_pydantic_generator_metrics_json_safe():
 
     from pydantic import BaseModel, ConfigDict
 
-    from proto_language.utils.export import build_proposal_results, build_results
+    from proto_language.utils.io import build_proposal_results, build_results
 
     class Metric(BaseModel):
         model_config = ConfigDict(extra="allow")
@@ -1492,7 +1492,7 @@ def test_build_results_makes_metadata_dict_keys_json_safe():
 
     import numpy as np
 
-    from proto_language.utils.export import build_results
+    from proto_language.utils.io import build_results
 
     seq = SimpleNamespace(
         sequence="ACGT",
@@ -1523,7 +1523,7 @@ def test_build_results_carries_structure_and_logits_only_when_set():
     import numpy as np
 
     from proto_language.language.core import Construct, Segment, Sequence
-    from proto_language.utils.export import (
+    from proto_language.utils.io import (
         build_results,
         flatten_constraints,
         flatten_constructs,
@@ -1924,7 +1924,7 @@ class TestExportProgramToFolder:
         """``_structure`` / ``_logits`` payloads land in assets/ and segments gain path cells."""
         import numpy as np
 
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results(
             [
@@ -1949,7 +1949,7 @@ class TestExportProgramToFolder:
 
     def test_structure_format_none_defaults_to_pdb(self, tmp_path):
         """A Structure dict whose ``structure_format`` is None (the model's default) writes a .pdb file."""
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results([self._segment("s0", _structure={"structure": "ATOM\n", "structure_format": None})])
 
@@ -1959,7 +1959,7 @@ class TestExportProgramToFolder:
 
     def test_emits_all_four_tables_and_fasta(self, tmp_path):
         """All four tables and the FASTA file are written, named by *format*."""
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results([self._segment("s0", extras={"gc": {"score": 0.1, "weight": 1.0, "data": {}}})])
 
@@ -1973,7 +1973,7 @@ class TestExportProgramToFolder:
         """``structure_path`` / ``logits_path`` appear in sequences.csv for segments that had opaque payloads."""
         import numpy as np
 
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results(
             [
@@ -2145,7 +2145,7 @@ class TestExportProgramToFolder:
 
     def test_surfaces_path_columns_across_multiple_results_and_constructs(self, tmp_path):
         """Path columns align with the right (result, construct, segment) row when iteration order has multiple results."""
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         def _struct(tag):
             return {"structure": f"PDB-{tag}\n", "structure_format": "pdb"}
@@ -2211,7 +2211,7 @@ class TestExportProgramToFolder:
 
     def test_forwards_filter_kwargs_to_flatten_table_and_fasta(self, tmp_path):
         """segments/result_indices filters narrow both the sequences.csv rows AND the FASTA records."""
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results(
             [
@@ -2230,7 +2230,7 @@ class TestExportProgramToFolder:
 
     def test_filtered_export_preserves_path_columns_on_correct_row(self, tmp_path):
         """Regression: filtering out seg0 (with structure) must not surface its path onto seg1's row."""
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results(
             [
@@ -2250,7 +2250,7 @@ class TestExportProgramToFolder:
 
     def test_path_none_uses_unified_convention(self, tmp_path, monkeypatch):
         """When path is None the folder name follows the unified export convention under CWD."""
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results([self._segment("s0")])
         monkeypatch.chdir(tmp_path)
@@ -2262,7 +2262,7 @@ class TestExportProgramToFolder:
 
     def test_path_none_falls_back_to_export_when_no_project(self, tmp_path, monkeypatch):
         """When path and project are both omitted the folder still gets a valid timestamped name."""
-        from proto_language.utils.export import write_results_folder
+        from proto_language.utils.io import write_results_folder
 
         results = self._results([self._segment("s0")])
         monkeypatch.chdir(tmp_path)

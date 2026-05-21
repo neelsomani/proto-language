@@ -142,7 +142,7 @@ from proto_language.language.optimizer import (
 )
 
 # Logging
-from proto_language.logging_config import get_logger, setup_logging
+from proto_language.utils.logging_config import get_logger, setup_logging
 
 __all__ = [
     # Base infrastructure

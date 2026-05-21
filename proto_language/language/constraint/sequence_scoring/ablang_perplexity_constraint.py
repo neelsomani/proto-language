@@ -28,7 +28,7 @@ from proto_language.language.constraint.constraint_registry import InputSlot, co
 from proto_language.language.core import ConstraintOutput, Sequence
 from proto_language.language.core.constraint import GradientConstraintOutput
 from proto_language.utils import one_hot_protein_matrix
-from proto_language.utils.sequence_logit_bias import (
+from proto_language.utils.sequence_matrices import (
     SequenceLogitBiasConfig,
     build_sequence_logit_bias_matrix_from_sequence,
 )

@@ -22,7 +22,7 @@ from proto_language.utils import softmax
 from proto_language.utils.gradients import MERGERS, GradientMergerName, align_norms, normalize_gradient
 from proto_language.utils.ml_optimizers import ML_OPTIMIZERS, AdamConfig, MLOptimizerType
 from proto_language.utils.scheduling import SCHEDULES, Schedule, Scheduler
-from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
+from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig, build_sequence_logit_bias_matrix
 
 logger = logging.getLogger(__name__)
 

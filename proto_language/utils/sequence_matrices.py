@@ -1,4 +1,4 @@
-"""Utilities for building sequence-type-aware logit-bias matrices."""
+"""Per-position matrices keyed by sequence vocabulary: one-hot encoding, peak-probability metric, logit-bias builders."""
 
 from __future__ import annotations
 
@@ -8,7 +8,38 @@ from pydantic import field_validator, model_validator
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.core.segment import Segment
 from proto_language.language.core.sequence import Sequence
-from proto_language.utils.helpers import is_plain_int
+from proto_language.utils.serialization import is_plain_int
+
+
+def one_hot_protein_matrix(sequence: str) -> list[list[float]]:
+    """Return an exact (1.0, 0.0) one-hot matrix in ``PROTEIN_AMINO_ACIDS`` order.
+
+    Each row has ``1.0`` at the target amino acid and ``0.0`` everywhere else.
+    Use this when encoding a discrete protein sequence for a tool that expects a
+    probability matrix or one-hot input.
+
+    Args:
+        sequence (str): Protein sequence; each character must be in ``PROTEIN_AMINO_ACIDS``.
+
+    Returns:
+        list[list[float]]: One-hot matrix with shape ``(len(sequence), 20)``.
+    """
+    from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
+
+    aa_index = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}
+    n = len(PROTEIN_AMINO_ACIDS)
+    rows: list[list[float]] = []
+    for aa in sequence:
+        row = [0.0] * n
+        row[aa_index[aa]] = 1.0
+        rows.append(row)
+    return rows
+
+
+def mean_peak_probability(matrix: np.ndarray, positions: list[int] | None = None) -> float:
+    """Return the mean per-row peak probability, optionally restricted to ``positions``."""
+    rows = matrix if positions is None else matrix[positions]
+    return float(np.mean(np.max(rows, axis=-1)))
 
 
 class SequenceLogitBiasConfig(BaseConfig):

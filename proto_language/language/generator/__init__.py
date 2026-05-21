@@ -28,7 +28,7 @@ from proto_language.language.generator.semigreedy_mutation_generator import (
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,
 )
-from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
+from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 
 __all__ = [
     # Masking strategies

@@ -141,7 +141,7 @@ from proto_language.language.optimizer import (
 )
 from proto_language.language.optimizer.gradient_optimizer import ConstraintWeightSchedule
 from proto_language.utils import one_hot_protein_matrix
-from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
+from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 
 # =============================================================================
 # Preset configuration (loaded from a consolidated script-owned YAML)

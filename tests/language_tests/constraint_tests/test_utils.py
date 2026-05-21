@@ -14,7 +14,7 @@ from proto_language.utils import (
     sigmoid_score,
     validate_range,
 )
-from proto_language.utils.helpers import format_pydantic_error
+from proto_language.utils.serialization import format_pydantic_error
 
 
 class TestValidateRange:

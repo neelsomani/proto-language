@@ -1,4 +1,8 @@
-"""Five tables, each with a single natural format:.
+"""Reading and writing sequence/result files.
+
+Writing: build_results() + flatten_*() + to_csv/tsv/json/xlsx/fasta build five
+canonical tables, with row-shaped nested metadata written as ``assets/*.csv``
+sidecars whose parent cell holds the sidecar path.
 
 - sequences:    One row per (result_idx, construct, segment)
 - constraints:  One row per (result_idx, construct, segment, constraint)
@@ -6,25 +10,56 @@
 - optimization: One row per (timepoint, result_idx)
 - fasta:        Standard FASTA format for bioinformatics pipelines
 
-Row-shaped nested metadata is written as ``assets/*.csv`` sidecars, with the
-parent table cell replaced by the sidecar path.
-
-Supports CSV, TSV, JSON, FASTA, and Excel output formats.
+Reading: load_fasta() parses a (optionally gzipped) FASTA file into an
+ID-to-sequence dict, with process-lifetime caching keyed by path.
 """
 
 import copy
 import csv
+import gzip
 import hashlib
 import json
 import re
 import unicodedata
+from functools import lru_cache
 from io import StringIO
 from pathlib import Path
 from typing import IO, Any, Literal
 
 import numpy as np
 
-from proto_language.utils.helpers import make_json_safe
+from proto_language.utils.serialization import make_json_safe
+
+
+@lru_cache(maxsize=16)
+def load_fasta(fasta_path: str) -> dict[str, str]:
+    """Load a FASTA or FASTA.GZ file into an ID-to-sequence mapping.
+
+    Args:
+        fasta_path (str): Local FASTA path. Files ending in ``.gz`` are read
+            as gzip-compressed text.
+
+    Returns:
+        dict[str, str]: Mapping from FASTA record ID to concatenated sequence.
+    """
+    opener = gzip.open if fasta_path.endswith(".gz") else open
+    sequences: dict[str, str] = {}
+    current_id: str | None = None
+    current_seq: list[str] = []
+    with opener(fasta_path, "rt") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if line.startswith(">"):
+                if current_id is not None:
+                    sequences[current_id] = "".join(current_seq)
+                current_id = line[1:].split()[0]
+                current_seq = []
+            elif line:
+                current_seq.append(line)
+        if current_id is not None:
+            sequences[current_id] = "".join(current_seq)
+    return sequences
+
 
 # Type aliases
 Format = Literal["csv", "tsv", "json", "xlsx"]

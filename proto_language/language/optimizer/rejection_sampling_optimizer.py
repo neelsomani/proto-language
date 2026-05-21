@@ -18,7 +18,7 @@ from proto_language.language.core import (
     Sequence,
 )
 from proto_language.language.optimizer.optimizer_registry import optimizer
-from proto_language.utils.export import build_proposal_results
+from proto_language.utils.io import build_proposal_results
 
 logger = logging.getLogger(__name__)
 

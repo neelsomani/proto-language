@@ -14,7 +14,7 @@ from proto_language.language.constraint.sequence_scoring.ablang_perplexity_const
 )
 from proto_language.language.core import Segment, Sequence
 from proto_language.language.core.sequence import PROTEIN_AMINO_ACIDS
-from proto_language.utils.sequence_logit_bias import SequenceLogitBiasConfig
+from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 
 _TOOL_MODULE = "proto_language.language.constraint.sequence_scoring.ablang_perplexity_constraint"
 _AA_IDX = {aa: i for i, aa in enumerate(PROTEIN_AMINO_ACIDS)}

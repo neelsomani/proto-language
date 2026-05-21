@@ -29,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from proto_language.language.core.segment import Segment
 from proto_language.language.core.sequence import Sequence
-from proto_language.utils.helpers import is_plain_int, make_json_safe
+from proto_language.utils.serialization import is_plain_int, make_json_safe
 
 logger = logging.getLogger(__name__)
 

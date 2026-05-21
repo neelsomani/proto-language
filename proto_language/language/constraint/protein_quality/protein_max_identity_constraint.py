@@ -8,7 +8,7 @@ from proto_tools import Mmseqs2SearchProteinsConfig, Mmseqs2SearchProteinsInput,
 from proto_language.base_config import BaseConfig, ConfigField
 from proto_language.language.constraint.constraint_registry import constraint
 from proto_language.language.core import ConstraintOutput, Sequence
-from proto_language.utils import MAX_ENERGY, MIN_ENERGY, load_reference_sequences
+from proto_language.utils import MAX_ENERGY, MIN_ENERGY, load_fasta
 from proto_language.utils.orf_selection import resolve_protein_complex_chains
 
 logger = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ def protein_max_identity_constraint(
         config.mmseqs_config,
     )
 
-    reference_sequences = load_reference_sequences(config.reference_fasta) if config.reference_fasta else {}
+    reference_sequences = load_fasta(config.reference_fasta) if config.reference_fasta else {}
 
     for protein_idx, original_idx in enumerate(valid_indices):
         result = mmseqs_result.results[protein_idx]

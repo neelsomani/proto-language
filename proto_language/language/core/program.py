@@ -13,7 +13,7 @@ from proto_tools.utils.tool_pool import ToolPool
 
 from proto_language.language.core.generator import GeneratorInputType
 from proto_language.language.core.optimizer import Optimizer, derive_seeds
-from proto_language.utils.export import (
+from proto_language.utils.io import (
     build_results,
     flatten_table,
     to_fasta,

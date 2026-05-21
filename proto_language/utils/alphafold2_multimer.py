@@ -24,7 +24,7 @@ from proto_language.language.constraint.protein_structure.structure_constraint_c
     StructureBasedConstraintConfig,
 )
 from proto_language.language.core import ConstraintOutput, Sequence
-from proto_language.utils.helpers import one_hot_protein_matrix
+from proto_language.utils.sequence_matrices import one_hot_protein_matrix
 
 AF2_MULTIMER_LOSS_TERMS: frozenset[str] = frozenset(
     {

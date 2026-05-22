@@ -1,56 +1,130 @@
 # Batching Architecture
 
-How GPU memory is managed across generators, constraints, and tools.
+Batching is split across proposal pools, generators, constraint calls, compiled
+scorers, and proto-tools backends. Do not assume a single `batch_size` knob
+controls every expensive operation.
 
-## Generator Batching (Framework-Level)
+## Ownership Layers
 
-Generators have a **framework-level** `batch_size` attribute on the `Generator` base class (`core/generator.py`):
+1. **Optimizers choose proposal-pool size.** This is how many proposal rows exist
+   in `Segment.proposal_sequences` for a step or internal batch.
+2. **Generators may expose `batch_size`.** GPU-backed generators pass it to their
+   proto-tools sampler; CPU/logit generators usually inherit the base default.
+3. **Constraints receive masked proposal tuples.** `Constraint.evaluate()` calls
+   each constraint function once with all proposals that passed the current mask.
+4. **Compiled scorers can group compatible constraints.** Additive scoring routes
+   through the constraint compiler, which may collapse several public constraints
+   into one backend call.
+5. **Tools own backend memory strategy.** Sequence count is only one dimension;
+   structures, chains, ligands, recycles, MSA depth, and sample count often matter
+   more.
+
+## Optimizer Proposal Batching
+
+`Generator` defines the shared fallback:
 
 ```python
 class Generator(ABC):
     batch_size: int = 1
 ```
 
-The framework splits proposals into chunks of `batch_size` and processes each chunk on GPU (e.g., `BeamSearchOptimizer` reads `generator.batch_size` to chunk proposal generation). All generators default to `batch_size=1`; users increase it via config to enable batching:
+Current framework-level consumers:
 
-- **ESM2 / ESM3 / Evo2**: `batch_size` config field, default `1`. Set higher (e.g., 8-16) for throughput.
-- **ProteinMPNN / LigandMPNN**: `batch_size` config field, default `1`. Passed through to `InverseFoldingConfig.batch_size` (GPU chunking). The tool-level `num_sequences_per_structure` controls total sequences; `batch_size` controls GPU memory. In single-structure mode the generator sets `num_sequences_per_structure=num_proposals`; in multi-structure mode it uses defaults (1 sequence per structure).
-- **ProGen2**: `batch_size` config field, default `1`. Passed through to the ProGen2 tool for GPU batching.
-- **CPU generators** (RandomNucleotide, RandomProtein, MSA): `batch_size = 1` (no batching needed).
+- **`BeamSearchOptimizer`** copies `generator.batch_size` to
+  `self.batch_size` and chunks proposal generation for each beam.
+- **`RejectionSamplingOptimizer`** uses `proposal_batch_size` for internal
+  proposal batches. If unset, it infers the largest positive `batch_size` found
+  on generators and on top-level `constraint.function_config` /
+  `constraint.backward_config`, capped at `num_samples`.
 
-## Constraint Evaluation (No Framework-Level Batching)
+This is outer proposal batching. It does not guarantee that every downstream GPU
+call is chunked the same way.
 
-Constraints do **not** have a framework-level `batch_size`. `Constraint.evaluate()` passes all passing proposals to the constraint function in a single call (`core/constraint.py:253`):
+## Generator Batching
+
+These generators expose a user-facing `batch_size` config field, defaulting to
+`1`, and pass it to proto-tools:
+
+- `ESM2Generator`, `ESM3Generator`, `Evo1Generator`, `Evo2Generator`, and
+  `ProGen2Generator` pass `batch_size` to the language-model sampling tool.
+- `ProteinMPNNGenerator` and `LigandMPNNGenerator` pass `batch_size` to inverse
+  folding configs. With one input structure, they request `num_proposals`
+  sequences and let the tool chunk by `batch_size`; with one structure per
+  proposal, they force `num_sequences_per_structure=1` and `batch_size=1`.
+
+CPU and logit-materialization generators such as `RandomNucleotideGenerator`,
+`RandomProteinGenerator`, `MSAGenerator`, `SemigreedyMutationGenerator`, and
+`PositionWeightGenerator` do not expose a config-level batching knob. They
+inherit `Generator.batch_size = 1`; their `_sample()` implementations loop over
+the current proposal pool.
+
+## Constraint Evaluation
+
+Individual `Constraint` objects do not have a framework-level `batch_size`
+attribute. `Constraint.evaluate()` resolves the mask, builds one tuple per
+proposal, and calls the scoring function once:
 
 ```python
-raw_scores = self._function(input_sequences_to_evaluate, config=self._function_config)
+input_sequences = [tuple(seg.proposal_sequences[idx] for seg in self._inputs) for idx in indices_to_evaluate]
+results = self._function(input_sequences, config=self._function_config)
 ```
 
-The full `List[Tuple[Sequence, ...]]` is passed at once. GPU memory management is handled internally by each tool.
+The constraint function receives every mask-passing proposal for that call. It
+may forward them to one tool call, split internally, or loop per proposal.
 
-### Why No Framework-Level Batching for Constraints?
+Some constraint configs include tool-level batching fields. Current examples
+include `ESM2PerplexityConfig.batch_size`, `MalinoisActivityConfig.batch_size`,
+`EnformerChromatinAccessibilityMorseConfig.batch_size`, and
+`BorzoiChromatinAccessibilityMorseConfig.batch_size`. Those fields tune the
+tool call and may also influence `RejectionSamplingOptimizer`'s inferred outer
+`proposal_batch_size`. Nested config fields, such as `BioEmuConfig.batch_size`
+inside `StructureEnsembleSimilarityConfig`, are tool parameters only and are not
+read by the rejection-sampling inference helper.
 
-1. **GPU memory depends on sequence characteristics, not proposal count.** Structure prediction memory scales with residue count and complex size, not with the number of proposals. A single 1000-residue protein can OOM, while 100 small peptides fit easily.
+## Filter Then Score
 
-2. **Tools know their own memory characteristics.** ESMFold can batch by total residue count. Boltz2/AF3/Chai1 are inherently sequential (one complex at a time). A framework-level `batch_size` based on proposal count would be the wrong abstraction.
+`Optimizer.score_energy()` evaluates threshold constraints before scoring
+constraints:
 
-3. **The two-pass filter→score strategy already reduces workload.** Cheap filters reject bad proposals before expensive GPU constraints run, which is a more effective optimization than chunking.
+1. Each filter receives the current `passed` mask.
+2. Failed proposals are marked with the rejecting constraint label.
+3. Later filters and scoring constraints only evaluate proposals that still
+   pass.
+4. Rejected proposals receive the optimizer's filter penalty.
 
-## Tool-Level Batching Matrix
+For additive scoring, scorers go through
+`optimizer.constraint_compiler.evaluate_scoring_constraints()`. Providers
+currently include ESMFold, Malinois, and AlphaFold2 multimer, allowing related
+constraints to share a backend prediction or gradient call when their configs
+are compatible.
 
-| Tool | Batching Strategy | User Config |
-|------|------------------|-------------|
-| **ProteinMPNN / LigandMPNN** | Chunks `num_sequences_per_structure` by `batch_size` per structure | `num_sequences_per_structure`, `batch_size` |
-| **ESMFold** | Batches by total residue count | `max_batch_residues` |
-| **BioEmu** | Fixed batch size | `batch_size` |
-| **Boltz2** | Sequential (one complex at a time) | N/A |
-| **AlphaFold3** | Sequential | N/A |
-| **Chai-1** | Sequential | N/A |
-| **MMseqs2** | All at once (CPU) | N/A |
+## Tool-Level Patterns
+
+Treat these as patterns, not a registry. The source of truth is the selected
+generator, constraint config, and proto-tools runner.
+
+- **Sequence model batches:** language-model samplers and some sequence scorers
+  expose direct `batch_size` knobs.
+- **Per-structure inverse folding:** MPNN-style tools loop over input structures
+  and chunk requested designs per structure.
+- **Residue-budget batching:** ESMFold-style tools batch by linked residue count
+  rather than proposal count.
+- **Length-scaled sampling:** tools such as BioEmu expose a `batch_size`, but
+  effective memory use depends heavily on sequence length and sample count.
+- **Sequential complex prediction:** diffusion and structure-prediction tools
+  often process one complex at a time and tune memory with recycles, MSA depth,
+  diffusion samples, or low-memory flags.
+- **Bulk search:** tools such as MMseqs2 submit all queries together and expose
+  resource knobs like threads, split, or GPU mode rather than proposal
+  `batch_size`.
 
 ## Key Code Paths
 
-- **Generator `batch_size`**: `proto_language/core/generator.py`, `Generator` base class attribute
-- **`Constraint.evaluate()`**: `proto_language/core/constraint.py`, builds `input_sequences_to_evaluate` and calls function once
-- **`score_energy()` two-pass strategy**: `proto_language/core/optimizer.py`, filters first, then scorers on surviving proposals
-- **`BoltzBindingStrengthConfig`**: `proto_language/constraint/protein_structure/boltz_binding_strength_constraint.py`, no `batch_size` field (removed as dead code)
+- `proto_language/core/generator.py`
+- `proto_language/core/constraint.py`
+- `proto_language/core/optimizer.py`
+- `proto_language/optimizer/beam_search_optimizer.py`
+- `proto_language/optimizer/rejection_sampling_optimizer.py`
+- `proto_language/optimizer/constraint_compiler/`
+- The selected generator or constraint module plus its corresponding
+  `proto_tools` input/config/runner.

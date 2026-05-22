@@ -1,86 +1,157 @@
 # Filesystem
 
-This guide describes where things live in the proto-language repo: source code, tests, examples, runtime outputs, and how persistent data is split between proto-language and the `proto-tools` submodule.
+This guide is about where files live and where runtime artifacts are written.
+For component behavior and contributor rules, use `CLAUDE.md`, the source code,
+and the relevant `.claude/skills/` workflow.
 
-For *what* the components do, see [`CLAUDE.md`](../CLAUDE.md) and the `.claude/skills/` reference. This doc is about *where files go*.
-
-## Package layout: `proto_language/`
+## Package Layout
 
 ```
 proto_language/
-├── constraint/              Constraint functions, grouped into subpackages by domain
-│   ├── constraint_registry.py        @constraint decorator + ConstraintRegistry
-│   ├── sequence_composition/         Composition rules (GC content, kmers, length, homopolymers)
-│   ├── sequence_alignment/           Alignment-based scoring
-│   ├── sequence_annotation/          Chromatin / regulatory / CRISPR / promoter scorers
-│   ├── sequence_scoring/             Language-model perplexity (forward + gradient variants)
-│   ├── protein_structure/            Structure-quality metrics from folded predictions
-│   ├── protein_quality/              Complexity, repetitiveness, diversity, domain hits
-│   ├── rna_secondary_structure/      Base-pair / motif / feature similarity
-│   └── rna_splicing/                 Splice-site usage, intron boundaries
-├── core/                    Data-model + base ABCs (Sequence → Segment → Construct → Program)
-│   ├── sequence.py                   Typed sequence + optional logits, structure, metadata bags
-│   ├── segment.py                    Groups proposal/result sequences for one design region
-│   ├── construct.py                  Ordered list of Segments
-│   ├── program.py                    Composes optimizer stages, runs the design loop
-│   ├── constraint.py                 Constraint ABC + ConstraintOutput types
-│   ├── generator.py                  Generator ABC + GeneratorInputType
-│   └── optimizer.py                  Optimizer ABC
-├── generator/               Generator implementations (one module per generator + registry)
-│   ├── generator_registry.py         @generator decorator + GeneratorRegistry
-│   └── <one .py per generator>       Mutation-based, masked-LM, causal-LM, inverse-folding, …
-├── optimizer/               Optimizer implementations (one module per optimizer + registry)
-│   ├── optimizer_registry.py         @optimizer decorator + OptimizerRegistry
-│   ├── <one .py per optimizer>       Monte Carlo, beam search, rejection sampling, cycling, gradient
-│   └── constraint_compiler/          Compiled-constraint grouping for batched tool calls
-└── utils/                   Shared infrastructure: base ABCs (BaseConfig, BaseRegistry, ConfigField),
-                              the export chain, logging, serialization, ML-optimizer wrappers
+├── core/                    Sequence, Segment, Construct, Constraint, Generator,
+│                            Optimizer, Program, export helpers, validation
+│   ├── sequence.py          Typed sequence plus optional logits, structure, metadata
+│   ├── segment.py           One design region with proposal/result sequences
+│   ├── construct.py         Ordered segments that form a biological construct
+│   ├── constraint.py        Constraint wrapper, outputs, gradients, metadata writes
+│   ├── generator.py         Generator ABC, assignment, tied-segment behavior
+│   ├── optimizer.py         Optimizer ABC, scoring, history, export surface
+│   └── program.py           Multi-stage orchestration and program-level export
+├── constraint/              Registered scoring/filter functions by domain
+│   ├── constraint_registry.py
+│   ├── protein_quality/
+│   ├── protein_structure/
+│   ├── rna_secondary_structure/
+│   ├── rna_splicing/
+│   ├── sequence_alignment/
+│   ├── sequence_annotation/
+│   ├── sequence_composition/
+│   └── sequence_scoring/
+├── generator/               Registered proposal generators and registry
+├── optimizer/               Search strategies and compiled-constraint providers
+│   └── constraint_compiler/
+└── utils/                   BaseConfig/BaseRegistry, scoring constants, IO,
+                             logging, serialization, gradients, scheduling,
+                             sequence matrices, ORF helpers
 ```
 
-## Tests: `tests/`
+Important conventions:
 
-Mirrors the package layout under `tests/language_tests/`. `conftest.py` patches mock generators so optimizer tests don't load real model weights; `dummy_data/` carries small fixed inputs (PDBs, sequences). See [`tests/README.md`](../tests/README.md) for the canonical marker reference.
+- Add pluggable components under the appropriate `constraint/`, `generator/`,
+  or `optimizer/` module and export them through the local `__init__.py` chain.
+- Registries live beside their component families:
+  `constraint_registry.py`, `generator_registry.py`, and
+  `optimizer_registry.py`.
+- `utils/io.py` owns result flattening and export writers. `core/program.py`
+  and `core/optimizer.py` expose the public export methods.
 
-## Examples: `examples/`
+## Tests
 
-Reference content shipped with the repo. Conventions:
+`tests/` is not a perfect mirror of `proto_language/`; it has several lanes:
+
+```
+tests/
+├── conftest.py                         pytest flags, markers, fixtures, logging
+├── language_tests/                     core/component behavior tests
+│   ├── constraint_tests/
+│   ├── generator_tests/
+│   ├── optimizer_tests/
+│   └── test_*.py
+├── utils_tests/                        utility module tests
+├── tests_cpu/                          CPU integration/regression workflows
+├── test_codebase_consistency.py        repo-wide source consistency checks
+└── README.md                           short marker reference
+```
+
+`tests/conftest.py` is the source of truth for custom pytest flags, automatic
+CPU marking, `skip_ci` and `only_chimera` behavior, and test logging. The
+`toy_json` fixture loads `examples/jsons/toy.json`, so the JSON program path is
+exercised by the suite.
+
+See `notes/testing.md` for the long-form testing guide.
+
+## Examples
+
+`examples/` contains runnable programs and data. Current top-level conventions:
 
 ```
 examples/
-├── bin/         Standalone analysis / utility scripts. Run directly, not imported.
-├── bindcraft/   Binder-design example programs.
-├── germinal/    Antibody-generation pipeline + presets and PDBs.
-├── data/        Immutable reference datasets (HMMs, genomic context tracks, peak
-│                files, training proteins, etc.) used by example programs.
-├── jsons/       Declarative JSON program definitions, consumed via
-│                Program.from_json(). Reproducible seed points for end-to-end runs.
-└── scripts/     Larger multi-file workloads: regulatory design, intron design,
-                 symmetric proteins, inverse-folding ensembles, gradient-based
-                 protein hallucination, multi-stage design pipelines.
+├── bin/         Standalone utility/analysis scripts; run directly
+├── bindcraft/   Binder-design example programs and assets
+├── germinal/    Antibody/VHH generation pipeline content
+├── data/        Immutable reference assets used by examples
+├── jsons/       Declarative Program.from_json() inputs
+└── scripts/     Larger Python workloads and generated program collections
 ```
 
-The `toy_json` fixture in `tests/conftest.py` loads `examples/jsons/toy.json`, so the JSON examples are exercised by the test suite.
+Use `examples/scripts/` and `examples/jsons/` for idiomatic program shape.
+Domain-specific subtrees such as `germinal/` and `bindcraft/` carry their own
+assets and assumptions.
 
-## Logs and run outputs
+## Logs
 
-| Path | Producer | Tracked? |
-|---|---|---|
-| `logs/pytest_*.log` | `setup_test_logging` in `tests/conftest.py` | gitignored |
-| `logs/<program>_*.log` | `setup_logging()` called from a `Program.run()` | gitignored |
-| `tests/logs/` | pytest reserved location | gitignored |
-| User-chosen path via `Program.export(path=...)` | DSL itself | user-managed |
+Gitignored runtime logs:
 
-`Program.export(path=..., format="csv"|"xlsx")` writes a folder containing four tables (`sequences`, `constraints`, `constructs`, `optimization`), plus `sequences.fasta` and an `assets/` sidecar directory. The default is no path — the user always chooses where exports land.
+| Path | Producer |
+|---|---|
+| `logs/pytest_*.log` | `setup_test_logging` in `tests/conftest.py` |
+| `logs/proto_language_*.log` | `setup_logging()` default filename |
+| `logs/<custom>.log` | `setup_logging(log_filename=...)` |
+| `tests/logs/` | Reserved test log location |
 
-## Persistent storage (model weights, tool envs)
+`setup_logging()` defaults to `logs/` under the nearest project root containing
+`pyproject.toml`. During pytest, timestamped file logging is disabled unless a
+fixture or caller supplies `log_filename`; the test fixture does supply
+`pytest_*.log`.
 
-proto-language has **no proto-language-specific environment variables for storage**. All persistent data is owned by the `proto-tools` submodule:
+## Exports
+
+`Program.export()` and `Optimizer.export()` write an export directory. If
+`path` is `None`, the directory is created under the current working directory
+using the shared proto-tools export-name convention:
+`{project}__{YYYY-MM-DD_HHMMSS}`.
+
+Layout:
+
+```
+<export-dir>/
+├── sequences.<fmt>
+├── constraints.<fmt>
+├── constructs.<fmt>
+├── optimization.<fmt>
+├── sequences.fasta
+└── assets/
+    ├── res{i}_con{c}_seg{s}_structure.{pdb|cif}
+    ├── res{i}_con{c}_seg{s}_logits.npy
+    └── *.csv        nested row-shaped metadata sidecars
+```
+
+Supported table formats are `csv`, `tsv`, `json`, and `xlsx`. For `xlsx`, the
+four tables are sheets in `<export-dir>/results.xlsx`; `sequences.fasta` and
+`assets/` are still written separately. Empty tables are materialized as empty
+files for non-XLSX formats.
+
+Useful public helpers:
+
+- `Program.to_dataframe(...)` for one flattened table in memory.
+- `Program.to_fasta(...)` for FASTA-only output.
+- `proto_language.utils.io.write_results_folder(...)` for the folder writer
+  used by program and optimizer exports.
+
+## Persistent Storage
+
+`proto-language` has no storage-specific environment variables of its own.
+Model weights, tool environments, micromamba, and package caches are owned by
+the `proto-tools` submodule and inherited by language generators/constraints
+that call tools.
 
 | Variable | Owned by | What it controls |
 |---|---|---|
-| `PROTO_HOME` (default `~/.proto/`) | proto-tools | Top-level cache root: model weights, tool envs, micromamba |
-| `PROTO_MODEL_CACHE` | proto-tools | Override just the model-weight directory (useful for shared team caches) |
-| `PROTO_{TOOL}_WEIGHTS_DIR` | proto-tools | Per-tool weight override |
-| `HF_TOKEN` | proto-tools (gated models) | HuggingFace auth for gated models |
+| `PROTO_HOME` | proto-tools | Top-level root, default `~/.proto/`; contains model cache, tool envs, package caches, micromamba |
+| `PROTO_MODEL_CACHE` | proto-tools | Override only model-weight storage; safe for shared team caches |
+| `PROTO_{TOOL_NAME}_WEIGHTS_DIR` | proto-tools | Per-tool weight override |
+| `UV_CACHE_DIR` / `PIP_CACHE_DIR` | proto-tools | Optional package-cache overrides; default under `PROTO_HOME` |
+| `HF_TOKEN` | proto-tools / HuggingFace | Auth for gated model downloads |
 
-Full reference: [`proto-tools/notes/storage.md`](../proto-tools/notes/storage.md). Set these in your shell once; proto-language picks them up automatically because every generator that loads weights routes through proto-tools.
+Full reference: `proto-tools/notes/storage.md`. Set these in the shell or job
+environment; `proto-language` picks them up through proto-tools calls.

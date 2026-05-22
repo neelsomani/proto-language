@@ -1,11 +1,5 @@
-# CLAUDE.md
-
-Short entrypoint for coding agents contributing to `proto-language`. Keep
-long-form guidance in `notes/`, source docstrings, tests, examples, and local
-skills so instructions do not drift.
-
 `SYSTEM_PROMPT.md` is for agents that use the existing framework to write
-programs and scripts. Use this file when editing the repo itself.
+programs and scripts. Use the contents of this file when contributing to the repo itself.
 
 ## Project Overview
 
@@ -15,37 +9,19 @@ designing biological sequences. Core abstractions are `Sequence`, `Segment`,
 `proto-tools/` submodule supplies bioinformatics tool wrappers and has its own
 repo instructions, notes, tests, and CI.
 
-## Read Before Editing
+## References
 
 - `README.md`: user-facing overview, setup, core model, and examples.
 - `notes/dev.md`, `notes/testing.md`, `notes/batching.md`,
-  `notes/error-handling.md`, `notes/filesystem.md`, and
-  `notes/claude-code.md`: team-shared references for setup, CI, tests,
-  runtime behavior, file layout, and agent workflows.
-- `.claude/skills/`: implementation workflows for constraints, generators,
-  optimizers, and program writing.
-- `examples/scripts/`, `examples/jsons/`, and `examples/data/`: idiomatic
-  programs and realistic inputs.
-- Source and tests: the final authority for signatures, registry keys,
-  schemas, exports, and behavior.
+  `notes/error-handling.md`, `notes/filesystem.md`:
+  team-shared references for setup, CI, tests, runtime
+  behavior, and file layout.
+- `examples/scripts/` and `examples/jsons/`: example starter programs.
 
 ## Development Setup
 
 Use the `proto-language` conda environment. Assume it is already active; do
-not create or activate a virtual environment. Python, ruff, mypy, and pytest
-configuration live in `pyproject.toml`.
-
-```bash
-pytest
-pytest --integration
-pytest --all
-pytest --cpu --skip-ci
-pytest --gpu --all
-ruff check proto_language tests
-ruff format proto_language tests
-mypy proto_language/
-python .github/scripts/validate_exports.py --verbose
-```
+not create or activate a virtual environment. Project configurations live in `pyproject.toml`.
 
 See `notes/dev.md` for setup, submodules, export validation, and CI. See
 `notes/testing.md` for markers, fixtures, placement, and mocks.
@@ -54,13 +30,16 @@ See `notes/dev.md` for setup, submodules, export validation, and CI. See
 
 - `proto_language/core/`: data model, ABCs, program orchestration, export, and
   validation.
-- `proto_language/constraint/`, `proto_language/generator/`,
-  `proto_language/optimizer/`: registered components and configs.
-- `proto_language/language/`: public compatibility/export layer.
-- `proto_language/utils/`: shared config, serialization, IO, registry, and
-  validation helpers.
-- `tests/language_tests/`: behavior tests for constraints, generators,
-  optimizers, and programs.
+- `proto_language/constraint/`: constraint implementations grouped by domain and the constraint registry.
+- `proto_language/generator/`: sequence proposal generators and registry.
+- `proto_language/optimizer/`: optimization algorithms and constraint compiler
+  providers.
+- `proto_language/utils/`: shared config, serialization, scoring, IO, logging,
+  gradients, and scheduling helpers.
+- `tests/language_tests/`: core, constraint, generator, and optimizer behavior
+  tests.
+- `tests/utils_tests/` and `tests/tests_cpu/`: utility tests and CPU integration
+  regressions.
 - `notes/`: canonical long-form developer references.
 
 ## Contributor Conventions
@@ -89,10 +68,11 @@ registries, README inputs, and examples. Update those source inputs rather
 than generated docs.
 
 When behavior changes, update the relevant `notes/` file, source docstrings,
-field descriptions, examples, tests, and `.claude/skills/` guidance in the
-same commit.
+field descriptions, examples, tests, and skill guidance in the same commit.
 
 ## Skills
+
+Skill files live in `.claude/skills/` (`.agents/skills/` symlink). Read the relevant `SKILL.md` before using a workflow.
 
 - `write-program`: composing optimization programs.
 - `implement-constraint`, `implement-generator`, `implement-optimizer`:

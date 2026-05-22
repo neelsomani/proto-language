@@ -1,239 +1,127 @@
 # Development Guide
 
-This guide covers the development workflow and what is tested by CI checks.
+Dev workflow for `proto-language` contributors: commands, initial setup,
+submodule sync, worktrees, the export-chain validator, and the CI workflows
+that gate PRs. For testing specifics see `notes/testing.md`; for batching see
+`notes/batching.md`.
 
 ## Quick Reference
 
 ```bash
-# Important commands to know
-ruff check proto_language tests        # Run by Checks CI to check code style
-pytest --cpu --skip-ci                 # Run by Unit Test CI to run CPU-only unit tests (mimics exact CI conditions)
-
-python .github/scripts/validate_exports.py          # Validate export chain consistency across both repos
-python .github/scripts/validate_exports.py --verbose # Same, with detailed output
+ruff check proto_language tests        # lint (mirrors checks.yml lint job)
+ruff format --check                    # formatting (mirrors checks.yml lint job)
+mypy proto_language/                   # types (mirrors checks.yml mypy job)
+pytest --cpu                           # CPU unit tests (mirrors unit-tests.yml)
+pytest --cpu --skip-ci                 # additionally skip skip_ci tests, hide CUDA
+pytest --integration --cpu -v          # external-tool tests (mirrors integration-tests.yml)
+python .github/scripts/validate_exports.py --verbose  # export-chain consistency
 ```
-
-## Table of Contents
-- [Initial Setup](#initial-setup)
-- [Keeping the Submodule in Sync](#keeping-the-submodule-in-sync)
-- [Git Worktrees](#git-worktrees)
-- [Export Chain Validator](#export-chain-validator)
-- [Continuous Integration (CI) Checks](#continuous-integration-ci-checks)
-
----
 
 ## Initial Setup
 
-Follow the setup instructions in the [README](../README.md#setup) to create your conda environment and install dependencies.
+Follow the [README](../README.md#installation) for the conda environment and
+the editable install of `proto-language` plus the `proto-tools` submodule. The
+README is the source of truth; don't duplicate setup steps here.
 
----
+## Submodule Sync
 
-## Keeping the Submodule in Sync
+`proto-tools` is a git submodule tracking `main` (`.gitmodules` sets
+`branch = main`, `ignore = dirty`).
 
-`proto-tools` is a git submodule that tracks the `main` branch. Keep it in sync when pulling changes:
+Pull both repos together when the submodule reference changes upstream:
 
-> [!NOTE] **CI / GitHub Actions**: The proto-tools submodule is a private repo. Workflows require a `CI_SUBMODULE_ACCESS` secret. Create a fine-grained PAT (or classic PAT with `repo` scope) that has access to both this repo and `evo-design/proto-tools`, then add it under **Settings → Secrets and variables → Actions** as `CI_SUBMODULE_ACCESS`.
-
-**When someone else updates the submodule reference:**
 ```bash
 git pull --recurse-submodules
+# or:
+git pull
+git submodule update --init --recursive
 ```
-Or: `git pull` then `git submodule update --init --recursive`
 
-**To pull the latest from proto-tools and update the parent repo:**
+Bump `proto-tools` to the latest published `main` and commit the new pointer
+in the parent repo:
+
 ```bash
 git submodule update --remote proto-tools
 git add proto-tools
-git commit -m "Update proto-tools submodule"
+git commit -m "Bump proto-tools submodule"
 ```
 
-**Optional – auto-update submodules on pull** (set once per repo):
+Set once per clone to auto-recurse on every `git pull`:
+
 ```bash
 git config submodule.recurse true
 ```
 
----
+CI workflows that touch `proto-tools` need a `CI_SUBMODULE_ACCESS` PAT (fine-
+grained or `repo`-scoped classic) granting access to both `evo-design/proto-
+language` and `evo-design/proto-tools`, stored under `Settings → Secrets and
+variables → Actions`.
 
 ## Git Worktrees
 
-Git worktrees allow you to check out multiple branches simultaneously in separate directories. This is useful for working on multiple features or reviewing PRs without stashing changes.
-
-### Common Worktree Commands
+Worktrees check out multiple branches into separate directories without
+stashing the current branch.
 
 ```bash
-# List all worktrees
 git worktree list
-
-# Add worktree with new branch
-git worktree add -b new-branch /path/to/worktree
-
-# Add worktree for existing branch
-git worktree add /path/to/worktree existing-branch
-
-# Remove a worktree
-git worktree remove /path/to/worktree
+git worktree add /path/to/wt existing-branch
+git worktree add -b new-branch /path/to/wt
+git worktree remove /path/to/wt
 ```
 
-### Worktrees for the Parent Repo
-
-To work on a different branch of `proto-language` while keeping your current branch intact:
+Parent repo — submodules are not auto-initialized in a fresh worktree:
 
 ```bash
-# From the repo root, create a worktree for another branch
 git worktree add ../proto-language-feature feature-branch
-
-# Initialize submodules in the new worktree
 cd ../proto-language-feature
 git submodule update --init --recursive
 ```
 
-### Worktrees for the Submodule
-
-To work on multiple branches of `proto-tools` simultaneously:
+Submodule (independent of any parent worktree):
 
 ```bash
-# Navigate into the submodule
 cd proto-tools
-
-# Create a worktree for a feature branch
 git worktree add ../proto-tools-feature feature-branch
-
-# Or create a new branch in a worktree
-git worktree add -b my-new-feature ../proto-tools-my-feature
+git worktree add -b my-feature ../proto-tools-my-feature
 ```
 
-> [!NOTE] When using worktrees with submodules, changes in a submodule worktree won't automatically update the parent repo's submodule reference. You'll still need to commit the submodule pointer update in the parent repo.
-
----
+Edits inside a submodule worktree do not auto-update the parent's submodule
+pointer; commit the pointer update in the parent separately.
 
 ## Export Chain Validator
 
-AST-based tool that validates `__init__.py` export chains across both `proto-language` and `proto-tools`. Catches the #1 silent failure mode: adding a new tool/constraint/generator but missing an `__init__.py` export level, causing `ImportError` at runtime.
-
-### What It Checks
-
-1. **Upward chain completeness**: Every symbol in `__all__` at level N is importable at level N+1
-2. **`__all__` consistency**: Every item in `__all__` is actually imported or defined in that module (catches stale entries)
-3. **Registry registration**: Every `@tool`/`@constraint`/`@generator`/`@optimizer` decorated function is exported by its parent `__init__.py`
-
-### Running It
+`.github/scripts/validate_exports.py` runs AST-based checks on `__init__.py`
+files in both repos to catch missing or stale exports before they surface as
+runtime `ImportError`s. The script is stdlib-only and never executes the
+target modules.
 
 ```bash
-python .github/scripts/validate_exports.py                # All domains
-python .github/scripts/validate_exports.py --domain Tools  # Single domain
-python .github/scripts/validate_exports.py --verbose       # Show all checks
+python .github/scripts/validate_exports.py                # all domains
+python .github/scripts/validate_exports.py --domain Tools # single domain
+python .github/scripts/validate_exports.py --verbose      # show every check
 ```
 
-Exit code 0 = pass, 1 = errors found. Errors go to stderr with actionable messages.
+Exit code is `0` on pass, `1` on errors. The script's module docstring is the
+canonical list of which checks run per domain. Intentional omissions live in
+the `exceptions` section of `.github/scripts/export_config.json`; add new
+exceptions there rather than mutating `__all__` to satisfy the check.
 
-### Exceptions
+## CI Workflows
 
-Known intentional omissions (internal base configs, private subpackages, etc.) are listed in the `exceptions` section of `.github/scripts/export_config.json`. Add new exceptions there if a symbol is intentionally not propagated.
+| Workflow | Trigger | What it runs |
+|---|---|---|
+| `unit-tests.yml` | non-draft PR + push to `main` | `pytest --cpu -q --override-ini="log_cli=false" --cov --cov-report=term-missing` |
+| `checks.yml` | non-draft PR + push to `main` | Three parallel jobs: `ruff check` + `ruff format --check`; `mypy proto_language/`; `python .github/scripts/validate_exports.py --verbose` |
+| `submodule-check.yml` | non-draft PR | Fails when the pinned `proto-tools` SHA differs from `evo-design/proto-tools@main`; fix with `git submodule update --remote proto-tools` and commit |
+| `integration-tests.yml` | scheduled (daily 06:00 UTC) + `workflow_dispatch` | Install MAFFT; `pytest --integration --cpu -v`. **Not** PR-triggered |
+| `claude.yml` | `@claude` in issue/PR/review comment | Code review or scoped question response |
 
-### CI Integration
+See `notes/testing.md` for the test-side details (markers, fixtures, mocks)
+that these workflows exercise.
 
-Runs automatically in CI via checks.yml.
+## Documentation
 
----
-
-## Continuous Integration (CI) Checks
-
-### Conditional Automatic CIs
-The following CIs run automatically on pull requests that are in `ready_for_review` state:
-
-#### CPU Unit Tests
-**File:** `.github/workflows/run-unit-tests.yml`
-**Triggers:** On non-draft PRs
-**What it does:** Runs fast CPU-only unit tests, skips tests marked with `@pytest.mark.skip_ci`
-
-**Run locally:**
-```bash
-# Mimic exact CI behavior
-pytest --cpu
-
-# Additionally skip tests marked with skip_ci (stricter than CI)
-pytest --cpu --skip-ci
-```
-
-**Note:** Tests marked with `@pytest.mark.skip_ci` are skipped when `--skip-ci` is passed. CI does NOT use `--skip-ci`; it runs `pytest --cpu` directly. Use `--skip-ci` locally if you want to skip tests that depend on remote APIs or rate-limited services.
-
-**Chimera-only tests:** Tests marked with `@pytest.mark.only_chimera` only run on the Chimera cluster (where `SLURM_CLUSTER_NAME=arc-slurm`). These tests are automatically skipped on other machines.
-
-#### Integration Tests
-**File:** `.github/workflows/integration_tests.yml`
-**Triggers:** On non-draft PRs
-**What it does:** Runs tests requiring external tools (MAFFT, etc.)
-
-**Run locally:**
-```bash
-pytest --integration --cpu -v
-```
-
-### Constant Automatic CIs
-This CI always runs automatically on pull requests regardless of state.
-
-#### Checks (Lint, Exports)
-**File:** `.github/workflows/checks.yml`
-**Triggers:** On all PR pushes and main branch
-**What it does:** Two parallel jobs:
-1. **Ruff Lint**: checks code style (F401 + F841 + import sorting)
-2. **Validate Export Chains**: verifies `__init__.py` exports are consistent
-
-**Run locally:**
-```bash
-ruff check proto_language tests
-python .github/scripts/validate_exports.py --verbose
-```
-
-### Manual CIs
-The following CIs run manually when requested by the user:
-
-#### Claude Code Review
-**File:** `.github/workflows/claude.yml`
-**Triggers:** Only when `@claude` is mentioned in a PR comment
-**What it does:**
-- If comment is just `@claude` or explicitly asks for review → Full code review
-- If comment asks a specific question → Answers that question only
-
-**Usage examples:**
-```
-@claude
-# Triggers full code review
-
-@claude please review this PR
-# Triggers full code review
-
-@claude why does this function use caching?
-# Answers specific question only
-```
-
-#### Documentation Generation
-
-Documentation reference pages are auto-generated from Python docstrings and field descriptions. The `docs_autogen.yml` workflow no longer exists in this repo; generation now happens externally from the source code in this repo.
-
----
-
-## Documentation Generation
-
-Documentation reference pages are auto-generated from Python docstrings, field descriptions, and tool READMEs. The generation scripts introspect the Python registries in this repo and `proto-tools`.
-
-### Adding Documentation
-
-**For constraints/generators/optimizers:**
-1. Add Google-style docstrings to your Python class/function
-2. Open and merge your PR in this repo
-3. Reference pages regenerate automatically from the source code
-
-**For tools:**
-1. Update tool README/source in `proto-tools`
-2. Merge that change in the tools repo
-3. Reference pages regenerate automatically from the source code
-
----
-
-## Batching
-
-`batch_size` defaults to `1` everywhere (tools and generators), safe by default.
-The tool layer owns the batching loop; generators/constraints pass all sequences
-plus `batch_size` through. See `.claude/skills/general-dev/SKILL.md` "Batching Architecture"
-for the full data flow diagram.
+Reference docs are generated externally from this repo's registries,
+docstrings, and field descriptions plus `proto-tools` tool READMEs. Update
+source inputs — not generated pages — and merge; downstream regeneration picks
+up the change. There is no `docs_autogen.yml` workflow in this repo.

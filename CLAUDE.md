@@ -20,8 +20,8 @@ repo instructions, notes, tests, and CI.
 
 ## Development Setup
 
-Use the `proto-language` conda environment. Assume it is already active; do
-not create or activate a virtual environment. Project configurations live in `pyproject.toml`.
+Use the `proto-language` conda environment setup from `README.md`. 
+Project configurations live in `pyproject.toml`.
 
 See `notes/dev.md` for setup, submodules, export validation, and CI. See
 `notes/testing.md` for markers, fixtures, placement, and mocks.

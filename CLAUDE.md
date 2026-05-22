@@ -29,9 +29,6 @@ repo instructions, notes, tests, and CI.
 - Source and tests: the final authority for signatures, registry keys,
   schemas, exports, and behavior.
 
-Use auto-memory only for personal, non-obvious debugging discoveries. Put
-team-shared setup steps, architecture decisions, and gotchas in `notes/`.
-
 ## Development Setup
 
 Use the `proto-language` conda environment. Assume it is already active; do

@@ -167,7 +167,7 @@ def esm2_perplexity_gradient_backward(
     description="Score protein naturalness by ESM2 mean NLL and report perplexity.",
     tools_called=["esm2-gradient"],
     uses_gpu=True,
-    category="sequence scoring",
+    category="sequence_scoring",
     supported_sequence_types=["protein"],
     input_labels=[InputSlot(label="Sequence", requires_logits=True)],
     backward=esm2_perplexity_gradient_backward,

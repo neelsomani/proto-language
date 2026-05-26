@@ -36,7 +36,7 @@ class LongestOrfLengthConfig(BaseConfig):
     config=LongestOrfLengthConfig,
     description="Require a minimum-length canonical ATG-to-stop ORF on either strand.",
     tools_called=["orfipy-prediction"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def longest_orf_length_constraint(

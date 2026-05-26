@@ -219,7 +219,7 @@ class EnformerChromatinAccessibilityMorseConfig(BaseConfig):
     description="Score a DNA target for a Morse-code chromatin accessibility pattern using Enformer.",
     uses_gpu=True,
     tools_called=["enformer-prediction"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
     input_labels=["Left Flank", "Target", "Right Flank"],
 )

@@ -133,7 +133,7 @@ def malinois_activity_score(raw_score: float, config: MalinoisActivityConfig) ->
     description="Score regulatory DNA activity using Malinois with max/min cell-type objectives.",
     uses_gpu=True,
     tools_called=["malinois-score", "malinois-gradient"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def malinois_activity_constraint(

@@ -144,7 +144,7 @@ class MMseqsSimilarityConfig(BaseConfig):
     config=MMseqsSimilarityConfig,
     description="Score percent identity via MMseqs2 (DNA is ORF-predicted first; proteins search directly).",
     tools_called=["mmseqs2-search-proteins", "prodigal-prediction", "orfipy-prediction"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna", "protein"],
 )
 def mmseqs_similarity_constraint(

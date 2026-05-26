@@ -334,7 +334,7 @@ class OverallProteinQualityConfig(BaseConfig):
     config=OverallProteinQualityConfig,
     description="Evaluate overall protein quality using multiple sub-constraints",
     tools_called=["prodigal-prediction", "segmasker-score"],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["dna", "protein"],
 )
 def overall_protein_quality_constraint(

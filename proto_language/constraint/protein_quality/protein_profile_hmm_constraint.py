@@ -72,7 +72,7 @@ class ProteinProfileHMMConfig(BaseConfig):
     config=ProteinProfileHMMConfig,
     description="Search proteins, or longest ORFs from DNA, against a profile-HMM file.",
     tools_called=["pyhmmer-hmmsearch", "orfipy-prediction"],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["dna", "protein"],
 )
 def protein_profile_hmm_constraint(

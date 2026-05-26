@@ -199,7 +199,7 @@ def _extract_track_matrix(
     description=("Score AlphaGenome track signal over one or more intervals by minimizing or maximizing mean value."),
     uses_gpu=True,
     tools_called=["alphagenome-predict-sequences"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def alphagenome_interval_track_constraint(

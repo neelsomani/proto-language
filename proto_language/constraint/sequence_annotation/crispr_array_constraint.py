@@ -37,7 +37,7 @@ class CrisprArrayConfig(BaseConfig):
     config=CrisprArrayConfig,
     description="Detect CRISPR repeat-spacer arrays in DNA sequences using MinCED.",
     tools_called=["minced-crispr"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def crispr_array_constraint(

@@ -153,7 +153,7 @@ class SeqMotifConfig(BaseConfig):
     config=SeqMotifConfig,
     description="Score DNA sequences against motifs using MEME",
     tools_called=["meme"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: SeqMotifConfig) -> list[ConstraintOutput]:

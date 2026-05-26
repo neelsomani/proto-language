@@ -118,7 +118,7 @@ def _dG_penalty(dG: float) -> float:
     config=PromoterStrengthConfig,
     description="Evaluate promoter strength using Salis Lab Promoter Calculator",
     tools_called=["promoter_calculator"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def promoter_strength_constraint(

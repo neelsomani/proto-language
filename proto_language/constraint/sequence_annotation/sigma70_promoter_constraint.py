@@ -179,7 +179,7 @@ class Sigma70PromoterConfig(BaseConfig):
     config=Sigma70PromoterConfig,
     description="Evaluate sigma-70 promoter similarity for DNA sequences",
     tools_called=[],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def sigma70_promoter_constraint(

@@ -225,7 +225,7 @@ def ablang_perplexity_gradient_backward(
     description="Score antibody naturalness by AbLang mean NLL and report perplexity.",
     tools_called=["ablang-gradient"],
     uses_gpu=True,
-    category="sequence scoring",
+    category="sequence_scoring",
     supported_sequence_types=["protein"],
     input_labels=[InputSlot(label="Sequence", requires_logits=True)],
     backward=ablang_perplexity_gradient_backward,

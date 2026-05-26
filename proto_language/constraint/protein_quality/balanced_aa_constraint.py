@@ -61,7 +61,7 @@ class BalancedAaConfig(BaseConfig):
     config=BalancedAaConfig,
     description="Evaluate the presence of underrepresented amino acids in a protein sequence",
     tools_called=[],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["protein"],
 )
 def balanced_aa_constraint(

@@ -62,7 +62,7 @@ class ProteinRepetitivenessConfig(BaseConfig):
     config=ProteinRepetitivenessConfig,
     description="Evaluate protein sequence repetitiveness based on k-mer analysis",
     tools_called=[],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["protein"],
 )
 def protein_repetitiveness_constraint(

@@ -234,7 +234,7 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
     description="Score splice-site usage with AlphaGenome on three segments (left_flank, intron_core, right_flank).",
     uses_gpu=True,
     tools_called=["alphagenome-predict-sequences"],
-    category="rna splicing",
+    category="rna_splicing",
     supported_sequence_types=["dna"],
     input_labels=["Left Flank", "Intron Core", "Right Flank"],
 )

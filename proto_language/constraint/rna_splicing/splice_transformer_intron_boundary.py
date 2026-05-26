@@ -116,7 +116,7 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     description="Score intron-boundary prediction with SpliceTransformer on three concatenated 1-kb segments.",
     uses_gpu=True,
     tools_called=["splice-transformer-prediction"],
-    category="rna splicing",
+    category="rna_splicing",
     supported_sequence_types=["dna"],
     input_labels=["Left Flank", "Intron Core", "Right Flank"],
 )

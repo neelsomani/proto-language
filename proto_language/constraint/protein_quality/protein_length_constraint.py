@@ -57,7 +57,7 @@ class ProteinLengthConfig(BaseConfig):
     config=ProteinLengthConfig,
     description="Evaluate whether protein length falls within acceptable range",
     tools_called=[],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["protein"],
 )
 def protein_length_constraint(

@@ -45,7 +45,7 @@ class ProteinComplexityConfig(BaseConfig):
     config=ProteinComplexityConfig,
     description="Evaluate protein sequence complexity using segmasker to detect low-complexity regions",
     tools_called=["segmasker-score"],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["protein"],
 )
 def protein_complexity_constraint(

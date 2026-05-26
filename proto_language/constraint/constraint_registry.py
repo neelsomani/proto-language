@@ -242,7 +242,6 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             else:
                 mode = "discrete"
 
-            normalized_category = category.replace(" ", "_") if category else category
             cls._registry[key] = ConstraintSpec(
                 key=key,
                 label=label,
@@ -252,7 +251,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 backward=func if is_backward_fn else backward,
                 uses_gpu=uses_gpu,
                 tools_called=tools_called,
-                category=normalized_category,
+                category=category,
                 supported_sequence_types=supported_sequence_types,
                 input_labels=input_labels,
                 requires_generators=requires_generators,

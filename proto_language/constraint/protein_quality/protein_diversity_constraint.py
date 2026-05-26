@@ -46,7 +46,7 @@ class ProteinDiversityConfig(BaseConfig):
     config=ProteinDiversityConfig,
     description="Evaluate amino acid diversity in a protein sequence",
     tools_called=[],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["protein"],
 )
 def protein_diversity_constraint(

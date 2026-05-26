@@ -41,7 +41,7 @@ class CrisprTracrRNAConstraintConfig(BaseConfig):
     config=CrisprTracrRNAConstraintConfig,
     description="Predict tracrRNA candidates for CRISPR loci and optionally require IntaRNA support.",
     tools_called=["crispr-tracr-rna"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
 def crispr_tracr_rna_constraint(

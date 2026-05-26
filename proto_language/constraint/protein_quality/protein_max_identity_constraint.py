@@ -64,7 +64,7 @@ class ProteinMaxIdentityConfig(BaseConfig):
     config=ProteinMaxIdentityConfig,
     description="Require proteins, or longest ORFs from DNA, to stay below a maximum identity to references.",
     tools_called=["mmseqs2-search-proteins", "orfipy-prediction"],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["dna", "protein"],
 )
 def protein_max_identity_constraint(

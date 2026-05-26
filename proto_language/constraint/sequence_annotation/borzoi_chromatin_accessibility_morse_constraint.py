@@ -219,7 +219,7 @@ class BorzoiChromatinAccessibilityMorseConfig(BaseConfig):
     description="Score a DNA target for a Morse-code chromatin accessibility pattern using Borzoi.",
     uses_gpu=True,
     tools_called=["borzoi-ensemble"],
-    category="sequence annotation",
+    category="sequence_annotation",
     supported_sequence_types=["dna"],
     input_labels=["Left Flank", "Target", "Right Flank"],
 )

@@ -84,7 +84,7 @@ class ProteinNearestNeighborGapGiniConfig(BaseConfig):
     config=ProteinNearestNeighborGapGiniConfig,
     description="Align proteins (or longest ORFs from DNA) to the nearest reference hit and score gap concentration.",
     tools_called=["mmseqs2-search-proteins", "mafft-align", "orfipy-prediction"],
-    category="protein quality",
+    category="protein_quality",
     supported_sequence_types=["dna", "protein"],
 )
 def protein_nearest_neighbor_gap_gini_constraint(

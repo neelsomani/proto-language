@@ -1,6 +1,7 @@
 """consistency."""
 
 import inspect
+import re
 import types
 from typing import Union, get_args, get_origin
 
@@ -90,6 +91,16 @@ def test_config_consistency(config_model: type):
         f"{config_model.__name__} is missing the following fields in the docstring: {missing_fields}. "
         "Add: Field(..., description='Brief explanation')"
     )
+
+
+def test_constraint_categories_are_snake_case():
+    """Registered constraint categories must be snake_case (``^[a-z_]+$``), no whitespace."""
+    offenders = [
+        (spec.key, spec.category)
+        for spec in ConstraintRegistry.list_all()
+        if spec.category is not None and not re.fullmatch(r"[a-z_]+", spec.category)
+    ]
+    assert not offenders, f"non-snake_case constraint categories: {offenders}"
 
 
 def list_tool_inputs_and_outputs() -> list[tuple[str, str]]:

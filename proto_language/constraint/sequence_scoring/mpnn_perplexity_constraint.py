@@ -206,7 +206,7 @@ def mpnn_perplexity_gradient_backward(
     description="Score protein sequences by ProteinMPNN perplexity against a fixed backbone; differentiable.",
     tools_called=["proteinmpnn-gradient"],
     uses_gpu=True,
-    category="sequence scoring",
+    category="sequence_scoring",
     supported_sequence_types=["protein"],
     input_labels=[InputSlot(label="Sequence", requires_logits=True)],
     backward=mpnn_perplexity_gradient_backward,

@@ -47,6 +47,10 @@ dependencies = [
 Homepage = "https://github.com/evo-design/proto-language"
 Repository = "https://github.com/evo-design/proto-language"
 
+[project.scripts]
+# CLI entry point; also reachable via `python -m proto_language`.
+proto-language = "proto_language.cli:main"
+
 [project.optional-dependencies]
 # Development and testing tools
 dev = [
@@ -175,6 +179,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"proto_language/cli.py" = ["T201"]      # CLI entry point: print() is the right way to emit to stdout
+"proto_language/__main__.py" = ["T201"] # python -m proto_language entry point
 "tests/**/*.py" = [
     "S101",     # assert is the whole point of tests
     "S105",     # hardcoded password strings ok in test fixtures

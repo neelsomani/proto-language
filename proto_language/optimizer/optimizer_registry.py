@@ -4,12 +4,15 @@ JSON schema export for tooling.
 """
 
 from collections.abc import Callable
-from typing import ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
 from proto_language.core import Optimizer
 from proto_language.utils.base import BaseRegistry, BaseSpec
+
+if TYPE_CHECKING:
+    from proto_language.utils.docs_api import ComponentDoc, ConfigModelDoc
 
 
 class OptimizerSpec(BaseSpec):
@@ -189,6 +192,23 @@ class OptimizerRegistry(BaseRegistry[OptimizerSpec]):
     def list_all(cls) -> list[OptimizerSpec]:
         """List all registered optimizers as Pydantic models."""
         return list(cls._registry.values())
+
+    @classmethod
+    def get_docs(cls, identifier: str) -> "ComponentDoc":
+        """Return a ``ComponentDoc`` for the optimizer resolved from ``identifier``."""
+        from proto_language.utils.docs_api import ComponentDoc, get_optimizer_doc
+
+        doc: ComponentDoc = get_optimizer_doc(identifier)
+        return doc
+
+    @classmethod
+    def get_config_doc(cls, identifier: str) -> "ConfigModelDoc":
+        """Return a ``ConfigModelDoc`` for the optimizer's config model."""
+        from proto_language.utils.docs_api import ConfigModelDoc, get_config_doc, resolve_key
+
+        spec = cls.get(resolve_key("optimizer", identifier))
+        doc: ConfigModelDoc = get_config_doc(spec.config_model)
+        return doc
 
 
 # Alias for simpler decorator syntax: @optimizer(...) instead of @optimizer(...)

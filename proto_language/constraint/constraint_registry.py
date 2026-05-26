@@ -5,7 +5,7 @@ a factory method for creating Constraint instances.
 
 import typing
 from collections.abc import Callable
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import pydantic
 from pydantic import BaseModel, Field, field_serializer
@@ -15,6 +15,9 @@ from proto_language.core import Constraint, Segment
 from proto_language.core.constraint import GradientConstraintOutput, InputSlot
 from proto_language.utils.base import BaseRegistry, BaseSpec
 from proto_language.utils.serialization import format_pydantic_error
+
+if TYPE_CHECKING:
+    from proto_language.utils.docs_api import ComponentDoc, ConfigModelDoc
 
 __all__ = ["ConstraintRegistry", "ConstraintSpec", "InputSlot", "constraint"]
 
@@ -239,6 +242,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
             else:
                 mode = "discrete"
 
+            normalized_category = category.replace(" ", "_") if category else category
             cls._registry[key] = ConstraintSpec(
                 key=key,
                 label=label,
@@ -248,7 +252,7 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
                 backward=func if is_backward_fn else backward,
                 uses_gpu=uses_gpu,
                 tools_called=tools_called,
-                category=category,
+                category=normalized_category,
                 supported_sequence_types=supported_sequence_types,
                 input_labels=input_labels,
                 requires_generators=requires_generators,
@@ -381,6 +385,23 @@ class ConstraintRegistry(BaseRegistry[ConstraintSpec]):
     def list_all(cls) -> list[ConstraintSpec]:
         """List all registered constraints as Pydantic models."""
         return list(cls._registry.values())
+
+    @classmethod
+    def get_docs(cls, identifier: str) -> "ComponentDoc":
+        """Return a ``ComponentDoc`` for the constraint resolved from ``identifier``."""
+        from proto_language.utils.docs_api import ComponentDoc, get_constraint_doc
+
+        doc: ComponentDoc = get_constraint_doc(identifier)
+        return doc
+
+    @classmethod
+    def get_config_doc(cls, identifier: str) -> "ConfigModelDoc":
+        """Return a ``ConfigModelDoc`` for the constraint's config model."""
+        from proto_language.utils.docs_api import ConfigModelDoc, get_config_doc, resolve_key
+
+        spec = cls.get(resolve_key("constraint", identifier))
+        doc: ConfigModelDoc = get_config_doc(spec.config_model)
+        return doc
 
 
 # Alias for simpler decorator syntax: @constraint(...) instead of @constraint(...)

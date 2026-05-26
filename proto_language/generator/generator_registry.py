@@ -1,7 +1,7 @@
 """Decorator-based registration for generator classes with metadata and JSON schema export."""
 
 from collections.abc import Callable
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import pydantic
 from pydantic import BaseModel, Field
@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field
 from proto_language.core import Generator, GeneratorInputType
 from proto_language.utils.base import BaseRegistry, BaseSpec
 from proto_language.utils.serialization import format_pydantic_error
+
+if TYPE_CHECKING:
+    from proto_language.utils.docs_api import ComponentDoc, ConfigModelDoc
 
 GeneratorCategory = Literal["autoregressive", "mutation", "inverse_folding", "gradient"]
 
@@ -268,6 +271,23 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     def list_all(cls) -> list[GeneratorSpec]:
         """List all registered generators as Pydantic models."""
         return list(cls._registry.values())
+
+    @classmethod
+    def get_docs(cls, identifier: str) -> "ComponentDoc":
+        """Return a ``ComponentDoc`` for the generator resolved from ``identifier``."""
+        from proto_language.utils.docs_api import ComponentDoc, get_generator_doc
+
+        doc: ComponentDoc = get_generator_doc(identifier)
+        return doc
+
+    @classmethod
+    def get_config_doc(cls, identifier: str) -> "ConfigModelDoc":
+        """Return a ``ConfigModelDoc`` for the generator's config model."""
+        from proto_language.utils.docs_api import ConfigModelDoc, get_config_doc, resolve_key
+
+        spec = cls.get(resolve_key("generator", identifier))
+        doc: ConfigModelDoc = get_config_doc(spec.config_model)
+        return doc
 
 
 # Alias for simpler decorator syntax: @generator(...) instead of @generator(...)

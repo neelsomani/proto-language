@@ -308,13 +308,17 @@ class LigandMPNNGenerator(Generator):
             inputs=InverseFoldingInput(inputs=sampling_structure_inputs),
             config=tool_config,
         )
-        for design in result.designed_sequences:
-            generated_sequences.extend(design.sequences)
-            all_recovery.extend(design.sequence_recovery)
-            # ligand_interface_sequence_recovery is None when the input structure has no ligand;
-            # pad with None so the per-proposal alignment via zip() below holds.
-            interface = design.ligand_interface_sequence_recovery
-            all_interface_recovery.extend([None] * len(design.sequences) if interface is None else interface)
+        for design_set in result.design_sets:
+            for design in design_set.complexes:
+                designed_seqs = [
+                    chain.sequence
+                    for chain, was_designed in zip(design.chains, design.designed, strict=True)
+                    if was_designed
+                ]
+                generated_sequences.append("/".join(designed_seqs))
+                all_recovery.append(design.metrics["sequence_recovery"])
+                # ligand_interface_sequence_recovery is absent when the input has no ligand interface.
+                all_interface_recovery.append(design.metrics.get("ligand_interface_sequence_recovery", None))
 
         key = self._spec.key
         for proposal, sequence, recovery, interface_recovery in zip(

@@ -6,7 +6,7 @@ from numpy import clip
 from proto_tools import (
     Boltz2Config,
     Boltz2Input,
-    StructurePredictionComplex,
+    Complex,
     run_boltz2,
 )
 
@@ -253,9 +253,7 @@ def boltz_binding_strength_constraint(
             complex type, or if a metric appears in both desired_higher and desired_lower.
     """
     boltz_complexes = [
-        StructurePredictionComplex(
-            chains=[{"sequence": s.sequence, "entity_type": s.sequence_type} for s in sequence_tuple]
-        )
+        Complex(chains=[{"sequence": s.sequence, "entity_type": s.sequence_type} for s in sequence_tuple])
         for sequence_tuple in input_sequences
     ]
 

@@ -30,7 +30,7 @@ from proto_tools.tools.structure_prediction.alphafold3 import (
 )
 from proto_tools.tools.structure_prediction.shared_data_models import (
     Chain,
-    StructurePredictionComplex,
+    Complex,
 )
 
 logger = logging.getLogger(__name__)
@@ -203,7 +203,7 @@ def cofold_proposal(
 
     logger.info(f"Proposal {proposal_idx}: protein={len(protein_sequence)}aa, sgRNA={len(sgrna_sequence)}nt")
 
-    complex_input = StructurePredictionComplex(
+    complex_input = Complex(
         chains=[
             Chain(sequence=protein_sequence, entity_type="protein"),
             Chain(sequence=sgrna_sequence, entity_type="rna"),

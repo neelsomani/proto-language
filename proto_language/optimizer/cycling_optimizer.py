@@ -63,7 +63,7 @@ def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> 
     Args:
         config (CyclingOptimizerConfig): Constraint configuration controlling evaluation parameters.
     """
-    from proto_tools import StructurePredictionComplex, predict_structures
+    from proto_tools import Complex, predict_structures
 
     structure_tool = config.protein_hunter.structure_tool if config.protein_hunter else "boltz2"
 
@@ -81,7 +81,7 @@ def _create_protein_hunter_conditioning_fn(config: "CyclingOptimizerConfig") -> 
         rng = state["rng"]
         if rng is not None:
             tool_config["seed"] = rng.randint(0, 2**31 - 1)
-        complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
+        complexes = [Complex(chains=[seq.sequence]) for seq in sequences]
         structures = predict_structures(complexes, structure_tool, tool_config).structures
         for seq, structure in zip(sequences, structures, strict=True):
             seq.structure = structure

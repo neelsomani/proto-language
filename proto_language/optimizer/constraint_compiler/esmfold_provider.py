@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 import numpy as np
-from proto_tools import StructurePredictionComplex, predict_structures
+from proto_tools import Complex, predict_structures
 from proto_tools.tools.structure_prediction.esmfold import (
     ESMFoldConfig,
     ESMFoldGradientConfig,
@@ -276,7 +276,7 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
             {"sequence": segment.proposal_sequences[proposal_idx].sequence, "entity_type": segment.sequence_type}
             for segment in inputs
         ]
-        complexes.append(StructurePredictionComplex(chains=chains))
+        complexes.append(Complex(chains=chains))
 
     output = predict_structures(complexes, config.structure_tool, config.tool_config)
     if len(output.structures) != len(proposal_indices):

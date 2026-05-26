@@ -4,9 +4,9 @@ from io import StringIO
 
 import numpy as np
 from proto_tools import (
+    Complex,
     ESMFoldConfig,
     ESMFoldInput,
-    StructurePredictionComplex,
     distances_to_centroid,
     get_backbone_atoms,
     pdb_file_to_atomarray,
@@ -143,7 +143,7 @@ def protein_globularity_constraint(
     """
     resolved_complexes = resolve_protein_complex_chains(input_sequences)
     results: list[ConstraintOutput | None] = [None] * len(input_sequences)
-    complexes: list[StructurePredictionComplex] = []
+    complexes: list[Complex] = []
     valid_indices: list[int] = []
     valid_metadata: list[dict[str, object]] = []
 
@@ -152,9 +152,7 @@ def protein_globularity_constraint(
             results[idx] = ConstraintOutput(score=MAX_ENERGY, metadata=metadata)
             continue
         complexes.append(
-            StructurePredictionComplex(
-                chains=[{"sequence": sequence, "entity_type": "protein"} for sequence in chain_sequences]
-            )
+            Complex(chains=[{"sequence": sequence, "entity_type": "protein"} for sequence in chain_sequences])
         )
         metadata["esmfolded_sequence"] = ":".join(chain_sequences)
         valid_indices.append(idx)

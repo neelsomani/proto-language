@@ -164,7 +164,7 @@ def structure_filter(
         AlphaFold3Config,
         AlphaFold3Input,
         ColabfoldSearchConfig,
-        StructurePredictionComplex,
+        Complex,
         run_alphafold3,
     )
 
@@ -236,7 +236,7 @@ def structure_filter(
         proposal_dir = f"{af3_dir}/{af3_name}_{af3_idx}"
         try:
             af3_result = run_alphafold3(
-                AlphaFold3Input(complexes=[StructurePredictionComplex(chains=[protein])]),
+                AlphaFold3Input(complexes=[Complex(chains=[protein])]),
                 AlphaFold3Config(
                     name=af3_name,
                     output_dir=proposal_dir,

@@ -7,10 +7,10 @@ from logging import getLogger
 from typing import Literal
 
 from proto_tools import (
+    Complex,
     PyMOLRMSDConfig,
     PyMOLRMSDInput,
     Structure,
-    StructurePredictionComplex,
     TMalignConfig,
     TMalignInput,
     USalignConfig,
@@ -71,7 +71,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
 
     The user should provide a target as **one** of:
     - ``target_chains``: Sequences to dynamically fold (tuple of strings or a
-      StructurePredictionComplex).
+      Complex).
     - ``target_structure``: A Structure object, a file path to a PDB/CIF file,
       or raw PDB/CIF content as a string.
 
@@ -81,9 +81,9 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     ``alphafold2_multimer_config``).
 
     Attributes:
-        target_chains (tuple[str, ...] | StructurePredictionComplex | None):
+        target_chains (tuple[str, ...] | Complex | None):
             The sequences of the target chains. Accepts either a tuple of sequence
-            strings (entity types are auto-detected) or a StructurePredictionComplex.
+            strings (entity types are auto-detected) or a Complex.
             If provided, these will be folded using the specified ``structure_tool``
             to generate the reference structure. Mutually exclusive with
             ``target_structure``.
@@ -102,7 +102,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     """
 
     # Target specification (mutually exclusive):
-    target_chains: tuple[str, ...] | StructurePredictionComplex | None = ConfigField(
+    target_chains: tuple[str, ...] | Complex | None = ConfigField(
         title="Target Chains",
         default=None,
         description="Target chains: a tuple of sequence strings (entity types auto-detected).",
@@ -243,13 +243,13 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> str | None:
         return Structure(structure=config.target_structure).structure_pdb  # type: ignore[no-any-return]
 
     if config.target_chains is not None:
-        if isinstance(config.target_chains, StructurePredictionComplex):
+        if isinstance(config.target_chains, Complex):
             complexes = [config.target_chains]
         else:
             from proto_language.core import detect_sequence_type
 
             chains = [{"sequence": seq, "entity_type": detect_sequence_type(seq)} for seq in config.target_chains]
-            complexes = [StructurePredictionComplex(chains=chains)]
+            complexes = [Complex(chains=chains)]
 
         output = predict_structures(complexes, config.structure_tool, config.tool_config)
 
@@ -306,7 +306,7 @@ def structure_rmsd_constraint(
     structure_complexes = []
     for proposal_tuple in input_sequences:
         chains = [{"sequence": s.sequence, "entity_type": s.sequence_type} for s in proposal_tuple]
-        structure_complexes.append(StructurePredictionComplex(chains=chains))
+        structure_complexes.append(Complex(chains=chains))
 
     try:
         prediction = predict_structures(structure_complexes, config.structure_tool, config.tool_config)
@@ -407,7 +407,7 @@ def structure_tmscore_constraint(
     structure_complexes = []
     for proposal_tuple in input_sequences:
         chains = [{"sequence": s.sequence, "entity_type": s.sequence_type} for s in proposal_tuple]
-        structure_complexes.append(StructurePredictionComplex(chains=chains))
+        structure_complexes.append(Complex(chains=chains))
 
     try:
         prediction = predict_structures(structure_complexes, config.structure_tool, config.tool_config)

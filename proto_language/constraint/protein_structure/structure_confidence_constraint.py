@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from typing import Any
 
-from proto_tools import Structure, StructurePredictionComplex, predict_structures
+from proto_tools import Complex, Structure, predict_structures
 
 from proto_language.constraint.constraint_registry import constraint
 from proto_language.constraint.protein_structure.structure_constraint_config import (
@@ -103,7 +103,7 @@ def _predict_confidence_records(
     complexes = []
     for proposal_tuple in proposals:
         chains = [{"sequence": seq.sequence, "entity_type": seq.sequence_type} for seq in proposal_tuple]
-        complexes.append(StructurePredictionComplex(chains=chains))
+        complexes.append(Complex(chains=chains))
 
     output = predict_structures(complexes, config.structure_tool, config.tool_config)
     return [

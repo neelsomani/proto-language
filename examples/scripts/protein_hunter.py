@@ -21,7 +21,7 @@ import os
 import sys
 from datetime import datetime
 
-from proto_tools import StructurePredictionComplex, predict_structures
+from proto_tools import Complex, predict_structures
 
 from proto_language.core import Construct, Program, Segment, Sequence
 from proto_language.generator import (
@@ -151,7 +151,7 @@ def run_protein_hunter(
         # Define conditioning function.
         def structure_conditioning_fn(sequences: list[Sequence]) -> list:
             """Predict 3D structures and store PDBs in metadata for retrieval later."""
-            complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
+            complexes = [Complex(chains=[seq.sequence]) for seq in sequences]
 
             structures = predict_structures(complexes, structure_tool, {}).structures
 

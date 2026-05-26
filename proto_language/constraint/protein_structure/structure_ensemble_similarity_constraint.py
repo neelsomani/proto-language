@@ -14,10 +14,10 @@ import numpy as np
 from proto_tools import (
     BioEmuConfig,
     BioEmuInput,
+    Complex,
     PyMOLRMSDConfig,
     PyMOLRMSDInput,
     Structure,
-    StructurePredictionComplex,
     run_bioemu,
     run_pymol_rmsd_alignment,
 )
@@ -458,9 +458,7 @@ def structure_ensemble_rmsd_constraint(
                     logger.info(f"Using residue range {start_res}-{end_res}: {len(proposal_sequence)} residues")
 
             bioemu_input = BioEmuInput(
-                complexes=[
-                    StructurePredictionComplex(chains=[{"sequence": proposal_sequence, "entity_type": "protein"}])
-                ]
+                complexes=[Complex(chains=[{"sequence": proposal_sequence, "entity_type": "protein"}])]
             )
 
             if config.verbose:

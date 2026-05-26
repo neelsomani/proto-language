@@ -120,8 +120,16 @@ class TestProteinMPNNGeneratorValidation:
         def fake_run_proteinmpnn_sample(*, inputs, config):
             assert inputs.inputs[0].chain_ids_to_redesign == ["A", "B"]
             assert config.num_sequences_per_structure == 1
-            designed = SimpleNamespace(sequences=["AAAAA/CCCCC"], perplexity=[2.5], sequence_recovery=[0.4])
-            return SimpleNamespace(designed_sequences=[designed])
+            design = SimpleNamespace(
+                chains=[
+                    SimpleNamespace(id="A", sequence="AAAAA"),
+                    SimpleNamespace(id="B", sequence="CCCCC"),
+                ],
+                designed=[True, True],
+                metrics=SimpleNamespace(perplexity=2.5, sequence_recovery=0.4),
+            )
+            design_set = SimpleNamespace(complexes=[design])
+            return SimpleNamespace(design_sets=[design_set])
 
         proteinmpnn_module = import_module("proto_language.generator.proteinmpnn_generator")
         monkeypatch.setattr(proteinmpnn_module, "run_proteinmpnn_sample", fake_run_proteinmpnn_sample)

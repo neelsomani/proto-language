@@ -5,6 +5,7 @@ from typing import Any, Literal, final
 from proto_tools import (
     InverseFoldingInput,
     InverseFoldingStructureInput,
+    ProteinMPNNDesign,
     ProteinMPNNSampleConfig,
     Structure,
     run_proteinmpnn_sample,
@@ -323,13 +324,17 @@ class ProteinMPNNGenerator(Generator):
             config=tool_config,
         )
         full_sequences: list[str] = []
-        for designed, struct_input in zip(result.designed_sequences, sampling_structure_inputs, strict=True):
-            full_sequences.extend(designed.sequences)
-            generated_sequences.extend(
-                self._select_output_sequence(sequence, struct_input) for sequence in designed.sequences
-            )
-            perplexities.extend(designed.perplexity)
-            sequence_recoveries.extend(designed.sequence_recovery)
+        for design_set, struct_input in zip(result.design_sets, sampling_structure_inputs, strict=True):
+            for design in design_set.complexes:
+                designed_seqs = [
+                    chain.sequence
+                    for chain, was_designed in zip(design.chains, design.designed, strict=True)
+                    if was_designed
+                ]
+                full_sequences.append("/".join(designed_seqs))
+                generated_sequences.append(self._select_output_sequence(design, struct_input))
+                perplexities.append(design.metrics.perplexity)
+                sequence_recoveries.append(design.metrics.sequence_recovery)
 
         key = self._spec.key
         for proposal, sequence, full_sequence, perplexity, recovery in zip(
@@ -355,19 +360,23 @@ class ProteinMPNNGenerator(Generator):
             for proposal, struct_input in zip(self.segment.proposal_sequences, sampling_structure_inputs, strict=True):
                 proposal.structure = struct_input.structure
 
-    def _select_output_sequence(self, sequence: str, struct_input: InverseFoldingStructureInput) -> str:
-        """Return the configured output chain from a ProteinMPNN sequence."""
+    def _select_output_sequence(self, design: ProteinMPNNDesign, struct_input: InverseFoldingStructureInput) -> str:
+        """Return the configured output chain's sequence from a ProteinMPNN design."""
+        # DesignedComplex guarantees ligand entries are always designed=False, so designed_chains is all Chain.
+        designed_chains = [
+            chain for chain, was_designed in zip(design.chains, design.designed, strict=True) if was_designed
+        ]
         if self.output_chain_id is None:
-            return sequence
+            return "/".join(chain.sequence for chain in designed_chains)
         chain_ids_to_redesign: list[str] = struct_input.chain_ids_to_redesign
         if self.output_chain_id not in chain_ids_to_redesign:
             raise ValueError(
                 f"output_chain_id {self.output_chain_id!r} not found in chain_ids_to_redesign {chain_ids_to_redesign}"
             )
-        parts = sequence.split("/")
-        if len(parts) != len(chain_ids_to_redesign):
-            raise ValueError(
-                f"Expected {len(chain_ids_to_redesign)} slash-separated chains in ProteinMPNN output "
-                f"(for chain_ids_to_redesign {chain_ids_to_redesign}), got {len(parts)}: {sequence!r}"
-            )
-        return parts[chain_ids_to_redesign.index(self.output_chain_id)]
+        for chain in designed_chains:
+            if chain.id == self.output_chain_id:
+                return chain.sequence  # type: ignore[no-any-return]
+        raise ValueError(
+            f"output_chain_id {self.output_chain_id!r} not found among designed chains "
+            f"{[chain.id for chain in designed_chains]} (chain_ids_to_redesign={chain_ids_to_redesign})"
+        )

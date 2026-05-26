@@ -5,9 +5,9 @@ from io import StringIO
 import numpy as np
 from biotite.structure import get_chains
 from proto_tools import (
+    Complex,
     ESMFoldConfig,
     ESMFoldInput,
-    StructurePredictionComplex,
     adjacent_distances,
     get_backbone_atoms,
     get_centroid,
@@ -156,7 +156,7 @@ def protein_symmetry_ring_constraint(
     resolved_complexes = resolve_protein_complex_chains(input_sequences)
     distance_func = pairwise_distances if config.all_to_all_protomer_symmetry else adjacent_distances
     results: list[ConstraintOutput | None] = [None] * len(input_sequences)
-    complexes: list[StructurePredictionComplex] = []
+    complexes: list[Complex] = []
     valid_indices: list[int] = []
     valid_metadata: list[dict[str, object]] = []
     valid_chain_sequences: list[list[str]] = []
@@ -166,9 +166,7 @@ def protein_symmetry_ring_constraint(
             results[idx] = ConstraintOutput(score=MAX_ENERGY, metadata=metadata)
             continue
         complexes.append(
-            StructurePredictionComplex(
-                chains=[{"sequence": sequence, "entity_type": "protein"} for sequence in chain_sequences]
-            )
+            Complex(chains=[{"sequence": sequence, "entity_type": "protein"} for sequence in chain_sequences])
         )
         metadata["esmfolded_sequence"] = ":".join(chain_sequences)
         valid_indices.append(idx)

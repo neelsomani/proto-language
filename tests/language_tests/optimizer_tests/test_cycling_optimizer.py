@@ -749,7 +749,7 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_full_cycle_with_proteinmpnn(self, pdb_structure):
         """Test complete optimization cycle with LigandMPNN."""
-        from proto_tools import StructurePredictionComplex, predict_structures
+        from proto_tools import Complex, predict_structures
 
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)
@@ -767,7 +767,7 @@ class TestCyclingOptimizerGPU:
         generator.assign(target_segment)
 
         def structure_conditioning_fn(sequences):
-            complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
+            complexes = [Complex(chains=[seq.sequence]) for seq in sequences]
             return predict_structures(complexes, "chai1", {}).structures
 
         config = CyclingOptimizerConfig(
@@ -794,7 +794,7 @@ class TestCyclingOptimizerGPU:
     @pytest.mark.slow
     def test_with_filter_constraint(self, pdb_structure):
         """Test with filter constraint using real models."""
-        from proto_tools import StructurePredictionComplex, predict_structures
+        from proto_tools import Complex, predict_structures
 
         chain_seq = pdb_structure.get_chain_sequence("A")
         seq_length = len(chain_seq)
@@ -825,7 +825,7 @@ class TestCyclingOptimizerGPU:
         )
 
         def structure_conditioning_fn(sequences):
-            complexes = [StructurePredictionComplex(chains=[seq.sequence]) for seq in sequences]
+            complexes = [Complex(chains=[seq.sequence]) for seq in sequences]
             return predict_structures(complexes, "chai1", {}).structures
 
         config = CyclingOptimizerConfig(

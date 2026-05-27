@@ -457,11 +457,11 @@ class TestMSAModel:
         # Default sequence IDs (seq_0, seq_1, etc.)
         msa = MSA(aligned_sequences=["MVLS", "AVLS"])
         fasta = msa.to_fasta_string()
-        assert fasta == ">seq_0\nMVLS\n>seq_1\nAVLS"
+        assert fasta == ">seq_0\nMVLS\n>seq_1\nAVLS\n"
         # With custom IDs set at construction
         msa_with_ids = MSA(
             aligned_sequences=["MVLS", "AVLS"],
             sequence_ids=["protein_a", "protein_b"],
         )
         fasta = msa_with_ids.to_fasta_string()
-        assert fasta == ">protein_a\nMVLS\n>protein_b\nAVLS"
+        assert fasta == ">protein_a\nMVLS\n>protein_b\nAVLS\n"

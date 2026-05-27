@@ -298,9 +298,7 @@ def structure_rmsd_constraint(
     # Prepare target.
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
-        raise RuntimeError(
-            "structure-rmsd: target preparation returned no PDB; check config.target_chains / config.target_structure"
-        )
+        return [ConstraintOutput(score=MAX_ENERGY, metadata={"reason": "unconfident_target"}) for _ in input_sequences]
 
     # Prepare proposals.
     structure_complexes = []
@@ -397,10 +395,7 @@ def structure_tmscore_constraint(
     # Prepare target.
     target_pdb = _prepare_target_structure(config)
     if not target_pdb:
-        raise RuntimeError(
-            "structure-tmscore: target preparation returned no PDB; "
-            "check config.target_chains / config.target_structure"
-        )
+        return [ConstraintOutput(score=MAX_ENERGY, metadata={"reason": "unconfident_target"}) for _ in input_sequences]
 
     n_target_chains = _count_pdb_chains(target_pdb)
 

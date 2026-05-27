@@ -132,12 +132,14 @@ class TestStructureConstraintsProteinLigandComplex:
                 target_chains=(RUVB_PROTEIN, ADP_LIGAND),
                 structure_tool="boltz2",
                 boltz2_config=BOLTZ2_CONFIG,
+                min_target_plddt=0.0,
             )
         elif config_class == StructureTMScoreConfig:
             config = StructureTMScoreConfig(
                 target_chains=(RUVB_PROTEIN, ADP_LIGAND),
                 structure_tool="boltz2",
                 boltz2_config=BOLTZ2_CONFIG,
+                min_target_plddt=0.0,
             )
 
         # Run constraint

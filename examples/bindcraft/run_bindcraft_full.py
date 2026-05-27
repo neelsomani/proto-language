@@ -644,7 +644,7 @@ def _metric(metrics: Metrics | Mapping[str, Any], name: str, default: float) -> 
 def _dssp_secondary_structure_percentages(structure: Structure, chain_id: str) -> dict[str, float]:
     """Return DSSP helix/sheet/loop percentages for one chain."""
     result = run_dssp_secondary_structure(
-        DSSPSecondaryStructureInput(inputs=[DSSPStructureInput(structure=structure, chain_id=chain_id)])
+        DSSPSecondaryStructureInput(inputs=[DSSPStructureInput(structure=structure, chain=chain_id)])
     )
     metrics = result.results[0]
     return {"helix": metrics.helix_pct, "sheet": metrics.sheet_pct, "loop": metrics.loop_pct}

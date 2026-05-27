@@ -39,7 +39,7 @@ def test_dssp_secondary_structure_percentages_uses_dssp_tool(monkeypatch) -> Non
         "loop": 62.5,
     }
     assert len(calls) == 1
-    assert calls[0].inputs[0].chain_id == "A"
+    assert calls[0].inputs[0].analyzed_chain_id == "A"
 
 
 def test_bindcraft_filters_skip_missing_and_none_metrics() -> None:

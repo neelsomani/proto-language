@@ -91,7 +91,7 @@ Some generators load gated HuggingFace models. Set `HF_TOKEN` in your environmen
 
 ## Using with coding agents
 
-Conventions live in [`CLAUDE.md`](CLAUDE.md) (symlinked as [`AGENTS.md`](AGENTS.md) and [`GEMINI.md`](GEMINI.md)); long-form references in [`notes/`](notes/).
+Conventions live in [`CLAUDE.md`](CLAUDE.md) (symlinked as [`AGENTS.md`](AGENTS.md) and [`GEMINI.md`](GEMINI.md)); long-form references in [`notes/`](notes/), including [`notes/biological-design-loop.md`](notes/biological-design-loop.md) for biological design loop guidance.
 
 Per-task skills live under [`.claude/skills/`](.claude/skills/):
 

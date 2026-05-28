@@ -1,6 +1,6 @@
 # Planning Quick Reference
 
-A one-page cheat sheet of the most frequently used rules for the biological design planning loop. Refer to the full system prompt for definitions, edge cases, and reasoning. For a worked example of the Phase 2 output these rules produce, see `notes/component-planning-example.md`.
+A one-page cheat sheet of the most frequently used rules for the biological design planning loop. For broader generator, validator, candidate-pool, and failure-handling guidance, see `notes/biological-design-loop.md`. Refer to the full system prompt for definitions, edge cases, and reasoning. For a worked example of the Phase 2 output these rules produce, see `notes/component-planning-example.md`.
 
 ## The Five Hard Constraints
 

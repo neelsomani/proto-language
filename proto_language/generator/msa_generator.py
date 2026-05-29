@@ -4,7 +4,7 @@ import random
 from collections.abc import Iterable
 from typing import Any, final
 
-from proto_tools import MSA
+from proto_tools.entities.msa import MSA
 from pydantic import ConfigDict, field_validator
 
 from proto_language.core import Generator, GeneratorInputType, Segment
@@ -96,7 +96,7 @@ class MSAGenerator(Generator):
     Example:
         >>> from proto_language.generator import MSAGenerator, MSAGeneratorConfig
         >>> from proto_language.core import Segment
-        >>> from proto_tools import MSA
+        >>> from proto_tools.entities.msa import MSA
         >>> config = MSAGeneratorConfig(
         ...     msa=MSA(aligned_sequences=["MVLS", "AVLS", "MVLS"]),
         ...     num_mutations=1,

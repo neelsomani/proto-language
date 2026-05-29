@@ -22,19 +22,11 @@ No multi-chain / oligomeric configuration beyond the intended 1:1 PD-L1:binder c
 
 ### Stage 1 — RFDiffusion3 Backbone Design (`proto-tools:rfdiffusion3-design`)
 
-- **Target segment:** generates backbone coordinates for `binder_segment`
-  conditioned on a hotspot patch on `target_segment`.
-- **Conditioning inputs:** `target_segment` structure from 5O45, plus
-  hotspot/interface residues on the PD-1 contact face of PD-L1 derived from 4ZQK
-  and summarized in deep-dive §A.
-- **Relevant config fields:** `length`, `input_structure`, `contig`,
-  `select_hotspots`, optional partial-diffusion controls, and global sampling
-  controls in `RFdiffusion3Config`.
-- **Role in pipeline:** produces candidate binder backbones only, not final
-  amino acid sequences.
-- **Reason for choice:** this is the actual structure-design component present in
-  the workspace for de novo backbone generation. It is the correct upstream step
-  for binder design against a fixed target surface.
+- **Target segment:** generates backbone coordinates for `binder_segment` conditioned on a hotspot patch on `target_segment`.
+- **Conditioning inputs:** `target_segment` structure from 5O45, plus hotspot/interface residues on the PD-1 contact face of PD-L1 derived from 4ZQK and summarized in deep-dive §A.
+- **Relevant config fields:** `length`, `input_structure`, `contig`, `select_hotspots`, optional partial-diffusion controls, and global sampling controls in `RFdiffusion3Config`.
+- **Role in pipeline:** produces candidate binder backbones only, not final amino acid sequences.
+- **Reason for choice:** this is the actual structure-design component present in the workspace for de novo backbone generation. It is the correct upstream step for binder design against a fixed target surface.
 
 ### Stage 2 — ProteinMPNN (`proteinmpnn`)
 

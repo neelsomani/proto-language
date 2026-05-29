@@ -1,8 +1,6 @@
 # Filesystem
 
-This guide is about where files live and where runtime artifacts are written.
-For component behavior and contributor rules, use `CLAUDE.md`, the source code,
-and the relevant `.claude/skills/` workflow.
+This guide is about where files live and where runtime artifacts are written. For component behavior and contributor rules, use `CLAUDE.md`, the source code, and the relevant `.claude/skills/` workflow.
 
 ## Package Layout
 
@@ -37,13 +35,9 @@ proto_language/
 
 Important conventions:
 
-- Add pluggable components under the appropriate `constraint/`, `generator/`,
-  or `optimizer/` module and export them through the local `__init__.py` chain.
-- Registries live beside their component families:
-  `constraint_registry.py`, `generator_registry.py`, and
-  `optimizer_registry.py`.
-- `utils/io.py` owns result flattening and export writers. `core/program.py`
-  and `core/optimizer.py` expose the public export methods.
+- Add pluggable components under the appropriate `constraint/`, `generator/`, or `optimizer/` module and export them through the local `__init__.py` chain.
+- Registries live beside their component families: `constraint_registry.py`, `generator_registry.py`, and `optimizer_registry.py`.
+- `utils/io.py` owns result flattening and export writers. `core/program.py` and `core/optimizer.py` expose the public export methods.
 
 ## Tests
 
@@ -63,10 +57,7 @@ tests/
 └── README.md                           short marker reference
 ```
 
-`tests/conftest.py` is the source of truth for custom pytest flags, automatic
-CPU marking, `skip_ci` and `only_chimera` behavior, and test logging. The
-`toy_json` fixture loads `examples/jsons/toy.json`, so the JSON program path is
-exercised by the suite.
+`tests/conftest.py` is the source of truth for custom pytest flags, automatic CPU marking, `skip_ci` and `only_chimera` behavior, and test logging. The `toy_json` fixture loads `examples/jsons/toy.json`, so the JSON program path is exercised by the suite.
 
 See `notes/testing.md` for the long-form testing guide.
 
@@ -84,9 +75,7 @@ examples/
 └── scripts/     Larger Python workloads and generated program collections
 ```
 
-Use `examples/scripts/` and `examples/jsons/` for idiomatic program shape.
-Domain-specific subtrees such as `germinal/` and `bindcraft/` carry their own
-assets and assumptions.
+Use `examples/scripts/` and `examples/jsons/` for idiomatic program shape. Domain-specific subtrees such as `germinal/` and `bindcraft/` carry their own assets and assumptions.
 
 ## Logs
 
@@ -99,17 +88,11 @@ Gitignored runtime logs:
 | `logs/<custom>.log` | `setup_logging(log_filename=...)` |
 | `tests/logs/` | Reserved test log location |
 
-`setup_logging()` defaults to `logs/` under the nearest project root containing
-`pyproject.toml`. During pytest, timestamped file logging is disabled unless a
-fixture or caller supplies `log_filename`; the test fixture does supply
-`pytest_*.log`.
+`setup_logging()` defaults to `logs/` under the nearest project root containing `pyproject.toml`. During pytest, timestamped file logging is disabled unless a fixture or caller supplies `log_filename`; the test fixture does supply `pytest_*.log`.
 
 ## Exports
 
-`Program.export()` and `Optimizer.export()` write an export directory. If
-`path` is `None`, the directory is created under the current working directory
-using the shared proto-tools export-name convention:
-`{project}__{YYYY-MM-DD_HHMMSS}`.
+`Program.export()` and `Optimizer.export()` write an export directory. If `path` is `None`, the directory is created under the current working directory using the shared proto-tools export-name convention: `{project}__{YYYY-MM-DD_HHMMSS}`.
 
 Layout:
 
@@ -126,24 +109,17 @@ Layout:
     └── *.csv        nested row-shaped metadata sidecars
 ```
 
-Supported table formats are `csv`, `tsv`, `json`, and `xlsx`. For `xlsx`, the
-four tables are sheets in `<export-dir>/results.xlsx`; `sequences.fasta` and
-`assets/` are still written separately. Empty tables are materialized as empty
-files for non-XLSX formats.
+Supported table formats are `csv`, `tsv`, `json`, and `xlsx`. For `xlsx`, the four tables are sheets in `<export-dir>/results.xlsx`; `sequences.fasta` and `assets/` are still written separately. Empty tables are materialized as empty files for non-XLSX formats.
 
 Useful public helpers:
 
 - `Program.to_dataframe(...)` for one flattened table in memory.
 - `Program.to_fasta(...)` for FASTA-only output.
-- `proto_language.utils.io.write_results_folder(...)` for the folder writer
-  used by program and optimizer exports.
+- `proto_language.utils.io.write_results_folder(...)` for the folder writer used by program and optimizer exports.
 
 ## Persistent Storage
 
-`proto-language` has no storage-specific environment variables of its own.
-Model weights, tool environments, micromamba, and package caches are owned by
-the `proto-tools` submodule and inherited by language generators/constraints
-that call tools.
+`proto-language` has no storage-specific environment variables of its own. Model weights, tool environments, micromamba, and package caches are owned by the `proto-tools` submodule and inherited by language generators/constraints that call tools.
 
 | Variable | Owned by | What it controls |
 |---|---|---|
@@ -153,5 +129,4 @@ that call tools.
 | `UV_CACHE_DIR` / `PIP_CACHE_DIR` | proto-tools | Optional package-cache overrides; default under `PROTO_HOME` |
 | `HF_TOKEN` | proto-tools / HuggingFace | Auth for gated model downloads |
 
-Full reference: `proto-tools/notes/storage.md`. Set these in the shell or job
-environment; `proto-language` picks them up through proto-tools calls.
+Full reference: `proto-tools/notes/storage.md`. Set these in the shell or job environment; `proto-language` picks them up through proto-tools calls.

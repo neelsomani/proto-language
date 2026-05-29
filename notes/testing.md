@@ -1,14 +1,10 @@
 # Testing
 
-Long-form testing reference for `proto-language`: commands, markers, placement,
-fixtures, mocks, and component coverage. `tests/conftest.py`, `pyproject.toml`,
-and `.github/workflows/` are the source of truth when this guide and code
-disagree.
+Long-form testing reference for `proto-language`: commands, markers, placement, fixtures, mocks, and component coverage. `tests/conftest.py`, `pyproject.toml`, and `.github/workflows/` are the source of truth when this guide and code disagree.
 
 ## Commands
 
-Use `--cpu` for normal local and CI-equivalent runs. Plain `pytest` skips slow
-and integration tests, but it does not skip tests marked `uses_gpu`.
+Use `--cpu` for normal local and CI-equivalent runs. Plain `pytest` skips slow and integration tests, but it does not skip tests marked `uses_gpu`.
 
 ```bash
 pytest --cpu -x                                   # fast CPU-focused feedback
@@ -27,14 +23,10 @@ python .github/scripts/validate_exports.py --verbose
 
 Current GitHub workflows:
 
-- `unit-tests.yml`: non-draft PRs and `main`, runs
-  `pytest --cpu -q --override-ini="log_cli=false" --cov --cov-report=term-missing`.
-- `integration-tests.yml`: scheduled/manual, installs MAFFT and runs
-  `pytest --integration --cpu -v`.
-- `checks.yml`: non-draft PRs, runs `ruff check`, `ruff format --check`,
-  `mypy proto_language/`, and export validation.
-- `submodule-check.yml`: non-draft PRs, verifies `proto-tools` points at the
-  latest `main`.
+- `unit-tests.yml`: non-draft PRs and `main`, runs `pytest --cpu -q --override-ini="log_cli=false" --cov --cov-report=term-missing`.
+- `integration-tests.yml`: scheduled/manual, installs MAFFT and runs `pytest --integration --cpu -v`.
+- `checks.yml`: non-draft PRs, runs `ruff check`, `ruff format --check`, `mypy proto_language/`, and export validation.
+- `submodule-check.yml`: non-draft PRs, verifies `proto-tools` points at the latest `main`.
 
 ## Markers and Flags
 
@@ -51,17 +43,12 @@ Current GitHub workflows:
 Flag interactions:
 
 - `--cpu` skips `uses_gpu`.
-- `--gpu` skips auto-marked CPU tests, but does not by itself include slow or
-  integration tests.
+- `--gpu` skips auto-marked CPU tests, but does not by itself include slow or integration tests.
 - `--all` includes slow and integration tests.
-- `--slow` runs only tests marked `slow`; integration tests are still skipped
-  unless you also pass `--integration` (then only slow tests that are also
-  integration run). Use `--all` to run the full default + slow + integration
-  set instead.
+- `--slow` runs only tests marked `slow`; integration tests are still skipped unless you also pass `--integration` (then only slow tests that are also integration run). Use `--all` to run the full default + slow + integration set instead.
 - `--skip-ci` skips `skip_ci` tests and sets `CUDA_VISIBLE_DEVICES=""`.
 
-CPU tests need no marker. Add only the markers that change selection or
-environment assumptions.
+CPU tests need no marker. Add only the markers that change selection or environment assumptions.
 
 ## Placement
 
@@ -92,23 +79,17 @@ tests/
 Naming:
 
 - File: `test_{component_name}.py`.
-- Class: `Test{ComponentName}` for component suites. This repo uses test
-  classes; the proto-tools submodule has different conventions.
+- Class: `Test{ComponentName}` for component suites. This repo uses test classes; the proto-tools submodule has different conventions.
 - Method/function: `test_{behavior}`.
 
-Put broad framework behavior in the nearest existing core test file. Put
-component-specific behavior beside neighboring component tests.
+Put broad framework behavior in the nearest existing core test file. Put component-specific behavior beside neighboring component tests.
 
 ## Fixtures
 
 Autouse fixtures in `tests/conftest.py`:
 
-- `mock_generator_registry`: maps optimizer-test mock generator classes to real
-  registry keys so compatibility checks see the expected generator category and
-  input type.
-- `setup_test_logging`: writes `logs/pytest_{timestamp}.log` or
-  `logs/pytest_{k_expression}.log`, suppresses noisy third-party loggers, and
-  keeps console logging configurable with `--no-log-console`.
+- `mock_generator_registry`: maps optimizer-test mock generator classes to real registry keys so compatibility checks see the expected generator category and input type.
+- `setup_test_logging`: writes `logs/pytest_{timestamp}.log` or `logs/pytest_{k_expression}.log`, suppresses noisy third-party loggers, and keeps console logging configurable with `--no-log-console`.
 
 Other common fixtures:
 
@@ -116,9 +97,7 @@ Other common fixtures:
 - `temp_pdb_file`: temporary PDB file path with cleanup.
 - `toy_json`: contents of `examples/jsons/toy.json`.
 
-There is no global `gpu_available` fixture in this repo. If a GPU test needs a
-hardware check beyond marker selection, add a local helper or skip near the test
-body, following existing Malinois tests.
+There is no global `gpu_available` fixture in this repo. If a GPU test needs a hardware check beyond marker selection, add a local helper or skip near the test body, following existing Malinois tests.
 
 ## Mock Generator Registry Map
 
@@ -136,13 +115,11 @@ body, following existing Malinois tests.
 | `MockCyclingGenerator` | `random-protein` |
 | `MockInverseFoldingGenerator` | `proteinmpnn` |
 
-Mock classes should still declare matching `input_type` classvars in the test
-file. The fixture only patches registry key lookup.
+Mock classes should still declare matching `input_type` classvars in the test file. The fixture only patches registry key lookup.
 
 ## Constraint Mocks
 
-Use `tests/language_tests/constraint_tests/utils.py` when testing the
-`Constraint` wrapper without a real registered constraint:
+Use `tests/language_tests/constraint_tests/utils.py` when testing the `Constraint` wrapper without a real registered constraint:
 
 ```python
 from tests.language_tests.constraint_tests.utils import (
@@ -168,8 +145,7 @@ my_mock_scoring._constraint_config_class = None
 my_mock_scoring._constraint_supported_sequence_types = ["dna", "rna", "protein"]
 ```
 
-If the test covers registry behavior, use a real `@constraint` function instead
-of patching metadata manually.
+If the test covers registry behavior, use a real `@constraint` function instead of patching metadata manually.
 
 ## Assertion Patterns
 
@@ -190,29 +166,23 @@ def test_scoring(sequence: str, expected: float) -> None:
     ...
 ```
 
-Prefer message matches for user-facing validation errors. For internal
-invariants, matching the exception type is often enough unless the message is
-part of the contract.
+Prefer message matches for user-facing validation errors. For internal invariants, matching the exception type is often enough unless the message is part of the contract.
 
 ## Component Coverage
 
 Constraints should usually cover:
 
-- scoring formula and edge cases: perfect, worst, boundary, empty/short input
-  when relevant;
+- scoring formula and edge cases: perfect, worst, boundary, empty/short input when relevant;
 - supported and unsupported sequence types;
 - invalid config validation;
-- `ConstraintOutput` metadata propagation under
-  `_constraints_metadata[<label>]["data"]`;
+- `ConstraintOutput` metadata propagation under `_constraints_metadata[<label>]["data"]`;
 - threshold/filter behavior when the constraint is commonly used as a filter;
-- tool-backed failure behavior: raise for hard failures, `MAX_ENERGY` only for
-  proposal-local soft failures.
+- tool-backed failure behavior: raise for hard failures, `MAX_ENERGY` only for proposal-local soft failures.
 
 Generators should usually cover:
 
 - config storage and validation;
-- `assign()` validation, including unsupported sequence type and tied segments
-  when relevant;
+- `assign()` validation, including unsupported sequence type and tied segments when relevant;
 - `sample()` mutates each proposal in place and preserves expected length/type;
 - multiple proposal sequences in `segment.proposal_sequences`;
 - seed determinism when the generator owns stochastic behavior;
@@ -221,8 +191,7 @@ Generators should usually cover:
 Optimizers should usually cover:
 
 - config validation and `num_results` resolution;
-- constructor validation for unassigned generators/constraints and duplicate
-  objects;
+- constructor validation for unassigned generators/constraints and duplicate objects;
 - `run()` completion on a small deterministic setup;
 - filter constraints and all-filter behavior;
 - history/tracking fields that downstream exports consume;
@@ -231,27 +200,21 @@ Optimizers should usually cover:
 ## Bug-Fixing Workflow
 
 1. Write or identify a failing test that reproduces the bug.
-2. Verify the failure with a narrow command, for example
-   `pytest -k "test_name" --cpu -x`.
+2. Verify the failure with a narrow command, for example `pytest -k "test_name" --cpu -x`.
 3. Fix the source.
 4. Rerun the narrow test.
 5. Run the relevant directory with `--cpu -x`.
-6. Run `ruff check` on touched source/tests, and `mypy proto_language/` if the
-   change touches typed framework code.
+6. Run `ruff check` on touched source/tests, and `mypy proto_language/` if the change touches typed framework code.
 
 ## Checklist
 
 - [ ] Test file is in the closest matching directory.
-- [ ] CPU tests are unmarked; GPU/slow/integration/skip_ci markers are applied
-      only when needed.
+- [ ] CPU tests are unmarked; GPU/slow/integration/skip_ci markers are applied only when needed.
 - [ ] Edge cases cover boundary, invalid, and representative success behavior.
 - [ ] Config validation has explicit tests for custom validators.
 - [ ] Constraint tests assert score, metadata, and sequence-type behavior.
-- [ ] Generator tests assert assignment, proposal mutation, and batch/proposal
-      behavior.
-- [ ] Optimizer tests assert validation, run loop, filtering, and history where
-      relevant.
+- [ ] Generator tests assert assignment, proposal mutation, and batch/proposal behavior.
+- [ ] Optimizer tests assert validation, run loop, filtering, and history where relevant.
 - [ ] Narrow tests pass with `pytest ... --cpu -x`.
-- [ ] `ruff check proto_language tests` and `ruff format --check` pass for
-      relevant files.
+- [ ] `ruff check proto_language tests` and `ruff format --check` pass for relevant files.
 - [ ] `mypy proto_language/` passes when typed source changed.

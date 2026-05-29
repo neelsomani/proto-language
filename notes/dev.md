@@ -1,9 +1,6 @@
 # Development Guide
 
-Dev workflow for `proto-language` contributors: commands, initial setup,
-submodule sync, worktrees, the export-chain validator, and the CI workflows
-that gate PRs. For testing specifics see `notes/testing.md`; for batching see
-`notes/batching.md`.
+Dev workflow for `proto-language` contributors: commands, initial setup, submodule sync, worktrees, the export-chain validator, and the CI workflows that gate PRs. For testing specifics see `notes/testing.md`; for batching see `notes/batching.md`.
 
 ## Quick Reference
 
@@ -19,14 +16,11 @@ python .github/scripts/validate_exports.py --verbose  # export-chain consistency
 
 ## Initial Setup
 
-Follow the [README](../README.md#installation) for the conda environment and
-the editable install of `proto-language` plus the `proto-tools` submodule. The
-README is the source of truth; don't duplicate setup steps here.
+Follow the [README](../README.md#installation) for the conda environment and the editable install of `proto-language` plus the `proto-tools` submodule. The README is the source of truth; don't duplicate setup steps here.
 
 ## Submodule Sync
 
-`proto-tools` is a git submodule tracking `main` (`.gitmodules` sets
-`branch = main`, `ignore = dirty`).
+`proto-tools` is a git submodule tracking `main` (`.gitmodules` sets `branch = main`, `ignore = dirty`).
 
 Pull both repos together when the submodule reference changes upstream:
 
@@ -37,8 +31,7 @@ git pull
 git submodule update --init --recursive
 ```
 
-Bump `proto-tools` to the latest published `main` and commit the new pointer
-in the parent repo:
+Bump `proto-tools` to the latest published `main` and commit the new pointer in the parent repo:
 
 ```bash
 git submodule update --remote proto-tools
@@ -52,15 +45,11 @@ Set once per clone to auto-recurse on every `git pull`:
 git config submodule.recurse true
 ```
 
-CI workflows that touch `proto-tools` need a `CI_SUBMODULE_ACCESS` PAT (fine-
-grained or `repo`-scoped classic) granting access to both `evo-design/proto-
-language` and `evo-design/proto-tools`, stored under `Settings → Secrets and
-variables → Actions`.
+CI workflows that touch `proto-tools` need a `CI_SUBMODULE_ACCESS` PAT (fine- grained or `repo`-scoped classic) granting access to both `evo-design/proto- language` and `evo-design/proto-tools`, stored under `Settings → Secrets and variables → Actions`.
 
 ## Git Worktrees
 
-Worktrees check out multiple branches into separate directories without
-stashing the current branch.
+Worktrees check out multiple branches into separate directories without stashing the current branch.
 
 ```bash
 git worktree list
@@ -85,15 +74,11 @@ git worktree add ../proto-tools-feature feature-branch
 git worktree add -b my-feature ../proto-tools-my-feature
 ```
 
-Edits inside a submodule worktree do not auto-update the parent's submodule
-pointer; commit the pointer update in the parent separately.
+Edits inside a submodule worktree do not auto-update the parent's submodule pointer; commit the pointer update in the parent separately.
 
 ## Export Chain Validator
 
-`.github/scripts/validate_exports.py` runs AST-based checks on `__init__.py`
-files in both repos to catch missing or stale exports before they surface as
-runtime `ImportError`s. The script is stdlib-only and never executes the
-target modules.
+`.github/scripts/validate_exports.py` runs AST-based checks on `__init__.py` files in both repos to catch missing or stale exports before they surface as runtime `ImportError`s. The script is stdlib-only and never executes the target modules.
 
 ```bash
 python .github/scripts/validate_exports.py                # all domains
@@ -101,10 +86,7 @@ python .github/scripts/validate_exports.py --domain Tools # single domain
 python .github/scripts/validate_exports.py --verbose      # show every check
 ```
 
-Exit code is `0` on pass, `1` on errors. The script's module docstring is the
-canonical list of which checks run per domain. Intentional omissions live in
-the `exceptions` section of `.github/scripts/export_config.json`; add new
-exceptions there rather than mutating `__all__` to satisfy the check.
+Exit code is `0` on pass, `1` on errors. The script's module docstring is the canonical list of which checks run per domain. Intentional omissions live in the `exceptions` section of `.github/scripts/export_config.json`; add new exceptions there rather than mutating `__all__` to satisfy the check.
 
 ## CI Workflows
 
@@ -116,12 +98,8 @@ exceptions there rather than mutating `__all__` to satisfy the check.
 | `integration-tests.yml` | scheduled (daily 06:00 UTC) + `workflow_dispatch` | Install MAFFT; `pytest --integration --cpu -v`. **Not** PR-triggered |
 | `claude.yml` | `@claude` in issue/PR/review comment | Code review or scoped question response |
 
-See `notes/testing.md` for the test-side details (markers, fixtures, mocks)
-that these workflows exercise.
+See `notes/testing.md` for the test-side details (markers, fixtures, mocks) that these workflows exercise.
 
 ## Documentation
 
-Reference docs are generated externally from this repo's registries,
-docstrings, and field descriptions plus `proto-tools` tool READMEs. Update
-source inputs — not generated pages — and merge; downstream regeneration picks
-up the change. There is no `docs_autogen.yml` workflow in this repo.
+Reference docs are generated externally from this repo's registries, docstrings, and field descriptions plus `proto-tools` tool READMEs. Update source inputs — not generated pages — and merge; downstream regeneration picks up the change. There is no `docs_autogen.yml` workflow in this repo.

@@ -57,7 +57,7 @@ pass/fail quantities.
   interaction prediction, including antibody complexes; Boltz-2 can provide
   structure and protein-ligand affinity, and AF2/AF3-family, Chai, Protenix,
   TM-align/US-align, Foldseek, pDockQ2, ipSAE, and DSSP each answer different
-  validation questions when allowed.
+  validation questions when available.
 - If several candidate tools measure the same quantity, run a small
   representative comparison on the same candidate set and keep the tool or
   combination that best separates plausible successes from failures.
@@ -88,12 +88,11 @@ Order work by cost:
    Boltz-2 affinity for small-molecule ligand binding, and ESMFold2/Boltz-2
    for fast biomolecular complex structure and interaction prediction before costlier or complementary final oracles.
 4. Final selection: require hard gates, then rank by task score or the closest
-   allowed proxy. Preserve diversity among survivors.
+   available proxy. Preserve diversity among survivors.
 
 ## Treat Proxies As Imperfect
 
-When the target scoring tool or most direct validator is forbidden or
-unavailable, choose allowed tools that measure the same biological
+When the target scoring tool or most direct validator is unavailable, choose available tools that measure the same biological
 quantity. Do not claim that a proxy is identical to the target validator. Add safety margin and independent checks:
 
 - Keep each hard-filter quantity separate. A composite or weighted proxy can
@@ -112,7 +111,7 @@ quantity. Do not claim that a proxy is identical to the target validator. Add sa
   revise the generator, constraints, or ranker rather than resubmitting the
   same construction pattern.
 - When the exact target validator cannot be used in the inner loop, calibrate the
-  closest allowed substitute before trusting it. Run a small representative
+  closest available substitute before trusting it. Run a small representative
   sweep across construction choices, inspect each relevant submetric
   separately, and choose settings that improve the hardest metric with margin.
   If no proxy measures a decisive submetric, keep that gap visible and require
@@ -176,11 +175,11 @@ For command-line tools, test the exact argument order and a small real-format
 input. A data conversion step that fails on a real BED or structure file should
 be fixed before any full candidate search starts.
 
-Do not drop the strongest allowed validator only because its optional packages
+Do not drop the strongest available validator only because its optional packages
 are absent from the authoring venv. Proto-tools can create tool-specific runtime
 environments, and submissions can declare requirements. Rule out a decisive
-allowed validator only after a concrete end-to-end smoke test or installation failure, and
-record the failed command, error, and whether the failure occurred in tool launch, output extraction, or downstream parsing. If the tool launches but returns no consumable artifact, fix the configuration or switch to an equivalent allowed validator that measures the same biological quantity before abandoning the run.
+available validator only after a concrete end-to-end smoke test or installation failure, and
+record the failed command, error, and whether the failure occurred in tool launch, output extraction, or downstream parsing. If the tool launches but returns no consumable artifact, fix the configuration or switch to an equivalent available validator that measures the same biological quantity before abandoning the run.
 
 ## Manage Time Without Lowering Standards
 

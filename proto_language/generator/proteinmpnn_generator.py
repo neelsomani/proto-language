@@ -55,6 +55,9 @@ class ProteinMPNNGeneratorConfig(BaseConfig):
             - A single ``InverseFoldingStructureInput`` object
             - A list of strings or ``InverseFoldingStructureInput`` objects
             - A list of dicts with ``structure``, ``chains_to_redesign``, ``fixed_positions`` keys
+
+            These fields do not tie chains to a shared sequence; for symmetric homo-oligomers, tie
+            ``Segment``s on the generator and add ``protein_symmetry_ring_constraint`` instead.
         output_chain_id (str | None): For multi-chain sampling, write only this
             chain's generated sequence to the assigned segment. If unset, preserve
             ProteinMPNN's full output sequence.

@@ -1,5 +1,8 @@
 """Program symmetric proteins with configurable parameters.
 
+This script uses a ``RandomProteinGenerator`` under an ``MCMCOptimizer``; for the inverse-folding
++ structure-prediction (cycling) alternative, see ``protein_hunter.py``.
+
 Usage:
     python program_symmetric_proteins.py --monomer-length 50 --n-symmetric-units 3 --n-steps 3000 --output-dir ./outputs
 """

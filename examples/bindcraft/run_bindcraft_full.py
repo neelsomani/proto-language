@@ -115,6 +115,7 @@ INTERFACE_CUTOFF = 4.0
 PLDDT_GATE = 0.65
 PLDDT_FINAL = 0.7
 MAX_MPNN_PER_TRAJECTORY = 2
+PYROSETTA_SCORE_FUNCTION = "beta_nov16"  # match BindCraft's -corrections::beta_nov16 energy
 
 GRADIENT_OPTIMIZER_DEFAULTS: dict[str, object] = {
     "lr": 0.1,
@@ -788,6 +789,7 @@ def _score_variant(
         relax_result = run_pyrosetta_relax(
             PyRosettaRelaxInput(inputs=[ScoringStructureInput(structure=cofold_struct)]),
             PyRosettaRelaxConfig(
+                scorefxn=PYROSETTA_SCORE_FUNCTION,
                 relax_cycles=1,
                 constrain_to_start=True,
                 max_iter=200,
@@ -810,7 +812,7 @@ def _score_variant(
                     )
                 ]
             ),
-            PyRosettaInterfaceAnalyzerConfig(),
+            PyRosettaInterfaceAnalyzerConfig(scorefxn=PYROSETTA_SCORE_FUNCTION),
         ).results[0]
 
         model_metrics["interface_sc"] = float(iface.interface_sc)
@@ -825,7 +827,7 @@ def _score_variant(
             PyRosettaEnergyInput(
                 inputs=[ScoringStructureInput(structure=relaxed, chains_to_score=[binder_chain])],
             ),
-            PyRosettaEnergyConfig(),
+            PyRosettaEnergyConfig(scorefxn=PYROSETTA_SCORE_FUNCTION),
         ).results[0]
         model_metrics["binder_energy"] = float(
             sum(res.total_energy for res in energy.per_residue if res.chain_id == binder_chain)
@@ -1148,6 +1150,7 @@ def run_trajectory(
     relax_result = run_pyrosetta_relax(
         PyRosettaRelaxInput(inputs=[ScoringStructureInput(structure=complex_struct)]),
         PyRosettaRelaxConfig(
+            scorefxn=PYROSETTA_SCORE_FUNCTION,
             relax_cycles=1,
             constrain_to_start=True,
             max_iter=200,

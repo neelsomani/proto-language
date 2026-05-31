@@ -1,5 +1,6 @@
 """Unit coverage for the BindCraft example pipeline."""
 
+import inspect
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -74,6 +75,23 @@ def test_af2_constraints_use_public_structure_configs() -> None:
     assert constraints[1].function is bindcraft.structure_interface_contact_constraint
     assert constraints[0].function_config is not constraints[1].function_config
     assert constraints[0].function_config.alphafold2_multimer_config is not af2_cfg
+
+
+def test_pyrosetta_scoring_uses_beta_nov16() -> None:
+    """BindCraft scores with beta_nov16; ref2015 is a different, non-comparable REU scale.
+
+    Guards the shared PYROSETTA_SCORE_FUNCTION constant, that each PyRosetta config type accepts
+    it, and that both scoring paths (validation scoring + trajectory relax) reference it.
+    """
+    assert bindcraft.PYROSETTA_SCORE_FUNCTION == "beta_nov16"
+    for config_cls in (
+        bindcraft.PyRosettaRelaxConfig,
+        bindcraft.PyRosettaInterfaceAnalyzerConfig,
+        bindcraft.PyRosettaEnergyConfig,
+    ):
+        assert config_cls(scorefxn=bindcraft.PYROSETTA_SCORE_FUNCTION).scorefxn == "beta_nov16"
+    assert "PYROSETTA_SCORE_FUNCTION" in inspect.getsource(bindcraft._score_variant)
+    assert "PYROSETTA_SCORE_FUNCTION" in inspect.getsource(bindcraft.run_trajectory)
 
 
 def test_zero_optional_4stage_stages_builds_logit_only_program() -> None:

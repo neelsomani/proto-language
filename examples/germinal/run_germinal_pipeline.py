@@ -33,9 +33,15 @@ Pipeline (same for both modes):
 All numeric defaults come from the colocated script-owned preset file
 ``antibody_presets.yaml``.
 
-Known parity gaps (intentional):
+Known parity gaps (require proto-tools support, not yet closed):
 - VHH external cofold uses Chai-1/AF3 fallbacks instead of Germinal's Protenix until
   proto-language/proto-tools can pass Protenix full-PAE outputs through final pDockQ2.
+- Cofold runs single-sequence; Germinal conditions the target chain on an MSA
+  (``msa_mode="target"``). Needs a target-only MSA in the structure-composite path.
+- Cofold scores the best predicted sample; Germinal scores the worst
+  (``af3_structure_select_mode="worst"``). Needs a worst-pose select mode on chai1/alphafold3.
+- Chai cofold is unrestrained; Germinal restrains the VH-CDR3 midpoint to the hotspot pocket.
+  Needs restraint support on the chai1 tool.
 - Post-softmax entropy gate dropped (moot — Stage-3 AbMPNN rebuilds sequence).
 
 Usage:
@@ -90,7 +96,6 @@ from proto_tools.tools.structure_scoring.pyrosetta.pyrosetta_relax import (
 )
 from proto_tools.tools.structure_scoring.pyrosetta.shared_data_models import ScoringStructureInput
 from proto_tools.utils.device_manager import DeviceManager
-from scipy.spatial import cKDTree
 
 from proto_language import (
     AbLangPerplexityConfig,
@@ -491,7 +496,8 @@ GERMINAL_PRESETS = _load_presets()
 # =============================================================================
 
 ATOM_DISTANCE_CUTOFF = 3.0
-CLASH_THRESHOLD = 2.5
+CLASH_THRESHOLD = 2.5  # post-stage-2 CA-clash gate (Germinal: calculate_clash_score 2.5, only_ca=True)
+FILTER_CLASH_THRESHOLD = 2.4  # cofold-filter CA-clash gate (Germinal: clash_threshold 2.4, only_ca=True)
 HOTSPOT_DISTANCE_THRESHOLD = 5.3
 RESIDUE_CONTACT_DISTANCE = 6.0
 MIN_CDR_HOTSPOT_CONTACTS = 3
@@ -996,14 +1002,20 @@ def run_trajectory(
         pdockq2 = float(ipsae_result.metrics.pdockq2)
         ipsae_score = float(ipsae_result.metrics.ipsae)
 
-        # FastRelax (1 cycle, matching Germinal)
+        # FastRelax (1 cycle, matching Germinal's pr_relax: lock inter-chain jumps + keep start B-factors)
         relax_result = run_pyrosetta_relax(
             PyRosettaRelaxInput(inputs=[ScoringStructureInput(structure=cofold_struct)]),
-            PyRosettaRelaxConfig(relax_cycles=1, constrain_to_start=True, max_iter=200),
+            PyRosettaRelaxConfig(
+                relax_cycles=1,
+                constrain_to_start=True,
+                max_iter=200,
+                disable_jumps=True,
+                copy_b_factors_from_start=True,
+            ),
         )
         relaxed_struct = relax_result.results[0].relax.relaxed_structure
 
-        clashes = compute_interchain_clash_score(relaxed_struct, threshold=2.4)
+        clashes = relaxed_struct.ca_clash_score(threshold=FILTER_CLASH_THRESHOLD)
 
         # RMSD on unrelaxed cofold (Germinal convention)
         sc_rmsd = compute_sc_rmsd(
@@ -1329,7 +1341,13 @@ def run_pre_redesign_external_filters(
 
     relax_result = run_pyrosetta_relax(
         PyRosettaRelaxInput(inputs=[ScoringStructureInput(structure=cofold_struct)]),
-        PyRosettaRelaxConfig(relax_cycles=1, constrain_to_start=True, max_iter=200),
+        PyRosettaRelaxConfig(
+            relax_cycles=1,
+            constrain_to_start=True,
+            max_iter=200,
+            disable_jumps=True,
+            copy_b_factors_from_start=True,
+        ),
     )
     relaxed_struct = relax_result.results[0].relax.relaxed_structure
 
@@ -1364,7 +1382,7 @@ def run_pre_redesign_external_filters(
     )
 
     return PreRedesignFilterMetrics(
-        clashes=compute_interchain_clash_score(relaxed_struct, threshold=2.4),
+        clashes=relaxed_struct.ca_clash_score(threshold=FILTER_CLASH_THRESHOLD),
         cdr_hotspot_contacts=len(hotspot_hits & cdr_positions_1idx),
         cdr3_hotspot_contacts=len(hotspot_hits & cdr3_positions_1idx),
         percent_interface_cdr=percent_interface_cdr,
@@ -1395,27 +1413,6 @@ def passes_pre_redesign_external_gate(
         "interface_sc": metrics.interface_sc,
     }
     return _apply_filter_gates(geom.initial_filters, values, traj_idx, "external")
-
-
-def compute_interchain_clash_score(structure: Structure, threshold: float = 2.4) -> int:
-    """Inter-chain heavy-atom clash count (excludes same-chain pairs)."""
-    gs = structure.gemmi_struct
-    coords: list[list[float]] = []
-    chain_ids: list[str] = []
-    for model in gs:
-        for chain in model:
-            for residue in chain:
-                for atom in residue:
-                    if atom.element.name == "H" or atom.element.name == "D":
-                        continue
-                    pos = atom.pos
-                    coords.append([pos.x, pos.y, pos.z])
-                    chain_ids.append(chain.name)
-    if len(coords) < 2:
-        return 0
-    tree = cKDTree(coords)
-    pairs = tree.query_pairs(threshold)
-    return sum(1 for i, j in pairs if chain_ids[i] != chain_ids[j])
 
 
 def compute_sc_rmsd(

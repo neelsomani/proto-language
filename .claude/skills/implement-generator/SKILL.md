@@ -71,7 +71,7 @@ Each generator declares its `input_type` via a classvar. The client reads this f
 
 | `input_type` | Category | Runtime input source |
 |---|---|---|
-| `STARTING_SEQUENCE` | `mutation` | `segment.proposal_sequences[].sequence` (from `segment.input_sequence` or prior stage); base validator raises if empty |
+| `STARTING_SEQUENCE` | `mutation`, or **unconditional / de-novo** | `segment.proposal_sequences[].sequence` (from `segment.input_sequence` or prior stage); base validator raises if empty **unless** the generator sets `allows_empty_starting_sequence = True` (then it generates from an empty length-only segment — the de-novo case, as `RandomProteinGenerator` does) |
 | `PROMPT` | `autoregressive` | `config.prompts` or `_sample(prompts=...)` from CyclingOptimizer |
 | `STRUCTURE` | `inverse_folding` | `config.structure_inputs` or `_sample(structure_inputs=...)` from CyclingOptimizer; segment seeded with `'X' * length` if no prior sequence |
 | `LOGITS` | `gradient` | `segment.proposal_sequences[].logits` from a prior `GradientOptimizer` stage |
@@ -81,7 +81,8 @@ For concrete examples per category, use `GeneratorRegistry.list_all()` and filte
 ## Input Field Rules
 
 - **No `starting_` prefix on conditioning kwargs.** Use bare nouns: `prompt`, `template_sequence`, `structure`, `logits`. The kwarg name describes what the input *is*, not how the optimizer happens to use it.
-- **Mutation generators require an explicit template.** `STARTING_SEQUENCE` generators (including the `Random*` family) no longer accept random-init as a silent fallback — the `Program._validate_generator_inputs` walker raises at `Program.__init__` time if no upstream stage or `segment.input_sequence` supplies one. Wire a `RandomNucleotide` / `RandomProtein` first stage if you want random initialization.
+- **Mutation generators require an explicit template.** `STARTING_SEQUENCE` generators that mutate an input (and don't set the flag below) no longer accept random-init as a silent fallback — the `Program._validate_generator_inputs` walker raises at `Program.__init__` time if no upstream stage or `segment.input_sequence` supplies one. Wire a `RandomNucleotide` / `RandomProtein` first stage if you want random initialization.
+- **Unconditional / de-novo generation uses `allows_empty_starting_sequence`, NOT `PROMPT`.** A generator that produces a full sequence from nothing (e.g. an RFdiffusion3 backbone generator, or the `Random*` family) declares `input_type = GeneratorInputType.STARTING_SEQUENCE` **and** `allows_empty_starting_sequence = True`, then fills the length-only segment in `_sample()` itself — exactly as `RandomProteinGenerator` does. Do **not** reach for `PROMPT`: `PROMPT` is autoregressive and requires non-empty `config.prompts`, so the validator raises `"requires non-empty prompts"` for a generator that has no prompt to give.
 
 ## Implementation Steps
 

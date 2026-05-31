@@ -6,7 +6,7 @@ Complete templates for config class and generator class by `input_type`. Load th
 
 The class's `input_type` classvar determines what `_validate_generator()` does at the start of `_sample()`:
 
-- **`STARTING_SEQUENCE`** (mutation): If proposals have no sequence, raises `RuntimeError`. No random-init fallback — the user must provide `segment.input_sequence` or rely on a prior optimizer stage's output.
+- **`STARTING_SEQUENCE`** (mutation, or unconditional/de-novo): If proposals have no sequence, raises `RuntimeError` — **unless** the generator sets `allows_empty_starting_sequence = True`, in which case an empty length-only segment is allowed and the generator produces the sequence from nothing (the de-novo case; `RandomProteinGenerator` works this way). For a mutation generator (flag unset) the user must supply `segment.input_sequence` or a prior stage's output. **Use this — not `PROMPT` — for unconditional generators (e.g. an RFdiffusion3 backbone generator); `PROMPT` is autoregressive and requires non-empty `config.prompts`.**
 - **`PROMPT`** (autoregressive): If proposals are already populated, logs a warning (they will be overwritten).
 - **`STRUCTURE`** (inverse folding): If proposals have no sequence, seeds `"X" * length` and logs at INFO. The structure determines residues during design.
 - **`LOGITS`** (gradient): No special init. Each proposal must carry `seq.logits` from a prior `GradientOptimizer` stage; reading code raises if missing.
@@ -108,6 +108,10 @@ class MyGenerator(Generator):
     """
 
     input_type = GeneratorInputType.STARTING_SEQUENCE
+    # For UNCONDITIONAL / de-novo generation (produce a full sequence from nothing — e.g. an
+    # RFdiffusion3 backbone generator), also set `allows_empty_starting_sequence = True` and
+    # generate into the empty length-only segment in `_sample()`, as RandomProteinGenerator does.
+    # Do NOT use input_type = PROMPT for this — PROMPT is autoregressive and requires non-empty prompts.
 
     def __init__(self, config: MyGeneratorConfig) -> None:
         super().__init__()

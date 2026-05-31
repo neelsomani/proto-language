@@ -162,3 +162,61 @@ def test_empty_relaxed_interface_skips_mpnn_redesign(tmp_path: Path) -> None:
     )
 
     assert accepted == 0
+
+
+def test_redesign_perplexity_constraint_scores_binder_not_complex(tmp_path: Path, monkeypatch) -> None:
+    """The MPNN-redesign perplexity constraint scores the binder against the binder backbone.
+
+    Regression: scoring a binder-only sequence against the full target+binder complex raised a
+    logits/structure length-mismatch ValueError in proteinmpnn-gradient, aborting the
+    rejection-sampling redesign stage on the first batch.
+    """
+    complex_struct = Structure(structure=Path("examples/germinal/pdbs/pdl1.pdb").read_text())
+    binder_struct = complex_struct.select_chain(bindcraft.BINDER_CHAIN)
+    binder_len = len(binder_struct.get_chain_positions(bindcraft.BINDER_CHAIN))
+    binder = bindcraft.Segment(length=binder_len, sequence_type="protein", label="binder")
+    target = bindcraft.Segment(sequence="ACDE", sequence_type="protein", label="target")
+
+    captured: dict[str, list] = {}
+
+    class _CaptureOptimizer:
+        def __init__(self, *, constraints, **_) -> None:
+            captured["constraints"] = constraints
+
+    class _NoopProgram:
+        def __init__(self, *_, **__) -> None: ...
+        def run_stage(self, *_) -> None: ...
+
+    monkeypatch.setattr(bindcraft, "RejectionSamplingOptimizer", _CaptureOptimizer)
+    monkeypatch.setattr(bindcraft, "Program", _NoopProgram)
+
+    config = _bindcraft_config()
+    config.max_mpnn_per_trajectory = 0  # never reach the (mocked) scoring loop
+    # Non-empty relaxed interface so the redesign proceeds to build the constraint.
+    mpnn_complex = SimpleNamespace(interface_contact_residues=lambda **_: {1: "ALA", 2: "GLY"})
+
+    accepted = bindcraft._redesign_and_validate(
+        config,
+        binder=binder,
+        construct=bindcraft.Construct([binder, target]),
+        complex_struct=complex_struct,
+        mpnn_complex_struct=mpnn_complex,
+        binder_struct=binder_struct,
+        target_struct=SimpleNamespace(),
+        target_pdb_text="",
+        target_seq="ACDE",
+        traj_idx=0,
+        run_dir=tmp_path,
+        seen_sequences=set(),
+    )
+
+    assert accepted == 0
+    (constraint,) = captured["constraints"]
+    structure_input = constraint.function_config.structure_input
+    assert constraint.label == "proteinmpnn_perplexity"
+    # Scored against the binder-only structure, so a binder-only one-hot matches the parsed
+    # structure length (the contract proteinmpnn-gradient enforces; the complex is larger).
+    assert list(structure_input.chains_to_redesign.chains) == [bindcraft.BINDER_CHAIN]
+    assert len(structure_input.structure.get_chain_positions(bindcraft.BINDER_CHAIN)) == binder_len
+    complex_len = sum(len(complex_struct.get_chain_positions(c)) for c in ("A", bindcraft.BINDER_CHAIN))
+    assert complex_len > binder_len

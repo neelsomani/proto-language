@@ -939,11 +939,12 @@ def _redesign_and_validate(
             Constraint(
                 inputs=[binder],
                 function=mpnn_perplexity_constraint,
+                # Binder-only: proteinmpnn-gradient needs logits matching the parsed structure
+                # length, and proposals are binder-only (ranking uses generator metadata).
                 function_config=MpnnPerplexityConfig(
                     structure_input=InverseFoldingStructureInput(
-                        structure=complex_struct,
-                        chains_to_redesign=chains_to_redesign,
-                        fixed_positions=fixed_positions,
+                        structure=binder_struct,
+                        chains_to_redesign=[BINDER_CHAIN],
                     ),
                 ),
                 label="proteinmpnn_perplexity",

@@ -24,9 +24,9 @@ from typing import Any
 
 import numpy as np
 from proto_tools.tools.structure_prediction.alphafold2 import (
-    AlphaFold2BinderConfig,
-    AlphaFold2BinderInput,
-    run_alphafold2_binder,
+    AlphaFold2GradientConfig,
+    AlphaFold2GradientInput,
+    run_alphafold2_gradient,
 )
 from pydantic import ValidationError
 
@@ -201,8 +201,8 @@ class AF2MultimerGradientProvider(GradientProvider):
                 continue
 
             evaluation_seed = next_af2_multimer_seed(self.config)
-            output = run_alphafold2_binder(
-                AlphaFold2BinderInput(
+            output = run_alphafold2_gradient(
+                AlphaFold2GradientInput(
                     logits=binder_seq.logits.tolist(),
                     temperature=temperature,
                     target_pdb=self.config.target_pdb,
@@ -211,7 +211,7 @@ class AF2MultimerGradientProvider(GradientProvider):
                     binder_chain=self.config.binder_chain,
                     design_positions=self.config.design_positions,
                 ),
-                AlphaFold2BinderConfig(
+                AlphaFold2GradientConfig(
                     include_pae_matrix=self.config.include_pae_matrix,
                     bias_redesign=self.config.bias_redesign,
                     omit_aas=self.config.omit_aas,
@@ -529,8 +529,8 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
         validate_af2_multimer_inputs(proposal_tuple, config)
         binder_seq = proposal_tuple[config.binder_input_index]
         evaluation_seed = next_af2_multimer_seed(config)
-        output = run_alphafold2_binder(
-            AlphaFold2BinderInput(
+        output = run_alphafold2_gradient(
+            AlphaFold2GradientInput(
                 logits=one_hot_protein_matrix(binder_seq.sequence),
                 target_pdb=config.target_pdb,
                 target_chain=",".join(config.target_chains),
@@ -538,7 +538,7 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
                 binder_chain=config.binder_chain,
                 design_positions=config.design_positions,
             ),
-            AlphaFold2BinderConfig(
+            AlphaFold2GradientConfig(
                 include_pae_matrix=config.include_pae_matrix,
                 bias_redesign=config.bias_redesign,
                 omit_aas=config.omit_aas,

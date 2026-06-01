@@ -835,7 +835,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder"
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient"
         ) as mock_af2:
             mock_af2.return_value = output
             if mode == "gradient":
@@ -907,7 +907,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient",
             return_value=output,
         ) as mock_af2:
             if mode == "gradient":
@@ -964,7 +964,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient",
             return_value=output,
         ) as mock_af2:
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -997,7 +997,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_binder",
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient",
             return_value=failed_output,
         ):
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())

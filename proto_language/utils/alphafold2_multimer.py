@@ -14,9 +14,9 @@ from typing import Any
 
 from proto_tools import Structure
 from proto_tools.tools.structure_prediction.alphafold2 import (
-    AlphaFold2BinderConfig,
-    AlphaFold2BinderInput,
-    run_alphafold2_binder,
+    AlphaFold2GradientConfig,
+    AlphaFold2GradientInput,
+    run_alphafold2_gradient,
 )
 from pydantic import BaseModel, ConfigDict
 
@@ -269,8 +269,8 @@ def evaluate_af2_multimer_predictions(
         validate_af2_multimer_inputs(proposal_tuple, af2_config)
         binder_seq = proposal_tuple[af2_config.binder_input_index]
         evaluation_seed = next_af2_multimer_seed(af2_config)
-        output = run_alphafold2_binder(
-            AlphaFold2BinderInput(
+        output = run_alphafold2_gradient(
+            AlphaFold2GradientInput(
                 logits=one_hot_protein_matrix(binder_seq.sequence),
                 target_pdb=af2_config.target_pdb,
                 target_chain=",".join(af2_config.target_chains),
@@ -278,7 +278,7 @@ def evaluate_af2_multimer_predictions(
                 binder_chain=af2_config.binder_chain,
                 design_positions=af2_config.design_positions,
             ),
-            AlphaFold2BinderConfig(
+            AlphaFold2GradientConfig(
                 include_pae_matrix=af2_config.include_pae_matrix,
                 bias_redesign=af2_config.bias_redesign,
                 omit_aas=af2_config.omit_aas,

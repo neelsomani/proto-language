@@ -43,9 +43,9 @@ import numpy as np
 from proto_tools.entities.structures import Structure
 from proto_tools.tools.inverse_folding.shared_data_models import InverseFoldingStructureInput
 from proto_tools.tools.structure_prediction.alphafold2 import (
-    AlphaFold2BinderConfig,
-    AlphaFold2BinderInput,
-    run_alphafold2_binder,
+    AlphaFold2GradientConfig,
+    AlphaFold2GradientInput,
+    run_alphafold2_gradient,
 )
 from proto_tools.tools.structure_prediction.dispatch import predict_structures
 from proto_tools.tools.structure_scoring.dssp import (
@@ -688,8 +688,8 @@ def _predict_validation_complex(
     """Predict the binder-target complex and return structure, metrics, binder chain, target chains."""
     model_num = _model_num(model_idx)
     if config.validation_tool == "alphafold2":
-        output = run_alphafold2_binder(
-            AlphaFold2BinderInput(
+        output = run_alphafold2_gradient(
+            AlphaFold2GradientInput(
                 logits=one_hot_protein_matrix(binder_seq),
                 temperature=1.0,
                 target_pdb=target_pdb_text,
@@ -697,7 +697,7 @@ def _predict_validation_complex(
                 target_hotspot=config.target_hotspot,
                 binder_chain=None,  # de-novo: fold the MPNN binder sequence, no template
             ),
-            AlphaFold2BinderConfig(
+            AlphaFold2GradientConfig(
                 num_recycles=config.validation_recycles,
                 model_num=model_num,
                 loss_weights={"i_pae": 1.0},

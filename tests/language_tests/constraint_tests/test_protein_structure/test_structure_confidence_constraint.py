@@ -313,7 +313,7 @@ class TestToolDispatching:
             structure=structure,
         )
 
-        with patch("proto_language.utils.alphafold2_multimer.run_alphafold2_binder") as mock_af2:
+        with patch("proto_language.utils.alphafold2_multimer.run_alphafold2_gradient") as mock_af2:
             mock_af2.return_value = output
             (result,) = constraint_fn([(binder, protein_sequence)], config)
 
@@ -351,7 +351,7 @@ class TestToolDispatching:
         structure = Structure(structure=PDL1_PDB.read_text(), structure_format="pdb")
         output = SimpleNamespace(loss=0.0, metrics={"ptm": 0.8}, structure=structure)
 
-        with patch("proto_language.utils.alphafold2_multimer.run_alphafold2_binder") as mock_af2:
+        with patch("proto_language.utils.alphafold2_multimer.run_alphafold2_gradient") as mock_af2:
             mock_af2.return_value = output
             (result,) = structure_ptm_constraint([(protein_sequence, Sequence("A" * 10, "protein"))], config)
 

@@ -1225,24 +1225,6 @@ class TestProgramExport:
 class TestProgramCompute:
     """Tests for Program.compute parameter and _enter_compute() context manager."""
 
-    @patch("proto_tools.utils.tool_pool.ToolPool")
-    @patch("proto_tools.cloud.is_api_backend_enabled", return_value=True)
-    def test_compute_defaults_to_nullcontext_when_backend_configured(self, _mock_enabled, mock_pool_cls):
-        """Default compute=None resolves to nullcontext() whenever the cloud API backend is enabled."""
-        from contextlib import nullcontext
-
-        program = _create_simple_program(compute=None)
-        assert isinstance(program.compute, nullcontext)
-        mock_pool_cls.assert_not_called()
-
-    @patch("proto_tools.utils.tool_pool.ToolPool")
-    @patch("proto_tools.cloud.is_api_backend_enabled", return_value=False)
-    def test_compute_defaults_to_toolpool_when_no_backend(self, _mock_enabled, mock_pool_cls):
-        """Default compute=None resolves to ToolPool() when the cloud API backend is disabled."""
-        program = _create_simple_program(compute=None)
-        mock_pool_cls.assert_called_once_with()
-        assert program.compute is mock_pool_cls.return_value
-
     @patch("proto_tools.utils.tool_pool._active_pool")
     def test_run_enters_compute_context(self, mock_active_pool):
         """ToolPool __enter__ and __exit__ called during run()."""

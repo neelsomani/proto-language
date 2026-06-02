@@ -534,8 +534,8 @@ class TestConstraintEdgeCases:
         with pytest.raises(ValueError, match=r"score -0\.5 not in \[0\.0, 1\.0\]"):
             constraint.evaluate()
 
-    def test_allow_raw_scores_permits_out_of_range_finite(self):
-        """_constraint_allow_raw_scores=True relaxes only the [0, 1] range check."""
+    def test_allow_raw_scores_relaxes_range_but_not_finiteness(self):
+        """_constraint_allow_raw_scores=True relaxes the [0, 1] range check but still rejects non-finite."""
 
         def raw_scoring(input_sequences, config=None):
             return [ConstraintOutput(score=-2.5), ConstraintOutput(score=7.0)]
@@ -545,17 +545,8 @@ class TestConstraintEdgeCases:
         raw_scoring._constraint_allow_raw_scores = True
 
         segment = _make_segment_with_proposals(["ATCG", "GGGG"], "dna")
-        constraint = Constraint(
-            inputs=[segment],
-            function=raw_scoring,
-            function_config=MockConfig(),
-        )
-        scores = constraint.evaluate()
-        assert scores[0] == -2.5
-        assert scores[1] == 7.0
-
-    def test_allow_raw_scores_still_rejects_non_finite(self):
-        """Non-finite scoring scores raise even for raw-score scorers (NaN/Inf sentinel guard)."""
+        scores = Constraint(inputs=[segment], function=raw_scoring, function_config=MockConfig()).evaluate()
+        assert scores == [-2.5, 7.0]
 
         def inf_scoring(input_sequences, config=None):
             return [ConstraintOutput(score=float("inf")) for _ in input_sequences]
@@ -564,14 +555,9 @@ class TestConstraintEdgeCases:
         inf_scoring._constraint_supported_sequence_types = ["dna"]
         inf_scoring._constraint_allow_raw_scores = True
 
-        segment = _make_segment_with_proposals(["ATCG"], "dna")
-        constraint = Constraint(
-            inputs=[segment],
-            function=inf_scoring,
-            function_config=MockConfig(),
-        )
+        inf_segment = _make_segment_with_proposals(["ATCG"], "dna")
         with pytest.raises(ValueError, match="non-finite score"):
-            constraint.evaluate()
+            Constraint(inputs=[inf_segment], function=inf_scoring, function_config=MockConfig()).evaluate()
 
     def test_custom_metadata_is_stored_under_data(self):
         """Metadata on ConstraintOutput populates _constraints_metadata[label]["data"]."""

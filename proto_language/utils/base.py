@@ -47,7 +47,7 @@ def ConfigField(
 
 
 class BaseConfig(BaseModel):
-    """Base configuration class for consistent behavior across all configs (tools, constraints, and generators).
+    """Base config for proto-language constraints, generators, and optimizers.
 
     Example:
         >>> class MyToolConfig(BaseConfig):
@@ -154,8 +154,9 @@ class BaseSpec(BaseModel):
 class BaseRegistry(ABC, Generic[SpecType]):
     """Base registry for decorator-based component registration.
 
-    Provides discovery, schema generation, and factory methods for constraints,
-    generators, and tools. Registration happens at import time via decorators.
+    Provides discovery, schema generation, and factory methods for proto-language
+    constraints, generators, and optimizers. Registration happens at import time
+    via decorators.
 
     Abstract Methods (implemented by subclasses):
     - register(): Decorator to register components

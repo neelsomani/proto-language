@@ -403,10 +403,11 @@ def flatten_constraints(
         result_indices (set[int] | None): If set, only include these result indices.
 
     Columns:
-        Fixed: result_idx, energy_score, construct, segment, constraint
+        Fixed: result_idx, energy_score, construct, sequence_type, segment, constraint
         Standard: score, weight, weighted_score
         Multi-segment (when applicable): input_segments, position_in_inputs
-        Custom data: {key} un-prefixed (one constraint per row)
+        Custom data: {key} un-prefixed; a key colliding with a column above is
+            prefixed with ``data.`` to avoid overwriting it.
     """
     rows = []
     for result_entry in results.get("results", []):
@@ -434,7 +435,8 @@ def flatten_constraints(
                         if key in cdata:
                             row[key] = _serialize_value(cdata[key])
                     for k, v in cdata.get("data", {}).items():
-                        row[k] = _serialize_value(v)
+                        col = k if k not in row else f"data.{k}"
+                        row[col] = _serialize_value(v)
                     rows.append(row)
     return rows
 

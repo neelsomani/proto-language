@@ -4,9 +4,9 @@ Reachable as the ``proto-language`` shell command after ``pip install``, or as
 ``python -m proto_language`` without one. Verbs mirror proto-tools where the
 shape matches and split by registry kind where it does not.
 
-Defaults to human-readable text output; every verb that returns structured
-data accepts ``--json`` for machine-readable output via Pydantic
-``model_dump_json()``.
+Defaults to human-readable text output; most verbs that return structured
+data accept ``--json`` for machine-readable output via Pydantic
+``model_dump_json()`` (the ``schema`` verb always emits JSON Schema).
 """
 
 from __future__ import annotations
@@ -331,7 +331,7 @@ def _add_list_filters(parser: argparse.ArgumentParser, kind: ComponentKind | Non
 
 
 def _add_kind_subparsers(sub: argparse._SubParsersAction[argparse.ArgumentParser], kind: ComponentKind) -> None:
-    """Wire ``list``/``categories``/``docs``/``config``/``schema`` under one kind."""
+    """Wire ``list``/``categories``/``docs``/``config``/``schema``/``compatible`` under one kind."""
     kp = sub.add_parser(kind, help=f"{kind.capitalize()} discovery and docs.")
     kverbs = kp.add_subparsers(dest="verb", required=True)
 
@@ -401,10 +401,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return int(args.func(args))
     except ValueError as exc:
+        # Unknown registry keys and core-type names all surface as ValueError.
         print(f"error: {exc}", file=sys.stderr)
-        return 2
-    except KeyError as exc:
-        print(f"error: not registered: {exc}", file=sys.stderr)
         return 2
 
 

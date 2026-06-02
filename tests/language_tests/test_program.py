@@ -93,6 +93,24 @@ def _create_simple_program(
     return Program(optimizers=optimizers, num_results=2, compute=compute, seed=seed)
 
 
+class TestClearSequenceMetadata:
+    """Tests for Program._clear_sequence_metadata stage hygiene."""
+
+    def test_clears_both_constraint_and_generator_metadata(self):
+        """At a stage boundary, both stale constraint and generator metadata are reset."""
+        program = _create_simple_program(num_stages=1, compute=nullcontext())
+        segment = program.constructs[0].segments[0]
+        for seq in segment.result_sequences + segment.proposal_sequences:
+            seq._constraints_metadata = {"stale-constraint": {"score": 1.0}}
+            seq._generator_metadata = {"stale-generator": {"samples": ["AAAA"]}}
+
+        program._clear_sequence_metadata()
+
+        for seq in segment.result_sequences + segment.proposal_sequences:
+            assert seq._constraints_metadata == {}
+            assert seq._generator_metadata == {}
+
+
 class TestProgramRestart:
     """Tests for Program state restart behavior."""
 
@@ -1208,23 +1226,19 @@ class TestProgramCompute:
     """Tests for Program.compute parameter and _enter_compute() context manager."""
 
     @patch("proto_tools.utils.tool_pool.ToolPool")
-    def test_compute_defaults_to_nullcontext_when_backend_configured(self, mock_pool_cls):
-        """Default compute=None resolves to nullcontext() whenever external dispatch is configured."""
+    @patch("proto_tools.cloud.is_api_backend_enabled", return_value=True)
+    def test_compute_defaults_to_nullcontext_when_backend_configured(self, _mock_enabled, mock_pool_cls):
+        """Default compute=None resolves to nullcontext() whenever the cloud API backend is enabled."""
         from contextlib import nullcontext
 
-        from proto_tools.tools.tool_registry import ToolRegistry
-
-        ToolRegistry._dispatch_configured = True
-        try:
-            program = _create_simple_program(compute=None)
-            assert isinstance(program.compute, nullcontext)
-            mock_pool_cls.assert_not_called()
-        finally:
-            del ToolRegistry._dispatch_configured
+        program = _create_simple_program(compute=None)
+        assert isinstance(program.compute, nullcontext)
+        mock_pool_cls.assert_not_called()
 
     @patch("proto_tools.utils.tool_pool.ToolPool")
-    def test_compute_defaults_to_toolpool_when_no_backend(self, mock_pool_cls):
-        """Default compute=None resolves to ToolPool() when no external dispatch is configured."""
+    @patch("proto_tools.cloud.is_api_backend_enabled", return_value=False)
+    def test_compute_defaults_to_toolpool_when_no_backend(self, _mock_enabled, mock_pool_cls):
+        """Default compute=None resolves to ToolPool() when the cloud API backend is disabled."""
         program = _create_simple_program(compute=None)
         mock_pool_cls.assert_called_once_with()
         assert program.compute is mock_pool_cls.return_value

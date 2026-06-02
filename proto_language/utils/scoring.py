@@ -137,10 +137,7 @@ def inverse_sigmoid_score(
     inflection: float,
     slope: float = 3.0,
 ) -> float:
-    """Inverts the sigmoid_score function to recover the original metric from a 0-1.
-
-    score using the **logit function**. Helps to recover the original metric from a
-    0-1 score.
+    """Invert ``sigmoid_score`` via the **logit function** to recover the original metric.
 
     Args:
         score (float): A score value strictly between 0.0 and 1.0.

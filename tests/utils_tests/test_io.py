@@ -448,6 +448,48 @@ class TestFlattenConstraints:
         assert rows[0]["position_in_inputs"] == 0
         assert rows[0]["binding_energy"] == -5.0
 
+    def test_custom_data_key_collision_is_prefixed(self):
+        """A custom data key that collides with a reserved column is prefixed, not overwritten."""
+        results = {
+            "results": [
+                {
+                    "result_idx": 0,
+                    "energy_score": 0.5,
+                    "constructs": [
+                        {
+                            "label": "c0",
+                            "type": "dna",
+                            "segments": [
+                                {
+                                    "label": "seg",
+                                    "sequence": "ACGT",
+                                    "constraints": {
+                                        "weird": {
+                                            "score": 0.2,
+                                            "weight": 1.0,
+                                            "weighted_score": 0.2,
+                                            "data": {"score": 99.0, "gc": 0.5},
+                                        },
+                                    },
+                                    "metadata": {},
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+            "best_result_idx": 0,
+        }
+        rows = flatten_constraints(results)
+        assert len(rows) == 1
+        row = rows[0]
+        # The reserved 'score' column keeps the constraint score, not the custom value.
+        assert row["score"] == 0.2
+        # The colliding custom key is preserved under a 'data.' prefix.
+        assert row["data.score"] == 99.0
+        # Non-colliding custom keys stay un-prefixed.
+        assert row["gc"] == 0.5
+
     def test_empty_results(self):
         """Handles empty results."""
         assert flatten_constraints({"results": []}) == []

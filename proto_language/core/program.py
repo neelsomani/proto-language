@@ -158,8 +158,9 @@ class Program:
             verbose (bool): If True, print detailed energy score calculations for each constraint
                      for all optimizers.
             compute (ToolPool | None): Context manager for tool execution. If None,
-                auto-detects: nullcontext when external dispatch is configured, otherwise
-                ToolPool() (symmetric across GPU and CPU-only hosts).
+                auto-detects: nullcontext when the cloud API backend is enabled
+                (``proto_tools.cloud.is_api_backend_enabled()``), otherwise ToolPool()
+                (symmetric across GPU and CPU-only hosts).
             seed (int | None): Random seed for fully reproducible optimization. When set,
                 derives unique optimizer config seeds, overriding optimizer-level
                 seeds. Same seed + same input = same output.
@@ -176,13 +177,11 @@ class Program:
         if compute is None:
             from contextlib import nullcontext
 
-            from proto_tools.tools.tool_registry import ToolRegistry
+            from proto_tools.cloud import is_api_backend_enabled
             from proto_tools.utils.tool_pool import ToolPool
 
-            has_backend = getattr(ToolRegistry, "_dispatch_configured", False)
-
-            if has_backend:
-                logger.debug("External dispatch configured; GPU tools will route via _try_dispatch.")
+            if is_api_backend_enabled():
+                logger.debug("Cloud API backend enabled; GPU tools will route via _try_dispatch.")
                 compute = nullcontext()
             else:
                 # Symmetric across GPU and CPU-only hosts.
@@ -560,17 +559,19 @@ class Program:
         return self._stage_results[stage_index]
 
     def _clear_sequence_metadata(self) -> None:
-        """Clear constraint results from all sequences in all segments.
+        """Clear constraint and generator metadata from every sequence.
 
-        Called at the start of each optimization stage to prevent stale constraints
-        from previous stages persisting into new stages.
+        Run at each stage boundary so a sequence surviving into the next stage does
+        not carry the prior stage's constraint results or generator provenance.
         """
         for construct in self.constructs:
             for segment in construct.segments:
                 for seq in segment.result_sequences:
                     seq._constraints_metadata = {}
+                    seq._generator_metadata = {}
                 for seq in segment.proposal_sequences:
                     seq._constraints_metadata = {}
+                    seq._generator_metadata = {}
 
     def extract_results(self, energy_scores: list[float]) -> dict[str, Any]:
         """Extract results from constructs."""
@@ -599,11 +600,12 @@ class Program:
         seq_data = {
             "sequence": seq.sequence,
             "sequence_type": seq.sequence_type,
-            "valid_chars": list(seq.valid_chars) if seq.valid_chars else None,
+            "valid_chars": sorted(seq.valid_chars) if seq.valid_chars else None,
         }
         # Preserve optimizer handoff state across hosted stage boundaries.
         if seq.logits is not None:
             seq_data["logits"] = seq.logits.tolist()
+            seq_data["logits_shape"] = list(seq.logits.shape)
         if seq.structure is not None:
             seq_data["structure"] = seq.structure.model_dump(mode="json")
         return seq_data
@@ -726,10 +728,13 @@ class Program:
         Accepts the same filter arguments as :meth:`export`.
 
         Args:
-            table (Literal['sequences', 'constraints', 'constructs', 'optimization']): Output format: 'wide' for one column per metric, 'long' for melted rows.
+            table (Literal['sequences', 'constraints', 'constructs', 'optimization']): Result
+                table to return. Row grains: 'sequences' (result, construct, segment),
+                'constraints' (+ constraint), 'constructs' (result, construct),
+                'optimization' (timepoint, result).
             stage (int | None): Zero-based optimizer stage index to export from.
-            segments (set[str] | None): Subset of segment IDs to include, or None for all.
-            constraints (set[str] | None): Subset of constraint keys to include, or None for all.
+            segments (set[str] | None): Subset of segment labels to include, or None for all.
+            constraints (set[str] | None): Subset of constraint labels to include, or None for all.
             result_indices (set[int] | None): Indices of specific results to include, or None for all.
             include_proposals (bool): Whether to include proposal sequences alongside accepted results.
         """

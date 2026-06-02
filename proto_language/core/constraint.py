@@ -487,7 +487,9 @@ class Constraint:
                     f"'{self.label}' proposal {idx}: expected ConstraintOutput, got {type(result).__name__}"
                 )
             score = result.score
-            if not np.isfinite(score) and not is_filter and not allow_raw_scores:
+            # Scoring scores must stay finite (NaN is the not-evaluated sentinel,
+            # ±inf corrupts accept/reject). Raw-score scorers only skip the [0, 1] check.
+            if not np.isfinite(score) and not is_filter:
                 raise ValueError(f"'{self.label}' proposal {idx}: non-finite score {score!r}")
             if not allow_raw_scores and not is_filter and not (0.0 <= score <= 1.0):
                 raise ValueError(f"'{self.label}' proposal {idx}: score {score!r} not in [0.0, 1.0]")

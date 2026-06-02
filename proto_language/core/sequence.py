@@ -46,10 +46,9 @@ _DEFAULT_PROTEIN_CHARS: frozenset[str] = frozenset(PROTEIN_AMINO_ACIDS)
 SequenceType = Literal["dna", "rna", "protein", "ligand"]
 
 
-# Reserved keys in the computed .metadata property — user-provided metadata
-# should not use these keys as they will be overwritten by identity fields
-# or collide with first-class Sequence attributes.
-_RESERVED_METADATA_KEYS = frozenset({"sequence", "sequence_length", "constraints", "generators", "logits", "structure"})
+# Reserved keys in the computed .metadata property: the .metadata view injects
+# these identity fields, so user-provided metadata must not use them.
+_RESERVED_METADATA_KEYS = frozenset({"sequence", "sequence_length", "constraints", "generators"})
 
 
 class Sequence:
@@ -98,10 +97,10 @@ class Sequence:
                 associated with this sequence. Used by structure-conditioned workflows.
         """
         self._sequence_type: SequenceType = sequence_type
-        # Set up character validation based on sequence type or custom valid_chars
-        # Default chars use shared module-level frozensets to avoid allocation
+        # Normalize custom valid_chars to frozenset so deepcopies share the
+        # reference; defaults reuse shared module-level frozensets.
         if valid_chars:
-            self._valid_chars: set[str] | frozenset[str] | None = valid_chars
+            self._valid_chars: frozenset[str] | None = frozenset(valid_chars)
         elif self._sequence_type == "dna":
             self._valid_chars = _DEFAULT_DNA_CHARS
         elif self._sequence_type == "rna":
@@ -164,8 +163,8 @@ class Sequence:
         return self._sequence_type
 
     @property
-    def valid_chars(self) -> set[str] | frozenset[str] | None:
-        """Valid characters for this sequence (read-only after construction)."""
+    def valid_chars(self) -> frozenset[str] | None:
+        """Valid characters for this sequence (read-only, immutable frozenset)."""
         return self._valid_chars
 
     def ordered_vocab(self) -> list[str]:
@@ -280,17 +279,27 @@ class Sequence:
         return new_seq
 
     def to_dict(self, *, include_logits: bool = False, include_structure: bool = False) -> dict[str, Any]:
-        """Serialize Sequence to a JSON-safe dictionary."""
-        result = {
+        """Serialize Sequence to a JSON-safe dictionary.
+
+        Sorts ``valid_chars`` for reproducible exports and runs metadata payloads
+        through :func:`make_json_safe` (NaN/Inf become ``None``). ``logits`` stores
+        its shape so empty ``(0, vocab)`` arrays survive the round-trip.
+        """
+        from proto_language.utils.serialization import make_json_safe
+
+        result: dict[str, Any] = {
             "sequence": self._sequence,
             "sequence_type": self.sequence_type,
-            "valid_chars": list(self._valid_chars) if self._valid_chars else None,
-            "metadata": copy.deepcopy(self._metadata) if self._metadata else {},
-            "constraints": copy.deepcopy(self._constraints_metadata) if self._constraints_metadata else {},
-            "generators": copy.deepcopy(self._generator_metadata) if self._generator_metadata else {},
+            "valid_chars": sorted(self._valid_chars) if self._valid_chars else None,
+            "metadata": make_json_safe(copy.deepcopy(self._metadata)) if self._metadata else {},
+            "constraints": make_json_safe(copy.deepcopy(self._constraints_metadata))
+            if self._constraints_metadata
+            else {},
+            "generators": make_json_safe(copy.deepcopy(self._generator_metadata)) if self._generator_metadata else {},
         }
         if include_logits and self._logits is not None:
             result["logits"] = self._logits.tolist()
+            result["logits_shape"] = list(self._logits.shape)
         if include_structure and self.structure is not None:
             result["structure"] = self.structure.model_dump()
         return result
@@ -310,7 +319,14 @@ class Sequence:
                 valid_chars = chars
         else:
             valid_chars = None
-        logits = np.array(data["logits"], dtype=np.float64) if data.get("logits") is not None else None
+        if data.get("logits") is not None:
+            logits = np.array(data["logits"], dtype=np.float64)
+            # Restore explicit shape so empty (0, vocab) arrays survive the round-trip.
+            logits_shape = data.get("logits_shape")
+            if logits_shape is not None:
+                logits = logits.reshape(tuple(logits_shape))
+        else:
+            logits = None
         structure_data = data.get("structure")
         structure = Structure(**copy.deepcopy(structure_data)) if structure_data is not None else None
         seq = cls(

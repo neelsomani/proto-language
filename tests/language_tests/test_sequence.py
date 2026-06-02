@@ -267,6 +267,22 @@ class TestSequenceSerialization:
         assert restored.sequence_type == original.sequence_type
         assert restored._metadata["custom"] == "value"
 
+    def test_to_dict_sanitizes_non_finite_metadata(self):
+        """to_dict replaces NaN/Inf in metadata/constraints with JSON-safe None."""
+        seq = Sequence("ATCG", "dna", metadata={"bad": float("nan")})
+        seq._constraints_metadata = {"Echo": {"data": {"inf": float("inf")}}}
+        serialized = seq.to_dict()
+        assert serialized["metadata"]["bad"] is None
+        assert serialized["constraints"]["Echo"]["data"]["inf"] is None
+
+    def test_roundtrip_preserves_empty_logits_shape(self):
+        """Empty 2D logits keep their (0, vocab) shape across a round-trip (regression)."""
+        seq = Sequence("", "dna", logits=np.zeros((0, 4)))
+        serialized = seq.to_dict(include_logits=True)
+        restored = Sequence.from_dict(serialized)
+        assert restored.logits is not None
+        assert restored.logits.shape == (0, 4)
+
 
 class TestSequenceLogits:
     """Tests for the optional logits field on Sequence."""

@@ -369,7 +369,10 @@ class Optimizer(ABC):
         """Format filter pass/fail summary from the last score_energy call."""
         if not self._last_filter_pass_counts:
             return None
-        total_passed = sum(p for p, _ in self._last_filter_pass_counts.values())
+        # Filters run sequentially, so the last filter's survivors are those that
+        # passed all of them; summing per-filter counts would double-count.
+        counts = list(self._last_filter_pass_counts.values())
+        total_passed = counts[-1][0]
         total_evaluated = self.num_proposals or 0
         rejections = [
             f"{label} x{evaluated - passed}"
@@ -383,12 +386,13 @@ class Optimizer(ABC):
         """Per-constraint mean weighted contribution to energy + % share, one line each."""
         if not self._last_constraint_scores:
             return []
-        weights = {c.label: c.weight for c in self.constraints if c.threshold is None}
+        # _last_constraint_scores already holds weight * raw_score, so its mean is
+        # the weighted contribution; re-applying the weight would double-count.
         contribs: list[tuple[str, float]] = []
         for label, scores in self._last_constraint_scores.items():
             finite = [s for s in scores if math.isfinite(s)]
             if finite:
-                contribs.append((label, weights.get(label, 1.0) * float(np.mean(finite))))
+                contribs.append((label, float(np.mean(finite))))
         if not contribs:
             return []
         total = sum(abs(c) for _, c in contribs)
@@ -899,9 +903,12 @@ class Optimizer(ABC):
         Accepts the same filter arguments as :meth:`export`.
 
         Args:
-            table (Literal['sequences', 'constraints', 'constructs', 'optimization']): Output format: 'wide' for one column per metric, 'long' for melted rows.
-            segments (set[str] | None): Subset of segment IDs to include, or None for all.
-            constraints (set[str] | None): Subset of constraint keys to include, or None for all.
+            table (Literal['sequences', 'constraints', 'constructs', 'optimization']): Result
+                table to return. Row grains: 'sequences' (result, construct, segment),
+                'constraints' (+ constraint), 'constructs' (result, construct),
+                'optimization' (timepoint, result).
+            segments (set[str] | None): Subset of segment labels to include, or None for all.
+            constraints (set[str] | None): Subset of constraint labels to include, or None for all.
             result_indices (set[int] | None): Indices of specific results to include, or None for all.
             include_proposals (bool): Whether to include proposal sequences alongside accepted results.
         """

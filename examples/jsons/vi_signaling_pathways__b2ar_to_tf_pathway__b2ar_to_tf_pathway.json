@@ -242,7 +242,7 @@
             "force_prompt_threshold": 1,
             "stop_at_eos": false,
             "batched": true,
-            "batch_size": 1,
+            "batch_size": 100,
             "cached_generation": true,
             "prepend_prompt": false
           }
@@ -818,9 +818,11 @@
             ],
             "bioemu_config": {
               "num_samples": 1,
-              "batch_size": 1,
+              "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
+              "cache_embeds_dir": "/tmp/proto_bioemu_cache/embeds",
+              "cache_so3_dir": "/tmp/proto_bioemu_cache/so3",
               "timeout": 7200
             },
             "rmsd_aggregation": "min",
@@ -848,9 +850,11 @@
             ],
             "bioemu_config": {
               "num_samples": 1,
-              "batch_size": 1,
+              "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
+              "cache_embeds_dir": "/tmp/proto_bioemu_cache/embeds",
+              "cache_so3_dir": "/tmp/proto_bioemu_cache/so3",
               "timeout": 7200
             },
             "rmsd_aggregation": "min",
@@ -878,9 +882,11 @@
             ],
             "bioemu_config": {
               "num_samples": 1,
-              "batch_size": 1,
+              "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
+              "cache_embeds_dir": "/tmp/proto_bioemu_cache/embeds",
+              "cache_so3_dir": "/tmp/proto_bioemu_cache/so3",
               "timeout": 7200
             },
             "rmsd_aggregation": "min",
@@ -908,9 +914,11 @@
             ],
             "bioemu_config": {
               "num_samples": 1,
-              "batch_size": 1,
+              "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
+              "cache_embeds_dir": "/tmp/proto_bioemu_cache/embeds",
+              "cache_so3_dir": "/tmp/proto_bioemu_cache/so3",
               "timeout": 7200
             },
             "rmsd_aggregation": "min",

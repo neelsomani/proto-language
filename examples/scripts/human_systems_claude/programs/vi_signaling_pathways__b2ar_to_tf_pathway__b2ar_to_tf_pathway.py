@@ -74,6 +74,7 @@ BIOEMU_JOBS = (
     ("PRKAR1A tetramer ensemble RMSD", "PRKAR1A", "2qcs", "B", (119, 379), "prkar1a"),
 )
 BIOEMU_TIMEOUT_SECONDS = 2 * 60 * 60
+BIOEMU_CACHE_DIR = Path(os.environ.get("BIOEMU_CACHE_DIR", "/tmp/proto_bioemu_cache"))
 PROTEIN_QUALITY_THRESHOLD = 0.15
 
 
@@ -128,7 +129,7 @@ def _profile_values(profile: str) -> dict[str, Any]:
         "esm2_model": "esm2_t6_8M_UR50D" if smoke else "esm2_t33_650M_UR50D",
         "esmfold_config": {"num_recycles": 1, "max_batch_residues": 1200, "verbose": 0} if smoke else None,
         "bioemu_samples": {"GNAS": 1 if smoke else 3000, "PRKAR1A": 1 if smoke else 1000},
-        "bioemu_batch_size": 1 if smoke else 100,
+        "bioemu_batch_size": 100,
         "protenix_config": _protenix_config(smoke=smoke),
     }
 
@@ -382,6 +383,8 @@ def _bioemu_constraints(
                         "batch_size": profile_values["bioemu_batch_size"],
                         "filter_samples": False,
                         "seed": 0,
+                        "cache_embeds_dir": str(BIOEMU_CACHE_DIR / "embeds"),
+                        "cache_so3_dir": str(BIOEMU_CACHE_DIR / "so3"),
                         "timeout": BIOEMU_TIMEOUT_SECONDS,
                     },
                     "rmsd_aggregation": "min",
@@ -550,9 +553,11 @@ def _json_bioemu_constraint(
             "proposal_residue_range": list(residue_range),
             "bioemu_config": {
                 "num_samples": samples,
-                "batch_size": 1,
+                "batch_size": 100,
                 "filter_samples": False,
                 "seed": 0,
+                "cache_embeds_dir": str(BIOEMU_CACHE_DIR / "embeds"),
+                "cache_so3_dir": str(BIOEMU_CACHE_DIR / "so3"),
                 "timeout": BIOEMU_TIMEOUT_SECONDS,
             },
             "rmsd_aggregation": "min",
@@ -637,7 +642,7 @@ def build_frontend_program_json(profile: str = "full") -> dict[str, Any]:
                     "force_prompt_threshold": 1,
                     "stop_at_eos": False,
                     "batched": True,
-                    "batch_size": 1 if profile == "smoke" else 10,
+                    "batch_size": 100,
                     "cached_generation": True,
                     "prepend_prompt": False,
                 },

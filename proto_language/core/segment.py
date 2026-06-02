@@ -201,7 +201,7 @@ class Segment:
                 for seq in self.result_sequences
             ],
             "sequence_type": self.sequence_type,
-            "valid_chars": list(self.valid_chars) if self.valid_chars else None,
+            "valid_chars": sorted(self.valid_chars) if self.valid_chars else None,
             "label": self.label,
         }
 

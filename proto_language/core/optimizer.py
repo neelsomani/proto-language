@@ -81,10 +81,14 @@ class Optimizer(ABC):
     about which sequences to keep.
 
     Pool Initialization:
-        ``_initialize_sequence_pools()`` is called during ``__init__()`` and by
-        ``Program.run_stage()`` before each subsequent optimizer. It reads from
-        ``result_sequences`` (from previous optimizer) or ``original_sequence``
-        and initializes both pools by cycling through source to preserve diversity.
+        ``_initialize_sequence_pools()`` runs via ``_resolve_num_results()``,
+        called during ``__init__()`` only when ``num_results`` is set on the
+        config; otherwise resolution (and pool initialization) is deferred until
+        ``Program.__init__()`` flows the program-level ``num_results`` to the
+        optimizer. It is also called by ``Program.run_stage()`` before each
+        subsequent optimizer. It reads from ``result_sequences`` (from previous
+        optimizer) or ``original_sequence`` and initializes both pools by cycling
+        through source to preserve diversity.
 
     Filter Constraints:
         Constraints with a threshold parameter act as binary filters that accept or reject
@@ -451,6 +455,8 @@ class Optimizer(ABC):
             4. No duplicate instances: Each generator/constraint instance can only appear once.
             5. Unique constraint labels: Required for metadata namespacing.
             6. Valid constraint inputs: Constraints can only reference populated segments.
+            7. Component compatibility: Optimizer/generator/constraint declarative
+               dependencies hold (via ``_validate_component_compatibility()``).
 
         Raises:
             ValueError: If user inputs are invalid (empty lists, duplicates, etc.).
@@ -782,12 +788,21 @@ class Optimizer(ABC):
             self._restore_initial_state()
 
     def _capture_initial_state(self) -> None:
-        """Capture current segment and optimizer state via serialization."""
+        """Capture current segment and optimizer state via serialization.
+
+        Serializes with full fidelity (``include_logits=True``,
+        ``include_structure=True``) so that a restart restores logits and
+        structure on the rehydrated sequences instead of dropping them.
+        """
         self._initial_state = {
             "segments": [
                 {
-                    "result": [seq.to_dict() for seq in seg.result_sequences],
-                    "proposals": [seq.to_dict() for seq in seg.proposal_sequences],
+                    "result": [
+                        seq.to_dict(include_logits=True, include_structure=True) for seq in seg.result_sequences
+                    ],
+                    "proposals": [
+                        seq.to_dict(include_logits=True, include_structure=True) for seq in seg.proposal_sequences
+                    ],
                 }
                 for seg in self.segments
             ],

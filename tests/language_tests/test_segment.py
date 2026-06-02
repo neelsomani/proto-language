@@ -117,3 +117,8 @@ class TestSegment:
 
         with pytest.raises(ValueError, match="ligand"):
             Segment(sequence="CCC", sequence_type="ligand").ordered_vocab()
+
+    def test_to_dict_sorts_valid_chars(self):
+        """to_dict emits valid_chars sorted for deterministic exports (regression)."""
+        segment = Segment(sequence="A", sequence_type="dna", valid_chars={"G", "A", "T", "C"})
+        assert segment.to_dict()["valid_chars"] == ["A", "C", "G", "T"]

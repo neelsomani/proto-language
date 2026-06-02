@@ -970,6 +970,71 @@ class TestProgramGeneratorInputs:
         Program(optimizers=[opt1, opt2], num_results=2)
 
 
+class TestCaptureRestoreFidelity:
+    """Restart capture/restore must preserve logits AND structure (regression).
+
+    ``_capture_initial_state`` previously serialized sequences with plain
+    ``to_dict()`` (logits and structure dropped), so a restart rehydrated
+    sequences without them. Both the base optimizer and the GradientOptimizer
+    override must round-trip both fields.
+    """
+
+    @staticmethod
+    def _seed_pools_with_logits_and_structure(segment: Segment) -> None:
+        """Give every sequence in *segment*'s pools non-None logits and a structure."""
+        for seq in segment.result_sequences + segment.proposal_sequences:
+            seq.logits = np.zeros((len(seq.sequence), 20))
+            seq.structure = MockStructure()
+
+    @staticmethod
+    def _wipe_pools(segment: Segment) -> None:
+        """Clear logits and structure off the live pools to prove restore re-populates them."""
+        for seq in segment.result_sequences + segment.proposal_sequences:
+            seq.logits = None
+            seq.structure = None
+
+    def _assert_pools_have_logits_and_structure(self, segment: Segment) -> None:
+        pools = segment.result_sequences + segment.proposal_sequences
+        assert pools, "expected populated pools"
+        for seq in pools:
+            assert seq.logits is not None
+            assert seq.structure is not None
+
+    def test_base_optimizer_restore_preserves_logits_and_structure(self):
+        """Base ``_capture_initial_state``/``_restore_initial_state`` round-trip both fields."""
+        seg = Segment(sequence="MKKLLLAA", sequence_type="protein")
+        gen = SemigreedyMutationGenerator(SemigreedyMutationGeneratorConfig())
+        gen.assign(seg)
+        opt = _rejection(Construct([seg]), [gen], [_protein_constraint(seg)])
+
+        self._seed_pools_with_logits_and_structure(seg)
+        opt._capture_initial_state()
+        self._wipe_pools(seg)
+        opt._restore_initial_state()
+
+        self._assert_pools_have_logits_and_structure(seg)
+
+    def test_gradient_optimizer_restore_preserves_logits_and_structure(self):
+        """GradientOptimizer override round-trips both fields, not just logits."""
+        seg = Segment(sequence="MKKLLLAA", sequence_type="protein")
+        pw = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        pw.assign(seg)
+        opt = GradientOptimizer(
+            target_segment=seg,
+            constructs=[Construct([seg])],
+            generators=[pw],
+            constraints=[_grad_constraint(seg)],
+            config=GradientOptimizerConfig(num_results=2, num_steps=1, lr=0.1),
+        )
+
+        self._seed_pools_with_logits_and_structure(seg)
+        opt._capture_initial_state()
+        self._wipe_pools(seg)
+        opt._restore_initial_state()
+
+        self._assert_pools_have_logits_and_structure(seg)
+
+
 class TestSerializeRestoreState:
     """Tests for Program.serialize_state and restore_state (cross-task persistence)."""
 

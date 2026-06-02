@@ -834,17 +834,23 @@ class GradientOptimizer(Optimizer):
         seq.logits = self._ml_optimizer.step(seq.logits, merged, lr, trajectory=k, step=step)
 
     def _capture_initial_state(self) -> None:
-        """Capture initial state preserving logits.
+        """Capture initial state preserving logits and structure.
 
         Overrides the base implementation to pass ``include_logits=True`` so that
         on multi-stage re-run, ``_restore_initial_state`` can hand the continuous
         logits back to ``run()`` instead of silently re-initializing from scratch.
+        Also passes ``include_structure=True`` so predicted structures survive a
+        restart instead of being dropped.
         """
         self._initial_state = {
             "segments": [
                 {
-                    "result": [seq.to_dict(include_logits=True) for seq in seg.result_sequences],
-                    "proposals": [seq.to_dict(include_logits=True) for seq in seg.proposal_sequences],
+                    "result": [
+                        seq.to_dict(include_logits=True, include_structure=True) for seq in seg.result_sequences
+                    ],
+                    "proposals": [
+                        seq.to_dict(include_logits=True, include_structure=True) for seq in seg.proposal_sequences
+                    ],
                 }
                 for seg in self.segments
             ],

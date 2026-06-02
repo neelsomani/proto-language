@@ -10,7 +10,7 @@ from proto_language.constraint import protein_domain_constraint
 from proto_language.constraint.protein_quality.protein_domain_constraint import (
     ProteinDomainConfig,
 )
-from proto_language.core import Constraint, Segment
+from proto_language.core import Constraint, Segment, Sequence
 
 TEST_HMM = Path(__file__).parent.parent.parent.parent / "dummy_data" / "test_multiple_hmm.hmm"
 
@@ -162,6 +162,48 @@ class TestProteinDomainConstraint:
             scores = constraint.evaluate()
             # Proteins should be predicted, so score should be 0.0
             assert scores[0] == 0.0
+
+    def test_dna_keywords_found_sorted(self):
+        """``domain_keywords_found`` is sorted for deterministic exports (regression)."""
+        from proto_tools import ORF
+
+        from proto_language.constraint.protein_quality.protein_domain_constraint import _process_dna_sequences
+
+        mock_orf = ORF(
+            parent_id="seq_0",
+            orf_id="gene_1",
+            strand="+",
+            frame=1,
+            amino_acid_sequence=SAMPLE_SEQUENCE,
+            nucleotide_sequence="ATCGATCGATCG",
+            amino_acid_length=len(SAMPLE_SEQUENCE),
+            nucleotide_length=12,
+            nucleotide_start=1,
+            nucleotide_end=12,
+        )
+        mock_prodigal_output = Mock()
+        mock_prodigal_output.predicted_orfs = [[mock_orf]]
+        mock_prodigal_output.num_orfs_per_sequence = [1]
+
+        config = ProteinDomainConfig(hmm_db=str(TEST_HMM), keywords=["zeta", "alpha", "mu"])
+        with (
+            patch(
+                "proto_language.constraint.protein_quality.protein_domain_constraint.run_prodigal_prediction",
+                return_value=mock_prodigal_output,
+            ),
+            patch(
+                "proto_language.constraint.protein_quality.protein_domain_constraint._check_protein_domains_batch",
+                return_value=[{"keywords_found": ["zeta", "alpha", "mu"]}],
+            ),
+        ):
+            results = _process_dna_sequences(
+                [Sequence(sequence="ATCGATCGATCG", sequence_type="dna")],
+                Path(str(TEST_HMM)),
+                ["zeta", "alpha", "mu"],
+                config,
+            )
+
+        assert results[0].metadata["domain_keywords_found"] == ["alpha", "mu", "zeta"]
 
     def test_dna_sequence_no_proteins(self):
         """Test DNA sequence with no predicted proteins (constraint-specific edge case)."""

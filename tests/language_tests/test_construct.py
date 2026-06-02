@@ -76,6 +76,12 @@ class TestConstruct:
         with pytest.raises(ValueError, match="must have the same valid_chars"):
             Construct([seg1, seg2])
 
+    def test_to_dict_sorts_valid_chars(self):
+        """to_dict emits valid_chars sorted for deterministic exports (regression)."""
+        seg = Segment(sequence="A", sequence_type="dna", valid_chars={"G", "A", "T", "C"})
+        construct = Construct([seg])
+        assert construct.to_dict()["valid_chars"] == ["A", "C", "G", "T"]
+
 
 class TestConstructValidation:
     """Tests for Construct._validate_construct checks."""

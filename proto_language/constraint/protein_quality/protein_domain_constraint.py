@@ -162,9 +162,7 @@ def protein_domain_constraint(
             - ``hmmscan_all_hits``: DataFrame of all significant hmmscan hits
 
     Raises:
-        ValueError: If ``hmm_db`` path doesn't exist, ``keywords`` list is empty,
-            input list is empty, or sequences are of mixed types (DNA and
-            protein mixed).
+        ValueError: If ``hmm_db`` path doesn't exist or ``keywords`` list is empty.
         RuntimeError: If HMMER hmmscan execution fails or Prodigal ORF prediction
             fails for DNA sequences.
 
@@ -280,7 +278,7 @@ def _process_dna_sequences(
                 all_keywords_found.update(batch_result["keywords_found"])
 
         metadata["domain_search_results"] = serializable_results
-        metadata["domain_keywords_found"] = list(all_keywords_found)
+        metadata["domain_keywords_found"] = sorted(all_keywords_found)
         metadata["domain_matching_proteins"] = matching_proteins
 
         if config.match_all_keywords:

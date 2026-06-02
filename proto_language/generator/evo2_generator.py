@@ -129,7 +129,7 @@ class Evo2GeneratorConfig(BaseConfig):
         default=1,
         gt=0.0,
         le=1.0,
-        description="Nucleus sampling cutoff. Restricts to the smallest token set with cumulative prob ≤ top-p.",
+        description="Nucleus sampling cutoff. Restricts to the smallest token set with cumulative prob ≥ top-p.",
     )
     temperature: float = ConfigField(
         default=1.0,
@@ -236,7 +236,7 @@ class Evo2Generator(Generator):
         >>> gen = Evo2Generator(config)
         >>> # Segment length determines how many tokens to generate
         >>> segment = Segment(length=1003, sequence_type="dna")
-        >>> gen.assign(segment)  # max_new_tokens = 1003 - 3 = 1000
+        >>> gen.assign(segment)  # prepend_prompt defaults to False, so max_new_tokens = 1003
         >>> gen.sample()  # Generates DNA sequences
     """
 

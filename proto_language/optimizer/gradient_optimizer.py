@@ -130,7 +130,8 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
             between this and ``temperature_end``; they differ only in curve shape.
         temperature_end (float): Temperature at final step.
         softmax_schedule (Scheduler): Softmax sharpening schedule for constraints.
-        lr_schedule (Scheduler): Learning rate decay schedule.
+        lr_schedule (Scheduler): Learning-rate schedule; active only when
+            ``scale_lr_by_temperature=True``.
         merger (GradientMergerName): Gradient merging strategy.
         ml_optimizer (MLOptimizerType): Gradient update algorithm (SGD, Adam).
         adam_config (AdamConfig): Adam hyperparameters used when ``ml_optimizer="adam"``.
@@ -148,9 +149,11 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
         save_best (bool): Return the lowest-loss result instead of the last iteration.
         constraint_weight_schedules (list[ConstraintWeightSchedule] | None): Per-label
             weight schedules that override ``Constraint.weight`` each step.
-        gumbel_logit_init (bool): If True, add Gumbel(0,1) noise per position on top of the
-            resolved ``sequence_bias`` — gives parallel trajectories stochastic starts.
-        gumbel_init_alpha (float): Divisor for Gumbel init noise. ``1.0`` = unscaled.
+        gumbel_logit_init (bool): If True, add Gumbel(0,1) noise to default-init logits so
+            parallel trajectories diverge. Ignored when ``initial_logits`` is set (use
+            ``softmax_init_positions`` instead).
+        gumbel_init_alpha (float): Divisor for default-path Gumbel init noise. ``1.0`` =
+            unscaled; larger shrinks it.
         initial_logits (list[list[float]] | None): Base logit matrix ``(L, |vocab|)``
             replacing default initialization.
         softmax_init_positions (list[int] | None): Positions receiving per-trajectory
@@ -233,7 +236,7 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     lr_schedule: Scheduler = ConfigField(
         default="constant",
         title="Learning Rate Schedule",
-        description="Curve used to scale the base learning rate across optimization steps.",
+        description="LR curve over the temperature endpoints; only active when scale_lr_by_temperature=True.",
     )
     merger: GradientMergerName = ConfigField(
         default="weighted_sum",
@@ -300,13 +303,13 @@ class GradientOptimizerConfig(BaseOptimizerConfig):
     gumbel_logit_init: bool = ConfigField(
         default=False,
         title="Gumbel Logit Init",
-        description="Add Gumbel noise to initial logits so parallel trajectories diverge. Suppressed at frozen positions.",
+        description="Add Gumbel noise to default-init logits (frozen positions excluded) to diverge trajectories.",
     )
     gumbel_init_alpha: float = ConfigField(
         default=1.0,
         gt=0.0,
         title="Gumbel Init Alpha",
-        description="Divisor applied to the Gumbel init noise. 1.0 leaves it unscaled; larger values shrink it.",
+        description="Divisor for the default-path Gumbel init noise. 1.0 = unscaled; larger shrinks it.",
     )
     initial_logits: list[list[float]] | None = ConfigField(
         default=None,
@@ -741,6 +744,12 @@ class GradientOptimizer(Optimizer):
                     if not np.isfinite(grad).all():
                         raise ValueError(f"Non-finite gradient from '{output.label}' at step {step} (proposal {k}).")
 
+            # Pair each saved energy with the logits that produced it (provider losses are pre-update).
+            if self.config.save_best:
+                pre_update_proposals = [
+                    copy.deepcopy(self.target_segment.proposal_sequences[k]) for k in range(self.num_results)
+                ]
+
             # 3-5. Merge gradients and update logits for each trajectory
             for k in range(self.num_results):
                 self._update_trajectory(k, provider_outputs, lr, target, step)
@@ -754,7 +763,7 @@ class GradientOptimizer(Optimizer):
                 for k in range(self.num_results):
                     if self.energy_scores[k] < best_energies[k]:
                         best_energies[k] = self.energy_scores[k]
-                        best_proposals[k] = copy.deepcopy(self.target_segment.proposal_sequences[k])
+                        best_proposals[k] = pre_update_proposals[k]
 
             # 6. At tracked steps: discretize, sync proposals→results, snapshot
             if step % self.tracking_interval == 0 or step == self.config.num_steps:

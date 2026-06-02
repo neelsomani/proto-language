@@ -3,7 +3,7 @@
 This module provides the ``beam-search`` strategy: it grows a single target Segment from a fixed
 prompt by splitting it into ``ceil(segment.sequence_length / beam_length)`` steps and expanding the
 sequence ``beam_length`` tokens at a time. At each step it asks one autoregressive language-model
-generator (Evo2/ProGen2) for ``num_results x proposals_per_result`` continuations, scores every
+generator (Evo1/Evo2/ProGen2) for ``num_results x proposals_per_result`` continuations, scores every
 proposal's FULL accumulated sequence through the constraints, and keeps the top ``num_results`` beams
 (ranked by mean or last per-step energy) to seed the next step. Optionally reuses KV-cache state
 across steps for faster generation. Use it for long autoregressive design under sequence-level
@@ -206,7 +206,7 @@ class BeamSearchOptimizer(Optimizer):
     the prompt is included in the output, and use_kv_caching reuses generator cache state across steps
     (requires a KV-cache-capable generator). Use it for long autoregressive design under sequence-level
     constraints; it targets a single segment and requires a protein/DNA language-model generator
-    (Evo2/ProGen2), not a CPU generator.
+    (Evo1/Evo2/ProGen2), not a CPU generator.
 
     Examples:
         >>> from proto_language.constraint import gc_content_constraint
@@ -304,8 +304,7 @@ class BeamSearchOptimizer(Optimizer):
         # Override base class num_steps for progress tracking
         self.num_steps = self.num_beams
 
-        # Set up generator for beam search
-        # Pre-allocate max_seqlen for the full optimization - vortex doesn't support
+        # Pre-allocate max_seqlen for the full run; vortex can't grow the KV cache after step 1.
         self.generator.max_seqlen = len(self.prompt) + self.target_segment.sequence_length  # type: ignore[attr-defined]
         self.generator.store_kv_cache = self.use_kv_caching  # type: ignore[attr-defined]
         self.generator.cached_generation = True  # type: ignore[attr-defined]

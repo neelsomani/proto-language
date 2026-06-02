@@ -19,8 +19,8 @@ class ESM2GeneratorConfig(BaseConfig):
     This class defines configuration parameters for the ESM2 generator, which uses
     a protein language model to refine existing protein sequences through iterative
     mutation of masked positions. In Proto Language, ESM2 is registered as a
-    mutation-category generator that edits supplied or initialized proposal
-    sequences.
+    mutation-category generator that edits the supplied starting sequence; the
+    segment must carry a sequence (directly or from a prior optimizer stage).
 
     Attributes:
         model_checkpoint (ESM2_MODEL_CHECKPOINTS): ESM2 model checkpoint to use. Options:
@@ -193,9 +193,9 @@ class ESM2Generator(Generator):
         ...     masking_strategy=MaskingStrategy(num_mutations=5),
         ... )
         >>> gen = ESM2Generator(config)
-        >>> segment = Segment(length=100, sequence_type="protein")
+        >>> segment = Segment(sequence="M" * 100, sequence_type="protein")
         >>> gen.assign(segment)
-        >>> gen.sample()  # Refines 5 highest-uncertainty positions
+        >>> gen.sample()  # Re-samples 5 randomly masked positions
     """
 
     input_type = GeneratorInputType.STARTING_SEQUENCE

@@ -57,6 +57,7 @@ from proto_language.optimizer.constraint_compiler.base import (
     EffectiveWeight,
     GradientProvider,
     GradientProviderOutput,
+    _sum_weights_by_objective_key,
     raise_for_failed_tool_output,
 )
 from proto_language.utils import one_hot_protein_matrix
@@ -180,9 +181,9 @@ class AF2MultimerGradientProvider(GradientProvider):
             RuntimeError: If a binder proposal has no logits or the AF2M tool
                 does not return a gradient for a gradient request.
         """
-        loss_weights = {
-            compiled.objective_key: effective_weight(compiled.constraint, step) for compiled in self.constraints
-        }
+        loss_weights = _sum_weights_by_objective_key(
+            (compiled.objective_key, effective_weight(compiled.constraint, step)) for compiled in self.constraints
+        )
         num_proposals = self.inputs[0].num_proposals
         binder_slot = self.config.binder_input_index
         gradients: list[np.ndarray] = []
@@ -520,7 +521,9 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
     inputs = first_constraint.inputs
     num_proposals = inputs[0].num_proposals
     scores = [float("nan")] * num_proposals
-    loss_weights = {compiled.objective_key: compiled.constraint.weight for compiled in compiled_constraints}
+    loss_weights = _sum_weights_by_objective_key(
+        (compiled.objective_key, compiled.constraint.weight) for compiled in compiled_constraints
+    )
 
     for proposal_idx, should_eval in enumerate(mask):
         if not should_eval:

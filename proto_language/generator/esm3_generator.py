@@ -19,8 +19,9 @@ class ESM3GeneratorConfig(BaseConfig):
     This class defines configuration parameters for the ESM3 generator, which uses
     the open-source ESM3 protein language model to refine existing protein
     sequences through iterative mutation of masked positions. In Proto Language,
-    ESM3 is registered as a mutation-category generator that edits supplied or
-    initialized proposal sequences.
+    ESM3 is registered as a mutation-category generator that edits the supplied
+    starting sequence; the segment must carry a sequence (directly or from a
+    prior optimizer stage).
 
     Attributes:
         model_checkpoint (ESM3_MODEL_CHECKPOINTS): ESM3 model checkpoint to use. Currently available:
@@ -193,9 +194,9 @@ class ESM3Generator(Generator):
         ...     masking_strategy=MaskingStrategy(num_mutations=5),
         ... )
         >>> gen = ESM3Generator(config)
-        >>> segment = Segment(length=100, sequence_type="protein")
+        >>> segment = Segment(sequence="M" * 100, sequence_type="protein")
         >>> gen.assign(segment)
-        >>> gen.sample()  # Refines 5 highest-uncertainty positions
+        >>> gen.sample()  # Re-samples 5 randomly masked positions
     """
 
     input_type = GeneratorInputType.STARTING_SEQUENCE

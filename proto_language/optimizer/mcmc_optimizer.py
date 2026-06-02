@@ -96,7 +96,8 @@ class MCMCOptimizerConfig(BaseOptimizerConfig):
         track_proposals (bool): Whether to record proposal sequences alongside accepted results.
 
     Note:
-        - When ``num_results=1`` (default), behaves like standard single-chain MCMC.
+        - The field default is ``None`` (inherits the program-level ``num_results``).
+        - When ``num_results=1``, behaves like standard single-chain MCMC.
         - When ``num_results > 1``, maintains that many independent trajectories and
           generates ``proposals_per_result`` (default: 1) proposals per result sequence each step.
     """

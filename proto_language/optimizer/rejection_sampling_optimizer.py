@@ -1,7 +1,8 @@
 """Rejection Sampling Optimizer that samples independent proposals and returns the best constructs.
 
 Provides the ``rejection-sampling`` optimization strategy. Each internal proposal batch
-starts fresh from the segments' original sequences, runs every generator, and scores the
+starts fresh from the captured result state (the prior-stage results, or the original
+sequences on the first stage), runs every generator, and scores the
 proposals with the constraints into one energy per proposal; no state is carried between
 batches. The optimizer maintains a running top-``num_results`` set ordered by lowest energy,
 generating up to ``num_samples`` proposals total and optionally stopping early once every
@@ -179,11 +180,12 @@ class RejectionSamplingOptimizer(Optimizer):
 
     Generates many proposal sequences and keeps only the best ``num_results`` by
     lowest energy score. Unlike iterative optimizers (MCMC, beam search), each
-    proposal batch starts fresh from the original sequences. There is no state
+    proposal batch starts fresh from the captured result state (the prior-stage
+    results, or the original sequences on the first stage). There is no state
     carried between rounds.
 
     Each proposal batch:
-    1. Resets proposals to the original sequence
+    1. Resets proposals to the captured result state
     2. Applies all generators sequentially
     3. Evaluates proposals with constraints
     4. Updates the sorted results list if any proposals are better than the current worst
@@ -405,7 +407,7 @@ class RejectionSamplingOptimizer(Optimizer):
     def _run_proposal_batch(self, batch_num: int, first_proposal_number: int, batch_size: int) -> int:
         """Execute a single proposal batch and return the last processed proposal number.
 
-        1. Reset proposal sequences to their initial state (fresh each batch).
+        1. Reset proposal sequences to the captured result state (fresh each batch).
         2. Run all generators sequentially on the proposals.
         3. Score proposals with constraints (sets ``_proposal_outcomes``).
         4. Update the sorted results list and classify outcomes.
@@ -489,7 +491,8 @@ class RejectionSamplingOptimizer(Optimizer):
           or when ``num_samples`` is reached.
 
         Each proposal batch:
-        - Resets all proposal_sequences to original_sequence
+        - Resets all proposal_sequences to the captured result state (prior-stage results,
+          or the original sequences on the first stage)
         - Runs each generator sequentially across segments (generators batch across proposals)
         - Evaluates all proposals with constraints
         - Updates the best results in result_sequences (in-place)

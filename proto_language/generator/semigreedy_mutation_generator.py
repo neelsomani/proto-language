@@ -183,6 +183,13 @@ class SemigreedyMutationGenerator(Generator):
         """Assign segment(s) and validate length-dependent config against them."""
         super().assign(segments)
         seq_len = self.segment.sequence_length
+        # Require the canonical 20-AA vocab so sequence_bias columns align with sampling.
+        if self.segment.ordered_vocab() != list(PROTEIN_AMINO_ACIDS):
+            raise ValueError(
+                f"{type(self).__name__} requires the canonical 20 amino acids "
+                f"({PROTEIN_AMINO_ACIDS}); segment '{self.segment.label or 'unlabeled'}' "
+                f"resolves to vocabulary {self.segment.ordered_vocab()}."
+            )
         self._logit_bias = build_sequence_logit_bias_matrix(self._sequence_bias_config, self.segment)
         if self._frozen_positions is not None:
             for pos in self._frozen_positions:
@@ -254,7 +261,10 @@ class SemigreedyMutationGenerator(Generator):
                     aa_logits = aa_logits + self._logit_bias[position]
             aa_logits = aa_logits / self.temperature
             if self.exclude_current:
-                aa_logits[vocab.index(proposal.sequence[position])] -= 1e8
+                # Skip the penalty for non-canonical residues (e.g. 'X') not in the vocab.
+                current = proposal.sequence[position]
+                if current in vocab:
+                    aa_logits[vocab.index(current)] -= 1e8
             aa_probs = softmax(aa_logits.reshape(1, -1))[0]
             new_aa = vocab[rng.choice(vocab_size, p=aa_probs)]
 

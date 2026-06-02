@@ -254,8 +254,9 @@ class GeneratorRegistry(BaseRegistry[GeneratorSpec]):
     @classmethod
     def find_key(cls, generator: Generator) -> str | None:
         """Get registry key for a generator instance, or ``None`` if not registered."""
+        generator_class = type(generator)
         for key, spec in cls._registry.items():
-            if isinstance(generator, spec.generator_class):
+            if spec.generator_class == generator_class:
                 return key
         return None
 

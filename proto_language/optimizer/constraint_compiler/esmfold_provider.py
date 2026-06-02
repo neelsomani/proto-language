@@ -37,6 +37,7 @@ from proto_language.optimizer.constraint_compiler.base import (
     EffectiveWeight,
     GradientProvider,
     GradientProviderOutput,
+    _sum_weights_by_objective_key,
     raise_for_failed_tool_output,
 )
 from proto_language.utils import MAX_ENERGY
@@ -84,9 +85,9 @@ class ESMFoldGradientProvider(GradientProvider):
         effective_weight: EffectiveWeight,
     ) -> GradientProviderOutput:
         """Run one weighted ESMFold backward pass per proposal."""
-        loss_weights = {
-            compiled.objective_key: effective_weight(compiled.constraint, step) for compiled in self.constraints
-        }
+        loss_weights = _sum_weights_by_objective_key(
+            (compiled.objective_key, effective_weight(compiled.constraint, step)) for compiled in self.constraints
+        )
         target_chain_indices = [idx for idx, segment in enumerate(self.inputs) if segment is self.target_segment]
         num_proposals = self.inputs[0].num_proposals
         gradients: list[np.ndarray] = []

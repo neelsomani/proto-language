@@ -294,3 +294,30 @@ class TestSemigreedyMutationGenerator:
         """Config rejects the incoherent combination of clear_logits=True and entropy weighting."""
         with pytest.raises(Exception, match="incompatible with position_weighting='entropy'"):
             SemigreedyMutationGeneratorConfig(clear_logits=True, position_weighting="entropy")
+
+    def test_exclude_current_tolerates_non_canonical_residue(self):
+        """exclude_current=True skips the penalty for a non-canonical residue instead of crashing."""
+        # Freeze every position except index 1 (which holds the non-canonical 'X') so it is selected.
+        seq = "AXAAA"
+        logits = np.zeros((len(seq), VOCAB_SIZE))
+        segment = Segment(sequence=seq, sequence_type="protein")
+        segment.proposal_sequences[0].logits = logits.copy()
+        gen = SemigreedyMutationGenerator(
+            SemigreedyMutationGeneratorConfig(exclude_current=True, frozen_positions=[0, 2, 3, 4])
+        )
+        gen._set_program_seed(0)
+        gen.assign(segment)
+
+        gen.sample()  # must not raise
+
+        # The 'X' position was the only mutable one, so it changed to a canonical residue.
+        result = segment.proposal_sequences[0].sequence
+        assert result[1] in PROTEIN_AMINO_ACIDS
+        assert result[0] == "A" and result[2:] == "AAA"
+
+    def test_assign_rejects_non_canonical_vocabulary(self):
+        """assign() rejects a segment whose vocab is not exactly the canonical 20 amino acids."""
+        segment = Segment(sequence="ACDEF", sequence_type="protein", valid_chars=set(PROTEIN_AMINO_ACIDS) | {"X"})
+        gen = SemigreedyMutationGenerator(SemigreedyMutationGeneratorConfig())
+        with pytest.raises(ValueError, match="canonical 20 amino acids"):
+            gen.assign(segment)

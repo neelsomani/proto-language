@@ -30,10 +30,8 @@ class PositionWeightGeneratorConfig(BaseConfig):
             vocabulary; added to logits before decoding handoff sequences.
         logit_scale (float): Optional scale factor applied to logits before the
             additive bias and temperature-scaled softmax.
-        entropy_positions (list[int] | None): Zero-based positions to include
-            when computing the ``mean_peak_probability`` metric (mean per-position
-            peak probability). ``None`` = all positions. Segment-length bounds
-            are checked at ``sample()`` time (config doesn't know the segment).
+        peak_probability_positions (list[int] | None): Zero-based positions included in the
+            ``mean_peak_probability`` metric; ``None`` = all. Bounds checked at ``sample()``.
     """
 
     sampling_mode: Literal["argmax", "categorical"] = ConfigField(
@@ -58,23 +56,23 @@ class PositionWeightGeneratorConfig(BaseConfig):
         title="Logit Scale",
         description="Optional scale factor applied to logits before adding sequence_bias and decoding.",
     )
-    entropy_positions: list[int] | None = ConfigField(
+    peak_probability_positions: list[int] | None = ConfigField(
         default=None,
         title="Peak Prob Positions",
         description="Position indices used in the mean per-position peak-probability metric; None averages over all.",
     )
 
-    @field_validator("entropy_positions")
+    @field_validator("peak_probability_positions")
     @classmethod
-    def _check_entropy_positions(cls, value: list[int] | None) -> list[int] | None:
+    def _check_peak_probability_positions(cls, value: list[int] | None) -> list[int] | None:
         """Reject empty lists + negative indices at config time; segment bounds are checked at sample()."""
         if value is None:
             return value
         if not value:
-            raise ValueError("entropy_positions must be None or non-empty; got [].")
+            raise ValueError("peak_probability_positions must be None or non-empty; got [].")
         negative = [p for p in value if p < 0]
         if negative:
-            raise ValueError(f"entropy_positions must be non-negative; got {negative}.")
+            raise ValueError(f"peak_probability_positions must be non-negative; got {negative}.")
         return value
 
 
@@ -107,7 +105,7 @@ class PositionWeightGenerator(Generator):
             to logits before decoding.
         logit_scale (float): Scale factor applied to logits before the additive
             bias and temperature-scaled softmax.
-        entropy_positions (list[int] | None): Rows included when computing
+        peak_probability_positions (list[int] | None): Rows included when computing
             ``mean_peak_probability`` on each proposal's
             ``_generator_metadata["position-weight"]``. ``None`` = all.
 
@@ -132,7 +130,7 @@ class PositionWeightGenerator(Generator):
         self._sequence_bias_config = config.sequence_bias
         self._logit_bias: np.ndarray | None = None
         self.logit_scale = config.logit_scale
-        self.entropy_positions = config.entropy_positions
+        self.peak_probability_positions = config.peak_probability_positions
 
     def assign(self, segments: Segment | Iterable[Segment]) -> None:
         """Assign segment(s) and resolve the declarative bias against the segment vocab."""
@@ -142,26 +140,23 @@ class PositionWeightGenerator(Generator):
     def _sample(self) -> None:
         """Decode discrete sequences from ``seq.logits`` on each proposal.
 
-        Reads ``.logits`` from each proposal sequence, applies softmax at the
-        configured temperature, and writes the decoded string to ``.sequence``.
-        Also stashes ``mean_peak_probability`` (mean per-position peak probability,
-        optionally restricted to ``entropy_positions``, computed on the
-        temperature-scaled softmax; duplicates in ``entropy_positions`` double-count)
-        onto ``proposal._generator_metadata["position-weight"]`` so entropy-based
-        gates can read it without re-running the softmax.
+        Reads ``.logits``, applies softmax at the configured temperature, and writes the
+        decoded string to ``.sequence``. Also stashes ``mean_peak_probability`` (optionally
+        restricted to ``peak_probability_positions``) onto
+        ``proposal._generator_metadata["position-weight"]`` for downstream gates.
 
         Raises:
             RuntimeError: If called before ``assign()`` or if a proposal has no logits.
-            ValueError: If logits shape or contents are invalid, or ``entropy_positions``
-                references an out-of-range index.
+            ValueError: If logits shape or contents are invalid, or
+                ``peak_probability_positions`` references an out-of-range index.
         """
         self._validate_generator()
         vocab = self.segment.ordered_vocab()
         seq_len = self.segment.sequence_length
-        if self.entropy_positions is not None:
-            out_of_range = [p for p in self.entropy_positions if p >= seq_len]
+        if self.peak_probability_positions is not None:
+            out_of_range = [p for p in self.peak_probability_positions if p >= seq_len]
             if out_of_range:
-                raise ValueError(f"entropy_positions {out_of_range} are >= sequence_length ({seq_len}).")
+                raise ValueError(f"peak_probability_positions {out_of_range} are >= sequence_length ({seq_len}).")
 
         rng = np.random.default_rng(self._next_seed()) if self.sampling_mode == "categorical" else None
         key = self._spec.key
@@ -176,7 +171,7 @@ class PositionWeightGenerator(Generator):
                 assert rng is not None  # noqa: S101 -- categorical branch always sets rng
                 proposal.sequence = self._decode_categorical(matrix, vocab, rng)
             proposal._generator_metadata[key] = {
-                "mean_peak_probability": mean_peak_probability(matrix, self.entropy_positions)
+                "mean_peak_probability": mean_peak_probability(matrix, self.peak_probability_positions)
             }
 
     def _prepare_matrix(self, *, logits: np.ndarray, vocab_size: int) -> np.ndarray:

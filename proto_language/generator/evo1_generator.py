@@ -120,7 +120,7 @@ class Evo1Generator(Generator):
         ... )
         >>> gen = Evo1Generator(config)
         >>> segment = Segment(length=1003, sequence_type="dna")
-        >>> gen.assign(segment)  # max_new_tokens = 1003 - 3 = 1000
+        >>> gen.assign(segment)  # prepend_prompt defaults to False, so max_new_tokens = 1003
         >>> gen.sample()
     """
 

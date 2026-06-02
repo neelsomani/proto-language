@@ -191,6 +191,10 @@ class CyclingOptimizerConfig(BaseOptimizerConfig):
           (must have ``threshold`` set)
 
     Example:
+        >>> from proto_language.optimizer.cycling_optimizer import (
+        ...     CyclingOptimizerConfig,
+        ...     ProteinHunterPipelineConfig,
+        ... )
         >>> config = CyclingOptimizerConfig(
         ...     num_steps=5,
         ...     num_results=4,

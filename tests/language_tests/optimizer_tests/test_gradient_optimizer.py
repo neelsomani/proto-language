@@ -324,6 +324,19 @@ class TestRun:
         opt.run()
         assert seg.result_sequences[0].sequence == first
 
+    def test_save_best_returns_logits_matching_reported_energy(self) -> None:
+        """save_best returns logits whose recomputed loss matches the reported energy."""
+        opt, seg = _make(num_steps=8, lr=0.3, save_best=True)
+        opt.run()
+
+        returned_logits = seg.result_sequences[0].logits
+        assert returned_logits is not None
+        target = np.zeros_like(returned_logits)
+        target[:, 0] = 1.0
+        recomputed_loss = float(np.mean((returned_logits - target) ** 2))
+
+        assert recomputed_loss == pytest.approx(opt.energy_scores[0], abs=1e-9)
+
 
 class TestSchedules:
     def test_soft_and_temperature_forwarded(self) -> None:
@@ -362,7 +375,10 @@ class TestSchedules:
         assert received_temp[0] > received_temp[-1]
 
     def test_temperature_scaling_shrinks_updates(self) -> None:
-        """scale_lr_by_temperature=True must shrink the logit delta vs =False under a unit gradient."""
+        """scale_lr_by_temperature=True must shrink the logit delta vs =False under a unit gradient.
+
+        ``save_best=False`` keeps the final post-update logits (what this test measures).
+        """
 
         def _abs_sum(scale: bool) -> float:
             seg = Segment(sequence="AA", sequence_type="protein")
@@ -376,6 +392,7 @@ class TestSchedules:
                 lr_schedule="quadratic",
                 scale_lr_by_temperature=scale,
                 normalize_gradients=False,
+                save_best=False,
             )
             opt.run()
             logits = seg.result_sequences[0].logits
@@ -612,6 +629,114 @@ class TestWeightSchedules:
 
 
 class TestCompiledConstraints:
+    def test_groups_esmfold_same_objective_key_sums_weights(self) -> None:
+        """Two constraints sharing one ESMFold objective key contribute summed weights (2.0+0.5=2.5)."""
+        from proto_language import StructureBasedConstraintConfig, structure_plddt_constraint
+        from tests.helpers.mock_structure import PDL1_PDB
+
+        binder = Segment(sequence="EVQLV", sequence_type="protein", label="binder")
+        construct = Construct([binder])
+        config = StructureBasedConstraintConfig(structure_tool="esmfold")
+        constraints = [
+            Constraint(
+                inputs=[binder],
+                function=structure_plddt_constraint,
+                function_config=config,
+                label="plddt_a",
+                weight=2.0,
+            ),
+            Constraint(
+                inputs=[binder],
+                function=structure_plddt_constraint,
+                function_config=config,
+                label="plddt_b",
+                weight=0.5,
+            ),
+        ]
+        output = SimpleNamespace(
+            gradient=[[0.1] * 20 for _ in range(5)],
+            loss=3.0,
+            metrics={"avg_plddt": 0.8, "loss_plddt": 0.2},
+            structure=Structure(structure=PDL1_PDB.read_text(), structure_format="pdb"),
+        )
+
+        with patch("proto_language.optimizer.constraint_compiler.esmfold_provider.run_esmfold_gradient") as mock_esm:
+            mock_esm.return_value = output
+            generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
+            generator.assign(binder)
+            opt = GradientOptimizer(
+                target_segment=binder,
+                constructs=[construct],
+                generators=[generator],
+                constraints=constraints,
+                config=GradientOptimizerConfig(num_results=1, num_steps=1, lr=0.1, normalize_gradients=False),
+            )
+            assert len(opt._gradient_providers) == 1
+            opt.run()
+
+        assert mock_esm.call_count == 1
+        assert mock_esm.call_args.args[1].loss_weights == {"plddt": pytest.approx(2.5)}
+
+    def test_groups_af2_same_objective_key_sums_weights(self) -> None:
+        """Two AF2M constraints sharing one objective key must contribute summed weights."""
+        from proto_language import (
+            AlphaFold2MultimerStructureConfig,
+            StructureBasedConstraintConfig,
+            structure_plddt_constraint,
+        )
+        from tests.helpers.mock_structure import PDL1_PDB
+
+        binder = Segment(sequence="EVQLV", sequence_type="protein", label="binder")
+        target = Segment(sequence="A" * 10, sequence_type="protein", label="target")
+        construct = Construct([binder, target])
+        config = StructureBasedConstraintConfig(
+            structure_tool="alphafold2_multimer",
+            alphafold2_multimer_config=AlphaFold2MultimerStructureConfig(
+                target_pdb=PDL1_PDB.read_text(), binder_chain="B", target_chains=["A"]
+            ),
+        )
+        constraints = [
+            Constraint(
+                inputs=[binder, target],
+                function=structure_plddt_constraint,
+                function_config=config,
+                label="af2_plddt_a",
+                weight=2.0,
+            ),
+            Constraint(
+                inputs=[binder, target],
+                function=structure_plddt_constraint,
+                function_config=config,
+                label="af2_plddt_b",
+                weight=0.5,
+            ),
+        ]
+        output = SimpleNamespace(
+            gradient=[[0.1] * 20 for _ in range(5)],
+            loss=3.0,
+            metrics={"plddt": 1.0},
+            structure=Structure(structure=PDL1_PDB.read_text(), structure_format="pdb"),
+        )
+
+        with patch(
+            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient"
+        ) as mock_af2:
+            mock_af2.return_value = output
+            generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
+            generator.assign(binder)
+            opt = GradientOptimizer(
+                target_segment=binder,
+                constructs=[construct],
+                generators=[generator],
+                constraints=constraints,
+                config=GradientOptimizerConfig(num_results=1, num_steps=1, lr=0.1, normalize_gradients=False),
+            )
+            assert len(opt._gradient_providers) == 1
+            opt.run()
+
+        assert mock_af2.call_count == 1
+        assert mock_af2.call_args[0][1].loss_weights == {"plddt": pytest.approx(2.5)}
+
     def test_groups_esmfold_confidence_terms_into_one_tool_call(self) -> None:
         from tests.helpers.mock_structure import PDL1_PDB
 

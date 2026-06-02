@@ -208,16 +208,18 @@ class TestPositionWeightGenerator:
             gen.sample()
 
     @pytest.mark.parametrize(
-        ("entropy_positions", "expected"),
+        ("peak_probability_positions", "expected"),
         [(None, 0.5), ([1, 2], 0.25)],
         ids=["all_positions", "restricted"],
     )
-    def test_mean_peak_probability_respects_entropy_positions(self, entropy_positions, expected):
-        """sample() writes per-proposal mean peak-probability, optionally restricted by entropy_positions."""
+    def test_mean_peak_probability_respects_peak_probability_positions(self, peak_probability_positions, expected):
+        """sample() writes per-proposal mean peak-probability, optionally restricted by peak_probability_positions."""
         # Row 0 sharp (peak ≈ 0.99995); rows 1-2 uniform (peak = 0.25 for 4-base DNA).
         segment = Segment(sequence="AAA", sequence_type="dna")
         segment.proposal_sequences[0].logits = np.array([[10.0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]])
-        gen = PositionWeightGenerator(PositionWeightGeneratorConfig(entropy_positions=entropy_positions))
+        gen = PositionWeightGenerator(
+            PositionWeightGeneratorConfig(peak_probability_positions=peak_probability_positions)
+        )
         gen.assign(segment)
         gen.sample()
         assert segment.proposal_sequences[0]._generator_metadata["position-weight"][
@@ -225,17 +227,17 @@ class TestPositionWeightGenerator:
         ] == pytest.approx(expected, abs=1e-3)
 
     @pytest.mark.parametrize("bad_value", [[-1], []], ids=["negative", "empty"])
-    def test_entropy_positions_config_validation(self, bad_value):
-        """Pydantic rejects negative + empty entropy_positions before the generator is built."""
-        with pytest.raises(ValueError, match="entropy_positions"):
-            PositionWeightGeneratorConfig(entropy_positions=bad_value)
+    def test_peak_probability_positions_config_validation(self, bad_value):
+        """Pydantic rejects negative + empty peak_probability_positions before the generator is built."""
+        with pytest.raises(ValueError, match="peak_probability_positions"):
+            PositionWeightGeneratorConfig(peak_probability_positions=bad_value)
 
     @pytest.mark.parametrize("bad_value", [[5], [2]], ids=["beyond_len", "at_boundary"])
-    def test_entropy_positions_out_of_range_raises_at_sample_time(self, bad_value):
+    def test_peak_probability_positions_out_of_range_raises_at_sample_time(self, bad_value):
         """Segment-length bounds are checked at sample() with a strict ``>=`` (not ``>``)."""
         segment = Segment(sequence="AA", sequence_type="dna")  # sequence_length=2 → valid rows are [0, 1]
         segment.proposal_sequences[0].logits = np.zeros((2, 4))
-        gen = PositionWeightGenerator(PositionWeightGeneratorConfig(entropy_positions=bad_value))
+        gen = PositionWeightGenerator(PositionWeightGeneratorConfig(peak_probability_positions=bad_value))
         gen.assign(segment)
-        with pytest.raises(ValueError, match="entropy_positions"):
+        with pytest.raises(ValueError, match="peak_probability_positions"):
             gen.sample()

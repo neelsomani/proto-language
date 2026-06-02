@@ -10,7 +10,7 @@ function-local imports that would otherwise be needed.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,6 +19,14 @@ import numpy as np
 from proto_language.core import Constraint
 
 EffectiveWeight = Callable[[Constraint, int], float]
+
+
+def _sum_weights_by_objective_key(weighted_keys: Iterable[tuple[str, float]]) -> dict[str, float]:
+    """Sum ``(objective_key, weight)`` pairs per key; constraints sharing a key add up."""
+    loss_weights: dict[str, float] = {}
+    for objective_key, weight in weighted_keys:
+        loss_weights[objective_key] = loss_weights.get(objective_key, 0.0) + weight
+    return loss_weights
 
 
 def raise_for_failed_tool_output(output: Any, label: str) -> None:

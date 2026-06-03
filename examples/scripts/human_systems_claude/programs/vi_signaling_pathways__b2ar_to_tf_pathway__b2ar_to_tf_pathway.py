@@ -75,6 +75,9 @@ BIOEMU_JOBS = (
 )
 BIOEMU_TIMEOUT_SECONDS = 2 * 60 * 60
 BIOEMU_CACHE_DIR = Path(os.environ.get("BIOEMU_CACHE_DIR", "/tmp/proto_bioemu_cache"))
+COLABFOLD_MSA_DB_DIR = "/common_datasets/alphafold3/databases/colabfold"
+ALPHAFOLD3_MODEL_DIR = "/common_datasets/alphafold3/models/af3_weights"
+ALPHAFOLD3_SIF_PATH = "/common_datasets/alphafold3/models/alphafold3/alphafold3_latest.sif"
 PROTEIN_QUALITY_THRESHOLD = 0.15
 
 
@@ -130,8 +133,35 @@ def _profile_values(profile: str) -> dict[str, Any]:
         "esmfold_config": {"num_recycles": 1, "max_batch_residues": 1200, "verbose": 0} if smoke else None,
         "bioemu_samples": {"GNAS": 1 if smoke else 3000, "PRKAR1A": 1 if smoke else 1000},
         "bioemu_batch_size": 100,
+        "alphafold3_config": _alphafold3_config(smoke=smoke),
         "protenix_config": _protenix_config(smoke=smoke),
     }
+
+
+def _alphafold3_config(smoke: bool = False) -> dict[str, Any]:
+    timeout = 1800 if smoke else 7200
+    config: dict[str, Any] = {
+        "name": "b2ar_to_tf_pathway_af3",
+        "use_msa": True,
+        "colabfold_search_config": {
+            "search_mode": "local",
+            "msa_db_dir": COLABFOLD_MSA_DB_DIR,
+            "timeout": timeout,
+        },
+        "seed": 0,
+        "verbose": 1,
+        "timeout": timeout,
+        "model_dir": ALPHAFOLD3_MODEL_DIR,
+        "sif_path": ALPHAFOLD3_SIF_PATH,
+    }
+    if smoke:
+        config.update(
+            {
+                "num_recycles": 1,
+                "num_diffusion_samples": 1,
+            }
+        )
+    return config
 
 
 def _protenix_config(smoke: bool = False) -> dict[str, Any]:
@@ -398,15 +428,15 @@ def _bioemu_constraints(
     return constraints
 
 
-def _protenix_constraints(
+def _alphafold3_constraints(
     component_segments: dict[str, list[Segment]],
     complexes: list[dict[str, Any]],
     profile: str,
 ) -> list[Constraint]:
     profile_values = _profile_values(profile)
     structure_config = {
-        "structure_tool": "protenix",
-        "protenix_config": profile_values["protenix_config"],
+        "structure_tool": "alphafold3",
+        "alphafold3_config": profile_values["alphafold3_config"],
     }
     metric_constraints = [
         ("structure_plddt", structure_plddt_constraint),
@@ -471,7 +501,7 @@ def create_b2ar_to_tf_pathway_program(creb_dna: str, profile: str = "full") -> t
         generators=[],
         constraints=[
             *_bioemu_constraints(component_segments, output_dir, profile),
-            *_protenix_constraints(component_segments, complexes, profile),
+            *_alphafold3_constraints(component_segments, complexes, profile),
         ],
         config=RejectionSamplingOptimizerConfig(
             num_samples=1,

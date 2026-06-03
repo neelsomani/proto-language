@@ -233,7 +233,7 @@ def structure_plddt_constraint(
     Note that for Boltz2, this is based on the ``"complex_plddt"`` score
     returned natively by the package.
 
-    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
+    **Supported tools**: ESMFold, ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
@@ -305,7 +305,7 @@ def structure_ptm_constraint(
     This constraint returns ``1.0 - ptm``, so lower scores indicate
     better predicted structure quality.
 
-    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
+    **Supported tools**: ESMFold, ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
@@ -467,7 +467,7 @@ def structure_pae_constraint(
            by all major structure predictors).
         3. Returns that value without flipping the sign, as lower is better.
 
-    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
+    **Supported tools**: ESMFold, ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
@@ -642,7 +642,7 @@ def structure_composite_constraint(
     lower is better (more confident). All four raw metrics plus the resulting
     structure are also exposed via ``metadata`` / ``structures`` so callers can
     threshold on individual metrics post-hoc (e.g., Germinal's final-filter
-    gates in ``configs/filter/final/vhh.yaml``) without re-running the predictor.
+    gates in ``examples/germinal/configs/vhh_pdl1.yaml``) without re-running the predictor.
 
     The composite is the equal-weighted mean of normalized deviations:
     ``(1 - plddt_norm + 1 - iptm + 1 - ptm + pae / PAE_MAXIMUM) / 4``.

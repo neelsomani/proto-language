@@ -93,6 +93,27 @@ def test_config_consistency(config_model: type):
     )
 
 
+def list_of_all_tools_called() -> list[tuple[str, str]]:
+    """List ``(component_key, tool_key)`` for every ``tools_called`` entry."""
+    specs = [*ConstraintRegistry.list_all(), *GeneratorRegistry.list_all(), *OptimizerRegistry.list_all()]
+    return [(spec.key, tool_key) for spec in specs for tool_key in getattr(spec, "tools_called", None) or []]
+
+
+@pytest.mark.parametrize("component_key, tool_key", list_of_all_tools_called())
+def test_tools_called_are_registered(component_key: str, tool_key: str):
+    """Every ``tools_called`` entry must name a real ``ToolRegistry`` key.
+
+    Components advertise the proto-tools wrappers they invoke via ``tools_called``;
+    a stale or misspelled key silently breaks tool-provenance tracking. Empty
+    lists (pure / externally-shelling components) contribute no parametrizations
+    and pass trivially.
+    """
+    valid_tool_keys = {spec.key for spec in ToolRegistry.list_all()}
+    assert tool_key in valid_tool_keys, (
+        f"{component_key} declares tools_called={tool_key!r}, which is not a ToolRegistry key."
+    )
+
+
 def test_constraint_categories_are_snake_case():
     """Registered constraint categories must be snake_case (``^[a-z_]+$``), no whitespace."""
     offenders = [

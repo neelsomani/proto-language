@@ -152,7 +152,7 @@ class SeqMotifConfig(BaseConfig):
     label="Sequence Motif Match",
     config=SeqMotifConfig,
     description="Score DNA sequences against motifs using MEME",
-    tools_called=["meme"],
+    tools_called=[],
     category="sequence_annotation",
     supported_sequence_types=["dna"],
 )
@@ -189,8 +189,8 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
             carries a single ``motif_constraint`` dict:
 
             - ``penalty``: Float overall penalty score (0.0-1.0)
-            - ``wanted``: Set of wanted motif names
-            - ``not_wanted``: Set of unwanted motif names
+            - ``wanted``: Sorted list of wanted motif names
+            - ``not_wanted``: Sorted list of unwanted motif names
             - ``found``: Dictionary mapping motif names to their best (lowest) FIMO p-values
             - ``details``: Dictionary with per-motif scoring details including:
 
@@ -309,8 +309,8 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
                     metadata={
                         "motif_constraint": {
                             "penalty": penalty,
-                            "wanted": wanted_set,
-                            "not_wanted": not_wanted_set,
+                            "wanted": sorted(wanted_set),
+                            "not_wanted": sorted(not_wanted_set),
                             "found": found,
                             "details": {},
                             "aggregation_info": {
@@ -434,8 +434,8 @@ def seq_motif_constraint(input_sequences: list[tuple[Sequence, ...]], config: Se
                 metadata={
                     "motif_constraint": {
                         "penalty": penalty,
-                        "wanted": wanted_set,
-                        "not_wanted": not_wanted_set,
+                        "wanted": sorted(wanted_set),
+                        "not_wanted": sorted(not_wanted_set),
                         "found": found,
                         "details": details,
                         "aggregation_info": {

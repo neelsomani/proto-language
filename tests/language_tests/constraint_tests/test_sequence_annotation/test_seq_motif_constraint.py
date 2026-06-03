@@ -141,6 +141,9 @@ class TestSeqMotifConstraint:
                 # Parser must read the p-value column (1e-5), not the score column (10.0).
                 assert meta["found"]["motif1"] == pytest.approx(1e-5)
                 assert meta["details"]["motif1"]["p_value"] == pytest.approx(1e-5)
+                # Motif name collections are stored as sorted lists for deterministic serialization.
+                assert meta["wanted"] == ["motif1"]
+                assert isinstance(meta["not_wanted"], list)
 
     def test_constraint_specific_config_options(self):
         """Test constraint-specific config options (wanted, exclusive, aggregation)."""

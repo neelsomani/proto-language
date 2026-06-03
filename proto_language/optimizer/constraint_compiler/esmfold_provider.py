@@ -379,7 +379,7 @@ def _scoring_constraint_metadata(
         {
             "loss_key": objective_key,
             "output_loss": output_score,
-            "group_loss": group_score,
+            "group_score": group_score,
             "pdb_output": output_structure.structure_pdb,
             "structure_tool": "esmfold",
         }

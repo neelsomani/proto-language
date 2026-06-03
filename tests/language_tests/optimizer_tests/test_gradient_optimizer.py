@@ -196,6 +196,57 @@ def _esmfold_confidence_problem() -> tuple[Segment, Construct, list[Constraint]]
     return binder, construct, constraints
 
 
+def _protenix_confidence_problem() -> tuple[Segment, Segment, Construct, list[Constraint]]:
+    from proto_tools import ProtenixConfig
+
+    from proto_language import (
+        StructureBasedConstraintConfig,
+        structure_iptm_constraint,
+        structure_pae_constraint,
+        structure_plddt_constraint,
+        structure_ptm_constraint,
+    )
+
+    binder = Segment(sequence="EVQLV", sequence_type="protein", label="binder")
+    target = Segment(sequence="A" * 10, sequence_type="protein", label="target")
+    construct = Construct([binder, target])
+    config = StructureBasedConstraintConfig(
+        structure_tool="protenix",
+        protenix_config=ProtenixConfig(seed=0, use_msa=False),
+    )
+    constraints = [
+        Constraint(
+            inputs=[binder, target],
+            function=structure_plddt_constraint,
+            function_config=config,
+            label="protenix_plddt",
+            weight=2.0,
+        ),
+        Constraint(
+            inputs=[binder, target],
+            function=structure_ptm_constraint,
+            function_config=config,
+            label="protenix_ptm",
+            weight=0.5,
+        ),
+        Constraint(
+            inputs=[binder, target],
+            function=structure_iptm_constraint,
+            function_config=config,
+            label="protenix_iptm",
+            weight=3.0,
+        ),
+        Constraint(
+            inputs=[binder, target],
+            function=structure_pae_constraint,
+            function_config=config,
+            label="protenix_pae",
+            weight=4.0,
+        ),
+    ]
+    return binder, target, construct, constraints
+
+
 def _malinois_activity_problem() -> tuple[Segment, Construct, list[Constraint]]:
     from proto_language import MalinoisActivityConfig, malinois_activity_constraint
 
@@ -800,6 +851,38 @@ class TestCompiledConstraints:
         assert mock_esm.call_args.args[1] == "esmfold"
         metadata = binder.proposal_sequences[0]._constraints_metadata
         assert {"esmfold_plddt", "esmfold_ptm"}.issubset(metadata)
+        assert metadata["esmfold_plddt"]["data"]["group_score"] == pytest.approx(0.7)
+        assert binder.proposal_sequences[0].structure is structure
+
+    def test_groups_protenix_scoring_terms_into_one_prediction_call(self) -> None:
+        from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
+        from tests.helpers.mock_structure import PDL1_PDB
+
+        binder, _target, _construct, constraints = _protenix_confidence_problem()
+        structure = Structure(
+            structure=PDL1_PDB.read_text(),
+            structure_format="pdb",
+            metrics={"avg_plddt": 0.8, "ptm": 0.4, "iptm": 0.7, "avg_pae": 6.35},
+        )
+
+        with patch(
+            "proto_language.optimizer.constraint_compiler.protenix_provider.predict_structures"
+        ) as mock_protenix:
+            mock_protenix.return_value = SimpleNamespace(structures=[structure])
+            scores = evaluate_scoring_constraints(constraints, mask=[True])
+
+        expected = (2.0 * 0.2) + (0.5 * 0.6) + (3.0 * 0.3) + (4.0 * 0.2)
+        assert scores == [[pytest.approx(expected)]]
+        assert mock_protenix.call_count == 1
+        assert mock_protenix.call_args.args[1] == "protenix"
+        assert mock_protenix.call_args.args[2].seed == 0
+        metadata = binder.proposal_sequences[0]._constraints_metadata
+        assert {"protenix_plddt", "protenix_ptm", "protenix_iptm", "protenix_pae"}.issubset(metadata)
+        assert metadata["protenix_plddt"]["data"]["avg_plddt"] == pytest.approx(0.8)
+        assert metadata["protenix_plddt"]["data"]["loss_key"] == "plddt"
+        assert metadata["protenix_plddt"]["data"]["output_loss"] == pytest.approx(0.2)
+        assert metadata["protenix_plddt"]["data"]["group_score"] == pytest.approx(expected)
+        assert metadata["protenix_pae"]["data"]["avg_pae"] == pytest.approx(6.35)
         assert binder.proposal_sequences[0].structure is structure
 
     @pytest.mark.parametrize(("mode", "tool_loss"), [("gradient", 1.25), ("scoring", 0.672354)])

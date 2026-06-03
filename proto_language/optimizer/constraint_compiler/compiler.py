@@ -32,6 +32,7 @@ from proto_language.core.sequence import SequenceType
 from proto_language.optimizer.constraint_compiler import alphafold2_binder_provider as af2b
 from proto_language.optimizer.constraint_compiler import esmfold_provider as esmfold
 from proto_language.optimizer.constraint_compiler import malinois_provider as malinois
+from proto_language.optimizer.constraint_compiler import protenix_provider as protenix
 from proto_language.optimizer.constraint_compiler.base import (
     CompiledConstraint,
     EffectiveWeight,
@@ -252,6 +253,19 @@ def evaluate_scoring_constraints(
                 constraint, objective_key, esmfold_config
             ):
                 group_key = ("esmfold", esmfold.scoring_group_key(constraint, esmfold_config))
+                if group_key not in group_by_key:
+                    group_by_key[group_key] = []
+                    group_order.append(group_key)
+                group_by_key[group_key].append(CompiledConstraint(constraint=constraint, objective_key=objective_key))
+                continue
+
+        objective_key = protenix.objective_key_for_constraint(constraint)
+        if objective_key is not None:
+            protenix_config = protenix.config_for_constraint(constraint, strict=True)
+            if protenix_config is not None and protenix.can_group_scoring_constraint(
+                constraint, objective_key, protenix_config
+            ):
+                group_key = ("protenix", protenix.scoring_group_key(constraint, protenix_config))
                 if group_key not in group_by_key:
                     group_by_key[group_key] = []
                     group_order.append(group_key)
@@ -489,6 +503,8 @@ def _flush_scoring_groups(
             outputs.append(esmfold.evaluate_scoring_group(group_by_key[group_key], mask))
         elif backend == "malinois":
             outputs.append(malinois.evaluate_scoring_group(group_by_key[group_key], mask))
+        elif backend == "protenix":
+            outputs.append(protenix.evaluate_scoring_group(group_by_key[group_key], mask))
         else:
             raise ValueError(f"Unknown scoring compiler backend {backend!r}.")
     group_order.clear()

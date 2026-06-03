@@ -1290,6 +1290,20 @@ class TestProgramExport:
 class TestProgramCompute:
     """Tests for Program.compute parameter and _enter_compute() context manager."""
 
+    @patch("proto_tools.utils.tool_pool.ToolPool")
+    @patch("proto_tools.cloud.is_api_backend_enabled", return_value=False)
+    def test_compute_nullcontext_when_dispatch_configured(self, _mock_enabled, mock_pool_cls):
+        """_dispatch_configured set + cloud SDK off → nullcontext, not ToolPool (regression #1530/M13)."""
+        from proto_tools.tools.tool_registry import ToolRegistry
+
+        ToolRegistry._dispatch_configured = True
+        try:
+            program = _create_simple_program(compute=None)
+            assert isinstance(program.compute, nullcontext)
+            mock_pool_cls.assert_not_called()
+        finally:
+            del ToolRegistry._dispatch_configured
+
     @patch("proto_tools.utils.tool_pool._active_pool")
     def test_run_enters_compute_context(self, mock_active_pool):
         """ToolPool __enter__ and __exit__ called during run()."""

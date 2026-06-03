@@ -158,8 +158,8 @@ class Program:
             verbose (bool): If True, print detailed energy score calculations for each constraint
                      for all optimizers.
             compute (ToolPool | None): Context manager for tool execution. If None,
-                auto-detects: nullcontext when the cloud API backend is enabled
-                (``proto_tools.cloud.is_api_backend_enabled()``), otherwise ToolPool()
+                auto-detects: nullcontext when external dispatch is configured (cloud SDK
+                backend or a deployment that sets _dispatch_configured), else ToolPool()
                 (symmetric across GPU and CPU-only hosts).
             seed (int | None): Random seed for fully reproducible optimization. When set,
                 derives unique optimizer config seeds, overriding optimizer-level
@@ -178,10 +178,14 @@ class Program:
             from contextlib import nullcontext
 
             from proto_tools.cloud import is_api_backend_enabled
+            from proto_tools.tools.tool_registry import ToolRegistry
             from proto_tools.utils.tool_pool import ToolPool
 
-            if is_api_backend_enabled():
-                logger.debug("Cloud API backend enabled; GPU tools will route via _try_dispatch.")
+            # A local ToolPool bypasses _try_dispatch, so skip it when external dispatch is
+            # configured — via the cloud SDK or a deployment that sets _dispatch_configured.
+            has_backend = is_api_backend_enabled() or getattr(ToolRegistry, "_dispatch_configured", False)
+            if has_backend:
+                logger.debug("External dispatch configured; GPU tools will route via _try_dispatch.")
                 compute = nullcontext()
             else:
                 # Symmetric across GPU and CPU-only hosts.

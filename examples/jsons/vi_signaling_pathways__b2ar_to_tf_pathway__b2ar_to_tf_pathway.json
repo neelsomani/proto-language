@@ -1,6 +1,6 @@
 {
   "name": "B2AR-to-TF pathway",
-  "description": "End-to-end human beta-2 adrenergic receptor signaling-pathway design, from ligand sensing at ADRB2 through Gs activation, adenylyl cyclase engagement, PKA holoenzyme assembly, and CREB-mediated transcriptional readout. The program includes epinephrine-bound ADRB2, the GNAS/GNB1/GNG2 heterotrimer, ADCY9 with ATP, a 2:2 PRKACA:PRKAR1A PKA holoenzyme, and a CREB1 dimer bound to a CRE-family regulatory DNA motif with two CREBBP KIX domains. Stage 1 designs the CREB target motif inside fixed Borzoi flanks with Evo2 and a Borzoi CREB-track activity objective. Stage 2 diversifies non-ADCY9 pathway proteins with tied-copy protein generators for stoichiometric assemblies while preserving ESMFold pLDDT/pTM and protein-quality constraints; the client JSON holds ADCY9 fixed to avoid the very large ESM2 diversification step. Stage 3 rescoring uses existing-results rejection sampling to rank the complete pathway candidate with BioEmu ensemble RMSD checks for GNAS and PRKAR1A conformational states plus Protenix v1 confidence metrics for the receptor, G-protein, cyclase, PKA, and CREB transcription-factor complexes. This checked-in JSON uses the smoke profile so it can render and compile as a system-design example; increase sample counts, BioEmu samples, and Protenix settings for a full design campaign.",
+  "description": "End-to-end human beta-2 adrenergic receptor signaling-pathway design, from ligand sensing at ADRB2 through Gs activation, adenylyl cyclase engagement, PKA holoenzyme assembly, and CREB-mediated transcriptional readout. The program includes epinephrine-bound ADRB2, the GNAS/GNB1/GNG2 heterotrimer, ADCY9 with ATP, a 2:2 PRKACA:PRKAR1A PKA holoenzyme, and a CREB1 dimer bound to a CRE-family regulatory DNA motif with two CREBBP KIX domains. Stage 1 designs the CREB target motif inside fixed Borzoi flanks with Evo2 and a Borzoi CREB-track activity objective. Stage 2 diversifies non-ADCY9 pathway proteins with tied-copy protein generators for stoichiometric assemblies while preserving ESMFold pLDDT/pTM and protein-quality constraints; the client JSON holds ADCY9 fixed to avoid the very large ESM2 diversification step. Stage 3 rescoring uses existing-results rejection sampling to rank the complete pathway candidate with BioEmu ensemble RMSD checks for GNAS and PRKAR1A conformational states plus Protenix v1 confidence metrics for the receptor, G-protein, cyclase, PKA, and CREB transcription-factor complexes. This checked-in JSON uses the full profile with ESM2-650M protein diversification, cached BioEmu scoring, and single-sequence Protenix base v1 rescoring.",
   "version": "1.0",
   "num_results": 1,
   "verbose": true,
@@ -272,7 +272,7 @@
       "optimizer": {
         "method": "rejection-sampling",
         "config": {
-          "num_samples": 1,
+          "num_samples": 300,
           "num_results": 1,
           "verbose": true
         }
@@ -287,7 +287,7 @@
             "adrb2"
           ],
           "config": {
-            "model_checkpoint": "esm2_t6_8M_UR50D",
+            "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.3,
             "masking_strategy": {
               "method": "random",
@@ -308,7 +308,7 @@
             "gnas"
           ],
           "config": {
-            "model_checkpoint": "esm2_t6_8M_UR50D",
+            "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.3,
             "masking_strategy": {
               "method": "random",
@@ -329,7 +329,7 @@
             "gnb1"
           ],
           "config": {
-            "model_checkpoint": "esm2_t6_8M_UR50D",
+            "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.3,
             "masking_strategy": {
               "method": "random",
@@ -350,7 +350,7 @@
             "gng2"
           ],
           "config": {
-            "model_checkpoint": "esm2_t6_8M_UR50D",
+            "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.3,
             "masking_strategy": {
               "method": "random",
@@ -372,7 +372,7 @@
             "prkaca_2"
           ],
           "config": {
-            "model_checkpoint": "esm2_t6_8M_UR50D",
+            "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.3,
             "masking_strategy": {
               "method": "random",
@@ -394,7 +394,7 @@
             "prkar1a_2"
           ],
           "config": {
-            "model_checkpoint": "esm2_t6_8M_UR50D",
+            "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.3,
             "masking_strategy": {
               "method": "random",
@@ -416,7 +416,7 @@
             "creb1_2"
           ],
           "config": {
-            "model_checkpoint": "esm2_t6_8M_UR50D",
+            "model_checkpoint": "esm2_t33_650M_UR50D",
             "temperature": 0.3,
             "masking_strategy": {
               "method": "random",
@@ -439,12 +439,7 @@
             "adrb2"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -454,12 +449,7 @@
             "adrb2"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -489,12 +479,7 @@
             "gnas"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -504,12 +489,7 @@
             "gnas"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -539,12 +519,7 @@
             "gnb1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -554,12 +529,7 @@
             "gnb1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -589,12 +559,7 @@
             "gng2"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -604,12 +569,7 @@
             "gng2"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -639,12 +599,7 @@
             "prkaca_1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -654,12 +609,7 @@
             "prkaca_1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -689,12 +639,7 @@
             "prkar1a_1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -704,12 +649,7 @@
             "prkar1a_1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -739,12 +679,7 @@
             "creb1_1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -754,12 +689,7 @@
             "creb1_1"
           ],
           "config": {
-            "structure_tool": "esmfold",
-            "esmfold_config": {
-              "num_recycles": 1,
-              "max_batch_residues": 1200,
-              "verbose": 0
-            }
+            "structure_tool": "esmfold"
           }
         },
         {
@@ -788,7 +718,7 @@
         "config": {
           "num_results": 1,
           "proposals_per_result": 1,
-          "num_steps": 10,
+          "num_steps": 40,
           "max_temperature": 0.1,
           "min_temperature": 0.01,
           "tracking_interval": 1,
@@ -817,7 +747,7 @@
               394
             ],
             "bioemu_config": {
-              "num_samples": 1,
+              "num_samples": 3000,
               "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
@@ -849,7 +779,7 @@
               394
             ],
             "bioemu_config": {
-              "num_samples": 1,
+              "num_samples": 3000,
               "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
@@ -881,7 +811,7 @@
               379
             ],
             "bioemu_config": {
-              "num_samples": 1,
+              "num_samples": 1000,
               "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
@@ -913,7 +843,7 @@
               379
             ],
             "bioemu_config": {
-              "num_samples": 1,
+              "num_samples": 1000,
               "batch_size": 100,
               "filter_samples": false,
               "seed": 0,
@@ -937,14 +867,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -958,14 +884,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -979,14 +901,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1000,14 +918,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1023,14 +937,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1046,14 +956,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1069,14 +975,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1092,14 +994,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1113,14 +1011,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1134,14 +1028,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1155,14 +1045,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1176,14 +1062,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1197,14 +1079,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1218,14 +1096,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1239,14 +1113,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1260,14 +1130,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1283,14 +1149,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1306,14 +1168,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1329,14 +1187,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1352,14 +1206,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1376,14 +1226,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1400,14 +1246,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1424,14 +1266,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         },
@@ -1448,14 +1286,10 @@
           "config": {
             "structure_tool": "protenix",
             "protenix_config": {
-              "model_name": "protenix_mini_default_v0.5.0",
+              "model_name": "protenix_base_default_v1.0.0",
               "use_msa": false,
               "seed": 0,
-              "verbose": 1,
-              "num_diffusion_samples": 1,
-              "num_diffusion_steps": 5,
-              "num_pairformer_cycles": 1,
-              "timeout": 600
+              "verbose": 1
             }
           }
         }

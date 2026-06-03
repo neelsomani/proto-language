@@ -68,7 +68,8 @@ class BaseOptimizerConfig(BaseConfig):
 
     Optimizer instances single-source their effective ``seed`` from this config.
     Program-level seeds overwrite this field with optimizer-specific child
-    seeds during program initialization.
+    seeds during program initialization. Generators and constraints have no
+    ``seed`` field of their own; they inherit this seed at run time.
     """
 
     seed: int | None = ConfigField(

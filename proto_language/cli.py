@@ -103,8 +103,8 @@ def _filter_specs(
     """Apply common CLI filters across all kinds; unsupported filters are no-ops."""
     out = list(specs)
     if category:
-        wanted = category.replace(" ", "_")
-        out = [s for s in out if str(getattr(s, "category", "") or "") == wanted]
+        wanted = category.replace(" ", "_").lower()
+        out = [s for s in out if str(getattr(s, "category", "") or "").lower() == wanted]
     if gpu:
         out = [s for s in out if s.uses_gpu]
     if cpu:
@@ -158,7 +158,10 @@ def _cmd_list(args: argparse.Namespace) -> int:
             print(_spec_summary(spec))
         if not specs and args.category:
             cats = list_categories(k)
-            hits = [c for c in cats if args.category.lower() in c.lower()]
+            # Match the normalization _filter_specs applies (spaces->underscores, lowercase)
+            # so the suggestion is consistent with what the filter would have accepted.
+            wanted = args.category.replace(" ", "_").lower()
+            hits = [c for c in cats if wanted in c.lower()]
             if hits:
                 print(f"# no matches for --category {args.category!r}; did you mean: {', '.join(hits)}?")
             elif cats:

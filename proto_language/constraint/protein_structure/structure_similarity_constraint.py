@@ -259,8 +259,10 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> str | None:
         if target_plddt is None:
             logger.warning("Target fold lacks pLDDT metric; cannot apply min_target_plddt threshold.")
             return None
-        if target_plddt < config.min_target_plddt:
-            logger.warning("Target fold confidence (%.2f) below threshold (%s).", target_plddt, config.min_target_plddt)
+        # Normalize 0-100 pLDDT (e.g. AlphaFold3) to the 0-1 scale used by min_target_plddt.
+        plddt_norm = target_plddt / 100.0 if target_plddt > 1.0 else target_plddt
+        if plddt_norm < config.min_target_plddt:
+            logger.warning("Target fold confidence (%.2f) below threshold (%s).", plddt_norm, config.min_target_plddt)
             return None
 
         return output.structures[0].structure_pdb  # type: ignore[no-any-return]

@@ -188,7 +188,8 @@ def mmseqs_similarity_constraint(
               (id, start, end, strand, protein_sequence, etc.)
             - ``mmseqs_results``: List of dictionaries with MMseqs2 hit information
               (target_id, pident, evalue)
-            - ``unique_orfs_with_hits``: Integer count of ORFs with database matches
+            - ``unique_orfs_with_hits``: Integer count of distinct ORFs with at least
+              one database match
             - ``orfs_with_acceptable_similarity``: Integer count of ORFs with hits in
               acceptable range
             - ``total_orfs_with_hits``: Integer total number of ORF-hit pairs
@@ -204,7 +205,8 @@ def mmseqs_similarity_constraint(
 
             - ``direct_protein``: Dictionary with protein information (id, sequence, length)
             - ``mmseqs_results``: List of MMseqs2 hit dictionaries
-            - ``unique_orfs_with_hits``: Count of hits (always 1 or 0 for single proteins)
+            - ``unique_orfs_with_hits``: Count of distinct ORFs with at least one hit
+              (always 1 or 0 for a single protein, which has exactly one ORF)
             - ``orfs_with_acceptable_similarity``: Count of acceptable hits
             - ``total_orfs_with_hits``: Total hit count
             - ``similarity_compliance_rate``: Fraction of hits in range
@@ -305,10 +307,14 @@ def mmseqs_similarity_constraint(
 
     # Aggregate hits by input sequence
     # seq_hits[seq_idx] = list of all hits for that input sequence
+    # orfs_with_hits[seq_idx] = set of ORF (protein) indices that produced >= 1 hit
     seq_hits: dict[int, list[dict[str, Any]]] = {i: [] for i in range(len(sequences))}
+    orfs_with_hits: dict[int, set[int]] = {i: set() for i in range(len(sequences))}
 
     for prot_idx, result in enumerate(mmseqs_result.results):
         seq_idx = protein_to_seq_idx[prot_idx]
+        if result.hits:
+            orfs_with_hits[seq_idx].add(prot_idx)
         for hit in result.hits:
             seq_hits[seq_idx].append(
                 {
@@ -328,7 +334,7 @@ def mmseqs_similarity_constraint(
         meta.update(
             {
                 "mmseqs_results": hits or None,
-                "unique_orfs_with_hits": num_hits,
+                "unique_orfs_with_hits": len(orfs_with_hits[seq_idx]),
             }
         )
 

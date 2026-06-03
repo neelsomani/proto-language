@@ -51,6 +51,7 @@ class ProteinGlobularityConfig(BaseConfig):
     max_globularity: float = ConfigField(
         title="Max Globularity (Å)",
         default=20.0,
+        gt=0.0,
         description="Max std (Å) of backbone-atom distances to the structure centroid; above this is treated as unfolded.",
     )
     esmfold_config: ESMFoldConfig = ConfigField(

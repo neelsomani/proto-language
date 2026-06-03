@@ -4,10 +4,12 @@ from unittest.mock import patch
 
 import pytest
 from proto_tools import (
+    ORF,
     Mmseqs2Hit,
     Mmseqs2SearchProteinsConfig,
     Mmseqs2SearchProteinsOutput,
     Mmseqs2SequenceSearchResult,
+    OrfipyOutput,
 )
 
 from proto_language.constraint import (
@@ -219,9 +221,13 @@ class TestMMseqsSimilarityConstraint:
 
             # Check metadata shows correct hit counts
             constraints = segment.proposal_sequences[0]._constraints_metadata
-            assert constraints["mmseqs_similarity_constraint"]["data"]["total_orfs_with_hits"] == 3
+            data = constraints["mmseqs_similarity_constraint"]["data"]
+            assert data["total_orfs_with_hits"] == 3
             # 2 hits are within range (85 and 95), 1 is below (75)
-            assert constraints["mmseqs_similarity_constraint"]["data"]["orfs_with_acceptable_similarity"] == 2
+            assert data["orfs_with_acceptable_similarity"] == 2
+            # A single protein is exactly one ORF, so unique_orfs_with_hits is 1
+            # regardless of how many hits that ORF produced (not the hit count, 3).
+            assert data["unique_orfs_with_hits"] == 1
 
     def test_multiple_proposals_in_segment(self, dummy_db_path):
         """Test constraint with multiple proposal sequences in a single segment."""
@@ -341,3 +347,81 @@ class TestMMseqsSimilarityConstraint:
             assert len(scores) == 1
             # Score should be > 0 when hits are outside range
             assert scores[0] > 0.0
+
+    def test_unique_orfs_counts_distinct_orfs_with_hits(self, dummy_db_path):
+        """Regression: unique_orfs_with_hits counts distinct ORFs, not hit pairs.
+
+        A DNA sequence yields three ORFs; two of them get database hits (one with
+        two hits) and the third gets none. ``unique_orfs_with_hits`` must be 2 (two
+        distinct ORFs with >= 1 hit), while ``total_orfs_with_hits`` is the 3-hit total.
+        """
+        segment = Segment(sequence="ATGGTGCTGAGCCCGGCGGACAAGTAA", sequence_type="dna")
+
+        config = MMseqsSimilarityConfig(
+            min_similarity=80.0,
+            max_similarity=100.0,
+            mmseqs_db=dummy_db_path,
+            orf_predictor="orfipy",
+        )
+
+        def make_orf(orf_id: str, aa: str, start: int, end: int) -> ORF:
+            return ORF(
+                parent_id="seq_0",
+                orf_id=orf_id,
+                strand="+",
+                frame=1,
+                amino_acid_sequence=aa,
+                nucleotide_sequence="A" * (end - start + 1),
+                amino_acid_length=len(aa),
+                nucleotide_length=end - start + 1,
+                nucleotide_start=start,
+                nucleotide_end=end,
+            )
+
+        orfipy_output = OrfipyOutput(
+            metadata={},
+            success=True,
+            predicted_orfs=[
+                [
+                    make_orf("gene_1", "MVLSP", 1, 15),
+                    make_orf("gene_2", "MKLLV", 4, 18),
+                    make_orf("gene_3", "MAAAA", 7, 21),
+                ]
+            ],
+        )
+
+        # ORF 0 -> two hits, ORF 1 -> no hits, ORF 2 -> one hit.
+        mmseqs_output = self._create_mock_output(
+            [
+                Mmseqs2SequenceSearchResult(
+                    query_id="seq_0",
+                    query_sequence="MVLSP",
+                    hits=[
+                        Mmseqs2Hit(target_id="hit1", pident=95.0, evalue=1e-50),
+                        Mmseqs2Hit(target_id="hit2", pident=90.0, evalue=1e-30),
+                    ],
+                ),
+                Mmseqs2SequenceSearchResult(query_id="seq_0", query_sequence="MKLLV", hits=[]),
+                Mmseqs2SequenceSearchResult(
+                    query_id="seq_0",
+                    query_sequence="MAAAA",
+                    hits=[Mmseqs2Hit(target_id="hit3", pident=85.0, evalue=1e-20)],
+                ),
+            ]
+        )
+
+        module = "proto_language.constraint.sequence_annotation.mmseqs_similarity_constraint"
+        with (
+            patch(f"{module}.run_orfipy_prediction", return_value=orfipy_output),
+            patch(f"{module}.run_mmseqs2_search_proteins", return_value=mmseqs_output),
+        ):
+            constraint = Constraint(
+                inputs=[segment],
+                function=mmseqs_similarity_constraint,
+                function_config=config,
+            )
+            constraint.evaluate()
+
+        data = segment.proposal_sequences[0]._constraints_metadata["mmseqs_similarity_constraint"]["data"]
+        assert data["total_orfs_with_hits"] == 3  # three hit pairs across all ORFs
+        assert data["unique_orfs_with_hits"] == 2  # two distinct ORFs produced hits

@@ -397,3 +397,25 @@ class TestESMFold2SimilarityBridge:
             [result] = structure_rmsd_constraint([(Sequence(CRO_SEQ, "protein"),)], config)
         assert result.metadata.get("reason") != "unconfident_target"
         assert "rmsd_val" in result.metadata
+
+
+class TestMinTargetPlddtNormalization:
+    """``min_target_plddt`` (0-1 scale) must be compared against a normalized pLDDT.
+
+    AlphaFold3 emits pLDDT on a 0-100 scale; without normalizing, the gate never
+    fires (e.g. ``40.0 < 0.6`` is always False), silently accepting low-confidence
+    targets. The fix mirrors structure_plddt: ``x / 100 if x > 1 else x``.
+    """
+
+    SIM = "proto_language.constraint.protein_structure.structure_similarity_constraint"
+
+    def test_low_confidence_0_100_target_rejected(self):
+        """A 0-100 target pLDDT of 40.0 (norm 0.4) is below 0.6 and must be rejected."""
+        config = StructureRMSDConfig(target_chains=[CRO_SEQ], structure_tool="alphafold3", min_target_plddt=0.6)
+        folded = MockResult(structures=[MockStructure(metrics={"avg_plddt": 40.0})])
+        with (
+            patch(f"{self.SIM}.predict_structures", return_value=folded),
+            patch(f"{self.SIM}.run_pymol_rmsd_alignment", return_value=SimpleNamespace(rmsd=1.0)),
+        ):
+            [result] = structure_rmsd_constraint([(Sequence(CRO_SEQ, "protein"),)], config)
+        assert result.metadata.get("reason") == "unconfident_target"

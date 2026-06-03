@@ -91,6 +91,18 @@ def test_category_filter_accepts_space_form(capsys: pytest.CaptureFixture[str]) 
     assert {s["key"] for s in under} == {s["key"] for s in space}
 
 
+def test_category_filter_is_case_insensitive(capsys: pytest.CaptureFixture[str]) -> None:
+    """``--category`` normalizes case + spaces, so a mixed-case/spaced form still matches."""
+    code, out_canonical, _ = _run(capsys, "constraint", "list", "--category", "protein_structure", "--json")
+    assert code == 0
+    canonical = json.loads(out_canonical)
+    assert canonical, "expected protein_structure constraints"
+    code, out_mixed, _ = _run(capsys, "constraint", "list", "--category", "Protein Structure", "--json")
+    assert code == 0
+    mixed = json.loads(out_mixed)
+    assert {s["key"] for s in canonical} == {s["key"] for s in mixed}
+
+
 def test_category_filter_empty_hints_did_you_mean(capsys: pytest.CaptureFixture[str]) -> None:
     """A substring of a real category triggers a 'did you mean' hint in text mode."""
     code, out, _ = _run(capsys, "constraint", "list", "--category", "structure")

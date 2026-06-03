@@ -73,7 +73,7 @@ from proto_tools.tools.structure_scoring.pyrosetta.shared_data_models import Sco
 from proto_tools.utils.tool_io import Metrics
 
 from proto_language import (
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     MpnnPerplexityConfig,
     ProteinMPNNGenerator,
     ProteinMPNNGeneratorConfig,
@@ -311,9 +311,9 @@ def _make_af2_config(
     target_pdb_text: str,
     seed: int,
     num_recycles: int = 1,
-) -> AlphaFold2MultimerStructureConfig:
+) -> AlphaFold2BinderStructureConfig:
     """Create the base AF2 binder config used by one hallucination trajectory."""
-    af2_cfg = AlphaFold2MultimerStructureConfig(
+    af2_cfg = AlphaFold2BinderStructureConfig(
         target_pdb=target_pdb_text,
         target_chains=config.target_chains,
         binder_chain=None,  # BindCraft is de novo: hallucinate the binder, no template
@@ -339,10 +339,10 @@ def _make_af2_config(
 def _af2_constraints(
     binder: Segment,
     target: Segment,
-    af2_cfg: AlphaFold2MultimerStructureConfig,
+    af2_cfg: AlphaFold2BinderStructureConfig,
     loss_weights: dict[str, float],
 ) -> list[Constraint]:
-    """Create public AF2 multimer constraints for BindCraft's weighted loss terms."""
+    """Create public AF2 binder constraints for BindCraft's weighted loss terms."""
     constraints: list[Constraint] = []
     for loss_key, weight in loss_weights.items():
         if weight == 0.0:
@@ -355,8 +355,8 @@ def _af2_constraints(
                 inputs=[binder, target],
                 function=function,
                 function_config=StructureBasedConstraintConfig(
-                    structure_tool="alphafold2_multimer",
-                    alphafold2_multimer_config=copy.deepcopy(af2_cfg),
+                    structure_tool="alphafold2_binder",
+                    alphafold2_binder_config=copy.deepcopy(af2_cfg),
                 ),
                 label=f"af2_{loss_key}",
                 weight=weight,
@@ -383,7 +383,7 @@ def _build_hallucination(
     binder: Segment,
     target: Segment,
     construct: Construct,
-    af2_cfg: AlphaFold2MultimerStructureConfig,
+    af2_cfg: AlphaFold2BinderStructureConfig,
     af2_loss_weights: dict[str, float],
     binder_length: int,
     *,

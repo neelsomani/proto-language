@@ -91,8 +91,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -163,8 +163,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -235,8 +235,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -307,8 +307,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -379,8 +379,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -451,8 +451,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -523,8 +523,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -595,8 +595,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -667,8 +667,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -739,8 +739,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -811,8 +811,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4046,8 +4046,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4118,8 +4118,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4190,8 +4190,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4262,8 +4262,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4334,8 +4334,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4406,8 +4406,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4478,8 +4478,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4550,8 +4550,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4622,8 +4622,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4694,8 +4694,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -4766,8 +4766,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5072,8 +5072,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5144,8 +5144,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5216,8 +5216,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5288,8 +5288,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5360,8 +5360,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5432,8 +5432,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5504,8 +5504,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5576,8 +5576,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5648,8 +5648,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5720,8 +5720,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [
@@ -5792,8 +5792,8 @@
             "pdl1_target"
           ],
           "config": {
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {
               "target_pdb": "examples/germinal/pdbs/pdl1_nb_template.pdb",
               "binder_input_index": 0,
               "target_input_indices": [

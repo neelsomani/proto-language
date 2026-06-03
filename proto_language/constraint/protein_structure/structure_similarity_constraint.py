@@ -1,6 +1,6 @@
 """Contains implementation of generic structure similarity constraints (RMSD, TM-score).
 
-supporting multiple structure prediction tools (ESMFold, AlphaFold3, Boltz, Chai1).
+supporting multiple structure prediction tools (ESMFold, ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2).
 """
 
 from logging import getLogger
@@ -79,7 +79,7 @@ class StructureSimilarityConfig(StructureBasedConstraintConfig):
     Inherits tool selection and per-tool configuration from
     ``StructureBasedConstraintConfig`` (``structure_tool``, ``esmfold_config``,
     ``esmfold2_config``, ``alphafold3_config``, ``boltz2_config``, ``chai1_config``,
-    ``alphafold2_multimer_config``).
+    ``protenix_config``, ``alphafold2_config``, ``alphafold2_binder_config``).
 
     Attributes:
         target_chains (tuple[str, ...] | Complex | None):
@@ -142,8 +142,8 @@ class StructureRMSDConfig(StructureSimilarityConfig):
     Inherits target specification (``target_chains``, ``target_structure``,
     ``min_target_plddt``) from ``StructureSimilarityConfig`` and tool selection
     (``structure_tool``, ``esmfold_config``, ``esmfold2_config``, ``alphafold3_config``,
-    ``boltz2_config``, ``chai1_config``, ``protenix_config``,
-    ``alphafold2_multimer_config``) from ``StructureBasedConstraintConfig``.
+    ``boltz2_config``, ``chai1_config``, ``protenix_config``, ``alphafold2_config``,
+    ``alphafold2_binder_config``) from ``StructureBasedConstraintConfig``.
 
     Attributes:
         inflection_point_angstroms (float):
@@ -194,8 +194,8 @@ class StructureTMScoreConfig(StructureSimilarityConfig):
     Inherits target specification (``target_chains``, ``target_structure``,
     ``min_target_plddt``) from ``StructureSimilarityConfig`` and tool selection
     (``structure_tool``, ``esmfold_config``, ``esmfold2_config``, ``alphafold3_config``,
-    ``boltz2_config``, ``chai1_config``, ``protenix_config``,
-    ``alphafold2_multimer_config``) from ``StructureBasedConstraintConfig``.
+    ``boltz2_config``, ``chai1_config``, ``protenix_config``, ``alphafold2_config``,
+    ``alphafold2_binder_config``) from ``StructureBasedConstraintConfig``.
 
     Attributes:
         plddt_threshold (float | None):
@@ -281,6 +281,7 @@ def _prepare_target_structure(config: StructureSimilarityConfig) -> str | None:
         "boltz2-prediction",
         "chai1-prediction",
         "protenix-prediction",
+        "alphafold2-prediction",
         "pymol-rmsd-alignment",
     ],
     category="protein_structure",
@@ -366,6 +367,7 @@ def _count_pdb_chains(pdb_text: str) -> int:
         "boltz2-prediction",
         "chai1-prediction",
         "protenix-prediction",
+        "alphafold2-prediction",
         "tmalign-alignment",
         "usalign-alignment",
     ],

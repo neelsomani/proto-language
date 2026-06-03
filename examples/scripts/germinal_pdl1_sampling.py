@@ -38,7 +38,7 @@ from proto_tools.utils.tool_pool import ToolPool
 
 from proto_language import (
     AbLangPerplexityConfig,
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     StructureBasedConstraintConfig,
     structure_beta_strand_constraint,
     structure_contact_constraint,
@@ -164,7 +164,7 @@ def build_parser(
     parser.add_argument(
         "--target-hotspot",
         default=DEFAULT_PDL1_TARGET_HOTSPOT,
-        help="Comma-separated target hotspot residues for AF2 multimer design, e.g. '37,39,41,96,98'.",
+        help="Comma-separated target hotspot residues for AF2 binder design, e.g. '37,39,41,96,98'.",
     )
     parser.add_argument(
         "--binder-template-pdb",
@@ -229,7 +229,7 @@ def build_parser(
     parser.add_argument(
         "--sample-models",
         action="store_true",
-        help="Randomly sample AF2 model weights on each AF2 multimer call.",
+        help="Randomly sample AF2 model weights on each AF2 binder call.",
     )
     parser.add_argument(
         "--position-weighting",
@@ -651,9 +651,9 @@ def make_af2_config(
     *,
     template_pdb: Path,
     design_positions: list[int] | None,
-) -> AlphaFold2MultimerStructureConfig:
-    """Create the AF2 Germinal multimer config used across stages."""
-    config = AlphaFold2MultimerStructureConfig.germinal_vhh_preset(
+) -> AlphaFold2BinderStructureConfig:
+    """Create the AF2 Germinal binder config used across stages."""
+    config = AlphaFold2BinderStructureConfig.germinal_vhh_preset(
         target_pdb=str(template_pdb.resolve()),
         binder_chain=args.binder_chain,
         target_chains=args.target_chain,
@@ -678,7 +678,7 @@ def make_af2_config(
 def build_af2_constraints(
     binder: Segment,
     target: Segment,
-    af2_config: AlphaFold2MultimerStructureConfig,
+    af2_config: AlphaFold2BinderStructureConfig,
     args: argparse.Namespace,
 ) -> list[Constraint]:
     """Create first-class AF2-backed structure confidence constraints."""
@@ -686,8 +686,8 @@ def build_af2_constraints(
         dict(args.loss_weights_override) if args.loss_weights_override is not None else dict(DEFAULT_AF2_LOSS_WEIGHTS)
     )
     structure_config = StructureBasedConstraintConfig(
-        structure_tool="alphafold2_multimer",
-        alphafold2_multimer_config=af2_config,
+        structure_tool="alphafold2_binder",
+        alphafold2_binder_config=af2_config,
     )
     constraints: list[Constraint] = []
     for loss_key, weight in loss_weights.items():
@@ -777,7 +777,7 @@ def build_program(
     )
     stage3_generator.assign(binder)
 
-    # Stage 1: optimize logits with AF2 multimer objectives and CDR-limited AbLang gradients.
+    # Stage 1: optimize logits with AF2 binder objectives and CDR-limited AbLang gradients.
     stage1 = GradientOptimizer(
         target_segment=binder,
         constructs=[construct],

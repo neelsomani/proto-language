@@ -3,14 +3,14 @@
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 
-from proto_language import AlphaFold2MultimerStructureConfig, StructureBasedConstraintConfig
+from proto_language import AlphaFold2BinderStructureConfig, StructureBasedConstraintConfig
 from proto_language.constraint import gc_content_constraint
 from proto_language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
 from proto_language.core import Constraint, ConstraintOutput, Construct, Program, Segment
 from proto_language.core.optimizer import derive_seeds
 from proto_language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 from proto_language.optimizer import MCMCOptimizer, MCMCOptimizerConfig
-from proto_language.utils.alphafold2_multimer import next_af2_multimer_seed
+from proto_language.utils.alphafold2_binder import next_af2_binder_seed
 from proto_language.utils.base import BaseConfig, ConfigField
 
 # Full-sequence mutation leaves nucleotide sampling as the only random choice.
@@ -216,23 +216,23 @@ class TestSeedPropagation:
         def score(input_sequences, config):
             return [ConstraintOutput(score=0.0) for _ in input_sequences]
 
-        af2_config = AlphaFold2MultimerStructureConfig(target_pdb="ATOM", seed=99)
+        af2_config = AlphaFold2BinderStructureConfig(target_pdb="ATOM", seed=99)
         config = StructureBasedConstraintConfig(
-            structure_tool="alphafold2_multimer",
-            alphafold2_multimer_config=af2_config,
+            structure_tool="alphafold2_binder",
+            alphafold2_binder_config=af2_config,
         )
         segment = Segment(sequence="ACDE", sequence_type="protein")
         constraint = Constraint(inputs=[segment], function=score, function_config=config)
 
         constraint._set_program_seed(123)
-        first = next_af2_multimer_seed(af2_config)
-        second = next_af2_multimer_seed(af2_config)
+        first = next_af2_binder_seed(af2_config)
+        second = next_af2_binder_seed(af2_config)
 
         constraint._set_program_seed(123)
 
         assert af2_config._evaluation_seed_offset == 0
         assert af2_config.seed == 123
-        assert next_af2_multimer_seed(af2_config) == first
+        assert next_af2_binder_seed(af2_config) == first
         assert second != first
 
     def test_negative_program_seed_rejected(self):

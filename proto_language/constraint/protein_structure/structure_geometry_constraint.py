@@ -1,4 +1,4 @@
-"""AF2 multimer-backed structural geometry objectives.
+"""AF2 binder-backed structural geometry objectives.
 
 These constraints expose geometric and fold-shaping objectives that can be used
 for design, filtering, or ranking. They are separate from structure confidence
@@ -12,8 +12,8 @@ from proto_language.constraint.protein_structure.structure_constraint_config imp
     StructureBasedConstraintConfig,
 )
 from proto_language.core import ConstraintOutput, Sequence
-from proto_language.utils.alphafold2_multimer import (
-    evaluate_af2_multimer_loss_constraint,
+from proto_language.utils.alphafold2_binder import (
+    evaluate_af2_binder_loss_constraint,
 )
 
 
@@ -23,7 +23,7 @@ from proto_language.utils.alphafold2_multimer import (
     config=StructureBasedConstraintConfig,
     description="Evaluate AF2 intra-chain contact loss.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -31,18 +31,18 @@ from proto_language.utils.alphafold2_multimer import (
 def structure_contact_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer intra-chain contact loss.
+    """Evaluate AF2 binder intra-chain contact loss.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Raw AF2 ``con`` loss outputs.
     """
-    if config.structure_tool != "alphafold2_multimer":
-        raise ValueError("structure-contact requires structure_tool='alphafold2_multimer'.")
-    return evaluate_af2_multimer_loss_constraint(input_sequences, config, "con")
+    if config.structure_tool != "alphafold2_binder":
+        raise ValueError("structure-contact requires structure_tool='alphafold2_binder'.")
+    return evaluate_af2_binder_loss_constraint(input_sequences, config, "con")
 
 
 @constraint(
@@ -51,7 +51,7 @@ def structure_contact_constraint(
     config=StructureBasedConstraintConfig,
     description="Evaluate AF2 interface contact loss.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -59,18 +59,18 @@ def structure_contact_constraint(
 def structure_interface_contact_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer interface contact loss.
+    """Evaluate AF2 binder interface contact loss.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Raw AF2 ``i_con`` loss outputs.
     """
-    if config.structure_tool != "alphafold2_multimer":
-        raise ValueError("structure-interface-contact requires structure_tool='alphafold2_multimer'.")
-    return evaluate_af2_multimer_loss_constraint(input_sequences, config, "i_con")
+    if config.structure_tool != "alphafold2_binder":
+        raise ValueError("structure-interface-contact requires structure_tool='alphafold2_binder'.")
+    return evaluate_af2_binder_loss_constraint(input_sequences, config, "i_con")
 
 
 @constraint(
@@ -79,7 +79,7 @@ def structure_interface_contact_constraint(
     config=StructureBasedConstraintConfig,
     description="Evaluate AF2 radius-of-gyration loss.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -87,18 +87,18 @@ def structure_interface_contact_constraint(
 def structure_radius_gyration_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer radius-of-gyration loss.
+    """Evaluate AF2 binder radius-of-gyration loss.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Raw AF2 ``rg`` loss outputs.
     """
-    if config.structure_tool != "alphafold2_multimer":
-        raise ValueError("structure-radius-gyration requires structure_tool='alphafold2_multimer'.")
-    return evaluate_af2_multimer_loss_constraint(input_sequences, config, "rg")
+    if config.structure_tool != "alphafold2_binder":
+        raise ValueError("structure-radius-gyration requires structure_tool='alphafold2_binder'.")
+    return evaluate_af2_binder_loss_constraint(input_sequences, config, "rg")
 
 
 @constraint(
@@ -107,7 +107,7 @@ def structure_radius_gyration_constraint(
     config=StructureBasedConstraintConfig,
     description="Evaluate AF2 helical-content loss.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -115,18 +115,18 @@ def structure_radius_gyration_constraint(
 def structure_helix_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer helical-content loss.
+    """Evaluate AF2 binder helical-content loss.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Raw AF2 ``helix`` loss outputs.
     """
-    if config.structure_tool != "alphafold2_multimer":
-        raise ValueError("structure-helix requires structure_tool='alphafold2_multimer'.")
-    return evaluate_af2_multimer_loss_constraint(input_sequences, config, "helix")
+    if config.structure_tool != "alphafold2_binder":
+        raise ValueError("structure-helix requires structure_tool='alphafold2_binder'.")
+    return evaluate_af2_binder_loss_constraint(input_sequences, config, "helix")
 
 
 @constraint(
@@ -135,7 +135,7 @@ def structure_helix_constraint(
     config=StructureBasedConstraintConfig,
     description="Evaluate AF2 beta-strand-content loss.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -143,18 +143,18 @@ def structure_helix_constraint(
 def structure_beta_strand_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer beta-strand-content loss.
+    """Evaluate AF2 binder beta-strand-content loss.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Raw AF2 ``beta_strand`` loss outputs.
     """
-    if config.structure_tool != "alphafold2_multimer":
-        raise ValueError("structure-beta-strand requires structure_tool='alphafold2_multimer'.")
-    return evaluate_af2_multimer_loss_constraint(input_sequences, config, "beta_strand")
+    if config.structure_tool != "alphafold2_binder":
+        raise ValueError("structure-beta-strand requires structure_tool='alphafold2_binder'.")
+    return evaluate_af2_binder_loss_constraint(input_sequences, config, "beta_strand")
 
 
 @constraint(
@@ -163,7 +163,7 @@ def structure_beta_strand_constraint(
     config=StructureBasedConstraintConfig,
     description="Evaluate AF2 distogram CCE loss.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -171,18 +171,18 @@ def structure_beta_strand_constraint(
 def structure_distogram_cce_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer distogram cross-entropy loss.
+    """Evaluate AF2 binder distogram cross-entropy loss.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Raw AF2 ``dgram_cce`` loss outputs.
     """
-    if config.structure_tool != "alphafold2_multimer":
-        raise ValueError("structure-distogram-cce requires structure_tool='alphafold2_multimer'.")
-    return evaluate_af2_multimer_loss_constraint(input_sequences, config, "dgram_cce")
+    if config.structure_tool != "alphafold2_binder":
+        raise ValueError("structure-distogram-cce requires structure_tool='alphafold2_binder'.")
+    return evaluate_af2_binder_loss_constraint(input_sequences, config, "dgram_cce")
 
 
 @constraint(
@@ -191,7 +191,7 @@ def structure_distogram_cce_constraint(
     config=StructureBasedConstraintConfig,
     description="Evaluate AF2 N-to-C termini distance loss.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -199,21 +199,21 @@ def structure_distogram_cce_constraint(
 def structure_termini_distance_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer N-to-C termini distance loss.
+    """Evaluate AF2 binder N-to-C termini distance loss.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Raw AF2 ``NC`` loss outputs.
     """
-    if config.structure_tool != "alphafold2_multimer":
-        raise ValueError("structure-termini-distance requires structure_tool='alphafold2_multimer'.")
-    return evaluate_af2_multimer_loss_constraint(input_sequences, config, "NC")
+    if config.structure_tool != "alphafold2_binder":
+        raise ValueError("structure-termini-distance requires structure_tool='alphafold2_binder'.")
+    return evaluate_af2_binder_loss_constraint(input_sequences, config, "NC")
 
 
-_AF2_MULTIMER_RAW_SCORE_FUNCTIONS = (
+_AF2_BINDER_RAW_SCORE_FUNCTIONS = (
     structure_contact_constraint,
     structure_interface_contact_constraint,
     structure_radius_gyration_constraint,
@@ -223,5 +223,5 @@ _AF2_MULTIMER_RAW_SCORE_FUNCTIONS = (
     structure_termini_distance_constraint,
 )
 
-for _af2_fn in _AF2_MULTIMER_RAW_SCORE_FUNCTIONS:
+for _af2_fn in _AF2_BINDER_RAW_SCORE_FUNCTIONS:
     _af2_fn._constraint_allow_raw_scores = True  # type: ignore[attr-defined]

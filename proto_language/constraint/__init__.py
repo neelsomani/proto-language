@@ -24,7 +24,7 @@ from proto_language.constraint.protein_quality import (
 
 # Protein structure constraints
 from proto_language.constraint.protein_structure import (
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     StructureBasedConstraintConfig,
     boltz_binding_strength_constraint,
     gyration_radius_constraint,
@@ -125,7 +125,7 @@ __all__ = [
     "kmer_frequency_constraint",
     "specific_kmer_constraint",
     # Protein structure
-    "AlphaFold2MultimerStructureConfig",
+    "AlphaFold2BinderStructureConfig",
     "StructureBasedConstraintConfig",
     "gyration_radius_constraint",
     "structure_rmsd_constraint",

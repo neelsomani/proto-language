@@ -299,7 +299,7 @@ class Optimizer(ABC):
         # Pass 2: Score passing proposals (skip rejected proposals for performance)
         if operation == "add":
             # The compiler groups backend-compatible scoring constraints, e.g. many
-            # AF2 multimer terms over the same proposal become one weighted model call.
+            # AF2 binder terms over the same proposal become one weighted model call.
             from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
 
             for idx, constraint in enumerate(scorers):
@@ -316,7 +316,7 @@ class Optimizer(ABC):
                     scores.append(float(score))
                 all_scores.append(scores)
 
-        # Compiler may group scorers into fewer scoring units (e.g. AF2 multimer terms),
+        # Compiler may group scorers into fewer scoring units (e.g. AF2 binder terms),
         # so per-constraint mapping only works in the 1:1 case.
         self._last_constraint_scores = (
             {scorer.label: scores for scorer, scores in zip(scorers, all_scores, strict=True)}

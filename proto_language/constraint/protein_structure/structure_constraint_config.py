@@ -1,14 +1,16 @@
 """Base configuration classes for structure-based constraints.
 
 This module provides standardized configuration classes for constraints that
-use structure prediction tools (ESMFold, AlphaFold3, Boltz2, Chai1, Protenix,
-AlphaFold2 multimer).
+use structure prediction tools (ESMFold, ESMFold2, AlphaFold3, Boltz2, Chai1,
+Protenix, the general AlphaFold2 multimer predictor, and the AlphaFold2
+binder-design backend).
 """
 
 from collections.abc import Mapping
 from typing import Any, Literal
 
 from proto_tools import (
+    AlphaFold2Config,
     AlphaFold3Config,
     Boltz2Config,
     Chai1Config,
@@ -55,8 +57,8 @@ def resolve_metric(metrics: Mapping[str, Any], canonical: str) -> Any:
     return None
 
 
-class AlphaFold2MultimerStructureConfig(BaseConfig):
-    """Configuration for AF2 multimer-backed structure constraints.
+class AlphaFold2BinderStructureConfig(BaseConfig):
+    """Configuration for AF2 binder-backed structure constraints.
 
     Attributes:
         target_pdb (str): Target+binder template PDB content or path.
@@ -264,7 +266,7 @@ class AlphaFold2MultimerStructureConfig(BaseConfig):
         return indices
 
     @model_validator(mode="after")
-    def _validate_roles(self) -> "AlphaFold2MultimerStructureConfig":
+    def _validate_roles(self) -> "AlphaFold2BinderStructureConfig":
         """Validate static role configuration."""
         if len(set(self.target_input_indices)) != len(self.target_input_indices):
             raise ValueError("target_input_indices cannot contain duplicates.")
@@ -294,8 +296,8 @@ class AlphaFold2MultimerStructureConfig(BaseConfig):
     @classmethod
     def germinal_vhh_preset(
         cls, target_pdb: str, binder_chain: str = "H", target_chains: list[str] | str = "A"
-    ) -> "AlphaFold2MultimerStructureConfig":
-        """Create the Germinal VHH AF2 multimer config.
+    ) -> "AlphaFold2BinderStructureConfig":
+        """Create the Germinal VHH AF2 binder config.
 
         Args:
             target_pdb (str): Target+binder template PDB content or path.
@@ -329,14 +331,15 @@ class StructureBasedConstraintConfig(BaseConfig):
     the structure_tool field with a narrower Literal type.
 
     Attributes:
-        structure_tool (Literal['esmfold', 'esmfold2', 'alphafold3', 'boltz2', 'chai1', 'protenix', 'alphafold2_multimer']): Tool to use for structure prediction. Supported options:
+        structure_tool (Literal['esmfold', 'esmfold2', 'alphafold3', 'boltz2', 'chai1', 'protenix', 'alphafold2', 'alphafold2_binder']): Tool to use for structure prediction. Supported options:
             - "esmfold": ESMFold (Meta AI)
             - "esmfold2": ESMFold2 (Biohub) — all-atom, complex-capable
             - "alphafold3": AlphaFold 3 (Google DeepMind)
             - "boltz2": Boltz2 (MIT)
             - "chai1": Chai-1 (Chai Discovery)
             - "protenix": Protenix (ByteDance)
-            - "alphafold2_multimer": AlphaFold2 multimer-design backend
+            - "alphafold2": AlphaFold2 general multimer structure predictor (forward-only)
+            - "alphafold2_binder": AlphaFold2 binder-design backend (target + binder)
             Default is "esmfold".
 
         esmfold_config (ESMFoldConfig): Configuration for ESMFold structure prediction.
@@ -357,8 +360,12 @@ class StructureBasedConstraintConfig(BaseConfig):
         protenix_config (ProtenixConfig): Configuration for Protenix structure prediction.
             Used when ``structure_tool == "protenix"``.
 
-        alphafold2_multimer_config (AlphaFold2MultimerStructureConfig): Configuration
-            for AF2 multimer-backed structure constraints.
+        alphafold2_config (AlphaFold2Config): Configuration for the general AlphaFold2
+            multimer structure predictor. Used when ``structure_tool == "alphafold2"``.
+
+        alphafold2_binder_config (AlphaFold2BinderStructureConfig): Configuration
+            for the AF2 binder-design backend. Used when
+            ``structure_tool == "alphafold2_binder"``.
 
     Example:
         >>> config = MyConstraintConfig(structure_tool="esmfold", esmfold_config=ESMFoldConfig(device="cuda"))
@@ -367,13 +374,11 @@ class StructureBasedConstraintConfig(BaseConfig):
     """
 
     structure_tool: Literal[
-        "esmfold", "esmfold2", "alphafold3", "boltz2", "chai1", "protenix", "alphafold2_multimer"
+        "esmfold", "esmfold2", "alphafold3", "boltz2", "chai1", "protenix", "alphafold2", "alphafold2_binder"
     ] = ConfigField(
         title="Structure Prediction Tool",
         default="esmfold",
-        description=(
-            "Structure predictor: esmfold, esmfold2, alphafold3, boltz2, chai1, protenix, or alphafold2_multimer."
-        ),
+        description="Predictor: esmfold/esmfold2/alphafold3/boltz2/chai1/protenix/alphafold2/alphafold2_binder.",
     )
 
     esmfold_config: ESMFoldConfig = ConfigField(
@@ -406,10 +411,15 @@ class StructureBasedConstraintConfig(BaseConfig):
         title="Protenix Configuration",
         description="Configuration for Protenix structure prediction.",
     )
-    alphafold2_multimer_config: AlphaFold2MultimerStructureConfig = ConfigField(
-        default_factory=AlphaFold2MultimerStructureConfig,
-        title="AF2 Multimer Config",
-        description="Configuration for AF2 multimer constraints.",
+    alphafold2_config: AlphaFold2Config = ConfigField(
+        default_factory=AlphaFold2Config,
+        title="AlphaFold2 Configuration",
+        description="Configuration for the general AlphaFold2 multimer structure predictor.",
+    )
+    alphafold2_binder_config: AlphaFold2BinderStructureConfig = ConfigField(
+        default_factory=AlphaFold2BinderStructureConfig,
+        title="AF2 Binder Config",
+        description="Configuration for the AF2 binder-design backend.",
     )
 
     @property
@@ -422,7 +432,8 @@ class StructureBasedConstraintConfig(BaseConfig):
         | Boltz2Config
         | Chai1Config
         | ProtenixConfig
-        | AlphaFold2MultimerStructureConfig
+        | AlphaFold2Config
+        | AlphaFold2BinderStructureConfig
     ):
         """Return the active tool configuration based on structure_tool."""
         configs = {
@@ -432,13 +443,14 @@ class StructureBasedConstraintConfig(BaseConfig):
             "boltz2": self.boltz2_config,
             "chai1": self.chai1_config,
             "protenix": self.protenix_config,
-            "alphafold2_multimer": self.alphafold2_multimer_config,
+            "alphafold2": self.alphafold2_config,
+            "alphafold2_binder": self.alphafold2_binder_config,
         }
         return configs[self.structure_tool]
 
     @model_validator(mode="after")
     def _validate_active_tool(self) -> "StructureBasedConstraintConfig":
         """Validate selected tool config only when the tool is active."""
-        if self.structure_tool == "alphafold2_multimer" and not self.alphafold2_multimer_config.target_pdb:
-            raise ValueError("alphafold2_multimer_config.target_pdb must be a non-empty PDB string or file path.")
+        if self.structure_tool == "alphafold2_binder" and not self.alphafold2_binder_config.target_pdb:
+            raise ValueError("alphafold2_binder_config.target_pdb must be a non-empty PDB string or file path.")
         return self

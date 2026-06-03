@@ -5,7 +5,7 @@ not a byte-for-byte port of BindCraft: results are not 1-to-1 identical to
 upstream.
 
 This script intentionally does not implement the full BindCraft pipeline. It
-only runs the pre-MPNN hallucination stages with AF2 multimer objectives:
+only runs the pre-MPNN hallucination stages with AF2 binder objectives:
 
 1. logit gradient optimization
 2. softmax gradient refinement
@@ -36,7 +36,7 @@ from typing import Any
 from proto_tools.entities.structures import Structure
 
 from proto_language import (
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,
     StructureBasedConstraintConfig,
@@ -120,7 +120,7 @@ def make_af2_constraints(
     target: Segment,
     structure_config: StructureBasedConstraintConfig,
 ) -> list[Constraint]:
-    """Create the AF2 multimer objectives used by every hallucination stage."""
+    """Create the AF2 binder objectives used by every hallucination stage."""
     constraints: list[Constraint] = []
     for loss_key, weight in AF2_LOSS_WEIGHTS.items():
         if weight == 0.0:
@@ -183,7 +183,7 @@ def main() -> None:
     semigreedy_generator.assign(binder)
 
     # Constraints
-    af2_config = AlphaFold2MultimerStructureConfig(
+    af2_config = AlphaFold2BinderStructureConfig(
         target_pdb=target_pdb_text,
         target_chains=[args.target_chain],
         binder_chain=None,  # de novo: hallucinate the binder, no template
@@ -203,8 +203,8 @@ def main() -> None:
         backend="base",
     )
     structure_config = StructureBasedConstraintConfig(
-        structure_tool="alphafold2_multimer",
-        alphafold2_multimer_config=af2_config,
+        structure_tool="alphafold2_binder",
+        alphafold2_binder_config=af2_config,
     )
     logit_constraints = make_af2_constraints(binder, target, structure_config)
     softmax_constraints = make_af2_constraints(binder, target, structure_config)

@@ -1,12 +1,14 @@
-"""AF2 multimer adapter utilities shared by constraints and the compiler.
+"""AF2 binder adapter utilities shared by constraints and the compiler.
 
-AF2M currently reaches proto-language through the ColabDesign binder tool API,
-not the predictor-style structure API used by ESMFold/AF3/Boltz/Chai. This file
-owns the tool-boundary translation: canonical loss names, predictor-like metric
-aliases, per-input structure splitting, and forward AF2M calls.
+The AF2 binder backend currently reaches proto-language through the ColabDesign
+binder tool API, not the predictor-style structure API used by the general
+AlphaFold2 predictor, ESMFold, AF3, Boltz, and Chai. This file owns the
+tool-boundary translation: canonical
+loss names, predictor-like metric aliases, per-input structure splitting, and
+forward AF2 binder calls.
 
 TODO(@brianhie, @dguo): Consider moving some of this adapter logic into
-proto-tools if the AF2M binder interface grows a predictor-shaped API.
+proto-tools if the AF2 binder interface grows a predictor-shaped API.
 """
 
 import string
@@ -21,13 +23,13 @@ from proto_tools.tools.structure_prediction.alphafold2 import (
 from pydantic import BaseModel, ConfigDict
 
 from proto_language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     StructureBasedConstraintConfig,
 )
 from proto_language.core import ConstraintOutput, Sequence
 from proto_language.utils.sequence_matrices import one_hot_protein_matrix
 
-AF2_MULTIMER_LOSS_TERMS: frozenset[str] = frozenset(
+AF2_BINDER_LOSS_TERMS: frozenset[str] = frozenset(
     {
         "plddt",
         "iplddt",
@@ -43,20 +45,20 @@ AF2_MULTIMER_LOSS_TERMS: frozenset[str] = frozenset(
         "NC",
     }
 )
-AF2_MULTIMER_TOOL_LOSS_ALIASES: dict[str, str] = {
+AF2_BINDER_TOOL_LOSS_ALIASES: dict[str, str] = {
     "iplddt": "i_plddt",
     "ipae": "i_pae",
     "iptm": "i_ptm",
 }
-AF2_MULTIMER_CANONICAL_LOSS_ALIASES: dict[str, str] = {
-    tool_key: canonical_key for canonical_key, tool_key in AF2_MULTIMER_TOOL_LOSS_ALIASES.items()
+AF2_BINDER_CANONICAL_LOSS_ALIASES: dict[str, str] = {
+    tool_key: canonical_key for canonical_key, tool_key in AF2_BINDER_TOOL_LOSS_ALIASES.items()
 }
-# ColabDesign normalizes AF2M PAE/iPAE losses by 31.0, matching its
+# ColabDesign normalizes AF2 binder PAE/iPAE losses by 31.0, matching its
 # predicted-aligned-error head's max_error_bin. Keep this tool-specific scale
 # separate from the generic predictor PAE normalization constant of 31.75
 # Angstroms used in structure_confidence_constraint.py.
-AF2_MULTIMER_PAE_MAXIMUM: float = 31.0
-AF2_MULTIMER_TOOL_OBJECTIVE_KEYS: frozenset[str] = frozenset(
+AF2_BINDER_PAE_MAXIMUM: float = 31.0
+AF2_BINDER_TOOL_OBJECTIVE_KEYS: frozenset[str] = frozenset(
     {
         "plddt",
         "i_plddt",
@@ -72,9 +74,9 @@ AF2_MULTIMER_TOOL_OBJECTIVE_KEYS: frozenset[str] = frozenset(
         "NC",
     }
 )
-AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC: dict[str, str | None] = {
+AF2_BINDER_CONFIDENCE_LOSS_BY_METRIC: dict[str, str | None] = {
     "avg_plddt": "plddt",
-    # AF2 Multimer reports global pTM as a metric, but ColabDesign does not expose
+    # The AF2 model reports global pTM as a metric, but ColabDesign does not expose
     # a separate pTM loss key here. Forward structure-ptm therefore runs a
     # metric-only prediction with empty loss_weights and reads ``ptm`` directly.
     "ptm": None,
@@ -85,8 +87,8 @@ AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC: dict[str, str | None] = {
 }
 
 
-class AF2MultimerPrediction(BaseModel):
-    """Forward AF2 multimer result in proto-language canonical terms."""
+class AF2BinderPrediction(BaseModel):
+    """Forward AF2 binder result in proto-language canonical terms."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
@@ -96,7 +98,7 @@ class AF2MultimerPrediction(BaseModel):
     structures: tuple[Structure | None, ...]
 
 
-def next_af2_multimer_seed(config: AlphaFold2MultimerStructureConfig) -> int | None:
+def next_af2_binder_seed(config: AlphaFold2BinderStructureConfig) -> int | None:
     """Derive deterministic per-evaluation AF2 seeds without replaying one RNG state."""
     if config.seed is None:
         return None
@@ -105,33 +107,33 @@ def next_af2_multimer_seed(config: AlphaFold2MultimerStructureConfig) -> int | N
     return seed
 
 
-def validate_af2_multimer_inputs(
+def validate_af2_binder_inputs(
     proposal_tuple: tuple[Sequence, ...],
-    config: AlphaFold2MultimerStructureConfig,
+    config: AlphaFold2BinderStructureConfig,
 ) -> None:
-    """Validate AF2 multimer role indices and protein-only inputs."""
+    """Validate AF2 binder role indices and protein-only inputs."""
     n_inputs = len(proposal_tuple)
     all_indices = [config.binder_input_index, *config.target_input_indices]
     out_of_bounds = [idx for idx in all_indices if idx >= n_inputs]
     if out_of_bounds:
-        raise ValueError(f"AF2 multimer input indices {out_of_bounds} out of bounds for {n_inputs} input(s).")
+        raise ValueError(f"AF2 binder input indices {out_of_bounds} out of bounds for {n_inputs} input(s).")
     for idx in all_indices:
         if proposal_tuple[idx].sequence_type != "protein":
             raise TypeError(
-                f"AF2 multimer structure constraints support protein inputs only; "
+                f"AF2 binder structure constraints support protein inputs only; "
                 f"input {idx} has type {proposal_tuple[idx].sequence_type!r}."
             )
 
 
-def af2_multimer_confidence_loss_weights(target_metric: str) -> dict[str, float]:
+def af2_binder_confidence_loss_weights(target_metric: str) -> dict[str, float]:
     """Return the AF2 objective weights needed to expose one confidence metric."""
-    if target_metric not in AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC:
+    if target_metric not in AF2_BINDER_CONFIDENCE_LOSS_BY_METRIC:
         return {}
-    loss_key = AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC[target_metric]
+    loss_key = AF2_BINDER_CONFIDENCE_LOSS_BY_METRIC[target_metric]
     return {loss_key: 1.0} if loss_key is not None else {}
 
 
-def canonical_af2_multimer_metrics(output_metrics: dict[str, Any]) -> dict[str, Any]:
+def canonical_af2_binder_metrics(output_metrics: dict[str, Any]) -> dict[str, Any]:
     """Return AF2 outputs as predictor-like metrics plus objective terms.
 
     Predictor-style confidence values use the same names as other structure
@@ -145,11 +147,11 @@ def canonical_af2_multimer_metrics(output_metrics: dict[str, Any]) -> dict[str, 
     for key, value in output_metrics.items():
         if key.startswith("loss_"):
             loss_key = key.removeprefix("loss_")
-            canonical_key = "loss_" + AF2_MULTIMER_CANONICAL_LOSS_ALIASES.get(loss_key, loss_key)
-        elif key in AF2_MULTIMER_TOOL_OBJECTIVE_KEYS:
-            canonical_key = "loss_" + AF2_MULTIMER_CANONICAL_LOSS_ALIASES.get(key, key)
+            canonical_key = "loss_" + AF2_BINDER_CANONICAL_LOSS_ALIASES.get(loss_key, loss_key)
+        elif key in AF2_BINDER_TOOL_OBJECTIVE_KEYS:
+            canonical_key = "loss_" + AF2_BINDER_CANONICAL_LOSS_ALIASES.get(key, key)
         else:
-            canonical_key = AF2_MULTIMER_CANONICAL_LOSS_ALIASES.get(key, key)
+            canonical_key = AF2_BINDER_CANONICAL_LOSS_ALIASES.get(key, key)
         metrics[canonical_key] = value
 
     loss_plddt = _metric_float(metrics, "loss_plddt")
@@ -162,7 +164,7 @@ def canonical_af2_multimer_metrics(output_metrics: dict[str, Any]) -> dict[str, 
 
     loss_pae = _metric_float(metrics, "loss_pae")
     if "avg_pae" not in metrics and loss_pae is not None:
-        metrics["avg_pae"] = loss_pae * AF2_MULTIMER_PAE_MAXIMUM
+        metrics["avg_pae"] = loss_pae * AF2_BINDER_PAE_MAXIMUM
 
     loss_iplddt = _metric_float(metrics, "loss_iplddt")
     if "iplddt" not in metrics and loss_iplddt is not None:
@@ -170,15 +172,15 @@ def canonical_af2_multimer_metrics(output_metrics: dict[str, Any]) -> dict[str, 
 
     loss_ipae = _metric_float(metrics, "loss_ipae")
     if "ipae" not in metrics and loss_ipae is not None:
-        metrics["ipae"] = loss_ipae * AF2_MULTIMER_PAE_MAXIMUM
+        metrics["ipae"] = loss_ipae * AF2_BINDER_PAE_MAXIMUM
 
     return metrics
 
 
-def af2_multimer_structures(
-    output_structure: Structure, config: AlphaFold2MultimerStructureConfig, n_inputs: int
+def af2_binder_structures(
+    output_structure: Structure, config: AlphaFold2BinderStructureConfig, n_inputs: int
 ) -> tuple[Structure | None, ...]:
-    """Return per-input structures from an AF2 multimer complex.
+    """Return per-input structures from an AF2 binder complex.
 
     Output chains are positional (targets A..N-1; de-novo binder next: N=1 -> "B", N=2 -> "C"),
     not the source-PDB ``target_chains`` ids. An explicit ``binder_chain`` (redesign) is used as-is.
@@ -198,7 +200,7 @@ def af2_multimer_structures(
     return tuple(structures)
 
 
-def af2_multimer_constraint_output_metadata(
+def af2_binder_constraint_output_metadata(
     output_metrics: dict[str, Any],
     *,
     output_loss: float,
@@ -206,69 +208,69 @@ def af2_multimer_constraint_output_metadata(
     loss_key: str,
     group_loss: float | None = None,
 ) -> dict[str, Any]:
-    """Build metadata for an AF2 multimer-backed structure constraint result."""
-    metrics = canonical_af2_multimer_metrics(output_metrics)
+    """Build metadata for an AF2 binder-backed structure constraint result."""
+    metrics = canonical_af2_binder_metrics(output_metrics)
     metadata = {
         **metrics,
         "af2_loss_key": loss_key,
         "loss": output_loss,
         "pdb_output": output_structure.structure_pdb,
-        "structure_tool": "alphafold2_multimer",
+        "structure_tool": "alphafold2_binder",
     }
     if group_loss is not None:
         metadata["af2_group_loss"] = group_loss
     return metadata
 
 
-def af2_multimer_confidence_output_metadata(
+def af2_binder_confidence_output_metadata(
     output_metrics: dict[str, Any],
     *,
     output_loss: float,
     output_structure: Structure,
     target_metric: str,
 ) -> dict[str, Any]:
-    """Build metadata for an AF2 multimer-backed confidence constraint result."""
-    loss_key = AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC.get(target_metric)
+    """Build metadata for an AF2 binder-backed confidence constraint result."""
+    loss_key = AF2_BINDER_CONFIDENCE_LOSS_BY_METRIC.get(target_metric)
     if loss_key is not None:
-        return af2_multimer_constraint_output_metadata(
+        return af2_binder_constraint_output_metadata(
             output_metrics,
             output_loss=output_loss,
             output_structure=output_structure,
             loss_key=loss_key,
         )
 
-    metrics = canonical_af2_multimer_metrics(output_metrics)
+    metrics = canonical_af2_binder_metrics(output_metrics)
     return {
         **metrics,
         "loss": output_loss,
         "pdb_output": output_structure.structure_pdb,
-        "structure_tool": "alphafold2_multimer",
+        "structure_tool": "alphafold2_binder",
     }
 
 
-def evaluate_af2_multimer_predictions(
+def evaluate_af2_binder_predictions(
     proposals: list[tuple[Sequence, ...]],
     config: StructureBasedConstraintConfig,
     *,
     loss_weights: dict[str, float],
-) -> list[AF2MultimerPrediction]:
-    """Run forward AF2 multimer predictions and return canonical metrics.
+) -> list[AF2BinderPrediction]:
+    """Run forward AF2 binder predictions and return canonical metrics.
 
     This is the forward-only adapter shared by confidence constraints and
     raw AF2 objective constraints. Public constraints should stay expressed in
     biological terms; this helper owns the current proto-tools binder protocol
     call shape, canonical loss-key translation, and per-chain structure split.
     """
-    af2_config = config.alphafold2_multimer_config
-    unsupported = sorted(set(loss_weights) - AF2_MULTIMER_LOSS_TERMS)
+    af2_config = config.alphafold2_binder_config
+    unsupported = sorted(set(loss_weights) - AF2_BINDER_LOSS_TERMS)
     if unsupported:
-        raise ValueError(f"AF2 multimer loss key(s) {unsupported!r} are not supported.")
+        raise ValueError(f"AF2 binder loss key(s) {unsupported!r} are not supported.")
 
-    predictions: list[AF2MultimerPrediction] = []
+    predictions: list[AF2BinderPrediction] = []
     for proposal_tuple in proposals:
-        validate_af2_multimer_inputs(proposal_tuple, af2_config)
+        validate_af2_binder_inputs(proposal_tuple, af2_config)
         binder_seq = proposal_tuple[af2_config.binder_input_index]
-        evaluation_seed = next_af2_multimer_seed(af2_config)
+        evaluation_seed = next_af2_binder_seed(af2_config)
         output = run_alphafold2_gradient(
             AlphaFold2GradientInput(
                 logits=one_hot_protein_matrix(binder_seq.sequence),
@@ -291,7 +293,7 @@ def evaluate_af2_multimer_predictions(
                 rm_target_sc=af2_config.rm_target_sc,
                 rm_template_ic=af2_config.rm_template_ic,
                 loss_weights={
-                    AF2_MULTIMER_TOOL_LOSS_ALIASES.get(key, key): weight for key, weight in loss_weights.items()
+                    AF2_BINDER_TOOL_LOSS_ALIASES.get(key, key): weight for key, weight in loss_weights.items()
                 },
                 intra_contact_num=af2_config.intra_contact_num,
                 intra_contact_cutoff=af2_config.intra_contact_cutoff,
@@ -306,45 +308,45 @@ def evaluate_af2_multimer_predictions(
                 compute_gradient=False,
             ),
         )
-        metrics = canonical_af2_multimer_metrics(output.metrics)
+        metrics = canonical_af2_binder_metrics(output.metrics)
         predictions.append(
-            AF2MultimerPrediction(
+            AF2BinderPrediction(
                 loss=output.loss,
                 metrics=metrics,
                 structure=output.structure,
-                structures=af2_multimer_structures(output.structure, af2_config, len(proposal_tuple)),
+                structures=af2_binder_structures(output.structure, af2_config, len(proposal_tuple)),
             )
         )
     return predictions
 
 
-def evaluate_af2_multimer_confidence_predictions(
+def evaluate_af2_binder_confidence_predictions(
     proposals: list[tuple[Sequence, ...]],
     config: StructureBasedConstraintConfig,
     *,
     target_metric: str,
-) -> list[AF2MultimerPrediction]:
-    """Run AF2 multimer with the objective needed for a confidence metric."""
-    return evaluate_af2_multimer_predictions(
+) -> list[AF2BinderPrediction]:
+    """Run AF2 binder with the objective needed for a confidence metric."""
+    return evaluate_af2_binder_predictions(
         proposals,
         config,
-        loss_weights=af2_multimer_confidence_loss_weights(target_metric),
+        loss_weights=af2_binder_confidence_loss_weights(target_metric),
     )
 
 
-def evaluate_af2_multimer_loss_constraint(
+def evaluate_af2_binder_loss_constraint(
     proposals: list[tuple[Sequence, ...]],
     config: StructureBasedConstraintConfig,
     loss_key: str,
 ) -> list[ConstraintOutput]:
-    """Forward-score one AF2 multimer loss term for each proposal."""
-    if loss_key not in AF2_MULTIMER_LOSS_TERMS:
-        raise ValueError(f"AF2 multimer loss key {loss_key!r} is not supported.")
+    """Forward-score one AF2 binder loss term for each proposal."""
+    if loss_key not in AF2_BINDER_LOSS_TERMS:
+        raise ValueError(f"AF2 binder loss key {loss_key!r} is not supported.")
 
     return [
         ConstraintOutput(
             score=prediction.loss,
-            metadata=af2_multimer_constraint_output_metadata(
+            metadata=af2_binder_constraint_output_metadata(
                 prediction.metrics,
                 output_loss=prediction.loss,
                 output_structure=prediction.structure,
@@ -352,7 +354,7 @@ def evaluate_af2_multimer_loss_constraint(
             ),
             structures=prediction.structures,
         )
-        for prediction in evaluate_af2_multimer_predictions(proposals, config, loss_weights={loss_key: 1.0})
+        for prediction in evaluate_af2_binder_predictions(proposals, config, loss_weights={loss_key: 1.0})
     ]
 
 

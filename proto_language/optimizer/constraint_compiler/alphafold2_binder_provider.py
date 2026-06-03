@@ -1,15 +1,15 @@
-"""AF2 multimer adapter for the private constraint compiler.
+"""AF2 binder adapter for the private constraint compiler.
 
 The public protein-structure constraints expose model-agnostic biological
 objectives such as pLDDT, iPAE, contacts, and secondary-structure preferences.
-The AF2 multimer tool API is different: it accepts one target/binder tool call
+The AF2 binder tool API is different: it accepts one target/binder tool call
 with backend-specific loss keys and can return either a grouped scalar score or
 one gradient for the weighted sum of requested losses.
 
 This module is the translation layer between those two shapes. It maps public
-constraint functions to AF2M loss keys, validates that a constraint can be used
+constraint functions to AF2 binder loss keys, validates that a constraint can be used
 as a differentiable binder objective, groups compatible constraints into a
-single AF2M call, and writes the per-public-constraint metadata expected by the
+single AF2 binder call, and writes the per-public-constraint metadata expected by the
 rest of the language layer.
 """
 
@@ -39,7 +39,7 @@ from proto_language.constraint.protein_structure.structure_confidence_constraint
     structure_ptm_constraint,
 )
 from proto_language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     StructureBasedConstraintConfig,
 )
 from proto_language.constraint.protein_structure.structure_geometry_constraint import (
@@ -61,20 +61,20 @@ from proto_language.optimizer.constraint_compiler.base import (
     raise_for_failed_tool_output,
 )
 from proto_language.utils import one_hot_protein_matrix
-from proto_language.utils.alphafold2_multimer import (
-    AF2_MULTIMER_TOOL_LOSS_ALIASES,
-    af2_multimer_constraint_output_metadata,
-    af2_multimer_structures,
-    next_af2_multimer_seed,
-    validate_af2_multimer_inputs,
+from proto_language.utils.alphafold2_binder import (
+    AF2_BINDER_TOOL_LOSS_ALIASES,
+    af2_binder_constraint_output_metadata,
+    af2_binder_structures,
+    next_af2_binder_seed,
+    validate_af2_binder_inputs,
 )
 
 logger = logging.getLogger(__name__)
 
-# Compiler-private mapping from public biological constraints to AF2 multimer
+# Compiler-private mapping from public biological constraints to AF2 binder
 # objective keys. Keeping this table in the compiler package avoids adding
 # backend execution details to the public constraint functions.
-AF2_MULTIMER_STRUCTURE_LOSS_BY_FUNCTION = {
+AF2_BINDER_STRUCTURE_LOSS_BY_FUNCTION = {
     structure_plddt_constraint: "plddt",
     structure_iptm_constraint: "iptm",
     structure_pae_constraint: "pae",
@@ -117,11 +117,11 @@ def _target_pdb_group_identity(target_pdb: str) -> tuple[str, ...]:
     return ("file_sha256", path.suffix.lower(), _file_sha256(str(path), stat_result.st_size, stat_result.st_mtime_ns))
 
 
-class AF2MultimerGradientProvider(GradientProvider):
-    """Grouped AF2 multimer provider for multiple public structure terms.
+class AF2BinderGradientProvider(GradientProvider):
+    """Grouped AF2 binder provider for multiple public structure terms.
 
-    AF2M currently illustrates the compiled-backend pattern: constraints that
-    share inputs and AF2M config are aggregated into one weighted tool call, and
+    AF2 binder currently illustrates the compiled-backend pattern: constraints that
+    share inputs and AF2 binder config are aggregated into one weighted tool call, and
     the returned grouped gradient is used by the optimizer.
     """
 
@@ -129,16 +129,16 @@ class AF2MultimerGradientProvider(GradientProvider):
         self,
         *,
         constraints: list[CompiledConstraint],
-        config: AlphaFold2MultimerStructureConfig,
+        config: AlphaFold2BinderStructureConfig,
         inputs: list[Segment],
     ):
-        """Create a grouped AF2M gradient provider.
+        """Create a grouped AF2 binder gradient provider.
 
         Args:
-            constraints (list[CompiledConstraint]): Compiled public constraints to include in the AF2M
+            constraints (list[CompiledConstraint]): Compiled public constraints to include in the AF2 binder
                 weighted loss. The list may be empty during construction and
                 populated by ``add_gradient_constraint``.
-            config (AlphaFold2MultimerStructureConfig): AF2M-specific structure config shared by every constraint
+            config (AlphaFold2BinderStructureConfig): AF2 binder-specific structure config shared by every constraint
                 in the group.
             inputs (list[Segment]): Ordered target/binder segments for the grouped tool call.
                 Their identities are part of the compiler grouping key.
@@ -157,19 +157,19 @@ class AF2MultimerGradientProvider(GradientProvider):
         step: int,
         effective_weight: EffectiveWeight,
     ) -> GradientProviderOutput:
-        """Run AF2M gradients for every proposal in the grouped constraint set.
+        """Run AF2 binder gradients for every proposal in the grouped constraint set.
 
-        AF2M returns one gradient for a weighted sum of loss terms, not one
+        AF2 binder returns one gradient for a weighted sum of loss terms, not one
         gradient per public constraint. This method builds the current
-        step-dependent ``loss_weights`` map, executes one AF2M gradient call per
+        step-dependent ``loss_weights`` map, executes one AF2 binder gradient call per
         proposal, and returns the grouped gradient to the optimizer. It also
         writes per-constraint metadata using each term's scalar metric/loss so
         downstream reporting still sees the original public constraints.
 
         Args:
-            temperature (float): Relaxed-sequence sampling temperature passed to AF2M.
-            soft (float): Soft sequence coefficient for the AF2M differentiable call.
-            hard (float): Hard sequence coefficient for the AF2M differentiable call.
+            temperature (float): Relaxed-sequence sampling temperature passed to AF2 binder.
+            soft (float): Soft sequence coefficient for the AF2 binder differentiable call.
+            hard (float): Hard sequence coefficient for the AF2 binder differentiable call.
             step (int): Optimizer step used to evaluate scheduled constraint weights.
             effective_weight (EffectiveWeight): Callback returning each public constraint's
                 current scalar weight.
@@ -178,7 +178,7 @@ class AF2MultimerGradientProvider(GradientProvider):
             GradientProviderOutput: Proposal-aligned grouped gradients and grouped weighted losses.
 
         Raises:
-            RuntimeError: If a binder proposal has no logits or the AF2M tool
+            RuntimeError: If a binder proposal has no logits or the AF2 binder tool
                 does not return a gradient for a gradient request.
         """
         loss_weights = _sum_weights_by_objective_key(
@@ -191,7 +191,7 @@ class AF2MultimerGradientProvider(GradientProvider):
 
         for proposal_idx in range(num_proposals):
             proposal_tuple = tuple(segment.proposal_sequences[proposal_idx] for segment in self.inputs)
-            validate_af2_multimer_inputs(proposal_tuple, self.config)
+            validate_af2_binder_inputs(proposal_tuple, self.config)
             binder_seq = proposal_tuple[binder_slot]
             if binder_seq.logits is None:
                 raise RuntimeError(f"{self.label} proposal {proposal_idx}: binder input is missing logits.")
@@ -201,7 +201,7 @@ class AF2MultimerGradientProvider(GradientProvider):
                 losses.append(0.0)
                 continue
 
-            evaluation_seed = next_af2_multimer_seed(self.config)
+            evaluation_seed = next_af2_binder_seed(self.config)
             output = run_alphafold2_gradient(
                 AlphaFold2GradientInput(
                     logits=binder_seq.logits.tolist(),
@@ -225,7 +225,7 @@ class AF2MultimerGradientProvider(GradientProvider):
                     rm_target_sc=self.config.rm_target_sc,
                     rm_template_ic=self.config.rm_template_ic,
                     loss_weights={
-                        AF2_MULTIMER_TOOL_LOSS_ALIASES.get(key, key): weight for key, weight in loss_weights.items()
+                        AF2_BINDER_TOOL_LOSS_ALIASES.get(key, key): weight for key, weight in loss_weights.items()
                     },
                     intra_contact_num=self.config.intra_contact_num,
                     intra_contact_cutoff=self.config.intra_contact_cutoff,
@@ -240,17 +240,17 @@ class AF2MultimerGradientProvider(GradientProvider):
                     compute_gradient=True,
                 ),
             )
-            raise_for_failed_tool_output(output, "AF2 multimer gradient")
+            raise_for_failed_tool_output(output, "AF2 binder gradient")
             if output.gradient is None:
-                raise RuntimeError("AF2 multimer compute_gradient=True must populate output.gradient.")
+                raise RuntimeError("AF2 binder compute_gradient=True must populate output.gradient.")
 
             gradients.append(np.array(output.gradient, dtype=np.float64))
             losses.append(output.loss)
-            structures = af2_multimer_structures(output.structure, self.config, len(self.inputs))
+            structures = af2_binder_structures(output.structure, self.config, len(self.inputs))
 
             for compiled in self.constraints:
                 score = _term_score(output.metrics, compiled.objective_key, output.loss)
-                metadata = af2_multimer_constraint_output_metadata(
+                metadata = af2_binder_constraint_output_metadata(
                     output.metrics,
                     output_loss=score,
                     output_structure=output.structure,
@@ -273,28 +273,28 @@ class AF2MultimerGradientProvider(GradientProvider):
 
 
 def objective_key_for_constraint(constraint: Constraint) -> str | None:
-    """Return the AF2M loss key that implements ``constraint``.
+    """Return the AF2 binder loss key that implements ``constraint``.
 
     The key is derived from the constraint function object rather than from a
     string label. That keeps the registry close to the implementation and avoids
-    accepting lookalike user labels that are not actually backed by AF2M.
+    accepting lookalike user labels that are not actually backed by AF2 binder.
 
     Args:
         constraint (Constraint): Public constraint to inspect.
 
     Returns:
-        str | None: AF2M loss key for compiler-backed constraints.
-            Returns ``None`` when the constraint is not backed by AF2M.
+        str | None: AF2 binder loss key for compiler-backed constraints.
+            Returns ``None`` when the constraint is not backed by AF2 binder.
     """
     if constraint.function is None:
         return None
-    return AF2_MULTIMER_STRUCTURE_LOSS_BY_FUNCTION.get(constraint.function)
+    return AF2_BINDER_STRUCTURE_LOSS_BY_FUNCTION.get(constraint.function)
 
 
 def unsupported_gradient_reason(constraint: Constraint) -> str | None:
-    """Return a targeted differentiability error for known AF2M exclusions.
+    """Return a targeted differentiability error for known AF2 binder exclusions.
 
-    Some AF2M-backed forward metrics are valid for scoring but should not be
+    Some AF2 binder-backed forward metrics are valid for scoring but should not be
     presented as differentiable objectives. This helper lets compiler preflight
     report a precise error instead of the generic "no gradient" message.
 
@@ -302,13 +302,13 @@ def unsupported_gradient_reason(constraint: Constraint) -> str | None:
         constraint (Constraint): Constraint that failed objective-key lookup.
 
     Returns:
-        str | None: User-facing explanation for known AF2M-forward-only cases.
+        str | None: User-facing explanation for known AF2 binder-forward-only cases.
             Returns ``None`` when there is no targeted message.
     """
     config = config_for_constraint(constraint) if constraint.function is structure_ptm_constraint else None
-    if config is not None and config.structure_tool == "alphafold2_multimer":
+    if config is not None and config.structure_tool == "alphafold2_binder":
         return (
-            "structure-ptm with structure_tool='alphafold2_multimer' is not differentiable; "
+            "structure-ptm with structure_tool='alphafold2_binder' is not differentiable; "
             "use structure-iptm for AF2 iptm."
         )
     return None
@@ -362,9 +362,9 @@ def validate_gradient_constraint(
     target_segment: Segment,
     config: StructureBasedConstraintConfig,
 ) -> None:
-    """Validate that a constraint can be an AF2M binder-gradient objective.
+    """Validate that a constraint can be an AF2 binder binder-gradient objective.
 
-    Gradient execution is only valid for AF2M constraints where the optimizer's
+    Gradient execution is only valid for AF2 binder constraints where the optimizer's
     target segment is the configured binder input. Target inputs are treated as
     fixed context from ``target_pdb``/chains, while the binder proposal supplies
     logits to optimize. This function also rejects filter constraints because
@@ -376,17 +376,17 @@ def validate_gradient_constraint(
         config (StructureBasedConstraintConfig): Parsed structure config for the constraint.
 
     Raises:
-        ValueError: If the structure tool is not AF2M, the constraint is a
+        ValueError: If the structure tool is not AF2 binder, the constraint is a
             filter, configured input indices are invalid, or the optimizer
             target is not the configured binder segment.
-        TypeError: If any AF2M target/binder segment is not a protein segment.
+        TypeError: If any AF2 binder target/binder segment is not a protein segment.
     """
-    if config.structure_tool != "alphafold2_multimer":
+    if config.structure_tool != "alphafold2_binder":
         raise ValueError(
             f"Constraint '{constraint.label}' is discrete-only with structure_tool={config.structure_tool!r}; "
-            "only structure_tool='alphafold2_multimer' is currently compiler-backed."
+            "only structure_tool='alphafold2_binder' is currently compiler-backed."
         )
-    af2_config = config.alphafold2_multimer_config
+    af2_config = config.alphafold2_binder_config
     if constraint.threshold is not None:
         raise ValueError(f"Constraint '{constraint.label}' is a filter; filters are not differentiable objectives.")
     if af2_config.binder_input_index >= len(constraint.inputs):
@@ -417,16 +417,16 @@ def validate_gradient_constraint(
         segment = constraint.inputs[idx]
         if segment.sequence_type != "protein":
             raise TypeError(
-                f"Constraint '{constraint.label}' uses AF2 multimer gradients, "
+                f"Constraint '{constraint.label}' uses AF2 binder gradients, "
                 f"but input {idx} has sequence_type={segment.sequence_type!r}."
             )
 
 
 def group_key(constraint: Constraint, config: StructureBasedConstraintConfig) -> tuple[Any, ...]:
-    """Build the identity key used to decide which AF2M calls can be grouped.
+    """Build the identity key used to decide which AF2 binder calls can be grouped.
 
-    Two constraints may share one AF2M call only if they reference the same
-    segment objects in the same order and have identical AF2M config content.
+    Two constraints may share one AF2 binder call only if they reference the same
+    segment objects in the same order and have identical AF2 binder config content.
     Runtime seeds are excluded because grouped public objectives intentionally
     share one stochastic AF2 evaluation. Existing target PDB files are keyed by
     content hash so equivalent file references still compile into one provider.
@@ -438,25 +438,25 @@ def group_key(constraint: Constraint, config: StructureBasedConstraintConfig) ->
         config (StructureBasedConstraintConfig): Parsed structure config for the constraint.
 
     Returns:
-        tuple[Any, ...]: Hashable key combining input identities and serialized AF2M config.
+        tuple[Any, ...]: Hashable key combining input identities and serialized AF2 binder config.
     """
     input_ids = tuple(id(segment) for segment in constraint.inputs)
-    config_payload = config.alphafold2_multimer_config.model_dump(mode="json", exclude={"seed", "target_pdb"})
-    target_pdb = config.alphafold2_multimer_config.target_pdb
+    config_payload = config.alphafold2_binder_config.model_dump(mode="json", exclude={"seed", "target_pdb"})
+    target_pdb = config.alphafold2_binder_config.target_pdb
     target_pdb_identity = _target_pdb_group_identity(target_pdb)
     config_json = json.dumps(config_payload, sort_keys=True)
     return (*input_ids, target_pdb_identity, config_json)
 
 
-def add_gradient_constraint(provider: AF2MultimerGradientProvider, compiled: CompiledConstraint) -> None:
-    """Attach one compiled public constraint to an existing AF2M provider.
+def add_gradient_constraint(provider: AF2BinderGradientProvider, compiled: CompiledConstraint) -> None:
+    """Attach one compiled public constraint to an existing AF2 binder provider.
 
     Providers are created when the compiler first sees a compatible group key,
     then subsequent compatible constraints are appended. The label is refreshed
     so logs and errors show the full grouped set.
 
     Args:
-        provider (AF2MultimerGradientProvider): Provider to mutate.
+        provider (AF2BinderGradientProvider): Provider to mutate.
         compiled (CompiledConstraint): Compiled public constraint to append.
     """
     provider.constraints.append(compiled)
@@ -468,34 +468,34 @@ def can_group_scoring_constraint(
     objective_key: str | None,
     config: StructureBasedConstraintConfig | None,
 ) -> bool:
-    """Return whether ``constraint`` can join a grouped AF2M forward call.
+    """Return whether ``constraint`` can join a grouped AF2 binder forward call.
 
     Forward grouping is intentionally narrower than ordinary evaluation: the
-    constraint must map to an AF2M objective, have parseable AF2M config, use
-    ``structure_tool='alphafold2_multimer'``, and be a scoring objective rather
+    constraint must map to an AF2 binder objective, have parseable AF2 binder config, use
+    ``structure_tool='alphafold2_binder'``, and be a scoring objective rather
     than a threshold filter. Filters keep their normal direct evaluation path so
     pass/fail semantics remain unchanged.
 
     Args:
         constraint (Constraint): Public scoring constraint being considered.
-        objective_key (str | None): AF2M objective key from ``objective_key_for_constraint``.
+        objective_key (str | None): AF2 binder objective key from ``objective_key_for_constraint``.
         config (StructureBasedConstraintConfig | None): Parsed structure config, if available.
 
     Returns:
-        bool: Whether the constraint is eligible for grouped AF2M scoring.
+        bool: Whether the constraint is eligible for grouped AF2 binder scoring.
     """
     return (
         objective_key is not None
         and config is not None
-        and config.structure_tool == "alphafold2_multimer"
+        and config.structure_tool == "alphafold2_binder"
         and constraint.threshold is None
     )
 
 
 def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask: list[bool]) -> list[float]:
-    """Evaluate a compatible group of AF2M scoring constraints.
+    """Evaluate a compatible group of AF2 binder scoring constraints.
 
-    The AF2M tool returns the weighted sum of the requested loss terms for each
+    The AF2 binder tool returns the weighted sum of the requested loss terms for each
     evaluated proposal. That grouped loss is returned to the optimizer's forward
     scoring path, while per-term metadata is written back to every public
     constraint in ``compiled_constraints``. Skipped proposals preserve ``NaN``
@@ -503,7 +503,7 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
 
     Args:
         compiled_constraints (list[CompiledConstraint]): Non-empty compatible group produced by the
-            compiler. All entries must share inputs and AF2M config.
+            compiler. All entries must share inputs and AF2 binder config.
         mask (list[bool]): Proposal-level evaluation mask. ``False`` entries are skipped.
 
     Returns:
@@ -517,7 +517,7 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
     config_model = config_for_constraint(first_constraint, strict=True)
     if config_model is None:
         raise ValueError(f"Constraint '{first_constraint.label}' must use StructureBasedConstraintConfig.")
-    config = config_model.alphafold2_multimer_config
+    config = config_model.alphafold2_binder_config
     inputs = first_constraint.inputs
     num_proposals = inputs[0].num_proposals
     scores = [float("nan")] * num_proposals
@@ -529,9 +529,9 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
         if not should_eval:
             continue
         proposal_tuple = tuple(segment.proposal_sequences[proposal_idx] for segment in inputs)
-        validate_af2_multimer_inputs(proposal_tuple, config)
+        validate_af2_binder_inputs(proposal_tuple, config)
         binder_seq = proposal_tuple[config.binder_input_index]
-        evaluation_seed = next_af2_multimer_seed(config)
+        evaluation_seed = next_af2_binder_seed(config)
         output = run_alphafold2_gradient(
             AlphaFold2GradientInput(
                 logits=one_hot_protein_matrix(binder_seq.sequence),
@@ -554,7 +554,7 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
                 rm_target_sc=config.rm_target_sc,
                 rm_template_ic=config.rm_template_ic,
                 loss_weights={
-                    AF2_MULTIMER_TOOL_LOSS_ALIASES.get(key, key): weight for key, weight in loss_weights.items()
+                    AF2_BINDER_TOOL_LOSS_ALIASES.get(key, key): weight for key, weight in loss_weights.items()
                 },
                 intra_contact_num=config.intra_contact_num,
                 intra_contact_cutoff=config.intra_contact_cutoff,
@@ -570,10 +570,10 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
             ),
         )
         scores[proposal_idx] = output.loss
-        structures = af2_multimer_structures(output.structure, config, len(inputs))
+        structures = af2_binder_structures(output.structure, config, len(inputs))
         for compiled in compiled_constraints:
             term_score = _term_score(output.metrics, compiled.objective_key, output.loss)
-            metadata = af2_multimer_constraint_output_metadata(
+            metadata = af2_binder_constraint_output_metadata(
                 output.metrics,
                 output_loss=term_score,
                 output_structure=output.structure,
@@ -596,14 +596,14 @@ def evaluate_scoring_group(compiled_constraints: list[CompiledConstraint], mask:
 
 
 def _provider_label(constraints: list[CompiledConstraint]) -> str:
-    """Return the grouped AF2M provider label shown in optimizer traces."""
-    return "af2_multimer[" + ",".join(c.constraint.label for c in constraints) + "]"
+    """Return the grouped AF2 binder provider label shown in optimizer traces."""
+    return "af2_binder[" + ",".join(c.constraint.label for c in constraints) + "]"
 
 
 def _term_score(metrics: dict[str, Any], objective_key: str, fallback: float) -> float:
-    """Extract the scalar score for one AF2M objective from tool metrics.
+    """Extract the scalar score for one AF2 binder objective from tool metrics.
 
-    AF2M/ColabDesign exposes some terms under several spellings: raw objective
+    AF2 binder/ColabDesign exposes some terms under several spellings: raw objective
     keys, ``loss_*`` keys, and normalized tool loss keys such as ``i_con``.
     This helper centralizes that lookup so forward scoring and gradient metadata
     use the same per-term scalar. If no specific metric is present, the grouped
@@ -611,14 +611,14 @@ def _term_score(metrics: dict[str, Any], objective_key: str, fallback: float) ->
     per-constraint metadata may be less specific than requested.
 
     Args:
-        metrics (dict[str, Any]): Metrics dictionary returned by the AF2M tool.
+        metrics (dict[str, Any]): Metrics dictionary returned by the AF2 binder tool.
         objective_key (str): Compiler objective key for the public constraint.
         fallback (float): Grouped loss to use when no per-term metric is found.
 
     Returns:
         float: Per-term scalar score/loss.
     """
-    tool_loss_key = AF2_MULTIMER_TOOL_LOSS_ALIASES.get(objective_key, objective_key)
+    tool_loss_key = AF2_BINDER_TOOL_LOSS_ALIASES.get(objective_key, objective_key)
     candidate_keys = [f"loss_{objective_key}", f"loss_{tool_loss_key}", tool_loss_key, objective_key]
     if tool_loss_key == objective_key:
         candidate_keys = [objective_key, f"loss_{objective_key}"]
@@ -630,7 +630,7 @@ def _term_score(metrics: dict[str, Any], objective_key: str, fallback: float) ->
             return float(value)
     numeric_keys = sorted(key for key, value in metrics.items() if isinstance(value, int | float))
     logger.warning(
-        "AF2 multimer metrics did not include a per-term score for objective %r. "
+        "AF2 binder metrics did not include a per-term score for objective %r. "
         "Checked keys: %s. Available numeric metric keys: %s. "
         "Using grouped loss for that constraint's metadata score.",
         objective_key,

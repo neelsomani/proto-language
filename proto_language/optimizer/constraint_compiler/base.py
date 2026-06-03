@@ -2,7 +2,7 @@
 
 These types form the contract between the optimizer-facing compiler
 (``compiler.py``) and per-backend provider implementations such as
-``alphafold2_multimer_provider.py``. Hosting them in a leaf module lets both
+``alphafold2_binder_provider.py``. Hosting them in a leaf module lets both
 callers import from one place without circularity, replacing the lazy
 function-local imports that would otherwise be needed.
 """
@@ -47,7 +47,7 @@ class CompiledConstraint:
 
     The compiler keeps this pairing private because the public constraint name
     and backend objective name may be intentionally different vocabularies. For
-    example, a public ``structure-iplddt`` constraint can compile to the AF2M
+    example, a public ``structure-iplddt`` constraint can compile to the AF2 binder
     ``iplddt`` loss key.
 
     Attributes:

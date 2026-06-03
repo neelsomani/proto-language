@@ -1,7 +1,7 @@
 """Generic structure prediction confidence constraints.
 
 Normalizes confidence metrics to be between 0 and 1, inclusive, where lower is
-better (more confident). AlphaFold2 multimer-backed outputs are adapted to the
+better (more confident). AlphaFold2 binder-backed outputs are adapted to the
 same predictor-style metric names as the other structure predictors, while
 ColabDesign objective values are preserved separately in ``loss_*`` metadata.
 
@@ -28,9 +28,9 @@ from proto_language.constraint.protein_structure.structure_constraint_config imp
 )
 from proto_language.core import ConstraintOutput, Sequence
 from proto_language.utils import MAX_ENERGY
-from proto_language.utils.alphafold2_multimer import (
-    af2_multimer_confidence_output_metadata,
-    evaluate_af2_multimer_confidence_predictions,
+from proto_language.utils.alphafold2_binder import (
+    af2_binder_confidence_output_metadata,
+    evaluate_af2_binder_confidence_predictions,
 )
 
 logger = getLogger(__name__)
@@ -47,11 +47,14 @@ TOOL_AVAILABLE_METRICS: dict[str, set[str]] = {
     "boltz2": {"avg_plddt", "ptm", "iptm", "avg_pae"},
     "chai1": {"avg_plddt", "ptm", "iptm", "avg_pae"},
     "protenix": {"avg_plddt", "ptm", "iptm", "avg_pae"},
-    "alphafold2_multimer": {"avg_plddt", "ptm", "iptm", "avg_pae", "iplddt", "ipae"},
+    "alphafold2": {"avg_plddt", "ptm", "iptm", "avg_pae"},
+    "alphafold2_binder": {"avg_plddt", "ptm", "iptm", "avg_pae", "iplddt", "ipae"},
 }
 PAE_MAXIMUM: float = 31.75  # Angstroms.
 COMPOSITE_REQUIRED_METRICS: frozenset[str] = frozenset({"avg_plddt", "iptm", "ptm", "avg_pae"})
-COMPOSITE_SUPPORTED_TOOLS: frozenset[str] = frozenset({"esmfold2", "alphafold3", "boltz2", "chai1", "protenix"})
+COMPOSITE_SUPPORTED_TOOLS: frozenset[str] = frozenset(
+    {"esmfold2", "alphafold3", "boltz2", "chai1", "protenix", "alphafold2"}
+)
 
 
 @dataclass(frozen=True)
@@ -59,10 +62,10 @@ class _StructureConfidenceRecord:
     """One confidence prediction with complex-level metrics and structures.
 
     Most predictors return a ``Structure`` whose metrics and full-complex
-    coordinates are enough. AF2 multimer needs one extra carrier because its
+    coordinates are enough. AF2 binder needs one extra carrier because its
     adapter returns canonical metrics, the full complex for metadata/PDB
     output, and optional per-input chain structures. Keeping those fields
-    together prevents each public confidence constraint from branching on AF2M.
+    together prevents each public confidence constraint from branching on AF2 binder.
     """
 
     metrics: dict[str, Any]
@@ -83,12 +86,12 @@ def _predict_confidence_records(
     """Run the configured confidence predictor once and return canonical records.
 
     Standard structure predictors flow through ``predict_structures`` and
-    return a ``Structure`` per proposal. AF2 multimer uses the binder /
+    return a ``Structure`` per proposal. AF2 binder uses the binder /
     ColabDesign API, so this adapter converts its richer output into the same
     private record shape before metric extraction and scoring happen.
     """
-    if config.structure_tool == "alphafold2_multimer":
-        predictions = evaluate_af2_multimer_confidence_predictions(
+    if config.structure_tool == "alphafold2_binder":
+        predictions = evaluate_af2_binder_confidence_predictions(
             proposals,
             config,
             target_metric=target_metric,
@@ -177,8 +180,8 @@ def _assemble_result(
     """
     if record is None:
         return ConstraintOutput(score=score)
-    if structure_tool == "alphafold2_multimer":
-        metadata = af2_multimer_confidence_output_metadata(
+    if structure_tool == "alphafold2_binder":
+        metadata = af2_binder_confidence_output_metadata(
             record.metrics,
             output_loss=score,
             output_structure=record.complex_structure,
@@ -207,7 +210,8 @@ def _assemble_result(
         "boltz2-prediction",
         "chai1-prediction",
         "protenix-prediction",
-        "alphafold2-multimer",
+        "alphafold2-prediction",
+        "alphafold2-gradient",
     ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -229,7 +233,7 @@ def structure_plddt_constraint(
     Note that for Boltz2, this is based on the ``"complex_plddt"`` score
     returned natively by the package.
 
-    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2 multimer
+    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
@@ -282,7 +286,8 @@ def structure_plddt_constraint(
         "boltz2-prediction",
         "chai1-prediction",
         "protenix-prediction",
-        "alphafold2-multimer",
+        "alphafold2-prediction",
+        "alphafold2-gradient",
     ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -300,7 +305,7 @@ def structure_ptm_constraint(
     This constraint returns ``1.0 - ptm``, so lower scores indicate
     better predicted structure quality.
 
-    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2 multimer
+    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
@@ -350,7 +355,8 @@ def structure_ptm_constraint(
         "boltz2-prediction",
         "chai1-prediction",
         "protenix-prediction",
-        "alphafold2-multimer",
+        "alphafold2-prediction",
+        "alphafold2-gradient",
     ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -369,7 +375,7 @@ def structure_iptm_constraint(
     This constraint returns ``1.0 - iptm``, so lower scores indicate
     better predicted interface quality.
 
-    **Supported tools**: ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2 multimer (NOT ESMFold v1)
+    **Supported tools**: ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder (NOT ESMFold v1)
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
@@ -438,7 +444,8 @@ def structure_iptm_constraint(
         "boltz2-prediction",
         "chai1-prediction",
         "protenix-prediction",
-        "alphafold2-multimer",
+        "alphafold2-prediction",
+        "alphafold2-gradient",
     ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -460,7 +467,7 @@ def structure_pae_constraint(
            by all major structure predictors).
         3. Returns that value without flipping the sign, as lower is better.
 
-    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2 multimer
+    **Supported tools**: ESMFold, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2, AlphaFold2 binder
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
@@ -505,9 +512,9 @@ def structure_pae_constraint(
     key="structure-iplddt",
     label="Structure Interface pLDDT",
     config=StructureBasedConstraintConfig,
-    description="Evaluate AF2 multimer interface pLDDT confidence.",
+    description="Evaluate AF2 binder interface pLDDT confidence.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -515,16 +522,16 @@ def structure_pae_constraint(
 def structure_iplddt_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer interface pLDDT confidence.
+    """Evaluate AF2 binder interface pLDDT confidence.
 
     This reads the predictor-style ``iplddt`` metric exposed through the AF2
-    multimer adapter and returns ``1.0 - iplddt`` so lower scores indicate
+    binder adapter and returns ``1.0 - iplddt`` so lower scores indicate
     better interface-local confidence. The underlying ColabDesign objective is
     still preserved separately as ``loss_iplddt`` metadata.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Per-proposal interface pLDDT confidence scores.
@@ -558,9 +565,9 @@ def structure_iplddt_constraint(
     key="structure-ipae",
     label="Structure Interface pAE",
     config=StructureBasedConstraintConfig,
-    description="Evaluate AF2 multimer interface PAE confidence.",
+    description="Evaluate AF2 binder interface PAE confidence.",
     uses_gpu=True,
-    tools_called=["alphafold2-multimer"],
+    tools_called=["alphafold2-gradient"],
     category="protein_structure",
     supported_sequence_types=["protein"],
     input_labels=None,
@@ -568,16 +575,16 @@ def structure_iplddt_constraint(
 def structure_ipae_constraint(
     input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
 ) -> list[ConstraintOutput]:
-    """Evaluate AF2 multimer interface PAE confidence.
+    """Evaluate AF2 binder interface PAE confidence.
 
     This reads the predictor-style ``ipae`` metric exposed through the AF2
-    multimer adapter and returns normalized interface PAE, so lower scores
+    binder adapter and returns normalized interface PAE, so lower scores
     indicate better interface-local confidence. The underlying ColabDesign
     objective is still preserved separately as ``loss_ipae`` metadata.
 
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal input tuples.
-        config (StructureBasedConstraintConfig): AF2 multimer structure config.
+        config (StructureBasedConstraintConfig): AF2 binder structure config.
 
     Returns:
         list[ConstraintOutput]: Per-proposal interface PAE confidence scores.
@@ -619,6 +626,7 @@ def structure_ipae_constraint(
         "boltz2-prediction",
         "chai1-prediction",
         "protenix-prediction",
+        "alphafold2-prediction",
     ],
     category="protein_structure",
     supported_sequence_types=["protein", "rna", "dna", "ligand"],
@@ -644,9 +652,9 @@ def structure_composite_constraint(
     (one ``predict_structures`` call instead of four) and exposes all metrics
     for post-hoc threshold labeling.
 
-    **Supported tools**: ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix (NOT ESMFold v1 —
+    **Supported tools**: ESMFold2, AlphaFold3, Boltz2, Chai1, Protenix, AlphaFold2 (NOT ESMFold v1 —
     it does not produce ``iptm`` and cannot handle multi-chain complexes, whereas
-    ESMFold2 does both; NOT AF2 multimer because its interface TM value is exposed
+    ESMFold2 does both; NOT AF2 binder because its interface TM value is exposed
     as a differentiable objective rather than the same forward confidence metric
     used here).
 

@@ -20,7 +20,7 @@ from proto_language.constraint.protein_structure.structure_confidence_constraint
     structure_ptm_constraint,
 )
 from proto_language.constraint.protein_structure.structure_constraint_config import (
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     StructureBasedConstraintConfig,
 )
 from proto_language.constraint.protein_structure.structure_ensemble_similarity_constraint import (
@@ -42,7 +42,7 @@ from proto_language.constraint.protein_structure.structure_similarity_constraint
 
 __all__ = [
     "StructureBasedConstraintConfig",
-    "AlphaFold2MultimerStructureConfig",
+    "AlphaFold2BinderStructureConfig",
     "gyration_radius_constraint",
     "structure_rmsd_constraint",
     "structure_tmscore_constraint",

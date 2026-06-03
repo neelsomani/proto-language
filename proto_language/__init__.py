@@ -2,7 +2,7 @@
 
 from proto_language.constraint import (
     AbLangPerplexityConfig,
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     BorzoiChromatinAccessibilityMorseConfig,
     BorzoiTrackActivityConfig,
     BorzoiTrackInterval,
@@ -176,7 +176,7 @@ __all__ = [
     "kmer_frequency_constraint",
     "specific_kmer_constraint",
     # Protein structure constraints
-    "AlphaFold2MultimerStructureConfig",
+    "AlphaFold2BinderStructureConfig",
     "StructureBasedConstraintConfig",
     "structure_plddt_constraint",
     "structure_iplddt_constraint",

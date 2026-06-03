@@ -9,7 +9,7 @@ from proto_tools.entities.structures import Structure
 from proto_tools.tools.structure_scoring.dssp import DSSPSecondaryStructureInput
 
 from examples.bindcraft import run_bindcraft_full as bindcraft
-from proto_language.utils.alphafold2_multimer import af2_multimer_structures
+from proto_language.utils.alphafold2_binder import af2_binder_structures
 from proto_language.utils.scheduling import SCHEDULES
 
 
@@ -17,7 +17,7 @@ def _bindcraft_config() -> bindcraft.BindCraftConfig:
     return bindcraft.BindCraftConfig(target_pdb=Path("target.pdb"), target_chains=["A"], optimise_beta=False)
 
 
-def _af2_config() -> bindcraft.AlphaFold2MultimerStructureConfig:
+def _af2_config() -> bindcraft.AlphaFold2BinderStructureConfig:
     return bindcraft._make_af2_config(
         _bindcraft_config(),
         Path("examples/germinal/pdbs/pdl1.pdb").read_text(),
@@ -76,7 +76,7 @@ def test_af2_constraints_use_public_structure_configs() -> None:
     assert constraints[0].function is bindcraft.structure_plddt_constraint
     assert constraints[1].function is bindcraft.structure_interface_contact_constraint
     assert constraints[0].function_config is not constraints[1].function_config
-    assert constraints[0].function_config.alphafold2_multimer_config is not af2_cfg
+    assert constraints[0].function_config.alphafold2_binder_config is not af2_cfg
 
 
 def test_pyrosetta_scoring_uses_beta_nov16() -> None:
@@ -265,11 +265,11 @@ def test_redesign_perplexity_constraint_scores_binder_not_complex(tmp_path: Path
     assert complex_len > binder_len
 
 
-def test_af2_multimer_structures_selects_chain_b_for_de_novo() -> None:
+def test_af2_binder_structures_selects_chain_b_for_de_novo() -> None:
     """De-novo (binder_chain=None) extracts the binder from output chain 'B'; the target stays 'A'."""
     complex_struct = Structure(structure=Path("examples/germinal/pdbs/pdl1.pdb").read_text())
-    config = bindcraft.AlphaFold2MultimerStructureConfig(binder_chain=None)
-    binder_struct, target_struct = af2_multimer_structures(complex_struct, config, n_inputs=2)
+    config = bindcraft.AlphaFold2BinderStructureConfig(binder_chain=None)
+    binder_struct, target_struct = af2_binder_structures(complex_struct, config, n_inputs=2)
     assert len(binder_struct.get_chain_positions("B")) == 118
     assert len(target_struct.get_chain_positions("A")) == 115
 
@@ -299,18 +299,18 @@ def test_output_chains_positional() -> None:
 
 def test_af2_config_target_input_topologies() -> None:
     """Multi-chain target maps one slot per chain or all chains to one slot; neither raises."""
-    cfg = bindcraft.AlphaFold2MultimerStructureConfig
+    cfg = bindcraft.AlphaFold2BinderStructureConfig
     cfg(target_chains=["A", "B"], target_input_indices=[1, 2], binder_chain=None)  # one slot per chain
     cfg(target_chains=["A", "B"], target_input_indices=[1], binder_chain=None)  # single shared slot
     with pytest.raises(ValueError, match="one-to-one"):
         cfg(target_chains=["A", "B", "C"], target_input_indices=[1, 2], binder_chain=None)
 
 
-def test_af2_multimer_structures_multichain_binder_is_chain_c() -> None:
+def test_af2_binder_structures_multichain_binder_is_chain_c() -> None:
     """Two target chains -> binder is output chain 'C'; the single target slot holds A+B."""
-    config = bindcraft.AlphaFold2MultimerStructureConfig(
+    config = bindcraft.AlphaFold2BinderStructureConfig(
         target_chains=["A", "B"], target_input_indices=[1], binder_chain=None
     )
-    binder_struct, target_struct = af2_multimer_structures(_split_pdl1_two_targets(), config, n_inputs=2)
+    binder_struct, target_struct = af2_binder_structures(_split_pdl1_two_targets(), config, n_inputs=2)
     assert binder_struct.get_chain_ids() == ["C"]
     assert sorted(target_struct.get_chain_ids()) == ["A", "B"]

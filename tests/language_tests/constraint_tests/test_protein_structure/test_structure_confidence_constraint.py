@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from proto_tools import Structure, StructurePredictionOutput
 
-from proto_language import AlphaFold2MultimerStructureConfig, structure_contact_constraint
+from proto_language import AlphaFold2BinderStructureConfig, structure_contact_constraint
 from proto_language.constraint.protein_structure.structure_confidence_constraint import (
     PAE_MAXIMUM,
     TOOL_AVAILABLE_METRICS,
@@ -20,11 +20,11 @@ from proto_language.constraint.protein_structure.structure_confidence_constraint
     structure_ptm_constraint,
 )
 from proto_language.core import Sequence
-from proto_language.utils.alphafold2_multimer import (
-    AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC,
-    AF2_MULTIMER_PAE_MAXIMUM,
-    AF2_MULTIMER_TOOL_LOSS_ALIASES,
-    af2_multimer_confidence_loss_weights,
+from proto_language.utils.alphafold2_binder import (
+    AF2_BINDER_CONFIDENCE_LOSS_BY_METRIC,
+    AF2_BINDER_PAE_MAXIMUM,
+    AF2_BINDER_TOOL_LOSS_ALIASES,
+    af2_binder_confidence_loss_weights,
 )
 from tests.helpers.mock_structure import PDL1_PDB, MockStructure
 
@@ -282,9 +282,9 @@ class TestToolDispatching:
                 "plddt",
                 {"avg_plddt": 0.75, "plddt": 0.25, "iptm": 0.8},
             ),
-            (structure_iplddt_constraint, "iplddt", AF2_MULTIMER_TOOL_LOSS_ALIASES["iplddt"], None),
-            (structure_ipae_constraint, "ipae", AF2_MULTIMER_TOOL_LOSS_ALIASES["ipae"], None),
-            (structure_iptm_constraint, "iptm", AF2_MULTIMER_TOOL_LOSS_ALIASES["iptm"], None),
+            (structure_iplddt_constraint, "iplddt", AF2_BINDER_TOOL_LOSS_ALIASES["iplddt"], None),
+            (structure_ipae_constraint, "ipae", AF2_BINDER_TOOL_LOSS_ALIASES["ipae"], None),
+            (structure_iptm_constraint, "iptm", AF2_BINDER_TOOL_LOSS_ALIASES["iptm"], None),
             (structure_contact_constraint, "con", "con", None),
         ],
     )
@@ -299,8 +299,8 @@ class TestToolDispatching:
         """First-class AF2 structure terms expose canonical names and adapt tool-layer keys."""
         binder = Sequence("EVQLVESG", "protein")
         config = StructureBasedConstraintConfig(
-            structure_tool="alphafold2_multimer",
-            alphafold2_multimer_config=AlphaFold2MultimerStructureConfig(
+            structure_tool="alphafold2_binder",
+            alphafold2_binder_config=AlphaFold2BinderStructureConfig(
                 target_pdb=PDL1_PDB.read_text(),
                 binder_chain="B",
                 target_chains=["A"],
@@ -313,7 +313,7 @@ class TestToolDispatching:
             structure=structure,
         )
 
-        with patch("proto_language.utils.alphafold2_multimer.run_alphafold2_gradient") as mock_af2:
+        with patch("proto_language.utils.alphafold2_binder.run_alphafold2_gradient") as mock_af2:
             mock_af2.return_value = output
             (result,) = constraint_fn([(binder, protein_sequence)], config)
 
@@ -322,9 +322,9 @@ class TestToolDispatching:
             assert result.metadata["avg_plddt"] == 0.75
             assert result.metadata["loss_plddt"] == 0.25
         elif expected_loss == "ipae":
-            expected_score = (0.5 * AF2_MULTIMER_PAE_MAXIMUM) / PAE_MAXIMUM
+            expected_score = (0.5 * AF2_BINDER_PAE_MAXIMUM) / PAE_MAXIMUM
             assert result.score == pytest.approx(expected_score)
-            assert result.metadata[expected_loss] == pytest.approx(0.5 * AF2_MULTIMER_PAE_MAXIMUM)
+            assert result.metadata[expected_loss] == pytest.approx(0.5 * AF2_BINDER_PAE_MAXIMUM)
         else:
             assert result.score == 0.5
             if expected_loss in result.metadata:
@@ -341,8 +341,8 @@ class TestToolDispatching:
     def test_af2_ptm_forward_scores_metric(self, protein_sequence):
         """AF2 pTM is available for forward scoring even though it is not compiler-backed."""
         config = StructureBasedConstraintConfig(
-            structure_tool="alphafold2_multimer",
-            alphafold2_multimer_config=AlphaFold2MultimerStructureConfig(
+            structure_tool="alphafold2_binder",
+            alphafold2_binder_config=AlphaFold2BinderStructureConfig(
                 target_pdb=PDL1_PDB.read_text(),
                 binder_chain="B",
                 target_chains=["A"],
@@ -351,15 +351,15 @@ class TestToolDispatching:
         structure = Structure(structure=PDL1_PDB.read_text(), structure_format="pdb")
         output = SimpleNamespace(loss=0.0, metrics={"ptm": 0.8}, structure=structure)
 
-        with patch("proto_language.utils.alphafold2_multimer.run_alphafold2_gradient") as mock_af2:
+        with patch("proto_language.utils.alphafold2_binder.run_alphafold2_gradient") as mock_af2:
             mock_af2.return_value = output
             (result,) = structure_ptm_constraint([(protein_sequence, Sequence("A" * 10, "protein"))], config)
 
         assert result.score == pytest.approx(0.2)
         assert result.metadata["ptm"] == 0.8
         assert "af2_loss_key" not in result.metadata
-        assert AF2_MULTIMER_CONFIDENCE_LOSS_BY_METRIC["ptm"] is None
-        assert af2_multimer_confidence_loss_weights("ptm") == {}
+        assert AF2_BINDER_CONFIDENCE_LOSS_BY_METRIC["ptm"] is None
+        assert af2_binder_confidence_loss_weights("ptm") == {}
         assert mock_af2.call_args[0][1].loss_weights == {}
 
     @pytest.mark.parametrize("tool_name", ["alphafold3", "boltz2", "chai1"])
@@ -494,7 +494,7 @@ class TestMetricAvailability:
         [(structure_iplddt_constraint, "iplddt"), (structure_ipae_constraint, "ipae")],
     )
     def test_interface_confidence_metrics_are_af2m_only(self, protein_sequence, structure_tool, constraint_fn, metric):
-        """Interface-local confidence constraints are only wired for AF2 multimer."""
+        """Interface-local confidence constraints are only wired for AF2 binder."""
         config = StructureBasedConstraintConfig(structure_tool=structure_tool)
 
         with pytest.raises(ValueError, match=f"Metric '{metric}' is not available for tool '{structure_tool}'"):
@@ -506,13 +506,15 @@ class TestMetricAvailability:
         assert "alphafold3" in TOOL_AVAILABLE_METRICS
         assert "boltz2" in TOOL_AVAILABLE_METRICS
         assert "chai1" in TOOL_AVAILABLE_METRICS
+        assert "alphafold2" in TOOL_AVAILABLE_METRICS
 
         # ESMFold has limited metrics
         assert TOOL_AVAILABLE_METRICS["esmfold"] == {"avg_plddt", "ptm", "avg_pae"}
         assert TOOL_AVAILABLE_METRICS["alphafold3"] == {"avg_plddt", "ptm", "iptm", "avg_pae"}
         assert TOOL_AVAILABLE_METRICS["boltz2"] == {"avg_plddt", "ptm", "iptm", "avg_pae"}
         assert TOOL_AVAILABLE_METRICS["chai1"] == {"avg_plddt", "ptm", "iptm", "avg_pae"}
-        assert TOOL_AVAILABLE_METRICS["alphafold2_multimer"] == {
+        assert TOOL_AVAILABLE_METRICS["alphafold2"] == {"avg_plddt", "ptm", "iptm", "avg_pae"}
+        assert TOOL_AVAILABLE_METRICS["alphafold2_binder"] == {
             "avg_plddt",
             "ptm",
             "iptm",
@@ -1211,3 +1213,16 @@ class TestESMFold2:
             )
             [result] = structure_composite_constraint([(protein_sequence, protein_sequence_b)], config)
             assert result.score == pytest.approx(0.175)
+
+    def test_composite_supported_alphafold2(self, protein_sequence, protein_sequence_b):
+        """The general AlphaFold2 predictor has all four metrics, so structure-composite accepts it."""
+        config = StructureBasedConstraintConfig(structure_tool="alphafold2")
+        with patch(
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output(
+                [make_mock_structure(plddt=0.9, iptm=0.8, ptm=0.7, avg_pae=3.175)]
+            )
+            [result] = structure_composite_constraint([(protein_sequence, protein_sequence_b)], config)
+            assert result.score == pytest.approx(0.175)
+            assert mock_predict.call_args[0][1] == "alphafold2"

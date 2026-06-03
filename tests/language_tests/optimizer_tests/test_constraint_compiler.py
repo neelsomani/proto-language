@@ -9,8 +9,8 @@ from proto_language.optimizer.constraint_compiler import gradient_support_for_co
 @pytest.mark.parametrize(
     ("constraint_key", "backend_ids"),
     [
-        ("structure-plddt", ["esmfold", "alphafold2_multimer"]),
-        ("structure-distogram-cce", ["alphafold2_multimer"]),
+        ("structure-plddt", ["esmfold", "alphafold2_binder"]),
+        ("structure-distogram-cce", ["alphafold2_binder"]),
         ("malinois-activity", ["malinois"]),
     ],
 )
@@ -24,12 +24,12 @@ def test_discrete_only_constraint_has_no_compiled_metadata() -> None:
     assert gradient_support_for_constraint_spec(ConstraintRegistry.get("gc-content")) is None
 
 
-def test_af2_multimer_rule_targets_binder_input() -> None:
+def test_af2_binder_rule_targets_binder_input() -> None:
     support = gradient_support_for_constraint_spec(ConstraintRegistry.get("structure-distogram-cce"))
     assert support is not None
     (rule,) = support.rules
-    assert rule.target_input_config_path == "alphafold2_multimer_config.binder_input_index"
+    assert rule.target_input_config_path == "alphafold2_binder_config.binder_input_index"
     assert sorted(req.config_path for req in rule.input_requirements) == [
-        "alphafold2_multimer_config.binder_input_index",
-        "alphafold2_multimer_config.target_input_indices",
+        "alphafold2_binder_config.binder_input_index",
+        "alphafold2_binder_config.target_input_indices",
     ]

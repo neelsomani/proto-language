@@ -107,7 +107,7 @@ from proto_tools.utils.device_manager import DeviceManager
 
 from proto_language import (
     AbLangPerplexityConfig,
-    AlphaFold2MultimerStructureConfig,
+    AlphaFold2BinderStructureConfig,
     MpnnPerplexityConfig,
     StructureBasedConstraintConfig,
     ablang_perplexity_constraint,
@@ -694,7 +694,7 @@ def run_trajectory(
     construct = Construct([binder, *target_segments])
 
     # ── AF2 configuration ──
-    af2_cfg = AlphaFold2MultimerStructureConfig.germinal_vhh_preset(
+    af2_cfg = AlphaFold2BinderStructureConfig.germinal_vhh_preset(
         target_pdb=target_structure.structure_pdb,
         binder_chain=binder_chain,
         target_chains=target_chains,
@@ -707,8 +707,8 @@ def run_trajectory(
     if not geom.ban_cysteine:
         af2_cfg.omit_aas = None
     structure_cfg = StructureBasedConstraintConfig(
-        structure_tool="alphafold2_multimer",
-        alphafold2_multimer_config=af2_cfg,
+        structure_tool="alphafold2_binder",
+        alphafold2_binder_config=af2_cfg,
     )
 
     def af2_constraints() -> list[Constraint]:

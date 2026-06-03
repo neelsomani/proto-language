@@ -178,7 +178,7 @@ What is not yet native:
 - **Question:** What is the best in-repo structure-based proxy for binding quality?
 - **Recommended primary:** joint use of `structure-iptm` and `structure-pae` on the predicted `target_segment` + `binder_segment` complex, using `boltz2` or `alphafold3`.
 - **Reason:** these are the strongest native structure-based interface signals exposed by the current constraint layer.
-- **Ruled-out phrasing:** referring to af2_multimer as though it were the native constraint endpoint here. In this repo, the actual language-level abstractions are the structure-confidence constraints with configurable structure tools.
+- **Ruled-out phrasing:** referring to alphafold2_binder as though it were the native constraint endpoint here. In this repo, the actual language-level abstractions are the structure-confidence constraints with configurable structure tools.
 
 ### §C — Tool Deep-Dive: Novelty Against UniRef50
 

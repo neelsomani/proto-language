@@ -132,9 +132,9 @@ def _make_optimizer(
     )
 
 
-def _af2_multimer_confidence_problem() -> tuple[Segment, Segment, Construct, list[Constraint]]:
+def _af2_binder_confidence_problem() -> tuple[Segment, Segment, Construct, list[Constraint]]:
     from proto_language import (
-        AlphaFold2MultimerStructureConfig,
+        AlphaFold2BinderStructureConfig,
         StructureBasedConstraintConfig,
         structure_ipae_constraint,
         structure_plddt_constraint,
@@ -145,8 +145,8 @@ def _af2_multimer_confidence_problem() -> tuple[Segment, Segment, Construct, lis
     target = Segment(sequence="A" * 10, sequence_type="protein", label="target")
     construct = Construct([binder, target])
     config = StructureBasedConstraintConfig(
-        structure_tool="alphafold2_multimer",
-        alphafold2_multimer_config=AlphaFold2MultimerStructureConfig(
+        structure_tool="alphafold2_binder",
+        alphafold2_binder_config=AlphaFold2BinderStructureConfig(
             target_pdb=PDL1_PDB.read_text(),
             binder_chain="B",
             target_chains=["A"],
@@ -678,9 +678,9 @@ class TestCompiledConstraints:
         assert mock_esm.call_args.args[1].loss_weights == {"plddt": pytest.approx(2.5)}
 
     def test_groups_af2_same_objective_key_sums_weights(self) -> None:
-        """Two AF2M constraints sharing one objective key must contribute summed weights."""
+        """Two AF2 binder constraints sharing one objective key must contribute summed weights."""
         from proto_language import (
-            AlphaFold2MultimerStructureConfig,
+            AlphaFold2BinderStructureConfig,
             StructureBasedConstraintConfig,
             structure_plddt_constraint,
         )
@@ -690,8 +690,8 @@ class TestCompiledConstraints:
         target = Segment(sequence="A" * 10, sequence_type="protein", label="target")
         construct = Construct([binder, target])
         config = StructureBasedConstraintConfig(
-            structure_tool="alphafold2_multimer",
-            alphafold2_multimer_config=AlphaFold2MultimerStructureConfig(
+            structure_tool="alphafold2_binder",
+            alphafold2_binder_config=AlphaFold2BinderStructureConfig(
                 target_pdb=PDL1_PDB.read_text(), binder_chain="B", target_chains=["A"]
             ),
         )
@@ -719,7 +719,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient"
+            "proto_language.optimizer.constraint_compiler.alphafold2_binder_provider.run_alphafold2_gradient"
         ) as mock_af2:
             mock_af2.return_value = output
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -945,10 +945,10 @@ class TestCompiledConstraints:
     @pytest.mark.parametrize(("mode", "tool_loss"), [("gradient", 3.0), ("scoring", 4.0)])
     def test_groups_af2_structure_terms_into_one_tool_call(self, mode: str, tool_loss: float) -> None:
         from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
-        from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
+        from proto_language.utils.alphafold2_binder import AF2_BINDER_TOOL_LOSS_ALIASES
         from tests.helpers.mock_structure import PDL1_PDB
 
-        binder, target, construct, constraints = _af2_multimer_confidence_problem()
+        binder, target, construct, constraints = _af2_binder_confidence_problem()
         if mode == "scoring":
             binder.proposal_sequences = [binder.original_sequence]
             target.proposal_sequences = [target.original_sequence]
@@ -960,7 +960,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient"
+            "proto_language.optimizer.constraint_compiler.alphafold2_binder_provider.run_alphafold2_gradient"
         ) as mock_af2:
             mock_af2.return_value = output
             if mode == "gradient":
@@ -989,7 +989,7 @@ class TestCompiledConstraints:
         assert mock_af2.call_count == 1
         assert mock_af2.call_args[0][1].loss_weights == {
             "plddt": 2.0,
-            AF2_MULTIMER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
+            AF2_BINDER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
         }
         assert "af2_plddt" in metadata and "af2_ipae" in metadata
 
@@ -997,10 +997,10 @@ class TestCompiledConstraints:
     def test_groups_af2_structure_terms_with_equivalent_target_pdb_files(self, tmp_path, mode: str) -> None:
         from proto_language import StructureBasedConstraintConfig
         from proto_language.optimizer.constraint_compiler import evaluate_scoring_constraints
-        from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
+        from proto_language.utils.alphafold2_binder import AF2_BINDER_TOOL_LOSS_ALIASES
         from tests.helpers.mock_structure import PDL1_PDB
 
-        binder, target, construct, original_constraints = _af2_multimer_confidence_problem()
+        binder, target, construct, original_constraints = _af2_binder_confidence_problem()
         first_path = tmp_path / "upload_a.pdb"
         second_path = tmp_path / "upload_b.pdb"
         first_path.write_text(PDL1_PDB.read_text())
@@ -1010,7 +1010,7 @@ class TestCompiledConstraints:
             assert original.function is not None
             assert isinstance(original.function_config, StructureBasedConstraintConfig)
             config = original.function_config.model_copy(deep=True)
-            config.alphafold2_multimer_config.target_pdb = str(target_pdb)
+            config.alphafold2_binder_config.target_pdb = str(target_pdb)
             constraints.append(
                 Constraint(
                     inputs=[binder, target],
@@ -1032,7 +1032,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient",
+            "proto_language.optimizer.constraint_compiler.alphafold2_binder_provider.run_alphafold2_gradient",
             return_value=output,
         ) as mock_af2:
             if mode == "gradient":
@@ -1054,15 +1054,15 @@ class TestCompiledConstraints:
         assert mock_af2.call_args[0][0].target_pdb.source == str(first_path)
         assert mock_af2.call_args[0][1].loss_weights == {
             "plddt": 2.0,
-            AF2_MULTIMER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
+            AF2_BINDER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
         }
 
     def test_af2_group_key_separates_different_target_pdb_files(self, tmp_path) -> None:
         from proto_language import StructureBasedConstraintConfig
-        from proto_language.optimizer.constraint_compiler import alphafold2_multimer_provider as af2m
+        from proto_language.optimizer.constraint_compiler import alphafold2_binder_provider as af2m
         from tests.helpers.mock_structure import PDL1_PDB
 
-        _binder, _target, _construct, constraints = _af2_multimer_confidence_problem()
+        _binder, _target, _construct, constraints = _af2_binder_confidence_problem()
         first_path = tmp_path / "upload_a.pdb"
         second_path = tmp_path / "upload_b.pdb"
         first_path.write_text(PDL1_PDB.read_text())
@@ -1071,16 +1071,16 @@ class TestCompiledConstraints:
         for original, target_pdb in zip(constraints, [first_path, second_path], strict=True):
             assert isinstance(original.function_config, StructureBasedConstraintConfig)
             config = original.function_config.model_copy(deep=True)
-            config.alphafold2_multimer_config.target_pdb = str(target_pdb)
+            config.alphafold2_binder_config.target_pdb = str(target_pdb)
             group_keys.append(af2m.group_key(original, config))
 
         assert group_keys[0] != group_keys[1]
 
     def test_score_energy_uses_grouped_af2_scoring(self) -> None:
-        from proto_language.utils.alphafold2_multimer import AF2_MULTIMER_TOOL_LOSS_ALIASES
+        from proto_language.utils.alphafold2_binder import AF2_BINDER_TOOL_LOSS_ALIASES
         from tests.helpers.mock_structure import PDL1_PDB
 
-        binder, _target, construct, constraints = _af2_multimer_confidence_problem()
+        binder, _target, construct, constraints = _af2_binder_confidence_problem()
         output = SimpleNamespace(
             gradient=None,
             loss=4.0,
@@ -1089,7 +1089,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient",
+            "proto_language.optimizer.constraint_compiler.alphafold2_binder_provider.run_alphafold2_gradient",
             return_value=output,
         ) as mock_af2:
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -1108,13 +1108,13 @@ class TestCompiledConstraints:
         assert mock_af2.call_count == 1
         assert mock_af2.call_args[0][1].loss_weights == {
             "plddt": 2.0,
-            AF2_MULTIMER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
+            AF2_BINDER_TOOL_LOSS_ALIASES.get("ipae", "ipae"): 0.5,
         }
         assert "af2_plddt" in binder.proposal_sequences[0]._constraints_metadata
         assert "af2_ipae" in binder.proposal_sequences[0]._constraints_metadata
 
-    def test_af2_multimer_tool_failure_surfaces_captured_error(self) -> None:
-        binder, _target, construct, constraints = _af2_multimer_confidence_problem()
+    def test_af2_binder_tool_failure_surfaces_captured_error(self) -> None:
+        binder, _target, construct, constraints = _af2_binder_confidence_problem()
         failed_output = SimpleNamespace(
             success=False,
             errors=["RuntimeError: alphafold2 failed inside the remote worker"],
@@ -1122,7 +1122,7 @@ class TestCompiledConstraints:
         )
 
         with patch(
-            "proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider.run_alphafold2_gradient",
+            "proto_language.optimizer.constraint_compiler.alphafold2_binder_provider.run_alphafold2_gradient",
             return_value=failed_output,
         ):
             generator = PositionWeightGenerator(PositionWeightGeneratorConfig())
@@ -1134,7 +1134,7 @@ class TestCompiledConstraints:
                 constraints=constraints,
                 config=GradientOptimizerConfig(num_results=1, num_steps=1, lr=0.1),
             )
-            with pytest.raises(RuntimeError, match="AF2 multimer gradient failed: RuntimeError: alphafold2 failed"):
+            with pytest.raises(RuntimeError, match="AF2 binder gradient failed: RuntimeError: alphafold2 failed"):
                 opt.run()
 
     def test_scoring_compiler_evaluates_non_af2_dict_config_directly(self) -> None:
@@ -1153,11 +1153,11 @@ class TestCompiledConstraints:
         from pydantic import ValidationError
 
         from proto_language import (
-            AlphaFold2MultimerStructureConfig,
+            AlphaFold2BinderStructureConfig,
             StructureBasedConstraintConfig,
             structure_plddt_constraint,
         )
-        from proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider import (
+        from proto_language.optimizer.constraint_compiler.alphafold2_binder_provider import (
             config_for_constraint,
         )
 
@@ -1167,14 +1167,14 @@ class TestCompiledConstraints:
             inputs=[binder, target],
             function=structure_plddt_constraint,
             function_config=StructureBasedConstraintConfig(
-                structure_tool="alphafold2_multimer",
-                alphafold2_multimer_config=AlphaFold2MultimerStructureConfig(target_pdb="x"),
+                structure_tool="alphafold2_binder",
+                alphafold2_binder_config=AlphaFold2BinderStructureConfig(target_pdb="x"),
             ),
             label="af2_plddt",
         )
         constraint._function_config = {  # type: ignore[attr-defined]
-            "structure_tool": "alphafold2_multimer",
-            "alphafold2_multimer_config": {"target_pdb": "x", "target_input_indices": "not-an-int"},
+            "structure_tool": "alphafold2_binder",
+            "alphafold2_binder_config": {"target_pdb": "x", "target_input_indices": "not-an-int"},
         }
 
         assert config_for_constraint(constraint) is None
@@ -1182,10 +1182,10 @@ class TestCompiledConstraints:
             config_for_constraint(constraint, strict=True)
 
     def test_af2_term_score_missing_metric_warns_and_falls_back(self, caplog: pytest.LogCaptureFixture) -> None:
-        from proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider import _term_score
+        from proto_language.optimizer.constraint_compiler.alphafold2_binder_provider import _term_score
 
         with caplog.at_level(
-            "WARNING", logger="proto_language.optimizer.constraint_compiler.alphafold2_multimer_provider"
+            "WARNING", logger="proto_language.optimizer.constraint_compiler.alphafold2_binder_provider"
         ):
             score = _term_score({"iptm": 0.8}, "plddt", 4.0)
 
@@ -1206,7 +1206,7 @@ class TestCompiledConstraints:
 
     def test_rejects_af2_ptm_gradient_even_though_forward_is_supported(self) -> None:
         from proto_language import (
-            AlphaFold2MultimerStructureConfig,
+            AlphaFold2BinderStructureConfig,
             StructureBasedConstraintConfig,
             structure_ptm_constraint,
         )
@@ -1215,8 +1215,8 @@ class TestCompiledConstraints:
         binder = Segment(sequence="EVQLV", sequence_type="protein", label="binder")
         target = Segment(sequence="A" * 10, sequence_type="protein", label="target")
         config = StructureBasedConstraintConfig(
-            structure_tool="alphafold2_multimer",
-            alphafold2_multimer_config=AlphaFold2MultimerStructureConfig(
+            structure_tool="alphafold2_binder",
+            alphafold2_binder_config=AlphaFold2BinderStructureConfig(
                 target_pdb=PDL1_PDB.read_text(),
                 binder_chain="B",
                 target_chains=["A"],
@@ -1460,13 +1460,13 @@ def _af2_constraint(
     binder: Segment, target: Segment, label: str = "af2", function: Callable | None = None
 ) -> Constraint:
     from proto_language import (
-        AlphaFold2MultimerStructureConfig,
+        AlphaFold2BinderStructureConfig,
         StructureBasedConstraintConfig,
         structure_plddt_constraint,
     )
     from tests.helpers.mock_structure import PDL1_PDB
 
-    af2_config = AlphaFold2MultimerStructureConfig(
+    af2_config = AlphaFold2BinderStructureConfig(
         target_pdb=PDL1_PDB.read_text(),
         target_chains="A",
         binder_chain="B",
@@ -1476,8 +1476,8 @@ def _af2_constraint(
         inputs=[binder, target],
         function=function or structure_plddt_constraint,
         function_config=StructureBasedConstraintConfig(
-            structure_tool="alphafold2_multimer",
-            alphafold2_multimer_config=af2_config,
+            structure_tool="alphafold2_binder",
+            alphafold2_binder_config=af2_config,
         ),
         label=label,
     )
@@ -1500,7 +1500,7 @@ def _esmfold_constraint(binder: Segment, label: str = "esmfold", function: Calla
 
 
 def _target_segment() -> Segment:
-    """Target Segment for AF2 multimer design — slot is pure output, no pre-population needed."""
+    """Target Segment for AF2 binder design — slot is pure output, no pre-population needed."""
     return Segment(sequence="A" * 10, sequence_type="protein", label="target")
 
 
@@ -1549,8 +1549,8 @@ class TestGradientOptimizerGPU:
         assert logits is not None and logits.shape == (5, 20)
         assert np.isfinite(logits).all()
 
-    def test_af2_multimer_gradient_descent(self) -> None:
-        """AF2 multimer gradient produces finite logit updates over 3 steps against a target."""
+    def test_af2_binder_gradient_descent(self) -> None:
+        """AF2 binder gradient produces finite logit updates over 3 steps against a target."""
         binder = Segment(length=10, sequence_type="protein", label="binder")
         target = _target_segment()
         construct = Construct([binder, target])
@@ -1568,8 +1568,8 @@ class TestGradientOptimizerGPU:
         assert logits is not None and logits.shape == (10, 20)
         assert np.isfinite(logits).all()
 
-    def test_af2_multimer_grouped_confidence_terms_end_to_end(self) -> None:
-        """Real AF2 multimer run with grouped pLDDT+iPAE compiler objectives."""
+    def test_af2_binder_grouped_confidence_terms_end_to_end(self) -> None:
+        """Real AF2 binder run with grouped pLDDT+iPAE compiler objectives."""
         from proto_language import structure_ipae_constraint
 
         binder = Segment(length=10, sequence_type="protein", label="binder")

@@ -9,7 +9,7 @@ or differentiated directly through a public ``backward`` callable.
 Some model backends have a different execution shape. A model may need to
 combine several public constraints into one model call, use backend-specific
 objective names, or return one gradient for a weighted sum of terms. ESMFold,
-AlphaFold2 multimer, and Malinois are compiled backends; their model-specific
+AlphaFold2 binder, and Malinois are compiled backends; their model-specific
 code lives in provider modules while this module keeps the optimizer-facing
 flow small and explicit.
 
@@ -29,7 +29,7 @@ from proto_language.constraint.sequence_annotation.malinois_activity_constraint 
 )
 from proto_language.core import Constraint, Segment
 from proto_language.core.sequence import SequenceType
-from proto_language.optimizer.constraint_compiler import alphafold2_multimer_provider as af2m
+from proto_language.optimizer.constraint_compiler import alphafold2_binder_provider as af2b
 from proto_language.optimizer.constraint_compiler import esmfold_provider as esmfold
 from proto_language.optimizer.constraint_compiler import malinois_provider as malinois
 from proto_language.optimizer.constraint_compiler.base import (
@@ -122,7 +122,7 @@ def compile_gradient_providers(constraints: list[Constraint], target_segment: Se
             other than ``target_segment``.
     """
     providers: list[GradientProvider] = []
-    af2_provider_by_key: dict[tuple[Any, ...], af2m.AF2MultimerGradientProvider] = {}
+    af2_provider_by_key: dict[tuple[Any, ...], af2b.AF2BinderGradientProvider] = {}
     esmfold_provider_by_key: dict[tuple[Any, ...], esmfold.ESMFoldGradientProvider] = {}
     malinois_provider_by_key: dict[tuple[Any, ...], malinois.MalinoisGradientProvider] = {}
 
@@ -181,26 +181,26 @@ def compile_gradient_providers(constraints: list[Constraint], target_segment: Se
         if esmfold_reason is not None:
             raise ValueError(esmfold_reason)
 
-        objective_key = af2m.objective_key_for_constraint(constraint)
+        objective_key = af2b.objective_key_for_constraint(constraint)
         if objective_key is None:
-            reason = af2m.unsupported_gradient_reason(constraint)
+            reason = af2b.unsupported_gradient_reason(constraint)
             raise ValueError(reason or f"Constraint '{constraint.label}' does not support gradient evaluation.")
 
-        config = af2m.config_for_constraint(constraint, strict=True)
+        config = af2b.config_for_constraint(constraint, strict=True)
         if config is None:
-            raise ValueError(af2m.missing_config_message(constraint))
-        af2m.validate_gradient_constraint(constraint, target_segment, config)
-        group_key = af2m.group_key(constraint, config)
+            raise ValueError(af2b.missing_config_message(constraint))
+        af2b.validate_gradient_constraint(constraint, target_segment, config)
+        group_key = af2b.group_key(constraint, config)
         af2_provider = af2_provider_by_key.get(group_key)
         if af2_provider is None:
-            af2_provider = af2m.AF2MultimerGradientProvider(
+            af2_provider = af2b.AF2BinderGradientProvider(
                 constraints=[],
-                config=config.alphafold2_multimer_config,
+                config=config.alphafold2_binder_config,
                 inputs=constraint.inputs,
             )
             af2_provider_by_key[group_key] = af2_provider
             providers.append(af2_provider)
-        af2m.add_gradient_constraint(
+        af2b.add_gradient_constraint(
             af2_provider,
             CompiledConstraint(constraint=constraint, objective_key=objective_key),
         )
@@ -220,7 +220,7 @@ def evaluate_scoring_constraints(
     ``compile_gradient_providers``. Most constraints return one weighted score
     array per public constraint. Backend-compatible constraints may instead
     return one weighted score array per compiled scoring group, because a model
-    such as AF2 multimer returns a single scalar for a weighted sum of requested
+    such as AF2 binder returns a single scalar for a weighted sum of requested
     terms. Public per-constraint metadata is still written for every constraint
     inside the group.
 
@@ -271,19 +271,19 @@ def evaluate_scoring_constraints(
                 group_by_key[group_key].append(CompiledConstraint(constraint=constraint, objective_key=objective_key))
                 continue
 
-        objective_key = af2m.objective_key_for_constraint(constraint)
+        objective_key = af2b.objective_key_for_constraint(constraint)
         if objective_key is None:
             _flush_scoring_groups(group_order, group_by_key, outputs, mask)
             outputs.append([float(score) for score in constraint.evaluate(mask=mask, verbose=verbose)])
             continue
 
-        af2m_config = af2m.config_for_constraint(constraint, strict=True)
-        if af2m_config is None or not af2m.can_group_scoring_constraint(constraint, objective_key, af2m_config):
+        af2b_config = af2b.config_for_constraint(constraint, strict=True)
+        if af2b_config is None or not af2b.can_group_scoring_constraint(constraint, objective_key, af2b_config):
             _flush_scoring_groups(group_order, group_by_key, outputs, mask)
             outputs.append([float(score) for score in constraint.evaluate(mask=mask, verbose=verbose)])
             continue
 
-        group_key = ("af2", af2m.group_key(constraint, af2m_config))
+        group_key = ("af2", af2b.group_key(constraint, af2b_config))
         if group_key not in group_by_key:
             group_by_key[group_key] = []
             group_order.append(group_key)
@@ -359,20 +359,20 @@ def constraint_supports_compiled_gradient(
     if esmfold_reason is not None:
         return False, esmfold_reason
 
-    objective_key = af2m.objective_key_for_constraint(constraint)
+    objective_key = af2b.objective_key_for_constraint(constraint)
     if objective_key is None:
-        reason = af2m.unsupported_gradient_reason(constraint)
+        reason = af2b.unsupported_gradient_reason(constraint)
         if reason is not None:
             return False, reason
         return False, f"Constraint '{constraint.label}' does not support gradient evaluation."
 
-    af2m_config = af2m.config_for_constraint(constraint)
-    if af2m_config is None:
-        return False, af2m.missing_config_message(constraint)
+    af2b_config = af2b.config_for_constraint(constraint)
+    if af2b_config is None:
+        return False, af2b.missing_config_message(constraint)
     if target_segment is None:
         return True, None
     try:
-        af2m.validate_gradient_constraint(constraint, target_segment, af2m_config)
+        af2b.validate_gradient_constraint(constraint, target_segment, af2b_config)
     except (TypeError, ValueError) as exc:
         return False, str(exc)
     return True, None
@@ -427,18 +427,18 @@ _ESMFOLD_RULE = GradientRule(
     input_requirements=[GradientInputRequirement(sequence_types=["protein"])],
 )
 
-_AF2_MULTIMER_RULE = GradientRule(
-    label="AF2 multimer gradient",
-    structure_tool="alphafold2_multimer",
-    target_input_config_path="alphafold2_multimer_config.binder_input_index",
+_AF2_BINDER_RULE = GradientRule(
+    label="AF2 binder gradient",
+    structure_tool="alphafold2_binder",
+    target_input_config_path="alphafold2_binder_config.binder_input_index",
     input_requirements=[
         GradientInputRequirement(
             sequence_types=["protein"],
-            config_path="alphafold2_multimer_config.binder_input_index",
+            config_path="alphafold2_binder_config.binder_input_index",
         ),
         GradientInputRequirement(
             sequence_types=["protein"],
-            config_path="alphafold2_multimer_config.target_input_indices",
+            config_path="alphafold2_binder_config.target_input_indices",
             config_path_is_list=True,
         ),
     ],
@@ -469,8 +469,8 @@ def gradient_support_for_constraint_spec(spec: ConstraintSpec) -> GradientSuppor
         rules.append(_ESMFOLD_RULE)
     if spec.function is malinois_activity_constraint:
         rules.append(_MALINOIS_RULE)
-    if spec.function in af2m.AF2_MULTIMER_STRUCTURE_LOSS_BY_FUNCTION:
-        rules.append(_AF2_MULTIMER_RULE)
+    if spec.function in af2b.AF2_BINDER_STRUCTURE_LOSS_BY_FUNCTION:
+        rules.append(_AF2_BINDER_RULE)
     return GradientSupport(rules=rules) if rules else None
 
 
@@ -484,7 +484,7 @@ def _flush_scoring_groups(
     for group_key in group_order:
         backend, _key = group_key
         if backend == "af2":
-            outputs.append(af2m.evaluate_scoring_group(group_by_key[group_key], mask))
+            outputs.append(af2b.evaluate_scoring_group(group_by_key[group_key], mask))
         elif backend == "esmfold":
             outputs.append(esmfold.evaluate_scoring_group(group_by_key[group_key], mask))
         elif backend == "malinois":

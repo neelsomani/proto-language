@@ -28,7 +28,7 @@ dependencies = [
     # Bioinformatics
     "biopython>=1.81",
     "biotite>=0.38.0,<1.2.0",
-    "rdkit",
+    "rdkit!=2026.3.3",  # 2026.3.3's bundled rdchem.pyi stub is malformed and breaks mypy; drop when fixed upstream
 
     # Notebooks & visualization
     "jupyter",

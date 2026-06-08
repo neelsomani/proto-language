@@ -1596,6 +1596,7 @@ class TestGradientOptimizerGPU:
         """AbLang naturalness gradient (VHH mode) reduces loss over 10 steps."""
         seg = Segment(sequence="EVQLVESGGGLVQPGGSLRL", sequence_type="protein")
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(seg)
         opt = GradientOptimizer(
             target_segment=seg,
             constructs=[Construct([seg])],
@@ -1638,6 +1639,7 @@ class TestGradientOptimizerGPU:
         target = _target_segment()
         construct = Construct([binder, target])
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(binder)
 
         opt = GradientOptimizer(
             target_segment=binder,
@@ -1659,6 +1661,7 @@ class TestGradientOptimizerGPU:
         target = _target_segment()
         construct = Construct([binder, target])
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(binder)
         constraints = [
             _af2_constraint(binder, target, "af2_plddt"),
             _af2_constraint(binder, target, "af2_ipae", function=structure_ipae_constraint),
@@ -1715,6 +1718,7 @@ class TestGradientOptimizerGPU:
         target = _target_segment()
         construct = Construct([binder, target])
         gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+        gen.assign(binder)
 
         opt = GradientOptimizer(
             target_segment=binder,
@@ -1744,6 +1748,7 @@ class TestGradientOptimizerGPU:
 
         def stage(cfg: GradientOptimizerConfig, label: str) -> GradientOptimizer:
             gen = PositionWeightGenerator(PositionWeightGeneratorConfig())
+            gen.assign(seg)
             return GradientOptimizer(
                 target_segment=seg,
                 constructs=[construct],

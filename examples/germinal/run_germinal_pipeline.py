@@ -40,8 +40,6 @@ All numeric defaults come from the colocated script-owned preset file
 Known parity gaps:
 - VHH external cofold uses Chai-1/AF3 fallbacks instead of Germinal's Protenix until
   proto-language/proto-tools can pass Protenix full-PAE outputs through final pDockQ2.
-- Cofold runs single-sequence; Germinal conditions the target chain on an MSA
-  (``msa_mode="target"``). Needs a target-only MSA in the structure-composite path.
 - Cofold scores one trajectory-seeded sample; Germinal's AF3/Protenix presets run several
   seeds (3 pre-redesign, 5 final) and score the worst (``af3_structure_select_mode="worst"``).
   The Chai-1 default matches (single seed, best-of). Needs a multi-seed worst-pose select mode.
@@ -88,9 +86,12 @@ from proto_tools import (
     InverseFoldingStructureInput,
     IPSAEScoringConfig,
     IPSAEScoringInput,
+    Mmseqs2HomologySearchInput,
     Structure,
     run_ipsae_scoring,
+    run_mmseqs2_homology_search,
 )
+from proto_tools.tools.structure_prediction.shared_data_models import ComplexMSAs
 from proto_tools.tools.structure_scoring.pyrosetta.pyrosetta_interface_analyzer import (
     InterfaceStructureInput,
     PyRosettaInterfaceAnalyzerConfig,
@@ -157,6 +158,8 @@ from proto_language.utils.sequence_matrices import SequenceLogitBiasConfig
 _PDB_DIR = Path(__file__).resolve().parent / "pdbs"
 _PRESET_CONFIG_PATH = Path(__file__).resolve().with_name("antibody_presets.yaml")
 _PRESET_NAMES = ("vhh", "scfv", "vhh_pdl1", "scfv_pdl1")
+# Germinal cofold msa_mode: "target" conditions the fixed target chain(s) only; "single" runs single-sequence.
+_MSA_MODES = ("single", "target")
 
 
 @dataclass(frozen=True)
@@ -204,6 +207,7 @@ class BinderGeometry:
     lr_schedule: str | None
     ban_cysteine: bool
     cofold_tool: str
+    msa_mode: str
     num_seqs: int
     max_mpnn_sequences: int
     sampling_temp: float
@@ -447,6 +451,10 @@ def _load_geometry(preset_name: str, preset_cfg: dict[str, Any]) -> BinderGeomet
         default_target_chain = str(default_target_cfg["chain"])
         default_target_hotspots = str(default_target_cfg["hotspots"])
 
+    msa_mode = str(preset_cfg["msa_mode"])
+    if msa_mode not in _MSA_MODES:
+        raise ValueError(f"{preset_name}.msa_mode must be one of {sorted(_MSA_MODES)}, got {msa_mode!r}.")
+
     initial_filters = {k: _load_metric_rule(preset_cfg["initial_filter"], k) for k in preset_cfg["initial_filter"]}
     final_filters = {k: _load_metric_rule(preset_cfg["final_filter"], k) for k in preset_cfg["final_filter"]}
     return BinderGeometry(
@@ -474,6 +482,7 @@ def _load_geometry(preset_name: str, preset_cfg: dict[str, Any]) -> BinderGeomet
         lr_schedule=None if preset_cfg["lr_schedule"] is None else str(preset_cfg["lr_schedule"]),
         ban_cysteine=bool(preset_cfg["ban_cysteine"]),
         cofold_tool=str(preset_cfg["cofold_tool"]),
+        msa_mode=msa_mode,
         num_seqs=int(preset_cfg["num_seqs"]),
         max_mpnn_sequences=int(preset_cfg["max_mpnn_sequences"]),
         sampling_temp=float(preset_cfg["sampling_temp"]),
@@ -523,18 +532,59 @@ COFOLD_TARGET_CHAIN = "B"
 
 
 def _cofold_config(tool: str, seed: int) -> dict[str, Any]:
-    """Build the structure-composite config for a cofold tool with a per-trajectory seed."""
+    """Build the structure-composite config for a cofold tool with a per-trajectory seed.
+
+    ``use_msa=False`` keeps the predictor from auto-MSA-searching every chain (the binder must
+    stay single-sequence). Under ``msa_mode="target"`` a target-only MSA is supplied to the
+    constraint instead (preprocess consumes supplied MSAs and skips the search).
+    """
     if tool == "chai1":
         return {
             "structure_tool": "chai1",
-            "chai1_config": Chai1Config(include_pae_matrix=True, seed=seed).model_dump(),
+            "chai1_config": Chai1Config(include_pae_matrix=True, seed=seed, use_msa=False).model_dump(),
         }
     if tool == "alphafold3":
         return {
             "structure_tool": "alphafold3",
-            "alphafold3_config": AlphaFold3Config(include_pae_matrix=True, seeds=[seed]).model_dump(),
+            "alphafold3_config": AlphaFold3Config(include_pae_matrix=True, seeds=[seed], use_msa=False).model_dump(),
         }
     return {"structure_tool": tool}
+
+
+def _target_cofold_msas(target_seqs: list[Sequence]) -> ComplexMSAs:
+    """Search the fixed target chain(s) once and key their MSAs to cofold-complex indices.
+
+    The cofold complex is ``(binder, *target_seqs)``, so the binder is chain 0 and target chain
+    ``i`` is chain ``i + 1``. The binder is omitted from ``per_chain`` and stays single-sequence,
+    matching Germinal's ``msa_mode="target"``. A single target chain uses an unpaired search
+    (``paired=False``, no paired-DB gate); several chains are submitted as one taxonomy-paired
+    group, retaining the deep per-chain unpaired MSAs alongside the paired rows.
+    """
+    sequences = [seq.sequence for seq in target_seqs]
+    # Flat item -> singleton (unpaired) group; nested list -> one taxonomy-paired group.
+    queries: list[str] | list[list[str]] = [sequences[0]] if len(sequences) == 1 else [sequences]
+    output = run_mmseqs2_homology_search(Mmseqs2HomologySearchInput(queries=queries))
+    # success is bool | None: only an explicit False is a failure (None means "not set").
+    if output.success is False:
+        raise RuntimeError(f"target MSA search failed: {' | '.join(output.errors or ['unknown error'])}")
+    result = output.results[0]
+
+    if len(sequences) == 1:
+        msa = result.msas[0]
+        bundle = ComplexMSAs(per_chain={1: msa} if msa is not None else {}, paired=False)
+    else:
+        paired = any(m is not None for m in result.paired_msas)
+        chain_msas = result.paired_msas if paired else result.msas
+        per_chain = {i + 1: msa for i, msa in enumerate(chain_msas) if msa is not None}
+        unpaired_per_chain = None
+        if paired and any(m is not None for m in result.msas):
+            unpaired_per_chain = {i + 1: msa for i, msa in enumerate(result.msas) if msa is not None} or None
+        bundle = ComplexMSAs(per_chain=per_chain, paired=paired, unpaired_per_chain=unpaired_per_chain)
+
+    # An empty bundle silently degrades to a single-sequence cofold; surface it since "target" was requested.
+    if not bundle.per_chain:
+        print("WARNING: target MSA search found no homologs; cofold runs single-sequence despite msa_mode='target'.")
+    return bundle
 
 
 # =============================================================================
@@ -592,6 +642,30 @@ def run_germinal_antibody(
         f"len={geom.binder_length} (vh={geom.vh_length} linker={geom.linker_length} vl={geom.vl_length})"
     )
 
+    # msa_mode="target": search the fixed target ONCE per campaign and reuse the MSA across every
+    # trajectory and both cofold gates (pre-redesign + final filter), matching upstream Germinal's
+    # cached ``target_{chain}.a3m``. "single" leaves both cofolds single-sequence.
+    final_target_msas: list[ComplexMSAs] | None = None
+    pre_redesign_target_msas: list[ComplexMSAs] | None = None
+    if geom.msa_mode == "target":
+        per_chain_target_seqs = [
+            Sequence(
+                sequence=target_structure.get_chain_sequence(chain_id, remove_non_standard=True),
+                sequence_type="protein",
+            )
+            for chain_id in target_chains
+        ]
+        print(f"Searching target MSA once per campaign ({len(per_chain_target_seqs)} chain(s))...")
+        # The final filter cofolds the target as separate chains; the pre-redesign gate cofolds it as
+        # one concatenated chain, so it needs a single-chain bundle keyed to that concatenated
+        # sequence (identical to the per-chain bundle when the target is a single chain).
+        final_target_msas = [_target_cofold_msas(per_chain_target_seqs)]
+        pre_redesign_target_msas = (
+            final_target_msas
+            if len(per_chain_target_seqs) == 1
+            else [_target_cofold_msas([Sequence(sequence=target_seq, sequence_type="protein")])]
+        )
+
     num_accepted = 0
     all_records: list[TrajectoryRecord] = []
     run_seed = int(time.time_ns()) % (2**32 - 1)
@@ -614,6 +688,8 @@ def run_germinal_antibody(
             target_hotspots,
             binder_chain,
             run_dir,
+            final_target_msas=final_target_msas,
+            pre_redesign_target_msas=pre_redesign_target_msas,
             no_filter=no_filter,
             record=record,
         )
@@ -668,10 +744,17 @@ def run_trajectory(
     target_hotspots: str | None,
     binder_chain: str,
     run_dir: str,
+    final_target_msas: list[ComplexMSAs] | None = None,
+    pre_redesign_target_msas: list[ComplexMSAs] | None = None,
     no_filter: bool = False,
     record: TrajectoryRecord | None = None,
 ) -> int:
-    """Run one Germinal trajectory; returns number of accepted variants saved."""
+    """Run one Germinal trajectory; returns number of accepted variants saved.
+
+    ``final_target_msas``/``pre_redesign_target_msas`` carry the campaign's target-only MSA
+    (``msa_mode="target"``) into the final-filter and pre-redesign cofolds respectively; both are
+    ``None`` under ``msa_mode="single"``.
+    """
     np.random.seed(trajectory_seed)
 
     # CDR index sets
@@ -928,6 +1011,7 @@ def run_trajectory(
         cdr_positions_1idx=cdr_positions_1idx,
         cdr3_positions_1idx=cdr3_positions_1idx,
         trajectory_seed=trajectory_seed,
+        precomputed_msas=pre_redesign_target_msas,
     )
     if not _check_gate(
         "pre_redesign_external_gate",
@@ -988,9 +1072,10 @@ def run_trajectory(
     # ── FINAL FILTER: cofold each top-K variant, then relax + evaluate Germinal gates ──
     cofold_cfg = StructureBasedConstraintConfig.model_validate(_cofold_config(geom.cofold_tool, trajectory_seed))
     target_seqs = [seg.result_sequences[0] for seg in target_segments]
+    # msa_mode="target": reuse the campaign's per-chain target MSA (searched once); "single": None.
     accepted = 0
     for variant_idx, variant in enumerate(binder.result_sequences):
-        cofold_result = structure_composite_constraint([(variant, *target_seqs)], cofold_cfg)[0]
+        cofold_result = structure_composite_constraint([(variant, *target_seqs)], cofold_cfg, final_target_msas)[0]
         data = cofold_result.metadata
         plddt = float(data["composite_avg_plddt"])
         iptm = float(data["composite_iptm"])
@@ -1342,13 +1427,20 @@ def run_pre_redesign_external_filters(
     cdr_positions_1idx: set[int],
     cdr3_positions_1idx: set[int],
     trajectory_seed: int,
+    precomputed_msas: list[ComplexMSAs] | None = None,
 ) -> PreRedesignFilterMetrics:
-    """Run Germinal's extra external cofold + relax + initial-filter stage."""
+    """Run Germinal's extra external cofold + relax + initial-filter stage.
+
+    ``precomputed_msas`` conditions the (single, concatenated) target chain on the campaign's
+    target-only MSA under ``msa_mode="target"`` so this gate scores the same target conditioning as
+    the final filter; ``None`` leaves the cofold single-sequence.
+    """
     eval_binder = Sequence(sequence=binder_sequence, sequence_type="protein")
     eval_target = Sequence(sequence=target_sequence, sequence_type="protein")
     cofold_results = structure_composite_constraint(
         [(eval_binder, eval_target)],
         StructureBasedConstraintConfig.model_validate(_cofold_config(cofold_tool, trajectory_seed)),
+        precomputed_msas,
     )
     cofold_struct = cofold_results[0].structures[0]
     assert cofold_struct is not None  # noqa: S101 -- structure_composite_constraint always populates slot 0

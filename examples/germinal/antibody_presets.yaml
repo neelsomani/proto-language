@@ -46,6 +46,7 @@ presets:
     lr_schedule: null
     ban_cysteine: true
     cofold_tool: chai1
+    msa_mode: "target"
     # Redesign sampling
     num_seqs: 40
     max_mpnn_sequences: 4
@@ -105,6 +106,7 @@ presets:
     lr_schedule: null
     ban_cysteine: true
     cofold_tool: alphafold3
+    msa_mode: "target"
     # Redesign sampling
     num_seqs: 40
     max_mpnn_sequences: 4
@@ -167,6 +169,7 @@ presets:
     lr_schedule: linear
     ban_cysteine: false
     cofold_tool: alphafold3
+    msa_mode: "target"
     # Redesign sampling
     num_seqs: 40
     max_mpnn_sequences: 5
@@ -231,6 +234,7 @@ presets:
     lr_schedule: linear
     ban_cysteine: false
     cofold_tool: alphafold3
+    msa_mode: "target"
     # Redesign sampling
     num_seqs: 40
     max_mpnn_sequences: 4

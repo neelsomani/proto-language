@@ -20,6 +20,7 @@ from logging import getLogger
 from typing import Any
 
 from proto_tools import Complex, Structure, predict_structures
+from proto_tools.tools.structure_prediction.shared_data_models import ComplexMSAs
 
 from proto_language.constraint.constraint_registry import constraint
 from proto_language.constraint.protein_structure.structure_constraint_config import (
@@ -82,6 +83,7 @@ def _predict_confidence_records(
     proposals: list[tuple[Sequence, ...]],
     config: StructureBasedConstraintConfig,
     target_metric: str,
+    precomputed_msas: list[ComplexMSAs] | None = None,
 ) -> list[_StructureConfidenceRecord]:
     """Run the configured confidence predictor once and return canonical records.
 
@@ -89,8 +91,14 @@ def _predict_confidence_records(
     return a ``Structure`` per proposal. AF2 binder uses the binder /
     ColabDesign API, so this adapter converts its richer output into the same
     private record shape before metric extraction and scoring happen.
+
+    ``precomputed_msas`` (one :class:`ComplexMSAs` per proposal) is forwarded to
+    ``predict_structures``; chains omitted from a bundle's ``per_chain`` stay
+    single-sequence. The AF2 binder path has its own MSA handling and rejects it.
     """
     if config.structure_tool == "alphafold2_binder":
+        if precomputed_msas is not None:
+            raise ValueError("precomputed_msas is not supported for the 'alphafold2_binder' tool.")
         predictions = evaluate_af2_binder_confidence_predictions(
             proposals,
             config,
@@ -110,7 +118,7 @@ def _predict_confidence_records(
         chains = [{"sequence": seq.sequence, "entity_type": seq.sequence_type} for seq in proposal_tuple]
         complexes.append(Complex(chains=chains))
 
-    output = predict_structures(complexes, config.structure_tool, config.tool_config)
+    output = predict_structures(complexes, config.structure_tool, config.tool_config, msas=precomputed_msas)
     return [
         _StructureConfidenceRecord(metrics=dict(structure.metrics.items()), complex_structure=structure)
         for structure in output.structures
@@ -633,7 +641,9 @@ def structure_ipae_constraint(
     input_labels=None,
 )
 def structure_composite_constraint(
-    input_sequences: list[tuple[Sequence, ...]], config: StructureBasedConstraintConfig
+    input_sequences: list[tuple[Sequence, ...]],
+    config: StructureBasedConstraintConfig,
+    precomputed_msas: list[ComplexMSAs] | None = None,
 ) -> list[ConstraintOutput]:
     """Evaluate structure quality using a composite of all confidence metrics from one prediction call.
 
@@ -661,6 +671,10 @@ def structure_composite_constraint(
     Args:
         input_sequences (list[tuple[Sequence, ...]]): Per-proposal tuples of input sequences.
         config (StructureBasedConstraintConfig): Constraint configuration controlling evaluation parameters.
+        precomputed_msas (list[ComplexMSAs] | None): Optional pre-computed MSAs, one per proposal
+            (parallel to ``input_sequences``). Chains omitted from a bundle's ``per_chain`` stay
+            single-sequence, so a caller can condition only a fixed subset of chains (e.g. the
+            target of a binder/target cofold) and skip the per-call MSA search.
 
     Returns:
         list[ConstraintOutput]: Per-proposal composite score in ``[0, 1]`` (lower
@@ -709,7 +723,7 @@ def structure_composite_constraint(
             f"structure-composite requires one of {sorted(COMPOSITE_SUPPORTED_TOOLS)}; got {config.structure_tool!r}."
         )
 
-    records = _predict_confidence_records(input_sequences, config, "avg_plddt")
+    records = _predict_confidence_records(input_sequences, config, "avg_plddt", precomputed_msas=precomputed_msas)
 
     results: list[ConstraintOutput] = []
     for record, proposal_tuple in zip(records, input_sequences, strict=True):

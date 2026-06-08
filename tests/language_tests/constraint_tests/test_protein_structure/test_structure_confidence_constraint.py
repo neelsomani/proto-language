@@ -5,12 +5,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from proto_tools import Structure, StructurePredictionOutput
+from proto_tools.entities.msa import MSA
+from proto_tools.tools.structure_prediction.shared_data_models import ComplexMSAs
 
 from proto_language import AlphaFold2BinderStructureConfig, structure_contact_constraint
 from proto_language.constraint.protein_structure.structure_confidence_constraint import (
     PAE_MAXIMUM,
     TOOL_AVAILABLE_METRICS,
     StructureBasedConstraintConfig,
+    _predict_confidence_records,
     structure_composite_constraint,
     structure_ipae_constraint,
     structure_iplddt_constraint,
@@ -1161,6 +1164,47 @@ class TestStructureComposite:
             )
             results = structure_composite_constraint(proposals, config)
             assert len(results) == n and mock_predict.call_count == 1
+
+    def test_composite_forwards_precomputed_msas(self, protein_sequence, protein_sequence_b):
+        """Caller-supplied target-only MSAs reach ``predict_structures`` via ``msas=`` unchanged."""
+        config = StructureBasedConstraintConfig(structure_tool="chai1")
+        target_msas = [
+            ComplexMSAs(per_chain={1: MSA(aligned_sequences=[protein_sequence_b.sequence] * 2)}, paired=False)
+        ]
+        with patch(
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output(
+                [make_mock_structure(avg_plddt=0.9, iptm=0.8, ptm=0.7, avg_pae=3.0)]
+            )
+            structure_composite_constraint([(protein_sequence, protein_sequence_b)], config, target_msas)
+            assert mock_predict.call_args.kwargs["msas"] is target_msas
+
+    def test_composite_default_supplies_no_msas(self, protein_sequence, protein_sequence_b):
+        """Without ``precomputed_msas`` the predictor receives ``msas=None`` (its own auto-search path)."""
+        config = StructureBasedConstraintConfig(structure_tool="chai1")
+        with patch(
+            "proto_language.constraint.protein_structure.structure_confidence_constraint.predict_structures"
+        ) as mock_predict:
+            mock_predict.return_value = make_mock_output(
+                [make_mock_structure(avg_plddt=0.9, iptm=0.8, ptm=0.7, avg_pae=3.0)]
+            )
+            structure_composite_constraint([(protein_sequence, protein_sequence_b)], config)
+            assert mock_predict.call_args.kwargs["msas"] is None
+
+    def test_predict_records_rejects_precomputed_msas_for_af2_binder(self, protein_sequence):
+        """AF2 binder has its own MSA handling, so supplied MSAs are a hard error, not a silent no-op."""
+        config = StructureBasedConstraintConfig(
+            structure_tool="alphafold2_binder",
+            alphafold2_binder_config=AlphaFold2BinderStructureConfig(
+                target_pdb=PDL1_PDB.read_text(),
+                binder_chain="B",
+                target_chains=["A"],
+            ),
+        )
+        msas = [ComplexMSAs(per_chain={1: MSA(aligned_sequences=[protein_sequence.sequence] * 2)}, paired=False)]
+        with pytest.raises(ValueError, match="precomputed_msas is not supported"):
+            _predict_confidence_records([(protein_sequence,)], config, "avg_plddt", precomputed_msas=msas)
 
 
 # ============================================================================

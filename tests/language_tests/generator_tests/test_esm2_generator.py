@@ -20,7 +20,7 @@ class TestESM2Generator:
             )
         )
 
-        segment = Segment(length=20, sequence_type="protein")
+        segment = Segment(sequence="MKKLLVVGGGGAAAAMKKLL", sequence_type="protein")
         esm2_generator.assign(segment)
 
         assert esm2_generator._assigned_segments == (segment,)
@@ -41,7 +41,7 @@ class TestESM2Generator:
             )
         )
 
-        segment = Segment(length=20, sequence_type="protein")
+        segment = Segment(sequence="MKKLLVVGGGGAAAAMKKLL", sequence_type="protein")
         esm2_generator.assign(segment)
         esm2_generator.sample()
 

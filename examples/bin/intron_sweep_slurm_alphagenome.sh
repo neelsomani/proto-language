@@ -4,7 +4,7 @@
 #SBATCH --gpus=1
 #SBATCH --mem=16G
 #SBATCH --time=14:00:00
-#SBATCH --partition=preemptible
+# Set --partition to your site's GPU partition via the SLURM_PARTITION env var.
 #SBATCH --requeue
 #SBATCH --output=log/slurm/%x_%A_%a.out
 #SBATCH --error=log/slurm/%x_%A_%a.err
@@ -38,9 +38,10 @@ mkdir -p "$SLURM_LOG_DIR" "$SWEEP_LOG_ROOT" "$SWEEP_RUN_ROOT"
 DEFAULT_GRID_PATH="${SWEEP_GRID_PATH:-examples/bin/intron_sweep_alphagenome_grid.tsv}"
 MAX_PARALLEL="${MAX_PARALLEL:-}"
 SLURM_ARRAY_SPEC="${SLURM_ARRAY_SPEC:-}"
-SLURM_PARTITION="${SLURM_PARTITION:-preemptible}"
+# Set SLURM_PARTITION to your site's GPU partition; left unset, sbatch uses the cluster default.
+SLURM_PARTITION="${SLURM_PARTITION:-}"
 SLURM_CONSTRAINT="${SLURM_CONSTRAINT:-}"
-SLURM_EXCLUDE_NODES="${SLURM_EXCLUDE_NODES:-GPUCACE}"
+SLURM_EXCLUDE_NODES="${SLURM_EXCLUDE_NODES:-}"
 SLURM_QOS="${SLURM_QOS:-}"
 SLURM_TIME="${SLURM_TIME:-}"
 SWEEP_STEPS="${SWEEP_STEPS:-5000}"
@@ -243,10 +244,12 @@ submit_sweep() {
     fi
     local array_spec="${SLURM_ARRAY_SPEC:-$default_array_spec}"
     local -a sbatch_args=(
-        --partition "$SLURM_PARTITION"
         --output "${SLURM_LOG_DIR}/%x_%A_%a.out"
         --error "${SLURM_LOG_DIR}/%x_%A_%a.err"
     )
+    if [[ -n "$SLURM_PARTITION" ]]; then
+        sbatch_args+=(--partition "$SLURM_PARTITION")
+    fi
     if [[ -n "$SLURM_TIME" ]]; then
         sbatch_args+=(--time "$SLURM_TIME")
     fi
@@ -261,7 +264,7 @@ submit_sweep() {
     fi
 
     echo "Submitting ${total_configs} configs with array spec ${array_spec}"
-    echo "SLURM placement: partition=${SLURM_PARTITION} qos=${SLURM_QOS:-<default>} constraint=${SLURM_CONSTRAINT:-<none>} exclude=${exclude_nodes:-<none>}"
+    echo "SLURM placement: partition=${SLURM_PARTITION:-<default>} qos=${SLURM_QOS:-<default>} constraint=${SLURM_CONSTRAINT:-<none>} exclude=${exclude_nodes:-<none>}"
     echo "Output roots: work=${WORK_ROOT} slurm_log=${SLURM_LOG_DIR} sweep_log=${SWEEP_LOG_ROOT} sweep_run=${SWEEP_RUN_ROOT}"
     sbatch \
         "${sbatch_args[@]}" \

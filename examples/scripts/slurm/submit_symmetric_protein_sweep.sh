@@ -2,15 +2,15 @@
 # Submit the symmetric protein parameter sweep as a SLURM array job
 #
 # Usage:
-#   ./submit_sweep.sh           # Submit all 28 jobs
-#   ./submit_sweep.sh 0-13      # Submit subset (first 14 jobs)
-#   ./submit_sweep.sh 0-27%4    # Submit all with max 4 concurrent jobs
+#   ./submit_sweep.sh           # Submit all 3 jobs
+#   ./submit_sweep.sh 0-1       # Submit subset (first 2 jobs)
+#   ./submit_sweep.sh 0-2%2     # Submit all with max 2 concurrent jobs
 
 # Parameter grid summary:
-#   monomer_length: 50, 100 (2 values)
-#   n_symmetric_units: 2, 3, 4, 5, 6, 7, 8 (7 values)
-#   n_steps: 5000, 10000 (2 values)
-#   Total: 2 * 7 * 2 = 28 combinations
+#   monomer_length: 50 (1 value)
+#   n_symmetric_units: 6, 7, 8 (3 values)
+#   n_steps: 30000 (1 value)
+#   Total: 1 * 3 * 1 = 3 combinations
 
 TOTAL_JOBS=3
 ARRAY_SPEC="${1:-0-$((TOTAL_JOBS-1))}"
@@ -28,9 +28,9 @@ echo ""
 
 # Print parameter grid
 echo "Parameter grid:"
-echo "  Monomer lengths: 50, 100"
-echo "  N symmetric units: 2, 3, 4, 5, 6, 7, 8"
-echo "  N steps: 5000, 10000"
+echo "  Monomer lengths: 50"
+echo "  N symmetric units: 6, 7, 8"
+echo "  N steps: 30000"
 echo ""
 
 # Submit array job

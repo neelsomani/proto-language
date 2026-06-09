@@ -1,3 +1,5 @@
+import argparse
+import os
 import re
 
 import matplotlib
@@ -5,6 +7,30 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 matplotlib.use("Agg")
+
+parser = argparse.ArgumentParser(description="Plot signaling ligand RMSD scatter figures.")
+parser.add_argument(
+    "--mmseqs-tsv",
+    default="analyze_af3_signaling_with_mmseqs.tsv",
+    help="TSV with per-design MMseqs weighted scores.",
+)
+parser.add_argument(
+    "--ac-atp-csv",
+    default="pocket_ligand_AC_ATP.csv",
+    help="CSV with adenylyl cyclase / ATP pocket ligand RMSDs.",
+)
+parser.add_argument(
+    "--b2ar-ale-csv",
+    default="pocket_ligand_b2AR_ALE.csv",
+    help="CSV with b2AR / ALE pocket ligand RMSDs.",
+)
+parser.add_argument(
+    "--output-dir",
+    default="outputs/signaling_ligand_scatters",
+    help="Directory to write the scatter SVGs into (created if needed).",
+)
+args = parser.parse_args()
+os.makedirs(args.output_dir, exist_ok=True)
 
 # Set up font - use Liberation Sans (metrically equivalent to Arial)
 plt.rcParams["font.family"] = "Liberation Sans"
@@ -16,7 +42,7 @@ plt.rcParams["ytick.major.pad"] = 1.5
 plt.rcParams["axes.labelpad"] = 2
 
 # Load TSV with mmseqs scores
-tsv_df = pd.read_csv("/mnt/user-data/uploads/analyze_af3_signaling_with_mmseqs.tsv", sep="\t")
+tsv_df = pd.read_csv(args.mmseqs_tsv, sep="\t")
 
 
 # Extract run_id from run_dir in TSV
@@ -28,8 +54,8 @@ def extract_run_id(path):
 tsv_df["run_id"] = tsv_df["run_dir"].apply(extract_run_id)
 
 # Load ligand CSVs
-ac_atp_df = pd.read_csv("/mnt/user-data/uploads/pocket_ligand_AC_ATP.csv")
-b2ar_ale_df = pd.read_csv("/mnt/user-data/uploads/pocket_ligand_b2AR_ALE.csv")
+ac_atp_df = pd.read_csv(args.ac_atp_csv)
+b2ar_ale_df = pd.read_csv(args.b2ar_ale_csv)
 
 # Extract run_id from design path in CSVs
 ac_atp_df["run_id"] = ac_atp_df["design"].apply(extract_run_id)
@@ -107,7 +133,7 @@ def make_scatter(df, name, native_rmsd):
     plt.tight_layout(pad=0.1)
 
     # Save figure
-    filename = f"/home/claude/{name}_ligand_rmsd_scatter.svg"
+    filename = os.path.join(args.output_dir, f"{name}_ligand_rmsd_scatter.svg")
     plt.savefig(filename, format="svg", bbox_inches="tight")
     plt.close()
 

@@ -6,7 +6,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=gpu_batch,gpu_batch_high_mem
 #SBATCH --requeue
-#SBATCH --exclude=GPUCACE
+# Site-specific node exclusions, if any, via: sbatch --exclude=<node[,node...]>
 #SBATCH --output=logs/slurm/evocas9_rejection_sampling_%j.log
 #SBATCH --error=logs/slurm/evocas9_rejection_sampling_%j.log
 

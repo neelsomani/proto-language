@@ -10,6 +10,7 @@ target is a synthetic mScarlet split-complementation reporter.
 import logging
 import random
 from pathlib import Path
+from typing import Any
 
 from proto_tools.transforms.masking import MaskingStrategy
 
@@ -58,7 +59,7 @@ def _enable_mcmc_energy_logging() -> None:
     mcmc_logger.propagate = False
 
 
-def _get_constraints_metadata(sequence: Sequence) -> dict[str, any]:
+def _get_constraints_metadata(sequence: Sequence) -> dict[str, Any]:
     """Return constraint metadata from a Sequence across old/new metadata layouts."""
     metadata_view = getattr(sequence, "metadata", None)
     if isinstance(metadata_view, dict):
@@ -294,7 +295,6 @@ if __name__ == "__main__":
                     temperature=1.0,
                 )
                 intron_gen = Evo2Generator(intron_gen_config)
-                intron_gen.sequence_length = args.intron_length - 4
                 intron_gen.assign(intron)
 
             else:

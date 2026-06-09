@@ -11,7 +11,7 @@ import subprocess
 
 from Bio import SeqIO
 
-DB_PATH = "/large_storage/hielab/brianhie/datasets/uniref50/mmseqs/uniref50_db"
+DB_PATH = os.environ.get("UNIREF50_DB", "/path/to/uniref50_db")
 TMP_DIR = "./mmseqs_tmp"
 
 

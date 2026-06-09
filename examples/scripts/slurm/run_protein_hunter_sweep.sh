@@ -15,12 +15,12 @@ TOOLS=("boltz2" "chai1")
 LENGTHS=(200 300 400 500 600 700)
 
 # Map Array ID to Parameters
-# Logic: We have 3 lengths per tool.
-# TOOL_IDX = ID / 3  (Integer division)
-# LEN_IDX  = ID % 3  (Modulus)
+# Logic: We have 6 lengths per tool (2 tools x 6 lengths = 12 jobs, array 0-11).
+# TOOL_IDX = ID / 6  (Integer division)
+# LEN_IDX  = ID % 6  (Modulus)
 
-TOOL_IDX=$((SLURM_ARRAY_TASK_ID / 3))
-LEN_IDX=$((SLURM_ARRAY_TASK_ID % 3))
+TOOL_IDX=$((SLURM_ARRAY_TASK_ID / 6))
+LEN_IDX=$((SLURM_ARRAY_TASK_ID % 6))
 
 TOOL=${TOOLS[$TOOL_IDX]}
 LENGTH=${LENGTHS[$LEN_IDX]}

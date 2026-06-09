@@ -200,3 +200,19 @@ program_incremental = Program(
     num_results=3,
     verbose=True,
 )
+
+# Run stage 0 (rejection sampling), inspect its results, then run stage 1 (MCMC).
+program_incremental.run_stage(0)
+stage_0_results = program_incremental.get_stage_results(0)
+print("---------STAGE 0 RESULTS (MODE 2)------------")
+for result in stage_0_results["results"]:
+    segment = result["constructs"][0]["segments"][0]
+    gc = segment["constraints"]["gc_content_constraint"]["data"]["gc_content"]
+    print(f"energy={result['energy_score']}, sequence={segment['sequence']}, gc_content={gc}")
+
+program_incremental.run_stage(1)
+
+incremental_construct: Construct = program_incremental.constructs[0]
+incremental_sequence: Sequence = incremental_construct.joined_sequences[0]
+print("---------FINAL SEQUENCE (MODE 2)------------")
+print(incremental_sequence)

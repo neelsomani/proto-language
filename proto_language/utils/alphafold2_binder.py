@@ -7,7 +7,7 @@ tool-boundary translation: canonical
 loss names, predictor-like metric aliases, per-input structure splitting, and
 forward AF2 binder calls.
 
-TODO(@brianhie, @dguo): Consider moving some of this adapter logic into
+TODO: Consider moving some of this adapter logic into
 proto-tools if the AF2 binder interface grows a predictor-shaped API.
 """
 

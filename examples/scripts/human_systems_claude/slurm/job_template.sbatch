@@ -6,7 +6,7 @@
 #SBATCH --gpus=1
 #SBATCH --mem=256G
 #SBATCH --time=14:00:00
-#SBATCH --partition=gpu,gpu_high_mem,preemptible
+# Set --partition to your site's GPU partition(s), e.g. via `sbatch --partition=<name>`.
 #SBATCH --requeue
 
 # =============================================================================

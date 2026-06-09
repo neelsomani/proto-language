@@ -1,10 +1,21 @@
+import argparse
 import json
+import os
 
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 
 matplotlib.use("Agg")
+
+parser = argparse.ArgumentParser(description="Plot signaling complex scatter figures.")
+parser.add_argument(
+    "--output-dir",
+    default="outputs/signaling_scatters",
+    help="Directory to write the scatter SVGs into (created if needed).",
+)
+args = parser.parse_args()
+os.makedirs(args.output_dir, exist_ok=True)
 
 # Set up font - use Liberation Sans (metrically equivalent to Arial)
 plt.rcParams["font.family"] = "Liberation Sans"
@@ -111,7 +122,7 @@ for metric, ylabel in [("plddt", "pLDDT"), ("rmsd", "RMSD (Å)")]:
 
         # Save figure
         safe_cid = cid.replace("::", "_").replace(" ", "_")
-        filename = f"/home/claude/{safe_cid}_{metric}_scatter.svg"
+        filename = os.path.join(args.output_dir, f"{safe_cid}_{metric}_scatter.svg")
         plt.savefig(filename, format="svg", bbox_inches="tight")
         plt.close()
 

@@ -11,7 +11,7 @@ import os
 import pandas as pd
 from pyfaidx import Fasta
 
-HG38_REF_FILE = "/large_storage/hielab/ykhao/datasets/humanCRE/hg38.fa"
+HG38_REF_FILE = os.environ.get("HG38_REF_FILE", "/path/to/hg38.fa")
 DEFAULT_CREB_PEAK_FILE = "examples/data/ENCFF550TXR.bed.gz"
 FLANK_LENGTH = 262_144  # Half of Borzoi input context.
 

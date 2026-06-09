@@ -97,6 +97,14 @@ def pytest_addoption(parser):
         help="Include integration tests (require external tools like MAFFT). Skipped by default.",
     )
     parser.addoption(
+        "--extensive",
+        "--ext",
+        action="store_true",
+        default=False,
+        dest="extensive",
+        help="Include extensive combinatorial tests (e.g., every constraint x optimizer). Skipped by default.",
+    )
+    parser.addoption(
         "--no-log-console",
         action="store_true",
         default=False,
@@ -192,10 +200,11 @@ def pytest_sessionfinish(session, exitstatus):
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection based on command line options and auto-mark tests."""
-    # Auto-mark all tests as CPU-only unless explicitly marked as GPU
+    # Auto-mark CPU tests — skip if already tagged (uses_gpu or explicit uses_cpu(n))
+    # so we don't stack a zero-arg duplicate on top of an explicit count.
     for item in items:
-        # If no GPU marker found, mark as CPU
-        if not any(mark.name == "uses_gpu" for mark in item.iter_markers()):
+        markers = list(item.iter_markers())
+        if not any(m.name == "uses_gpu" for m in markers) and not any(m.name == "uses_cpu" for m in markers):
             item.add_marker(pytest.mark.uses_cpu)
 
     # Skip tests marked with skip_ci when running in GitHub Actions or --skip-ci is specified
@@ -229,8 +238,8 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "slow" not in item.keywords:
                 item.add_marker(skip_non_slow)
-    elif not run_all:
-        # By default (no --all flag), skip slow tests
+    elif not run_all and not config.getoption("extensive"):
+        # By default (no --all / no --ext flag), skip slow tests
         skip_slow = pytest.mark.skip(reason="slow test (use --all to run, or --slow to run only slow tests)")
         for item in items:
             if "slow" in item.keywords:
@@ -242,6 +251,40 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(skip_integration)
+
+    # Skip extensive tests unless --ext (or --extensive) is specified
+    if not config.getoption("extensive"):
+        skip_extensive = pytest.mark.skip(reason="extensive test (use --ext to run)")
+        for item in items:
+            if "extensive" in item.keywords:
+                item.add_marker(skip_extensive)
+
+    # Skip uses_gpu(n) tests when fewer than n GPUs are visible. Bare uses_gpu = count=1.
+    # Helpers come from proto-tools (shared runtime), keeping count detection identical across layers.
+    # Skipped under --cpu-only — the --cpu-only block above already skip-marks every uses_gpu test,
+    # and number_of_visible_gpus shells out to nvidia-smi, which we shouldn't pay for on CPU runs.
+    if not config.getoption("--cpu-only"):
+        from proto_tools.utils.device import number_of_visible_gpus
+
+        visible_gpus = number_of_visible_gpus()
+        for item in items:
+            for marker in item.iter_markers("uses_gpu"):
+                required = marker.args[0] if marker.args else 1
+                if visible_gpus < required:
+                    unit = "GPU" if required == 1 else "GPUs"
+                    item.add_marker(pytest.mark.skip(reason=f"Requires {required} {unit}, only {visible_gpus} visible"))
+
+    # Skip uses_cpu(n) tests when fewer than n CPUs are visible. Bare uses_cpu = count=1.
+    # _detect_cpus has no subprocess cost — fine to run unconditionally.
+    from proto_tools.utils.tool_pool import _detect_cpus
+
+    visible_cpus = _detect_cpus()
+    for item in items:
+        for marker in item.iter_markers("uses_cpu"):
+            required = marker.args[0] if marker.args else 1
+            if visible_cpus < required:
+                unit = "CPU" if required == 1 else "CPUs"
+                item.add_marker(pytest.mark.skip(reason=f"Requires {required} {unit}, only {visible_cpus} visible"))
 
 
 @pytest.fixture(scope="session", autouse=True)

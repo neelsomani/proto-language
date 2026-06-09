@@ -84,11 +84,12 @@ addopts = [
 ]
 markers = [
     "asyncio: mark test as requiring asyncio",
-    "uses_cpu: CPU-only tests (auto-applied to non-GPU tests by conftest)",
-    "uses_gpu: GPU-required tests",
+    "uses_cpu: mark test as CPU-only. Optional arg: @pytest.mark.uses_cpu(n) skips unless n CPUs are visible (matches the count proto_tools' _detect_cpus would see)",
+    "uses_gpu: mark test as requiring GPU. Optional arg: @pytest.mark.uses_gpu(n) skips unless n GPUs are visible",
     "slow: Slow tests that may take several minutes",
     "integration: Integration tests (require external tools like MAFFT). Skipped by default.",
     "skip_ci: Skip test in GitHub Actions CI",
+    "extensive: Combinatorial tests (e.g., every constraint × optimizer). Skipped unless --ext (or --extensive) is passed",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

@@ -32,9 +32,11 @@ Current GitHub workflows:
 
 | Marker | When to use | Selection behavior |
 |---|---|---|
-| `@pytest.mark.uses_gpu` | Test requires CUDA/model GPU execution | Included by default unless also slow/integration; skipped by `--cpu-only`; selected by `--gpu-only` |
-| `@pytest.mark.slow` | Test takes long enough to disrupt default feedback | Skipped by default; included by `--all`; selected alone by `--slow` |
+| `@pytest.mark.uses_gpu` | Test requires CUDA/model GPU execution. Optional arg: `@pytest.mark.uses_gpu(n)` skips unless ≥`n` GPUs are visible (defaults to 1). | Included by default unless also slow/integration; skipped by `--cpu-only`; selected by `--gpu-only`; auto-skipped when fewer than `n` GPUs visible |
+| `@pytest.mark.uses_cpu` | Auto-applied to non-GPU tests. Optional arg: `@pytest.mark.uses_cpu(n)` skips unless ≥`n` CPUs are visible (matches `proto_tools._detect_cpus`). | Auto-marked on bare tests; skipped by `--gpu-only`; parametric form gated on CPU count |
+| `@pytest.mark.slow` | Test takes long enough to disrupt default feedback | Skipped by default; included by `--all` or `--ext`; selected alone by `--slow` |
 | `@pytest.mark.integration` | Test requires external tools/services such as MAFFT | Skipped by default; included by `--integration` or `--all` |
+| `@pytest.mark.extensive` | Combinatorial sweeps (e.g., every constraint × optimizer) | Skipped by default; included by `--ext` / `--extensive` |
 | `@pytest.mark.skip_ci` | Test is not valid in GitHub Actions or local CI simulation | Skipped when `GITHUB_ACTIONS=true` or `--skip-ci` |
 | `@pytest.mark.asyncio` | Optional explicit marker for async tests | `asyncio_mode=auto` is enabled, so async tests do not normally need it |
 | *(no marker)* | Fast CPU test | Auto-marked `uses_cpu` by `conftest.py` |
@@ -45,7 +47,10 @@ Flag interactions:
 - `--gpu-only` skips auto-marked CPU tests, but does not by itself include slow or integration tests.
 - `--all` includes slow and integration tests.
 - `--slow` runs only tests marked `slow`; slow tests that are also `integration` are still skipped unless you also pass `--integration` (with both flags, all slow tests run — slow-only and slow+integration alike, while non-slow tests stay skipped). Use `--all` to run the full default + slow + integration set instead.
+- `--ext` / `--extensive` opts in `extensive`-marked tests; also implicitly opts in slow tests (combinatorial sweeps are usually slow). Integration is unaffected.
 - `--skip-ci` skips `skip_ci` tests and sets `CUDA_VISIBLE_DEVICES=""`.
+- Hardware count gates (`uses_gpu(n)`, `uses_cpu(n)`) apply whenever the relevant kind of test is selected: the test is skipped if fewer than `n` resources are visible. Counts come from `proto_tools.utils.device.number_of_visible_gpus` and `proto_tools.utils.tool_pool._detect_cpus` so they match what tools actually see. The GPU gate is skipped under `--cpu-only` (every `uses_gpu` test is already skip-marked, no need to shell out to `nvidia-smi`).
+- **Semantic change vs. pre-parametric behavior:** bare `@pytest.mark.uses_gpu` is shorthand for `uses_gpu(1)`, so on hosts with zero visible GPUs (and without `--cpu-only`) these tests now skip cleanly (`Requires 1 GPU, only 0 visible`) instead of attempting to run and erroring at first CUDA call. Strictly safer, but a real change worth knowing about when running locally on GPU-less hardware.
 
 CPU tests need no marker. Add only the markers that change selection or environment assumptions.
 

@@ -16,6 +16,8 @@ requires-python = ">=3.10"
 
 # Core dependencies
 dependencies = [
+    "proto_tools @ git+https://github.com/evo-design/proto-tools.git@main",
+
     # Core framework
     "pydantic>=2.0",
 

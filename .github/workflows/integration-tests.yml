@@ -30,15 +30,10 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y mafft
-    - name: Install micromamba
-      run: |
-        MAMBA_DIR="${{ github.workspace }}/proto-tools/.micromamba"
-        mkdir -p "$MAMBA_DIR/bin"
-        curl -sSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -o "$MAMBA_DIR/bin/micromamba"
-        chmod 755 "$MAMBA_DIR/bin/micromamba"
-        "$MAMBA_DIR/bin/micromamba" --version
+    - name: Authenticate uv for private git deps
+      run: git config --global url."https://x-access-token:${{ secrets.CI_SUBMODULE_ACCESS }}@github.com/".insteadOf "https://github.com/"
     - name: Install dependencies
       run: |
-        uv pip install --system -e ./proto-tools
         uv pip install --system -e ".[dev]"
+        uv pip install --system -e ./proto-tools
     - run: pytest --integration --cpu-only -v

@@ -16,7 +16,7 @@ python .github/scripts/validate_exports.py --verbose  # export-chain consistency
 
 ## Initial Setup
 
-Follow the [README](../README.md#installation) for the conda environment and the editable install of `proto-language` plus the `proto-tools` submodule. The README is the source of truth; don't duplicate setup steps here.
+Follow the [README](../README.md#developers) for the editable install of `proto-language` plus the `proto-tools` submodule. The README is the source of truth; don't duplicate setup steps here.
 
 ## Submodule Sync
 

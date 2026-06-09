@@ -23,7 +23,7 @@ python .github/scripts/validate_exports.py --verbose
 
 Current GitHub workflows:
 
-- `unit-tests.yml`: non-draft PRs and `main`, runs `pytest --cpu-only -q --override-ini="log_cli=false" --cov --cov-report=term-missing`.
+- `unit-tests.yml`: non-draft PRs and manual `workflow_dispatch`, runs `pytest --cpu-only -q --override-ini="log_cli=false" --cov --cov-report=term-missing`.
 - `integration-tests.yml`: scheduled/manual, installs MAFFT and runs `pytest --integration --cpu-only -v`.
 - `checks.yml`: non-draft PRs, runs `ruff check`, `ruff format --check`, `mypy proto_language/`, and export validation.
 - `submodule-check.yml`: non-draft PRs, verifies `proto-tools` points at the latest `main`.

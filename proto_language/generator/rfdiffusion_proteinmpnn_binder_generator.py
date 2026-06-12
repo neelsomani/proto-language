@@ -66,7 +66,7 @@ class RFdiffusionProteinMPNNBinderGeneratorConfig(BaseConfig):
     ``num_sequences_per_structure`` as the number of sequences designed per backbone.
 
     Attributes:
-        target_structure (Structure): Target protein to design a binder against.
+        target_structure (Structure | str): Target protein to design a binder against.
             Accepts a file path, PDB/CIF content string, or ``Structure`` object.
         target_chains (list[str]): Target chain IDs kept fixed during design; the binder
             backbone is emitted after them (so the binder is the last chain).
@@ -81,7 +81,7 @@ class RFdiffusionProteinMPNNBinderGeneratorConfig(BaseConfig):
             ``seed`` is managed by the generator.
     """
 
-    target_structure: Structure = ConfigField(
+    target_structure: Structure | str = ConfigField(
         title="Target Structure",
         description="Target protein to bind (file path, PDB/CIF content, or Structure).",
     )
@@ -219,6 +219,11 @@ class RFdiffusionProteinMPNNBinderGenerator(Generator):
             RuntimeError: If RFdiffusion3 returns no backbones, or if the pipeline yields
                 fewer designs than the number of proposals.
         """
+        # A staged upload, path, or content string arrives as str; materialize before use.
+        target_structure = self.target_structure
+        if isinstance(target_structure, str):
+            target_structure = Structure(structure=target_structure)
+
         segment = self.segment
         binder_len = segment.sequence_length
         num_proposals = segment.num_proposals
@@ -230,7 +235,7 @@ class RFdiffusionProteinMPNNBinderGenerator(Generator):
                 seq.sequence = "X" * binder_len
         self._validate_generator()
 
-        contig = self._build_contig(binder_len)
+        contig = self._build_contig(binder_len, target_structure)
 
         # One ProteinMPNN run per backbone (num_sequences_per_structure seqs each);
         # n_batches fans out enough backbones within diffusion_batch_size.
@@ -243,7 +248,7 @@ class RFdiffusionProteinMPNNBinderGenerator(Generator):
             inputs=RFdiffusion3Input(
                 design_specs=[
                     RFdiffusion3DesignSpec(
-                        input_structure=self.target_structure,
+                        input_structure=target_structure,
                         contig=contig,
                         select_hotspots=",".join(self.hotspots) if self.hotspots else None,
                         # RFdiffusion3 centers the origin on the input COM by default; for
@@ -294,7 +299,7 @@ class RFdiffusionProteinMPNNBinderGenerator(Generator):
                 "full_complex_sequence": record["full_complex_sequence"],
             }
 
-    def _build_contig(self, binder_len: int) -> str:
+    def _build_contig(self, binder_len: int, target_structure: Structure) -> str:
         """Build the RFdiffusion3 binder contig from the target chains and binder length.
 
         Keeps each target chain over its full residue span, adds a chain break, then appends
@@ -303,6 +308,7 @@ class RFdiffusionProteinMPNNBinderGenerator(Generator):
 
         Args:
             binder_len (int): Length of the binder to design (the segment length).
+            target_structure (Structure): Materialized target structure to read chain spans from.
 
         Returns:
             str: The contig string passed to RFdiffusion3.
@@ -312,7 +318,7 @@ class RFdiffusionProteinMPNNBinderGenerator(Generator):
         """
         segments: list[str] = []
         for chain_id in self.target_chains:
-            positions = self.target_structure.get_chain_positions(chain_id)
+            positions = target_structure.get_chain_positions(chain_id)
             if not positions:
                 raise ValueError(f"Target chain {chain_id!r} not found in target_structure.")
             segments.append(f"{chain_id}{min(positions)}-{max(positions)}")

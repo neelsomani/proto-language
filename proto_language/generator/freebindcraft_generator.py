@@ -47,7 +47,7 @@ class FreeBindCraftGeneratorConfig(BaseConfig):
     (length = the segment's length; one design per proposal slot) at sample time.
 
     Attributes:
-        target_structure (Structure): Target structure to design a binder against. Accepts a file path,
+        target_structure (Structure | str): Target structure to design a binder against. Accepts a file path,
             raw PDB/CIF content string, or a ``Structure`` object.
         target_chain (str): Chain ID(s) of the frozen target (comma-separated for multi-chain).
         target_hotspot_residues (str | None): Comma-separated 1-indexed target residues the binder
@@ -58,7 +58,7 @@ class FreeBindCraftGeneratorConfig(BaseConfig):
             overrides ``design_config.seed`` when the program is seeded.
     """
 
-    target_structure: Structure = ConfigField(
+    target_structure: Structure | str = ConfigField(
         title="Target Structure",
         description="Target to design a binder against (file path, PDB/CIF content, or Structure).",
     )
@@ -145,6 +145,11 @@ class FreeBindCraftGenerator(Generator):
         Raises:
             RuntimeError: If the pipeline returns no accepted designs.
         """
+        # A staged upload, path, or content string arrives as str; materialize before use.
+        target_structure = self.target_structure
+        if isinstance(target_structure, str):
+            target_structure = Structure(structure=target_structure)
+
         segment = self.segment
         target_length = segment.sequence_length
 
@@ -158,7 +163,7 @@ class FreeBindCraftGenerator(Generator):
         num_proposals = segment.num_proposals
 
         inputs = FreeBindCraftInput(
-            target_pdb=self.target_structure,
+            target_pdb=target_structure,
             target_chain=self.target_chain,
             target_hotspot_residues=self.target_hotspot_residues,
             binder_lengths=(target_length, target_length),

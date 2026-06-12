@@ -50,7 +50,13 @@ class TestFreeBindCraftGeneratorConfig:
         assert gen.target_hotspot_residues == "10,20"
         assert gen.binder_name == "proj"
         assert gen.design_config.soft_iterations == 12
-        assert isinstance(gen.target_structure, Structure)
+        # Stored verbatim; the Structure | str field materializes lazily at sample time.
+        assert gen.target_structure == sample_pdb_content
+
+    def test_accepts_deferred_upload_reference(self) -> None:
+        # An upload reference isn't valid PDB; Structure | str keeps it as a string (staged at run time).
+        gen = FreeBindCraftGenerator(FreeBindCraftGeneratorConfig(target_structure="user_upload:asset_deadbeef"))
+        assert gen.target_structure == "user_upload:asset_deadbeef"
 
     def test_design_config_defaults_to_freebindcraft_config(self, sample_pdb_content: str) -> None:
         gen = FreeBindCraftGenerator(FreeBindCraftGeneratorConfig(target_structure=sample_pdb_content))

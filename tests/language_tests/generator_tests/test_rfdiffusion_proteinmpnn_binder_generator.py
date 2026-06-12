@@ -122,6 +122,12 @@ class TestRFdiffusionProteinMPNNBinderGeneratorConfig:
         assert gen.proteinmpnn_config.temperature == 0.2
         assert gen.proteinmpnn_config.num_sequences_per_structure == 2
 
+    def test_accepts_deferred_upload_reference(self) -> None:
+        # An upload reference isn't valid PDB; Structure | str keeps it as a string (staged at run time).
+        config = RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure="user_upload:asset_deadbeef")
+        gen = RFdiffusionProteinMPNNBinderGenerator(config)
+        assert gen.target_structure == "user_upload:asset_deadbeef"
+
     def test_bad_hotspot_format_rejected(self, sample_pdb_content: str) -> None:
         with pytest.raises(ValueError, match="Hotspots must be"):
             RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, hotspots=["3"])

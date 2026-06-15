@@ -3,6 +3,7 @@
 import copy
 
 import pytest
+from proto_tools.tools.mutagenesis.codons import get_codon_scheme
 from proto_tools.transforms.masking import MaskingStrategy
 
 from proto_language.core import Segment
@@ -76,6 +77,36 @@ class TestRandomProteinGenerator:
         gen = RandomProteinGenerator(config)
         assert gen.codon_scheme == "NNK"
 
+    def test_excluded_amino_acids_parameter(self):
+        """Tests that excluded_amino_acids is normalized and stored."""
+        config = RandomProteinGeneratorConfig(excluded_amino_acids=["c", "A", "c"])
+        gen = RandomProteinGenerator(config)
+
+        assert gen.excluded_amino_acids == ["C", "A"]
+
+    def test_excluded_amino_acids_empty_list_means_no_exclusions(self):
+        """Empty excluded_amino_acids should behave like the default."""
+        config = RandomProteinGeneratorConfig(excluded_amino_acids=[])
+        gen = RandomProteinGenerator(config)
+
+        assert gen.excluded_amino_acids is None
+
+    def test_sample_respects_excluded_amino_acids(self):
+        """Tests that excluded amino acids are not sampled at masked positions."""
+        config = RandomProteinGeneratorConfig(excluded_amino_acids=["C", "A"])
+        gen = RandomProteinGenerator(config)
+        gen._set_program_seed(3)
+        segment = Segment(sequence="_" * 500, sequence_type="protein")
+        gen.assign(segment)
+        segment.proposal_sequences = [copy.deepcopy(segment.original_sequence)]
+
+        gen.sample()
+        sampled = segment.proposal_sequences[0].sequence
+
+        assert "C" not in sampled
+        assert "A" not in sampled
+        assert "_" not in sampled
+
     def test_seed_reproducibility(self):
         """Tests that _set_program_seed produces reproducible results with pre-masked input."""
         # Use pre-masked sequences to bypass position selection randomness
@@ -140,6 +171,26 @@ class TestRandomProteinGeneratorValidation:
 
         error_msg = str(exc_info.value)
         assert "does not support sequence type" in error_msg
+
+    @pytest.mark.parametrize("excluded", [["B"], ["*"]])
+    def test_rejects_invalid_excluded_amino_acids(self, excluded):
+        """RandomProtein should reject invalid excluded_amino_acids values."""
+        with pytest.raises(ValueError, match="excluded_amino_acids"):
+            RandomProteinGeneratorConfig(excluded_amino_acids=excluded)
+
+    def test_raises_when_exclusions_remove_all_reachable_amino_acids(self):
+        """RandomProtein should fail if no amino acid remains under a codon scheme."""
+        reachable = list(get_codon_scheme("NRT")["amino_acids"])
+        config = RandomProteinGeneratorConfig(
+            codon_scheme="NRT",
+            excluded_amino_acids=reachable,
+        )
+        generator = RandomProteinGenerator(config)
+        segment = Segment(sequence="_", sequence_type="protein")
+        generator.assign(segment)
+
+        with pytest.raises(ValueError, match="removes every residue"):
+            generator.sample()
 
 
 class TestRandomProteinGeneratorEmptyInit:

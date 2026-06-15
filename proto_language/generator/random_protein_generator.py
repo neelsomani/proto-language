@@ -1,7 +1,7 @@
 """RandomProteinGenerator for CPU-based random protein mutagenesis."""
 
 import logging
-from typing import final
+from typing import Any, final
 
 from proto_tools import (
     RandomProteinSampleConfig,
@@ -12,6 +12,8 @@ from proto_tools.tools.mutagenesis.random_protein.random_protein_sample import (
     CodonScheme,
 )
 from proto_tools.transforms.masking import MASK_TOKEN, MaskingStrategy
+from proto_tools.utils import AminoAcid
+from pydantic import field_validator
 
 from proto_language.core import Generator, GeneratorInputType
 from proto_language.generator.generator_registry import generator
@@ -52,6 +54,11 @@ class RandomProteinGeneratorConfig(BaseConfig):
               design with broad chemical diversity.
             - ``"NRT"``: 8 codons (R = A/G at position 2); encodes 8 amino
               acids. Very compact library for focused mutagenesis.
+        excluded_amino_acids (list[AminoAcid] | None): One-letter codes of
+            amino acids to remove from the sampling distribution after
+            codon-scheme handling. For example, ``["C"]`` avoids cysteine and
+            ``["C", "A"]`` avoids cysteine and alanine. An empty list is
+            treated as ``None``.
 
     """
 
@@ -67,6 +74,25 @@ class RandomProteinGeneratorConfig(BaseConfig):
         title="Codon Scheme",
         description="Codon scheme for amino acid sampling probabilities.",
     )
+    excluded_amino_acids: list[AminoAcid] | None = ConfigField(
+        default=None,
+        title="Excluded Amino Acids",
+        description="Residues to remove after codon-scheme handling (e.g. ['C'] to forbid cysteine).",
+        examples=[["C"]],
+    )
+
+    @field_validator("excluded_amino_acids", mode="before")
+    @classmethod
+    def normalize_excluded_amino_acids(cls, value: Any) -> Any:
+        """Normalize and validate excluded amino-acid codes."""
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            return value
+        if len(value) == 0:
+            return None
+        normalized = [aa.upper() if isinstance(aa, str) else aa for aa in value]
+        return list(dict.fromkeys(normalized))
 
 
 @generator(
@@ -85,7 +111,8 @@ class RandomProteinGenerator(Generator):
     This generator creates sequence diversity by randomly mutating masked positions
     in protein sequences. Amino acid selection is biased by the configured codon
     scheme, allowing simulation of library diversity achievable through degenerate
-    codon synthesis.
+    codon synthesis. Optional amino-acid exclusions remove unwanted residues
+    from the sampled mutation alphabet.
 
     The generator category is ``"mutation"``. When the assigned segment has a
     starting sequence (or an upstream optimizer stage has populated proposals),
@@ -98,18 +125,21 @@ class RandomProteinGenerator(Generator):
     Attributes:
         masking_strategy (MaskingStrategy): Strategy for selecting positions to mutate.
         codon_scheme (CodonScheme): Codon scheme for amino acid sampling.
+        excluded_amino_acids (list[AminoAcid] | None): Amino acids excluded from sampling.
 
     Example:
         >>> from proto_language.generator import RandomProteinGenerator, RandomProteinGeneratorConfig
         >>> from proto_language.core import Segment
+        >>> from proto_tools.transforms.masking import MaskingStrategy
         >>> config = RandomProteinGeneratorConfig(
         ...     masking_strategy=MaskingStrategy(num_mutations=2),
+        ...     excluded_amino_acids=["C"],
         ... )
         >>> gen = RandomProteinGenerator(config)
         >>> segment = Segment(length=100, sequence_type="protein")
         >>> gen.assign(segment)
         >>> gen.sample()  # First call: random init (no starting sequence)
-        >>> gen.sample()  # Second call onward: 2 random amino acid mutations
+        >>> gen.sample()  # Second call onward: 2 non-cysteine mutations
     """
 
     input_type = GeneratorInputType.STARTING_SEQUENCE
@@ -126,6 +156,7 @@ class RandomProteinGenerator(Generator):
         self.config = config
         self.masking_strategy = config.masking_strategy
         self.codon_scheme = config.codon_scheme
+        self.excluded_amino_acids = config.excluded_amino_acids
 
     def _sample(self) -> None:
         """Introduce random amino acid mutations at masked positions.
@@ -161,6 +192,7 @@ class RandomProteinGenerator(Generator):
         tool_config = RandomProteinSampleConfig(
             masking_strategy=MaskingStrategy() if is_init else self.masking_strategy,
             codon_scheme=self.codon_scheme,
+            excluded_amino_acids=self.excluded_amino_acids,
             seed=self._next_seed(),
         )
         result = run_random_protein_sample(inputs=tool_input, config=tool_config)

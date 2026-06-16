@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+import pytest
 from proto_tools import BFactorType, StructurePredictionOutput
 
 from proto_language.constraint import ConstraintRegistry
@@ -99,6 +100,32 @@ mock_monomer_output = StructurePredictionOutput(
     metadata={},
 )
 
+# Protein + nucleic-acid chain: no protein-protein interface, so protein_iptm is absent and iptm carries the interface.
+mock_protein_nucleic_acid_structure = MockStructure(
+    structure_format="cif",
+    b_factor_type=BFactorType.PLDDT,
+    source="boltz2-prediction",
+    metrics={
+        "confidence_score": 0.7138,
+        "ptm": 0.8421,
+        "iptm": 0.8009,
+        "complex_plddt": 0.7402,
+        "complex_iplddt": 0.6913,
+        "complex_pde": 0.4011,
+        "complex_ipde": 0.5502,
+        "chains_ptm": [0.9512, 0.8804],
+        "pair_chains_iptm": [[0.9512, 0.8009], [0.7766, 0.8804]],
+    },
+)
+mock_protein_nucleic_acid_output = StructurePredictionOutput(
+    tool_id="boltz2-prediction",
+    execution_time=0.0,
+    success=True,
+    structures=[mock_protein_nucleic_acid_structure],
+    warnings=[],
+    metadata={},
+)
+
 
 class TestBoltzBindingStrengthConstraint:
     """tests/language_tests/constraint_tests/test_protein_structure/test_boltz_binding_strength_constraint.py.
@@ -175,6 +202,30 @@ class TestBoltzBindingStrengthConstraint:
             return_value=mock_monomer_output,
         ):
             _ = constraint.evaluate()
+
+    @pytest.mark.parametrize(
+        ("nucleic_acid_type", "operator_sequence"),
+        [
+            ("dna", "AATTGTGAGCGGATAACAATT"),  # lac operator O1 (DNA)
+            ("rna", "AAUUGUGAGCGGAUAACAAUU"),  # same target as RNA
+        ],
+    )
+    def test_with_protein_nucleic_acid_complex(self, nucleic_acid_type, operator_sequence):
+        """Protein + DNA/RNA (e.g. a repressor occupying a DNA operator) scores via the multi-chain iptm branch."""
+        repressor = Segment(sequence="MKPVTLYDVAEYAGVSYQTVSRVVNQ", sequence_type="protein")  # LacI HTH domain
+        operator = Segment(sequence=operator_sequence, sequence_type=nucleic_acid_type)
+        complex_list = [repressor, operator]
+
+        constraint = ConstraintRegistry.create(key="boltz2-binding-strength", segments=complex_list, config_dict={})
+
+        with patch(
+            "proto_language.constraint.protein_structure.boltz_binding_strength_constraint.run_boltz2",
+            return_value=mock_protein_nucleic_acid_output,
+        ):
+            scores = constraint.evaluate()
+
+        assert len(scores) == 1
+        assert 0.0 <= scores[0] <= 1.0
 
     def test_missing_conditional_metrics_does_not_crash(self):
         """Conditional complex_* metrics absent from a successful Boltz output must not KeyError (M4)."""

@@ -1,4 +1,4 @@
-"""Boltz binding strength constraint for protein-protein and protein-ligand interactions."""
+"""Boltz binding strength constraint for protein-protein, protein-ligand, and protein-nucleic-acid (DNA/RNA) interactions."""
 
 from typing import Any, Literal
 
@@ -50,16 +50,20 @@ class BoltzBindingStrengthConfig(BaseConfig):
     """Configuration for Boltz binding strength constraint.
 
     This class defines configuration parameters for evaluating protein-protein,
-    and protein-nucleic acid binding using Boltz, a biomolecular structure prediction
-    model. Boltz predicts complex structures and provides confidence metrics for binding
-    quality, interface accuracy, and overall structure reliability. The constraint evaluates
-    these metrics against target values to assess binding strength and quality.
+    protein-ligand, and protein-nucleic-acid (DNA/RNA) binding using Boltz, a
+    biomolecular structure prediction model. A common use case is scoring a
+    protein occupying a nucleic-acid target (e.g. a repressor bound to a DNA
+    operator) via interface confidence. Boltz predicts complex structures and
+    provides confidence metrics for binding quality, interface accuracy, and
+    overall structure reliability. The constraint evaluates these metrics against
+    target values to assess binding strength and quality.
 
     The constraint uses a penalty-based scoring system where each metric is evaluated
     against its target value and tolerance. Metrics are classified as "higher is better"
     (e.g., interface confidence scores) or "lower is better" (e.g., predicted distance
     errors). Penalties are combined using weighted averages, with default weights
-    optimized for different complex types (monomers, protein-nucleic acid, protein-protein).
+    chosen by complex type (monomer, protein-ligand, or multi-chain — the latter
+    covering both protein-protein and protein-nucleic-acid complexes).
 
     Attributes:
         desired_higher (dict[str, float]): Target values for "higher is better" metrics.
@@ -99,8 +103,8 @@ class BoltzBindingStrengthConfig(BaseConfig):
             - **Monomer**: ptm=0.35, complex_plddt=0.45, complex_pde=0.20
             - **Protein-ligand**: ligand_iptm=0.50, complex_iplddt=0.25,
               complex_ipde=0.15, complex_plddt=0.10
-            - **Protein-protein**: iptm=0.45, complex_iplddt=0.30, complex_ipde=0.15,
-              complex_plddt=0.10
+            - **Multi-chain** (protein-protein or protein-nucleic-acid): iptm=0.45,
+              complex_iplddt=0.30, complex_ipde=0.15, complex_plddt=0.10
             Weights should sum to ~1.0 for interpretability. Default: None (auto).
 
         include_confidence_score (bool): Whether to include Boltz's aggregate
@@ -202,7 +206,7 @@ class BoltzBindingStrengthConfig(BaseConfig):
     key="boltz2-binding-strength",
     label="Boltz2 Binding Strength",
     config=BoltzBindingStrengthConfig,
-    description="Evaluate protein-protein/protein-ligand binding using Boltz2 structure prediction",
+    description="Evaluate protein-protein, protein-ligand, and protein-nucleic-acid (DNA/RNA) binding (e.g. a repressor on a DNA operator) using Boltz2 structure prediction",
     uses_gpu=True,
     tools_called=["boltz2-prediction"],
     category="protein_structure",

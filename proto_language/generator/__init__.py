@@ -25,9 +25,9 @@ from proto_language.generator.random_protein_generator import (
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
 )
-from proto_language.generator.rfdiffusion_proteinmpnn_binder_generator import (
-    RFdiffusionProteinMPNNBinderGenerator,
-    RFdiffusionProteinMPNNBinderGeneratorConfig,
+from proto_language.generator.rfdiffusion_mpnn_binder_generator import (
+    RFdiffusionMPNNBinderGenerator,
+    RFdiffusionMPNNBinderGeneratorConfig,
 )
 from proto_language.generator.semigreedy_mutation_generator import (
     SemigreedyMutationGenerator,
@@ -77,6 +77,6 @@ __all__ = [
     "PositionWeightGeneratorConfig",
     "SequenceLogitBiasConfig",
     # Binder design generators
-    "RFdiffusionProteinMPNNBinderGenerator",
-    "RFdiffusionProteinMPNNBinderGeneratorConfig",
+    "RFdiffusionMPNNBinderGenerator",
+    "RFdiffusionMPNNBinderGeneratorConfig",
 ]

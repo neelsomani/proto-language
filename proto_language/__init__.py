@@ -123,8 +123,8 @@ from proto_language.generator import (
     RandomNucleotideGeneratorConfig,
     RandomProteinGenerator,
     RandomProteinGeneratorConfig,
-    RFdiffusionProteinMPNNBinderGenerator,
-    RFdiffusionProteinMPNNBinderGeneratorConfig,
+    RFdiffusionMPNNBinderGenerator,
+    RFdiffusionMPNNBinderGeneratorConfig,
     SemigreedyMutationGenerator,
     SemigreedyMutationGeneratorConfig,
     SequenceLogitBiasConfig,
@@ -292,8 +292,8 @@ __all__ = [
     "LigandMPNNGenerator",
     "LigandMPNNGeneratorConfig",
     # Binder design generators
-    "RFdiffusionProteinMPNNBinderGenerator",
-    "RFdiffusionProteinMPNNBinderGeneratorConfig",
+    "RFdiffusionMPNNBinderGenerator",
+    "RFdiffusionMPNNBinderGeneratorConfig",
     # Optimizer registry
     "OptimizerRegistry",
     "OptimizerSpec",

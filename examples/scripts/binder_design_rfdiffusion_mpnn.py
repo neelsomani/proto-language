@@ -1,27 +1,32 @@
-"""De novo binder design with the RFdiffusion3 + ProteinMPNN generator.
+"""De novo binder design with the RFdiffusion3 + MPNN generator.
 
 Demonstrates the idiomatic two-segment binder program:
 
 - a length-only ``binder`` segment (the chain being designed), and
 - a fixed ``target`` segment whose sequence is taken from the target structure.
 
-The ``rfdiffusion-proteinmpnn-binder`` generator is assigned only to the ``binder``
+The ``rfdiffusion-mpnn-binder`` generator is assigned only to the ``binder``
 segment and receives the target *structure* through its config (RFdiffusion3 needs the
 coordinates to dock). The ``target`` segment exists so the scoring constraint can fold
 the full target+binder complex — a structure-confidence constraint with
 ``inputs=[binder, target]``. A ``RejectionSamplingOptimizer`` generates a batch of binders
 and keeps the lowest-energy ones.
 
+The ``--inverse-folding`` flag selects the sequence-design model: ``proteinmpnn``
+(protein-backbone only) or ``ligandmpnn`` (also conditions the binder on the target's
+ligand/nucleotide/metal atoms). Use ``ligandmpnn`` when the target is DNA or RNA, or carries
+ligand/metal cofactors, so the binder is actually conditioned on those atoms.
+
 The target therefore appears twice, deliberately: as coordinates in the generator config
 (for docking) and as a fixed chain in the construct (for the constraint to fold). Both are
 derived from the same ``Structure`` (one source → two artifacts), exactly as the
 ``examples/germinal`` and ``examples/bindcraft`` programs do.
 
-This example calls RFdiffusion3, ProteinMPNN, and a structure predictor (Boltz2), so it
+This example calls RFdiffusion3, an MPNN model, and a structure predictor (Boltz2), so it
 requires GPU access to actually run; it is illustrative and is not executed in CI.
 
 Example:
-    PYTHONPATH=$PWD/proto-tools:$PWD python examples/scripts/binder_design_rfdiffusion_proteinmpnn.py \
+    PYTHONPATH=$PWD/proto-tools:$PWD python examples/scripts/binder_design_rfdiffusion_mpnn.py \
         --target-pdb examples/germinal/pdbs/pdl1.pdb \
         --target-chain A \
         --hotspots A37,A39,A41 \
@@ -33,14 +38,14 @@ import argparse
 import logging
 from pathlib import Path
 
-from proto_tools import ProteinMPNNSampleConfig, RFdiffusion3Config
+from proto_tools import LigandMPNNSampleConfig, ProteinMPNNSampleConfig, RFdiffusion3Config
 from proto_tools.entities.structures import Structure
 
 from proto_language import StructureBasedConstraintConfig, structure_iptm_constraint
 from proto_language.core import Constraint, Construct, Program, Segment
 from proto_language.generator import (
-    RFdiffusionProteinMPNNBinderGenerator,
-    RFdiffusionProteinMPNNBinderGeneratorConfig,
+    RFdiffusionMPNNBinderGenerator,
+    RFdiffusionMPNNBinderGeneratorConfig,
 )
 from proto_language.optimizer import RejectionSamplingOptimizer, RejectionSamplingOptimizerConfig
 
@@ -61,6 +66,12 @@ def parse_args() -> argparse.Namespace:
         "--hotspots",
         default=None,
         help="Comma-separated target hotspots as '<chain><resnum>' (e.g. 'A37,A39').",
+    )
+    parser.add_argument(
+        "--inverse-folding",
+        choices=["proteinmpnn", "ligandmpnn"],
+        default="proteinmpnn",
+        help="Sequence-design model; use 'ligandmpnn' for DNA/RNA targets or ligand/metal cofactors.",
     )
     parser.add_argument("--binder-length", type=int, default=80)
     parser.add_argument("--num-samples", type=int, default=8, help="Total binders to generate and score.")
@@ -93,17 +104,29 @@ def main() -> None:
     target = Segment(sequence=target_sequence, sequence_type="protein", label="target")
     construct = Construct([binder, target])
 
+    # The selected MPNN model designs num_sequences_per_structure sequences per backbone.
+    if args.inverse_folding == "ligandmpnn":
+        mpnn_kwargs = {
+            "ligandmpnn_config": LigandMPNNSampleConfig(
+                num_sequences_per_structure=args.sequences_per_backbone, device=args.device
+            )
+        }
+    else:
+        mpnn_kwargs = {
+            "proteinmpnn_config": ProteinMPNNSampleConfig(
+                num_sequences_per_structure=args.sequences_per_backbone, device=args.device
+            )
+        }
+
     # Generator: assigned only to the binder; target reaches it via config.
-    generator = RFdiffusionProteinMPNNBinderGenerator(
-        RFdiffusionProteinMPNNBinderGeneratorConfig(
+    generator = RFdiffusionMPNNBinderGenerator(
+        RFdiffusionMPNNBinderGeneratorConfig(
             target_structure=target_structure,
             target_chains=[args.target_chain],
             hotspots=hotspots,  # also centers RFdiffusion3's generation origin on the epitope
+            inverse_folding=args.inverse_folding,
             rfdiffusion3_config=RFdiffusion3Config(device=args.device),
-            proteinmpnn_config=ProteinMPNNSampleConfig(
-                num_sequences_per_structure=args.sequences_per_backbone,
-                device=args.device,
-            ),
+            **mpnn_kwargs,
         )
     )
     generator.assign(binder)

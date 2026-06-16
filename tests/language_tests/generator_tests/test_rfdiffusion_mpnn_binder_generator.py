@@ -1,4 +1,4 @@
-"""tests/language_tests/generator_tests/test_rfdiffusion_proteinmpnn_binder_generator.py."""
+"""tests/language_tests/generator_tests/test_rfdiffusion_mpnn_binder_generator.py."""
 
 import copy
 from importlib import import_module
@@ -6,16 +6,18 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from proto_tools import ProteinMPNNSampleConfig, Structure
+from proto_tools import LigandMPNNSampleConfig, ProteinMPNNSampleConfig, Structure
 
 from proto_language.core import Segment
 from proto_language.generator import (
-    RFdiffusionProteinMPNNBinderGenerator,
-    RFdiffusionProteinMPNNBinderGeneratorConfig,
+    RFdiffusionMPNNBinderGenerator,
+    RFdiffusionMPNNBinderGeneratorConfig,
 )
 
-KEY = "rfdiffusion-proteinmpnn-binder"
+KEY = "rfdiffusion-mpnn-binder"
 _BINDER_AAS = "ACDEFGHIKLMNPQRSTVWY"
+_PROTEINMPNN_METRICS = {"perplexity": 2.5, "sequence_recovery": 0.4}
+_LIGANDMPNN_METRICS = {"sequence_recovery": 0.4, "ligand_interface_sequence_recovery": 0.6}
 
 
 def _relabel_chain(pdb: str, chain_id: str) -> str:
@@ -50,12 +52,17 @@ def _make_rfd_mock(
     return fake_rfd
 
 
-def _make_mpnn_mock(captured: dict[str, Any]):
-    """Fake ``run_proteinmpnn_sample`` designing a distinct binder per backbone/sequence."""
+def _make_if_mock(captured: dict[str, Any], *, tool_name: str, metrics: dict[str, float]):
+    """Fake an inverse-folding sample run designing a distinct binder per backbone/sequence.
 
-    def fake_mpnn(*, inputs, config):
-        captured["mpnn_inputs"] = inputs
-        captured["mpnn_config"] = config
+    Records which tool was dispatched and attaches ``metrics`` (a dict, like the real
+    ``Metrics`` mapping) to each design.
+    """
+
+    def fake_if(*, inputs, config):
+        captured["if_inputs"] = inputs
+        captured["if_config"] = config
+        captured["if_tool"] = tool_name
         counter = 0
         design_sets = []
         for struct_input in inputs.inputs:
@@ -72,13 +79,13 @@ def _make_mpnn_mock(captured: dict[str, Any]):
                     SimpleNamespace(
                         chains=chains,
                         designed=[cid == binder_id for cid in chain_ids],
-                        metrics=SimpleNamespace(perplexity=2.5, sequence_recovery=0.4),
+                        metrics=dict(metrics),
                     )
                 )
             design_sets.append(SimpleNamespace(complexes=complexes))
         return SimpleNamespace(design_sets=design_sets)
 
-    return fake_mpnn
+    return fake_if
 
 
 def _patch_tools(
@@ -89,13 +96,19 @@ def _patch_tools(
     base_pdb: str,
     n_backbones: int | None = None,
 ) -> None:
-    module = import_module("proto_language.generator.rfdiffusion_proteinmpnn_binder_generator")
+    """Patch RFdiffusion3 and both inverse-folding runners; only the selected one is called."""
+    module = import_module("proto_language.generator.rfdiffusion_mpnn_binder_generator")
     monkeypatch.setattr(
         module,
         "run_rfdiffusion3",
         _make_rfd_mock(captured, output_chain_ids=output_chain_ids, base_pdb=base_pdb, n_backbones=n_backbones),
     )
-    monkeypatch.setattr(module, "run_proteinmpnn_sample", _make_mpnn_mock(captured))
+    monkeypatch.setattr(
+        module, "run_proteinmpnn_sample", _make_if_mock(captured, tool_name="proteinmpnn", metrics=_PROTEINMPNN_METRICS)
+    )
+    monkeypatch.setattr(
+        module, "run_ligandmpnn_sample", _make_if_mock(captured, tool_name="ligandmpnn", metrics=_LIGANDMPNN_METRICS)
+    )
 
 
 def _binder_segment(length: int = 5, num_proposals: int = 1) -> Segment:
@@ -106,35 +119,49 @@ def _binder_segment(length: int = 5, num_proposals: int = 1) -> Segment:
     return segment
 
 
-class TestRFdiffusionProteinMPNNBinderGeneratorConfig:
+class TestRFdiffusionMPNNBinderGeneratorConfig:
     """Config-level construction and validation (no tool calls)."""
 
     def test_init_stores_config(self, sample_pdb_content: str) -> None:
-        config = RFdiffusionProteinMPNNBinderGeneratorConfig(
+        config = RFdiffusionMPNNBinderGeneratorConfig(
             target_structure=sample_pdb_content,
             target_chains=["A"],
             hotspots=["A3"],
             proteinmpnn_config=ProteinMPNNSampleConfig(temperature=0.2, num_sequences_per_structure=2),
         )
-        gen = RFdiffusionProteinMPNNBinderGenerator(config)
+        gen = RFdiffusionMPNNBinderGenerator(config)
         assert gen.target_chains == ["A"]
         assert gen.hotspots == ["A3"]
-        assert gen.proteinmpnn_config.temperature == 0.2
-        assert gen.proteinmpnn_config.num_sequences_per_structure == 2
+        assert gen.inverse_folding == "proteinmpnn"
+        # The active inverse-folding config is the proteinmpnn one for the default model.
+        assert gen.if_config.temperature == 0.2
+        assert gen.if_config.num_sequences_per_structure == 2
+
+    def test_proteinmpnn_config_defaulted_by_default(self, sample_pdb_content: str) -> None:
+        config = RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
+        assert isinstance(config.proteinmpnn_config, ProteinMPNNSampleConfig)
+        assert config.ligandmpnn_config is None
+
+    def test_ligandmpnn_config_defaulted_when_selected(self, sample_pdb_content: str) -> None:
+        config = RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, inverse_folding="ligandmpnn")
+        assert isinstance(config.ligandmpnn_config, LigandMPNNSampleConfig)
+        assert config.proteinmpnn_config is None
+        gen = RFdiffusionMPNNBinderGenerator(config)
+        assert isinstance(gen.if_config, LigandMPNNSampleConfig)
 
     def test_accepts_deferred_upload_reference(self) -> None:
         # An upload reference isn't valid PDB; Structure | str keeps it as a string (staged at run time).
-        config = RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure="user_upload:asset_deadbeef")
-        gen = RFdiffusionProteinMPNNBinderGenerator(config)
+        config = RFdiffusionMPNNBinderGeneratorConfig(target_structure="user_upload:asset_deadbeef")
+        gen = RFdiffusionMPNNBinderGenerator(config)
         assert gen.target_structure == "user_upload:asset_deadbeef"
 
     def test_bad_hotspot_format_rejected(self, sample_pdb_content: str) -> None:
         with pytest.raises(ValueError, match="Hotspots must be"):
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, hotspots=["3"])
+            RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, hotspots=["3"])
 
     def test_hotspot_chain_not_in_target_rejected(self, sample_pdb_content: str) -> None:
         with pytest.raises(ValueError, match="not in target_chains"):
-            RFdiffusionProteinMPNNBinderGeneratorConfig(
+            RFdiffusionMPNNBinderGeneratorConfig(
                 target_structure=sample_pdb_content, target_chains=["A"], hotspots=["B3"]
             )
 
@@ -143,36 +170,32 @@ class TestRFdiffusionProteinMPNNBinderGeneratorConfig:
         # output chain; an explicit override could put the binder first and silently redesign
         # the target, so it is rejected.
         with pytest.raises(ValueError, match="contig"):
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, contig="50-120,/0,A17-131")
+            RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, contig="50-120,/0,A17-131")
 
 
-class TestRFdiffusionProteinMPNNBinderGeneratorAssign:
+class TestRFdiffusionMPNNBinderGeneratorAssign:
     """Segment-assignment validation."""
 
     @pytest.mark.parametrize("sequence_type", ["dna", "rna"])
     def test_rejects_non_protein_segment(self, sample_pdb_content: str, sequence_type: str) -> None:
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         with pytest.raises(ValueError, match="does not support sequence type"):
             gen.assign(Segment(length=50, sequence_type=sequence_type))
 
     def test_rejects_ligand_segment(self, sample_pdb_content: str) -> None:
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         with pytest.raises(ValueError, match="Cannot assign generator to ligand segment"):
             gen.assign(Segment(sequence="CCC", sequence_type="ligand"))
 
 
-class TestRFdiffusionProteinMPNNBinderGeneratorSample:
+class TestRFdiffusionMPNNBinderGeneratorSample:
     """End-to-end sampling behavior with both tools mocked."""
 
     def test_contig_auto_build_single_target(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, target_chains=["A"])
+        gen = RFdiffusionMPNNBinderGenerator(
+            RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, target_chains=["A"])
         )
         gen.assign(_binder_segment(length=5))
         gen.sample()
@@ -182,32 +205,79 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
         captured: dict[str, Any] = {}
         target_pdb = _multi_chain_pdb(sample_pdb_content, ["A", "B"])
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B", "C"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=target_pdb, target_chains=["A", "B"])
+        gen = RFdiffusionMPNNBinderGenerator(
+            RFdiffusionMPNNBinderGeneratorConfig(target_structure=target_pdb, target_chains=["A", "B"])
         )
         gen.assign(_binder_segment(length=5))
         gen.sample()
         assert captured["rfd_inputs"].design_specs[0].contig == "A1-5,/0,B1-5,/0,5"
-        assert captured["mpnn_inputs"].inputs[0].chain_ids_to_redesign == ["C"]
+        assert captured["if_inputs"].inputs[0].chain_ids_to_redesign == ["C"]
 
     def test_binder_chain_is_last_and_only_redesigned(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
+        segment = _binder_segment(length=5)
+        gen.assign(segment)
+        gen.sample()
+        assert captured["if_inputs"].inputs[0].chain_ids_to_redesign == ["B"]
+        assert segment.proposal_sequences[0].sequence != "AGSVL"
+        assert len(segment.proposal_sequences[0].sequence) == 5
+
+    def test_proteinmpnn_is_default_model(self, monkeypatch, sample_pdb_content: str) -> None:
+        captured: dict[str, Any] = {}
+        _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
+        segment = _binder_segment(length=5)
+        gen.assign(segment)
+        gen.sample()
+        assert captured["if_tool"] == "proteinmpnn"
+        assert isinstance(captured["if_config"], ProteinMPNNSampleConfig)
+        metadata = segment.proposal_sequences[0]._generator_metadata[KEY]
+        assert metadata["perplexity"] == 2.5
+        assert metadata["ligand_interface_sequence_recovery"] is None
+
+    def test_ligandmpnn_path_dispatches_and_flows_ligand_metrics(self, monkeypatch, sample_pdb_content: str) -> None:
+        captured: dict[str, Any] = {}
+        _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
+        gen = RFdiffusionMPNNBinderGenerator(
+            RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, inverse_folding="ligandmpnn")
         )
         segment = _binder_segment(length=5)
         gen.assign(segment)
         gen.sample()
-        assert captured["mpnn_inputs"].inputs[0].chain_ids_to_redesign == ["B"]
-        assert segment.proposal_sequences[0].sequence != "AGSVL"
-        assert len(segment.proposal_sequences[0].sequence) == 5
+        # LigandMPNN is dispatched (not ProteinMPNN) and the binder chain is held to redesign.
+        assert captured["if_tool"] == "ligandmpnn"
+        assert isinstance(captured["if_config"], LigandMPNNSampleConfig)
+        assert captured["if_inputs"].inputs[0].chain_ids_to_redesign == ["B"]
+        metadata = segment.proposal_sequences[0]._generator_metadata[KEY]
+        assert metadata["sequence_recovery"] == 0.4
+        assert metadata["ligand_interface_sequence_recovery"] == 0.6
+        assert metadata["perplexity"] is None
+
+    def test_ligandmpnn_non_protein_target_contig_and_dispatch(self, monkeypatch, sample_pdb_content: str) -> None:
+        # The headline capability: a non-protein target chain (chain B stands in for DNA) is held
+        # fixed via the auto-built contig and conditions the binder; LigandMPNN is dispatched and
+        # only the appended binder chain (C) is redesigned.
+        captured: dict[str, Any] = {}
+        target_pdb = _multi_chain_pdb(sample_pdb_content, ["A", "B"])
+        _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B", "C"], base_pdb=sample_pdb_content)
+        gen = RFdiffusionMPNNBinderGenerator(
+            RFdiffusionMPNNBinderGeneratorConfig(
+                target_structure=target_pdb, target_chains=["A", "B"], inverse_folding="ligandmpnn"
+            )
+        )
+        gen.assign(_binder_segment(length=5))
+        gen.sample()
+        assert captured["if_tool"] == "ligandmpnn"
+        assert captured["rfd_inputs"].design_specs[0].contig == "A1-5,/0,B1-5,/0,5"
+        assert captured["if_inputs"].inputs[0].chain_ids_to_redesign == ["C"]
 
     def test_hotspots_forwarded_and_center_origin(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, hotspots=["A3", "A5"])
+        gen = RFdiffusionMPNNBinderGenerator(
+            RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content, hotspots=["A3", "A5"])
         )
         gen.assign(_binder_segment(length=5))
         gen.sample()
@@ -219,9 +289,7 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
     def test_no_hotspots_leaves_origin_unset(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         gen.assign(_binder_segment(length=5))
         gen.sample()
         spec = captured["rfd_inputs"].design_specs[0]
@@ -231,22 +299,20 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
     def test_num_proposals_drives_backbone_count(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         segment = _binder_segment(length=5, num_proposals=3)
         gen.assign(segment)
         gen.sample()
-        # 3 proposals / 1 seq-per-backbone -> 3 backbones designed by ProteinMPNN.
-        assert len(captured["mpnn_inputs"].inputs) == 3
-        assert captured["mpnn_config"].num_sequences_per_structure == 1
+        # 3 proposals / 1 seq-per-backbone -> 3 backbones designed by the inverse-folding model.
+        assert len(captured["if_inputs"].inputs) == 3
+        assert captured["if_config"].num_sequences_per_structure == 1
         assert len({seq.sequence for seq in segment.proposal_sequences}) == 3
 
     def test_sequences_per_backbone_truncates_to_num_proposals(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(
+        gen = RFdiffusionMPNNBinderGenerator(
+            RFdiffusionMPNNBinderGeneratorConfig(
                 target_structure=sample_pdb_content,
                 proteinmpnn_config=ProteinMPNNSampleConfig(num_sequences_per_structure=2),
             )
@@ -255,17 +321,15 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
         gen.assign(segment)
         gen.sample()
         # ceil(3 / 2) = 2 backbones x 2 seqs = 4 designs, truncated to the 3 proposals.
-        assert len(captured["mpnn_inputs"].inputs) == 2
-        assert captured["mpnn_config"].num_sequences_per_structure == 2
+        assert len(captured["if_inputs"].inputs) == 2
+        assert captured["if_config"].num_sequences_per_structure == 2
         assert all(len(seq.sequence) == 5 for seq in segment.proposal_sequences)
         assert segment.num_proposals == 3
 
     def test_structure_preserved_after_sample(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         segment = _binder_segment(length=5)
         gen.assign(segment)
         gen.sample()
@@ -276,9 +340,7 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
     def test_metadata_written(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         segment = _binder_segment(length=5)
         gen.assign(segment)
         gen.sample()
@@ -291,9 +353,7 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
     def test_de_novo_empty_segment_runs(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         segment = _binder_segment(length=5)
         assert not segment.proposals_populated
         gen.assign(segment)
@@ -305,9 +365,7 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
     def test_no_backbones_raises(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content, n_backbones=0)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         gen.assign(_binder_segment(length=5))
         with pytest.raises(RuntimeError, match="no binder backbones"):
             gen.sample()
@@ -315,9 +373,7 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
     def test_fewer_designs_than_requested_raises(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content, n_backbones=1)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         gen.assign(_binder_segment(length=5, num_proposals=3))
         with pytest.raises(RuntimeError, match="fewer than"):
             gen.sample()
@@ -325,14 +381,12 @@ class TestRFdiffusionProteinMPNNBinderGeneratorSample:
     def test_seed_advances_across_tools(self, monkeypatch, sample_pdb_content: str) -> None:
         captured: dict[str, Any] = {}
         _patch_tools(monkeypatch, captured, output_chain_ids=["A", "B"], base_pdb=sample_pdb_content)
-        gen = RFdiffusionProteinMPNNBinderGenerator(
-            RFdiffusionProteinMPNNBinderGeneratorConfig(target_structure=sample_pdb_content)
-        )
+        gen = RFdiffusionMPNNBinderGenerator(RFdiffusionMPNNBinderGeneratorConfig(target_structure=sample_pdb_content))
         gen._set_program_seed(123)
         gen.assign(_binder_segment(length=5))
         gen.sample()
         rfd_seed = captured["rfd_config"].seed
-        mpnn_seed = captured["mpnn_config"].seed
+        if_seed = captured["if_config"].seed
         assert isinstance(rfd_seed, int)
-        assert isinstance(mpnn_seed, int)
-        assert rfd_seed != mpnn_seed
+        assert isinstance(if_seed, int)
+        assert rfd_seed != if_seed

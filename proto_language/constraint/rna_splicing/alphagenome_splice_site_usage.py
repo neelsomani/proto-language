@@ -145,6 +145,7 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
         cassette_right_context (str): Right flanking context for the cassette.
         ontology_terms (list[str]): AlphaGenome ontology term(s) to score.
         splice_pos (list[int]): 0-indexed position(s) in the concatenated target to evaluate.
+        peak_search_radius (int): Max-usage search window (+/- positions) around each splice site; 0 = exact index.
         direction (Literal['max', 'min']): Optimization direction ('max' or 'min').
         strand (Literal['positive', 'negative', 'all']): Track strand subset to aggregate over.
         model_version (str): AlphaGenome model version.
@@ -185,11 +186,7 @@ class AlphaGenomeSpliceSiteUsageConfig(BaseConfig):
         title="Peak Search Radius",
         default=0,
         ge=0,
-        description=(
-            "Score each splice position as the maximum usage within +/- this many positions "
-            "(robust to the off-by-one between the requested index and the model's reported "
-            "donor/acceptor peak). 0 scores exactly at the requested index."
-        ),
+        description="Score each splice position as the max usage within +/- this many positions; 0 = exact index.",
     )
     strand: Literal["positive", "negative", "all"] = ConfigField(
         title="Track Strand",

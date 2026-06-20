@@ -67,6 +67,11 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
             the "AG" position. Can be a single integer (automatically converted to
             list) or list of integers for multiple acceptors.
 
+        reduction (Literal['mean', 'min']): Combine donor/acceptor probabilities by
+            'mean' (average) or 'min' (the weaker site must be strong).
+        peak_search_radius (int): Max-probability search window (+/- positions) around
+            each donor/acceptor; 0 scores exactly at the requested index.
+
         splice_transformer_config (SpliceTransformerConfig): Advanced SpliceTransformer
             configuration including context length, device settings, and model
             parameters. Default: SpliceTransformerConfig().
@@ -115,24 +120,13 @@ class SpliceTransformerIntronBoundaryConfig(BaseConfig):
     reduction: Literal["mean", "min"] = ConfigField(
         title="Donor/Acceptor Reduction",
         default="mean",
-        description=(
-            "How to combine donor and acceptor probabilities into the boundary score. "
-            "'mean' rewards the average of the two sites; 'min' rewards the weaker site, "
-            "forcing both the donor and the acceptor to be strong for a spliceable intron."
-        ),
+        description="Combine donor/acceptor probs: 'mean' (average) or 'min' (weaker site must be strong).",
     )
     peak_search_radius: int = ConfigField(
         title="Peak Search Radius",
         default=0,
         ge=0,
-        description=(
-            "Score each donor/acceptor as the maximum probability within +/- this many "
-            "positions of the requested index. SpliceTransformer (SpliceAI convention) "
-            "labels the donor at the last exonic base, one position upstream of the GT, so "
-            "a small radius (e.g. 2) makes scoring robust to that off-by-one without "
-            "catching spurious signal (splice-site peaks are sharp and isolated). 0 scores "
-            "exactly at the requested index."
-        ),
+        description="Max donor/acceptor probability within +/- this many positions of the index; 0 = exact index.",
     )
 
     # Optional parameter

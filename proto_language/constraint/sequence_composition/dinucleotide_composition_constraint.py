@@ -59,7 +59,7 @@ class DinucleotideCompositionConfig(BaseConfig):
     """
 
     reference_frequencies: dict[str, float] = ConfigField(
-        title="Reference Dinucleotide Frequencies",
+        title="Reference Dinucleotides",
         description="Target dinucleotide -> frequency mapping (natural composition profile).",
     )
     distance_metric: Literal["total_variation", "l2"] = ConfigField(

@@ -31,10 +31,14 @@ class AlphaGenomeIntervalTrackConfig(BaseConfig):
         right_context (str): DNA context placed downstream of the target segment.
         context_length (int): Full sequence length submitted to AlphaGenome.
         requested_output (OutputTypeName): AlphaGenome output type to score (e.g. RNA_SEQ).
+        track_name_keywords (list[str] | None): Keywords selecting individual tracks from a bundled output; None = all.
         direction (Literal['maximize', 'minimize']): Whether to maximize or minimize interval mean signal.
         maximize_inflection_value (float): Signal value for maximize-mode sigmoid inflection.
         maximize_sigmoid_scale (float): Scale for maximize-mode sigmoid transform.
         minimize_threshold_value (float): Upper bound for minimize-mode linear score.
+        contrastive_ontology_terms (list[str] | None): Optional off-target term(s) scoring the target-vs-off margin.
+        margin_inflection_value (float): Signal-difference where the contrastive sigmoid has its inflection.
+        margin_sigmoid_scale (float): Scale for the contrastive-mode margin sigmoid transform.
         model_version (str): AlphaGenome model version.
         organism (Literal['human', 'mouse']): Organism for AlphaGenome prediction.
         prediction_timeout (int): Timeout (seconds) for each prediction call.
@@ -72,13 +76,7 @@ class AlphaGenomeIntervalTrackConfig(BaseConfig):
     track_name_keywords: list[str] | None = ConfigField(
         title="Track Name Keywords",
         default=None,
-        description=(
-            "Optional keywords selecting individual tracks within the requested output by per-track "
-            "metadata. Bundled outputs such as CHIP_HISTONE return one track per assay (H3K4me1, "
-            "H3K27ac, H3K4me3, ...); set e.g. ['H3K4me1'] to score only that mark instead of the "
-            "mean over all histone tracks. A track matches if any keyword (case-insensitive) appears "
-            "in any of its metadata fields. None aggregates over all tracks."
-        ),
+        description="Keywords selecting individual tracks (e.g. ['H3K4me1']) from a bundled output; None = all tracks.",
     )
     direction: Literal["maximize", "minimize"] = ConfigField(
         title="Direction",
@@ -106,13 +104,7 @@ class AlphaGenomeIntervalTrackConfig(BaseConfig):
     contrastive_ontology_terms: list[str] | None = ConfigField(
         title="Contrastive Ontology Terms",
         default=None,
-        description=(
-            "Optional comparison cell-type ontology term(s). When set, the constraint scores the "
-            "smooth margin between this sequence's signal in ``ontology_terms`` (target) and in "
-            "``contrastive_ontology_terms`` (off-target), so it maximizes the cell-type differential "
-            "directly instead of separately maximizing/minimizing -- which avoids the off-target "
-            "minimize term saturating to a flat, gradient-free 1.0 when off-target signal is high."
-        ),
+        description="Optional off-target cell-type term(s); when set, scores the target-vs-off-target signal margin.",
     )
     margin_inflection_value: float = ConfigField(
         title="Margin Sigmoid Inflection",

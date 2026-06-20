@@ -1,6 +1,6 @@
 """NSCLC-gated HSV-TK delivery circuit: a five-stage Proto design program.
 
-This example reproduces the structure of the NSCLC (non-small-cell lung cancer)
+This example provides code to replicate the  NSCLC (non-small-cell lung cancer)
 cancer-circuit program: a tumor-gated HSV-TK (herpes-simplex thymidine kinase)
 suicide cassette whose every regulatory layer is biased toward A549 lung
 adenocarcinoma and away from healthy lung. Cell-type selectivity is defined
@@ -38,18 +38,6 @@ Several stages call GPU models (RFdiffusion3, MPNN, Boltz2/AlphaFold2/AlphaFold3
 Evo 2, AlphaGenome, Puffin, SpliceTransformer, miRanda). This script is
 illustrative and is not executed in CI; use ``--dry-run`` to build a stage's
 program (and validate its constraints) without running it.
-
-Notes on fidelity:
-    * The published runs split the design across many JSON configs and helper
-      scripts; this single file distills the canonical recipe. Where the as-run
-      configs diverge from the method description (e.g. MCMC step counts), the
-      headline method values are used here and refinements are noted in comments.
-    * Individual histone marks (H3K4me1, H3K27ac, H3K4me3) are scored separately
-      by selecting tracks out of AlphaGenome's bundled CHIP_HISTONE output via
-      ``track_name_keywords`` on the interval-track constraint.
-    * The miRNA off-switch requires driver sites to be called CONCORDANTLY by
-      both miRanda (thermodynamic) and TargetScan (canonical seed-match site
-      typing) in-loop, and escapes tumor-high oncomiR sites under both callers.
 
 Example:
     # Build the promoter stage and validate its constraints without running:
@@ -103,7 +91,6 @@ from proto_language.optimizer import (
 
 logger = logging.getLogger(__name__)
 
-# Data shipped with the example (see examples/data/): the real HSV-TK split CDS, natural
 # enhancer 2048-bp upstream-context Evo 2 prompts, per-locus genomic flanks, and the measured
 # natural-3'UTR dinucleotide profile.
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -399,7 +386,7 @@ def build_binder_stage(args: argparse.Namespace) -> tuple[Program, Segment]:
         alphafold2_binder_config=AlphaFold2BinderStructureConfig(
             target_pdb=str(target_pdb),
             target_chains=[EGFR_CHAIN],
-            binder_chain=None,  # de novo design: the binder is generated, not redesigned from a template chain
+            binder_chain=None,
             num_recycles=1,
             intra_contact_num=2,
             intra_contact_cutoff=14.0,
@@ -409,11 +396,6 @@ def build_binder_stage(args: argparse.Namespace) -> tuple[Program, Segment]:
     )
     boltz2_cfg = StructureBasedConstraintConfig(structure_tool="boltz2")
 
-    # Consensus interface objective. The published selection score is min(Boltz2 ipTM,
-    # AF2 ipTM); the optimizer minimizes a weighted sum, so both ipTM terms enter at
-    # weight 1.0 here (each pushes the weaker oracle up, approximating the min). ipTM and
-    # pLDDT are scored on BOTH oracles (consensus); ipAE and interface-contact are AF2-only
-    # (Boltz2 exposes no interface ipAE, and the interface-contact term is AF2-binder-only).
     consensus = [
         Constraint([binder, target], structure_iptm_constraint, boltz2_cfg, weight=1.0, label="boltz2_iptm"),
         Constraint([binder, target], structure_iptm_constraint, af2_cfg, weight=1.0, label="af2_iptm"),
@@ -427,8 +409,7 @@ def build_binder_stage(args: argparse.Namespace) -> tuple[Program, Segment]:
 
     # 48 candidates per round, keep top 8; repeat for --rounds rounds (default 15 -> 720
     # total). Chained rejection-sampling stages share the construct by identity, so each
-    # round reseeds from the running survivors. The retained count is the published 8, but
-    # capped at --candidates-per-round (so small candidate counts for quick tests are valid).
+    # round reseeds from the running survivors. 
     retained = min(8, args.candidates_per_round)
     optimizers: list[Optimizer] = []
     for round_idx in range(args.rounds):
@@ -510,8 +491,7 @@ def build_enhancer_stage(
     # HMGA2 genomic left-flank tail if the prompt file is absent.
     # Evo2 generates one candidate per call against a single prompt, so each run uses ONE
     # 2048-bp natural-enhancer upstream-context prompt, selected from the shipped set by --seed.
-    # Varying --seed across runs draws different natural-enhancer contexts (this is how the
-    # published "7,500 candidates total" aggregate over runs is produced).
+    # Varying --seed across runs draws different natural-enhancer contexts.
     natural_enhancers = _read_fasta(args.enhancer_prompts or DEFAULT_ENHANCER_PROMPTS)
     if natural_enhancers:
         prompt = natural_enhancers[args.seed % len(natural_enhancers)][-args.enhancer_prompt_bp :]
@@ -531,7 +511,7 @@ def build_enhancer_stage(
     enhancer_marks = [
         ("CHIP_HISTONE", ["H3K4me1"], "maximize", 4.0),
         ("CHIP_HISTONE", ["H3K27ac"], "maximize", 4.0),
-        ("CHIP_HISTONE", ["H3K4me3"], "minimize", 1.0),  # suppress promoter-like signature
+        ("CHIP_HISTONE", ["H3K4me3"], "minimize", 1.0),  
         ("ATAC", None, "maximize", 3.0),
         ("DNASE", None, "maximize", 1.0),
         ("CAGE", None, "minimize", 2.0),
@@ -623,9 +603,7 @@ def build_promoter_stage(
                         f"prom_{tag}_e{ei}_{locus}", track_keywords=keywords,
                     )
                 )
-            # Puffin promoter-initiation activity as a weighted optimization term (weight 6.0,
-            # no hard filter): the activity/sharpness thresholds are graded targets the
-            # constraint scores toward, contributing to the objective rather than gating.
+            # Puffin promoter-initiation activity as a weighted optimization term (weight 6.0)
             constraints.append(
                 Constraint(
                     inputs=[promoter],
@@ -704,22 +682,16 @@ def build_intron_stage(
     )
     generator.assign(intron)
 
-    # Splice positions (0-indexed) following the published convention: donor at the last base
-    # of exon1, acceptor at the intron's 3' boundary.
     donor_pos = len(exon1) - 1
     acceptor_pos = len(exon1) + INTRON_LEN
-    # SpliceTransformer requires exactly 4000 bp of flanking context on each side of the
-    # [exon1, intron, exon2] target; use the host-locus genomic flanks (padded with N to
-    # guarantee the exact length).
     _loc0 = resolve_loci(args)[0]
     st_left = ("N" * _SPLICE_TRANSFORMER_CONTEXT_BP + flanks[_loc0]["left"])[-_SPLICE_TRANSFORMER_CONTEXT_BP:]
     st_right = (flanks[_loc0]["right"] + "N" * _SPLICE_TRANSFORMER_CONTEXT_BP)[:_SPLICE_TRANSFORMER_CONTEXT_BP]
 
-    # Top-5 promoter-enhancer cassette contexts (method: "top five promoter-enhancer
-    # combinations"). Each becomes the cassette context wrapped 5' of the splice target;
-    # SSU is summed with equal weight across cassette contexts AND genomic integration loci.
-    # When auto-chained (--stage all), pair the actual stage-2 enhancer and stage-3 promoter
-    # champions; otherwise fall back to --cassette-contexts / paired stand-ins.
+    # Top-5 promoter-enhancer cassette contexts. Each becomes the cassette context wrapped 5'
+    # of the splice target; SSU is summed with equal weight across cassette contexts AND genomic
+    # integration loci. When auto-chained (--stage all), pair the actual stage-2 enhancer and
+    # stage-3 promoter champions; otherwise fall back to --cassette-contexts / paired stand-ins.
     ch = champions or {}
     if ch.get("enhancer") and ch.get("promoter"):
         cassette_contexts = [e + p for e, p in zip(ch["enhancer"], ch["promoter"], strict=False)][: args.num_contexts]
@@ -823,13 +795,6 @@ def build_utr_stage(
     generator.assign(utr)
 
     constraints: list[Constraint] = []
-
-    # Driver sites must be called CONCORDANTLY by BOTH miRanda (thermodynamic duplex) AND
-    # TargetScan (canonical seed-match site typing). Adding both terms per driver pushes the
-    # optimizer toward sites both callers agree on. One constraint per driver (each saturates
-    # on a single site) rewards site DIVERSITY across drivers rather than one strong site.
-    # Per-driver weight is the TCGA-LUAD lung-vs-A549 ratio, normalized so the strongest
-    # driver enters at 3.0; the weight is split evenly across the two callers.
     total_w = sum(w for _, w in DRIVER_MIRNAS.values())
     for mid, (query, ratio) in DRIVER_MIRNAS.items():
         driver_weight = 3.0 * ratio / total_w
@@ -857,14 +822,14 @@ def build_utr_stage(
                     "mirna_queries": [query],
                     "mirna_ids": [mid],
                     "direction": "maximize",
-                    "repression_threshold": 1.0,  # one good (>= 7mer) seed site suffices per driver
+                    "repression_threshold": 1.0,  
                     "include_6mer": False,
                 },
                 weight=0.5 * driver_weight,
                 label=f"driver_targetscan_{mid}",
             )
         )
-    # OncomiR escape: minimize any sites for tumor-high oncomiRs, by BOTH callers.
+    # OncomiR escape: minimize any sites for tumor-high oncomiRs, by both callers.
     oncomir_queries = list(ONCOMIR_MIRNAS.values())
     oncomir_ids = list(ONCOMIR_MIRNAS.keys())
     constraints.append(
@@ -896,7 +861,7 @@ def build_utr_stage(
         )
     )
 
-    # Realism against measured natural-3'UTR statistics (shipped profile loaded by default).
+    # Realism against measured natural-3'UTR statistics.
     dinuc_path = args.dinuc_json or DEFAULT_DINUC_JSON
     dinuc_ref = json.loads(Path(dinuc_path).read_text()) if Path(dinuc_path).exists() else NATURAL_UTR_DINUCLEOTIDES
     constraints.append(
@@ -920,10 +885,9 @@ def build_utr_stage(
     # Low-weight (total 0.15) AlphaGenome RNA-seq A549-vs-lung contrastive prior, averaged
     # across genomic contexts AND the optimized upstream circuit elements: the 3'UTR is scored
     # with the full designed cassette (enhancer + promoter + HSV-TK exon1 + intron + exon2)
-    # placed immediately 5' of it inside each host locus. The 0.15 weight is split evenly
-    # across the contexts so the term averages to 0.15.
-    # The optimized upstream circuit. When auto-chained (--stage all) these are the actual
-    # enhancer/promoter/intron champions from the preceding stages; otherwise stand-ins.
+    # placed immediately 5' of it inside each host locus. When auto-chained (--stage all) 
+    # these are the actual enhancer/promoter/intron champions from the preceding stages; 
+    # otherwise stand-ins.
     exon1, exon2 = _load_hsvtk(args)
     ch = champions or {}
     enh = (ch.get("enhancer") or load_enhancer_seeds(args))[0]

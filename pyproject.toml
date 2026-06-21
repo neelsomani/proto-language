@@ -43,6 +43,7 @@ dependencies = [
     # Utilities
     "tqdm",
     "openpyxl",
+    "docstring-parser",  # Extract per-field docs from Google-style config docstrings
 ]
 
 [project.urls]
@@ -64,7 +65,6 @@ dev = [
     "ruff==0.15.12",
     "mypy==1.20.2",
     "types-tqdm",           # mypy stubs for tqdm (used by bar-aware logging)
-    "docstring-parser",
 ]
 
 

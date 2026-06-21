@@ -335,8 +335,10 @@ def _cmd_docs(args: argparse.Namespace) -> int:
         print(f"  {f.name:24s}  {f.type_str:30s}  ({marker})")
         if f.title:
             print(f"  {'':24s}  title: {f.title}")
-        if f.description:
-            print(f"  {'':24s}  {f.description}")
+        # Prefer the full docstring text; fall back to the terse field description.
+        body = f.doc or f.description
+        if body:
+            print(f"  {'':24s}  {body.replace(chr(10), chr(10) + ' ' * 28)}")
 
     _render_tool_section(tool_keys, full_keys)
     return 0
@@ -356,18 +358,22 @@ def _cmd_config(args: argparse.Namespace) -> int:
     for f in cfg.fields:
         marker = "required" if f.required else f"default={f.default!r}"
         print(f"  {f.name:24s}  {f.type_str:30s}  ({marker})")
-        if f.description:
-            print(f"  {'':24s}  {f.description}")
+        # Prefer the full docstring text; fall back to the terse field description.
+        body = f.doc or f.description
+        if body:
+            print(f"  {'':24s}  {body.replace(chr(10), chr(10) + ' ' * 28)}")
     return 0
 
 
 def _cmd_schema(args: argparse.Namespace) -> int:
     """``proto-language <kind> schema <name>``."""
     from proto_language.utils.docs_api import resolve_key
+    from proto_language.utils.field_docs import inject_field_docs
 
     registry = _KIND_TO_REGISTRY[args.kind]
     spec = registry.get(resolve_key(args.kind, args.name))
-    print(json.dumps(spec.config_model.model_json_schema(), indent=2, default=str))
+    schema = inject_field_docs(spec.config_model.model_json_schema(), spec.config_model)
+    print(json.dumps(schema, indent=2, default=str))
     return 0
 
 

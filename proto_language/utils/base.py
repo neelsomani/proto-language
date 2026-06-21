@@ -6,6 +6,8 @@ from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from proto_language.utils.field_docs import inject_field_docs
+
 
 def _require_title_and_description(field_helper: str, title: str | None, description: str | None) -> None:
     """Ensure ``title=`` and ``description=`` are non-empty.
@@ -70,6 +72,19 @@ class BaseOptimizerConfig(BaseConfig):
     Program-level seeds overwrite this field with optimizer-specific child
     seeds during program initialization. Generators and constraints have no
     ``seed`` field of their own; they inherit this seed at run time.
+
+    Attributes:
+        seed (int | None): Random seed for reproducible optimization, generator,
+            and constraint tool streams. Program-level seeds overwrite this with
+            optimizer-specific child seeds during program initialization, so set
+            it for standalone runs rather than relying on it inside a program.
+        tracking_interval (int): Save history and log progress every N steps. Step
+            0 and the final step are always saved regardless of the interval.
+        track_proposals (bool): Save granular per-proposal results (accept/reject)
+            in history snapshots. Useful for debugging acceptance behavior at the
+            cost of larger histories.
+        verbose (bool): Emit per-step debug information about proposals, scores,
+            and acceptance through the logger.
     """
 
     seed: int | None = ConfigField(
@@ -141,15 +156,16 @@ class BaseSpec(BaseModel):
 
     @field_serializer("config_model")
     def serialize_config_model(self, config_model: type[BaseModel]) -> dict[str, Any]:
-        """Serialize ``config_model`` as standard JSON Schema.
+        """Serialize ``config_model`` as JSON Schema, annotated with per-field docs.
 
         Args:
             config_model (type[BaseModel]): Pydantic model class for the component configuration.
 
         Returns:
-            dict[str, Any]: Standard JSON Schema dict produced by Pydantic.
+            dict[str, Any]: JSON Schema dict produced by Pydantic, with each field's
+                full docstring text added under ``x-proto-doc``.
         """
-        return config_model.model_json_schema()
+        return inject_field_docs(config_model.model_json_schema(), config_model)
 
 
 class BaseRegistry(ABC, Generic[SpecType]):
@@ -212,10 +228,11 @@ class BaseRegistry(ABC, Generic[SpecType]):
             key (str): Component identifier.
 
         Returns:
-            dict[str, Any]: JSON Schema dict produced by Pydantic.
+            dict[str, Any]: JSON Schema dict produced by Pydantic, annotated with
+                per-field docs under ``x-proto-doc``.
         """
         spec = cls.get(key)
-        return spec.config_model.model_json_schema()
+        return inject_field_docs(spec.config_model.model_json_schema(), spec.config_model)
 
     @classmethod
     def count(cls) -> int:

@@ -1,6 +1,6 @@
 # Proto Language
 
-![Proto Language](https://proto-bio.github.io/proto-assets/default/hero.png)
+![Proto Tools](https://proto-bio.github.io/proto-assets/covers/open-wings-code/carousel.png)
 
 [![Checks](https://github.com/evo-design/proto-language/actions/workflows/checks.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/checks.yml)
 [![Unit Tests](https://github.com/evo-design/proto-language/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/evo-design/proto-language/actions/workflows/unit-tests.yml)

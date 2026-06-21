@@ -34,6 +34,7 @@ from proto_language.core.sequence import Sequence
 from proto_language.generator.generator_registry import GeneratorRegistry, GeneratorSpec
 from proto_language.optimizer.optimizer_registry import OptimizerRegistry, OptimizerSpec
 from proto_language.utils.base import BaseRegistry, BaseSpec
+from proto_language.utils.field_docs import field_docs_from_docstrings
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,10 @@ class FieldDoc(BaseModel):
     )
     title: str | None = Field(default=None, description="Per-field title from ``Field(title=...)``.")
     description: str | None = Field(default=None, description="Per-field description from ``Field(description=...)``.")
+    doc: str | None = Field(
+        default=None,
+        description="Full per-field documentation from the class docstring's ``Attributes:`` section.",
+    )
     required: bool = Field(description="True when no default is set.")
 
 
@@ -251,6 +256,7 @@ def _field_default(field_info: FieldInfo) -> tuple[Any, bool]:
 
 def get_config_doc(config_model: type[BaseModel]) -> ConfigModelDoc:
     """Build a ``ConfigModelDoc`` from a Pydantic config model class."""
+    field_docs = field_docs_from_docstrings(config_model)
     fields: list[FieldDoc] = []
     for name, info in config_model.model_fields.items():
         default, required = _field_default(info)
@@ -261,6 +267,7 @@ def get_config_doc(config_model: type[BaseModel]) -> ConfigModelDoc:
                 default=default,
                 title=info.title,
                 description=info.description,
+                doc=field_docs.get(name),
                 required=required,
             )
         )

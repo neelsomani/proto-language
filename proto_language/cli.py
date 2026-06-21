@@ -336,9 +336,9 @@ def _cmd_docs(args: argparse.Namespace) -> int:
         if f.title:
             print(f"  {'':24s}  title: {f.title}")
         # Prefer the full docstring text; fall back to the terse field description.
-        body = f.doc or f.description
-        if body:
-            print(f"  {'':24s}  {body.replace(chr(10), chr(10) + ' ' * 28)}")
+        field_text = f.doc or f.description
+        if field_text:
+            print(f"  {'':24s}  {field_text.replace(chr(10), chr(10) + ' ' * 28)}")
 
     _render_tool_section(tool_keys, full_keys)
     return 0
@@ -359,9 +359,9 @@ def _cmd_config(args: argparse.Namespace) -> int:
         marker = "required" if f.required else f"default={f.default!r}"
         print(f"  {f.name:24s}  {f.type_str:30s}  ({marker})")
         # Prefer the full docstring text; fall back to the terse field description.
-        body = f.doc or f.description
-        if body:
-            print(f"  {'':24s}  {body.replace(chr(10), chr(10) + ' ' * 28)}")
+        field_text = f.doc or f.description
+        if field_text:
+            print(f"  {'':24s}  {field_text.replace(chr(10), chr(10) + ' ' * 28)}")
     return 0
 
 

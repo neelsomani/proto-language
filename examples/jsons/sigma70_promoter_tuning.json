@@ -1,6 +1,6 @@
 {
   "name": "sigma70_promoter_tuning",
-  "description": "Bacterial expression cassette with a *variable* sigma70 promoter upstream of a fixed reporter context capped by a fixed rho-independent terminator. The variable 50 bp promoter is scored by the `sigma70-promoter` constraint against the canonical E. coli consensus (-35 box `TTGACA`, -10 box `TATAAT`, spacer 17 bp; Hawley & McClure 1983), and by `gc-content` and `max-homopolymer` to keep the upstream sequence within a synthesis-friendly composition window. Downstream of the promoter we hold four pieces fixed because the optimizer cannot enforce frame-integrity at the constraint level: a strong synthetic Shine-Dalgarno + 5' UTR + ATG start codon + NdeI cloning site (5'-AAGGAGGAGAAAATGCATATG-3'; SD core AGGAGG matches the anti-SD region of E. coli 16S rRNA), a fixed 84 bp synthetic codon-optimized prefix encoding the first ~28 residues of sfGFP (Pédelacq et al. 2006, PDB 2B3P) as a representative reporter CDS prefix, a TAA stop, and a fixed 44 bp rho-independent intrinsic terminator (GC-rich stem + U-rich 3' tract; Lesnik et al. 2001, Nudler & Gottesman 2002). Replace the SD with the literal Anderson B0034 part (`AAAGAGGAGAAA`) or a Salis RBS Calculator-tuned part (Salis et al. 2009) for canonical E. coli expression; replace the sfGFP prefix with your own CDS to retarget. This is a focused teaching example for single-region promoter tuning around a fixed reporter and terminator; for a richer multi-construct multi-segment template see `multiple_segments.json`.",
+  "description": "Bacterial expression cassette with a *variable* sigma70 promoter upstream of a fixed reporter context capped by a fixed rho-independent terminator. The variable 80 bp promoter is scored by the `sigma70-promoter` constraint against the canonical E. coli consensus (-35 box `TTGACA`, -10 box `TATAAT`, spacer 17 bp; Hawley & McClure 1983), and by `gc-content` and `max-homopolymer` to keep the upstream sequence within a synthesis-friendly composition window. Downstream of the promoter four pieces are held fixed: a Shine-Dalgarno ribosome-binding site followed by a KpnI cloning site (5'-AGGAGAAAGGTACC-3'; SD core AGGAGA pairs with the anti-SD region of E. coli 16S rRNA), a full E. coli codon-optimized eGFP coding sequence carrying its own ATG start codon and a C-terminal 6xHis tag, a TAA stop, and a fixed 44 bp rho-independent intrinsic terminator (GC-rich stem + U-rich 3' tract). Swap the eGFP CDS for your own gene to retarget, or swap the SD for another RBS to tune expression. This is a focused teaching and toy example for single-region promoter tuning around a fixed reporter and terminator; for a richer multi-construct multi-segment template see `multiple_segments.json`.",
   "version": "1.0",
   "num_results": 1,
   "constructs": [
@@ -12,17 +12,17 @@
         {
           "id": "promoter",
           "label": "Variable sigma70 promoter region (-35 / spacer / -10 / discriminator)",
-          "length": 50
+          "length": 80
         },
         {
           "id": "rbs_atg",
-          "label": "Fixed strong synthetic SD + 5' UTR + ATG + NdeI cloning context (21 bp)",
-          "sequence": "AAGGAGGAGAAAATGCATATG"
+          "label": "Fixed Shine-Dalgarno + KpnI site",
+          "sequence": "AGGAGAAAGGTACC"
         },
         {
           "id": "reporter_cds_prefix",
-          "label": "Fixed sfGFP-style CDS prefix, first ~28 residues codon-optimized for E. coli (84 bp)",
-          "sequence": "AGTAAAGGAGAAGAACTTTTCACTGGAGTTGTCCCAATTCTTGTTGAATTAGATGGTGATGTTAATGGGCACAAATTTTCTGTC"
+          "label": "Fixed eGFP",
+          "sequence": "ATGAGCAAGGGCGAAGAACTGTTTACGGGCGTGGTGCCGATTCTGGTGGAACTGGATGGTGATGTCAATGGTCACAAATTCAGCGTGCGCGGCGAAGGTGAAGGCGATGCAACCAATGGTAAACTGACGCTGAAGTTTATTTGCACCACGGGTAAACTGCCGGTTCCGTGGCCGACCCTGGTCACCACGCTGACGTATGGTGTTCAGTGTTTCAGTCGTTACCCGGATCACATGAAACGCCACGACTTTTTCAAGTCCGCGATGCCGGAAGGTTATGTCCAAGAACGTACCATCTCATTTAAAGATGACGGCACCTACAAAACGCGCGCCGAAGTGAAATTCGAAGGTGATACGCTGGTTAACCGTATTGAACTGAAAGGCATCGATTTTAAGGAAGACGGTAATATTCTGGGCCATAAACTGGAATATAACTTCAATTCGCACAACGTGTACATCACCGCAGATAAGCAGAAGAACGGTATCAAGGCTAACTTCAAGATCCGCCATAATGTGGAAGATGGCAGCGTTCAACTGGCCGACCACTATCAGCAAAACACCCCGATTGGTGATGGCCCGGTCCTGCTGCCGGACAATCATTACCTGAGCACGCAGTCTGTGCTGAGTAAAGATCCGAACGAAAAGCGTGACCACATGGTCCTGCTGGAATTCGTGACCGCGGCCGGCATCACGCACGGTATGGACGAACTGTATAAAGGCTCACATCATCATCATCATCAT"
         },
         {
           "id": "stop_codon",

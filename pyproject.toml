@@ -4,15 +4,39 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proto-language"
-version = "0.0.0"
+version = "0.1.0"
 description = "A high level programming language for generative biology"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Proto Team"}
+    {name = "Proto Team"},
+    {name = "Ben Viggiano"},
+    {name = "Daniel Guo"},
+    {name = "Lucas Brennan-Almaraz"},
+    {name = "Brian Hie"},
+    {name = "Aditi Merchant"},
+]
+maintainers = [
+    {name = "Proto Team"},
+    {name = "Ben Viggiano"},
+    {name = "Daniel Guo"},
+    {name = "Lucas Brennan-Almaraz"},
+    {name = "Brian Hie"},
+    {name = "Aditi Merchant"},
 ]
 
 requires-python = ">=3.10"
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
 
 # Core dependencies
 dependencies = [
@@ -71,6 +95,9 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["proto_language*"]
 exclude = ["tests*", "examples*", "*.tests*", "*.tests", "proto-tools*"]
+
+[tool.setuptools.package-data]
+proto_language = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

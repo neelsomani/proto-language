@@ -31,7 +31,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.CI_SUBMODULE_ACCESS }}
           fetch-depth: 0
           submodules: recursive
       - uses: anthropics/claude-code-action@v1

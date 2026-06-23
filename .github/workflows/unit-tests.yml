@@ -19,7 +19,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        token: ${{ secrets.CI_SUBMODULE_ACCESS }}
         submodules: recursive
     - uses: astral-sh/setup-uv@v5
       with:
@@ -29,8 +28,6 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-    - name: Authenticate uv for private git deps
-      run: git config --global url."https://x-access-token:${{ secrets.CI_SUBMODULE_ACCESS }}@github.com/".insteadOf "https://github.com/"
     - name: Install dependencies
       run: |
         uv pip install --system -e ".[dev]"

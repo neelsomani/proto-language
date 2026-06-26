@@ -397,6 +397,10 @@ class EvolutionaryOptimizer(Optimizer):
                 # Extract objective vectors from combined pool
                 objective_vectors = self._extract_objective_vectors()
 
+                # DEBUG: Verify objective vectors on first generation
+                if generation == 1:
+                    logger.warning(f"NSGA-II Gen 1 objective vectors (first 5): {objective_vectors[:5]}")
+
                 # Restore proposal_sequences
                 for segment in self.segments:
                     segment.proposal_sequences = old_proposal_sequences[id(segment)]
@@ -514,8 +518,8 @@ class EvolutionaryOptimizer(Optimizer):
                         f"Use selection='tournament', or use constraints/backends that expose per-term scores."
                     )
 
-                # Extract weighted score
-                score = metadata.get("score", float("nan"))
+                # Extract weighted score (check nested data first, fallback to top-level)
+                score = data.get("score", metadata.get("score", float("nan")))
                 objective_vector.append(score)
 
             objective_vectors.append(objective_vector)

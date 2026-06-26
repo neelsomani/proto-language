@@ -94,6 +94,13 @@ class EvolutionaryOptimizerConfig(BaseOptimizerConfig):
         tracking_interval (int): Number of generations between progress snapshots.
         track_proposals (bool): Whether to record offspring sequences alongside population.
 
+        num_results (int | None): Internal field automatically set to ``population_size``.
+            Do not set directly; use ``population_size`` instead.
+
+        selection (Literal["tournament", "nsga2"]): Survivor selection method.
+            ``"tournament"`` uses scalar fitness (energy_scores); ``"nsga2"`` uses
+            Pareto ranking on per-constraint objectives. Default: ``"tournament"``.
+
     Note:
         - ``population_size`` determines ``num_results`` (one result per population member)
         - Total evaluations per generation: ``population_size`` offspring created and scored
@@ -109,7 +116,7 @@ class EvolutionaryOptimizerConfig(BaseOptimizerConfig):
     num_generations: int = ConfigField(
         ge=1,
         title="Number of Generations",
-        description="Number of evolutionary generations. Each generates offspring via crossover/mutation and selects survivors.",
+        description="Evolutionary generations to run; each creates offspring via crossover/mutation, then selects.",
     )
 
     # num_results is managed internally (equals population_size)
@@ -158,7 +165,7 @@ class EvolutionaryOptimizerConfig(BaseOptimizerConfig):
     selection: Literal["tournament", "nsga2"] = ConfigField(
         default="tournament",
         title="Selection Method",
-        description="Survivor selection: 'tournament' (scalar fitness via energy_scores) or 'nsga2' (Pareto ranking on per-objective vectors). NSGA-II requires backends that expose true per-constraint scores.",
+        description="Survivor selection method: 'tournament' (scalar fitness) or 'nsga2' (Pareto multi-objective).",
     )
 
     @model_validator(mode="after")
@@ -480,7 +487,7 @@ class EvolutionaryOptimizer(Optimizer):
         fallback/grouped score.
 
         Args:
-            num_proposals: Number of proposals to extract vectors for. If None,
+            num_proposals (int | None): Number of proposals to extract vectors for. If None,
                 uses the length of proposal_sequences.
 
         Returns:
@@ -762,7 +769,7 @@ def _non_dominated_sort(objective_vectors: list[list[float]]) -> list[list[int]]
     and strictly better on at least one (assuming minimization).
 
     Args:
-        objective_vectors: Per-individual objective scores (lower is better).
+        objective_vectors (list[list[float]]): Per-individual objective scores (lower is better).
             Each element is a list of objective scores for one individual.
 
     Returns:
@@ -825,8 +832,8 @@ def _crowding_distance(objective_vectors: list[list[float]], front_indices: list
     more spread out (preferred for diversity). Boundary solutions get infinite distance.
 
     Args:
-        objective_vectors: All objective vectors (one per individual).
-        front_indices: Indices of individuals in this front.
+        objective_vectors (list[list[float]]): All objective vectors (one per individual).
+        front_indices (list[int]): Indices of individuals in this front.
 
     Returns:
         dict[int, float]: Crowding distance for each individual in the front.
@@ -872,8 +879,8 @@ def _nsga2_select_survivors(
     size, takes the highest-crowding-distance members of that front.
 
     Args:
-        objective_vectors: Per-individual objective scores (lower is better).
-        population_size: Number of survivors to select.
+        objective_vectors (list[list[float]]): Per-individual objective scores (lower is better).
+        population_size (int): Number of survivors to select.
 
     Returns:
         list[int]: Indices of selected survivors.

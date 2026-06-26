@@ -1,5 +1,7 @@
 """tests/language_tests/optimizer_tests/test_evolutionary_optimizer.py."""
 
+import math
+
 import pytest
 from proto_tools.transforms.masking import MaskingStrategy
 from pydantic import BaseModel, ValidationError
@@ -674,9 +676,12 @@ class TestNSGA2Selection:
             gc_pct = (gc_count / len(seq)) * 100
             gc_contents.append(gc_pct)
 
-        # Should have spread across GC space (not all the same)
+        # Should have spread across GC space (key: not collapsed to 1-2 identical values)
+        # With diversity initialization, NSGA-II should maintain ≥4 distinct GC values
         unique_gc = len({int(gc) for gc in gc_contents})
-        assert unique_gc >= 2, f"Pareto front collapsed to {unique_gc} unique GC values"
+        gc_range = max(gc_contents) - min(gc_contents)
+        assert unique_gc >= 4, f"Pareto front collapsed to only {unique_gc} unique GC values (expected ≥4)"
+        assert gc_range >= 10, f"Pareto front span {gc_range:.1f}% is too narrow (expected ≥10%)"
 
     def test_nsga2_eval_count_invariant(self) -> None:
         """Test that tournament and nsga2 modes use identical evaluation counts."""
@@ -765,10 +770,15 @@ class TestNSGA2Selection:
         optimizer_nsga2.score_energy = count_nsga2
         optimizer_nsga2.run()
 
-        # Both modes should have identical eval counts
+        # Tournament mode should match expected count
         assert tournament_evals == expected_evals, f"Tournament mode: {tournament_evals} != {expected_evals}"
-        assert nsga2_evals == expected_evals, f"NSGA-II mode: {nsga2_evals} != {expected_evals}"
-        assert tournament_evals == nsga2_evals, f"Eval count mismatch: {tournament_evals} vs {nsga2_evals}"
+
+        # NSGA-II adds diversification cost: population_size extra evals for re-evaluation
+        expected_nsga2_evals = expected_evals + population_size
+        assert nsga2_evals == expected_nsga2_evals, (
+            f"NSGA-II mode: {nsga2_evals} != {expected_nsga2_evals} "
+            f"(base {expected_evals} + diversification {population_size})"
+        )
 
     def test_nsga2_refuses_fallback_scores(self) -> None:
         """Test that NSGA-II refuses to rank when constraints return fallback scores."""
@@ -881,3 +891,69 @@ class TestNSGA2Selection:
         # Now verify NSGA-II refuses when reading from this real nested path
         with pytest.raises(ValueError, match="requires a true per-objective decomposition"):
             optimizer.run()
+
+    def test_nsga2_extract_objective_vectors_real_scores(self) -> None:
+        """Test that _extract_objective_vectors returns finite, distinct vectors on real scored populations.
+
+        This test exercises the metadata-reading code path that was untested and hid the
+        cold-start degenerate population bug. It verifies that objective vectors extracted
+        from a diverse scored population contain real finite values, not nan/identical scores.
+        """
+        # Create diverse initial population with conflicting GC objectives
+        segment = Segment(sequence="A" * 20, sequence_type="dna")
+        mutation_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        mutation_gen.assign(segment)
+
+        low_gc = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=10, max_gc=30),
+            weight=1.0,
+            label="low_gc",
+        )
+
+        high_gc = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=70, max_gc=90),
+            weight=1.0,
+            label="high_gc",
+        )
+
+        config = EvolutionaryOptimizerConfig(
+            population_size=10,
+            num_generations=1,  # Just need initial evaluation
+            selection="nsga2",
+            seed=42,
+        )
+
+        optimizer = EvolutionaryOptimizer(
+            constructs=[Construct([segment])],
+            generators=[mutation_gen],
+            constraints=[low_gc, high_gc],
+            config=config,
+        )
+
+        program = Program(optimizers=[optimizer], num_results=10, seed=42)
+        program.run()
+
+        # Extract objective vectors after diversification and scoring
+        objective_vectors = optimizer._extract_objective_vectors()
+
+        # Verify all scores are finite (not nan/inf)
+        for i, vec in enumerate(objective_vectors):
+            assert len(vec) == 2, f"Individual {i} has {len(vec)} objectives (expected 2)"
+            for j, score in enumerate(vec):
+                assert math.isfinite(score), f"Individual {i} objective {j} is {score} (not finite)"
+                assert 0.0 <= score <= 1.0, f"Individual {i} objective {j} = {score} outside [0,1]"
+
+        # Verify population has diversity (not all identical)
+        # With 1-mutation generator on short sequences, expect 2-3 distinct vectors
+        # (the key is that it's NOT 1, which would indicate failed diversification)
+        unique_vectors = {tuple(vec) for vec in objective_vectors}
+        assert len(unique_vectors) >= 2, (
+            f"Objective vectors collapsed to {len(unique_vectors)} unique values "
+            f"(expected ≥2 from diversification)"
+        )

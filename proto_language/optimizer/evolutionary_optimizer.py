@@ -329,6 +329,10 @@ class EvolutionaryOptimizer(Optimizer):
 
         logger.debug(f"EvolutionaryOptimizer initial best energy: {min(self.energy_scores):.4f}")
 
+        # NSGA-II: Diversify degenerate initial populations to enable Pareto exploration
+        if self.config.selection == "nsga2" and self.generators:
+            self._diversify_if_degenerate()
+
         # Track initial state
         self._save_progress_snapshot(
             time_step=0,
@@ -396,10 +400,6 @@ class EvolutionaryOptimizer(Optimizer):
 
                 # Extract objective vectors from combined pool
                 objective_vectors = self._extract_objective_vectors()
-
-                # DEBUG: Verify objective vectors on first generation
-                if generation == 1:
-                    logger.warning(f"NSGA-II Gen 1 objective vectors (first 5): {objective_vectors[:5]}")
 
                 # Restore proposal_sequences
                 for segment in self.segments:
@@ -685,6 +685,87 @@ class EvolutionaryOptimizer(Optimizer):
             segment.result_sequences = new_population_per_segment[id(segment)]
 
         self.energy_scores = new_energies
+
+    def _diversify_if_degenerate(self) -> None:
+        """Diversify population if all sequences are identical (NSGA-II cold-start fix).
+
+        When NSGA-II starts from an all-identical population (common cold-start scenario),
+        Pareto ranking degenerates: all individuals have identical objective vectors,
+        so no domination exists and selection becomes arbitrary. This prevents exploration
+        of the full Pareto front.
+
+        This method detects such degenerate populations and replaces sequences with
+        diverse random mutations to seed both basins of the objective space.
+        """
+        # Check if population is degenerate (all identical sequences)
+        if not self.segments or len(self.segments[0].result_sequences) < 2:
+            return
+
+        first_seq = self.segments[0].result_sequences[0].sequence
+        all_identical = all(
+            seq.sequence == first_seq for seg in self.segments for seq in seg.result_sequences
+        )
+
+        if not all_identical:
+            return  # Population already diverse
+
+        logger.info(
+            "EvolutionaryOptimizer(selection='nsga2'): Detected degenerate initial population "
+            "(all sequences identical). Diversifying via random mutations to enable Pareto exploration."
+        )
+
+        # Replace each sequence with diverse variants using two strategies:
+        # - First half: fully randomized sequences (maximum sequence-space diversity)
+        # - Second half: aggressively mutated sequences (preserves some structure)
+        population_size = len(self.segments[0].result_sequences)
+        half_pop = population_size // 2
+
+        for i in range(population_size):
+            # Set proposal pool to just this one individual
+            for segment in self.segments:
+                segment.proposal_sequences = [copy.deepcopy(segment.result_sequences[i])]
+
+            if i < half_pop:
+                # First half: Complete randomization for maximum diversity
+                for segment in self.segments:
+                    seq = segment.proposal_sequences[0]
+                    if seq.sequence_type == "dna":
+                        alphabet = ["A", "C", "G", "T"]
+                    elif seq.sequence_type == "rna":
+                        alphabet = ["A", "C", "G", "U"]
+                    elif seq.sequence_type == "protein":
+                        alphabet = list("ACDEFGHIKLMNPQRSTVWY")
+                    else:
+                        # Fall back to mutation-based diversification
+                        alphabet = None
+
+                    if alphabet is not None:
+                        seq.sequence = "".join(self._rng.choice(alphabet) for _ in range(len(seq.sequence)))
+                    else:
+                        # For unknown sequence types, apply aggressive mutations
+                        if self.generators:
+                            seq_len = len(seq.sequence)
+                            num_mutations = max(10, seq_len // 2)
+                            for _ in range(num_mutations):
+                                generator = self._rng.choice(self.generators)
+                                generator.sample()
+            else:
+                # Second half: Aggressive mutations (preserves some structure from original)
+                seq_len = len(self.segments[0].proposal_sequences[0].sequence)
+                num_mutations = self._rng.randint(max(5, seq_len // 3), max(10, seq_len // 2))
+                if self.generators:
+                    for _ in range(num_mutations):
+                        generator = self._rng.choice(self.generators)
+                        generator.sample()
+
+            # Save diversified sequence back to result_sequences
+            for segment in self.segments:
+                segment.result_sequences[i] = copy.deepcopy(segment.proposal_sequences[0])
+
+        # Re-evaluate diversified population
+        self._sync_population_to_proposals()
+        self.score_energy()
+        self._sync_proposals_to_population()
 
     def _log_evolution_progress(self, generation: int) -> None:
         """Log optimization progress as a multi-line INFO block."""

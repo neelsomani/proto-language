@@ -339,13 +339,6 @@ def run_nsga2(seed: int, target_budget: int) -> dict[str, Any]:
         config=config,
     )
 
-    # DIAGNOSTIC: Inject diverse initial population before run()
-    # Generate 20 random DNA sequences - naturally span ~30-70% GC range
-    rng = np.random.RandomState(seed + 999)
-    for i in range(population_size):
-        random_seq = ''.join(rng.choice(['A', 'C', 'G', 'T'], size=SEQUENCE_LENGTH))
-        segment.result_sequences[i].sequence = random_seq
-
     program = Program(optimizers=[optimizer], num_results=population_size, seed=seed)
     program.run()
 
@@ -571,7 +564,7 @@ def compute_conclusion(
     nsga2_vs_multi_effect = (nsga2_mean - multiweight_mean) / max(multiweight_mean, 1e-9)
     nsga2_vs_single_effect = (nsga2_mean - singleweight_mean) / max(singleweight_mean, 1e-9)
 
-    # Statistical significance (Welch's t-test, α=0.05)
+    # Statistical significance (Welch's t-test, alpha=0.05)
     _, p_nsga2_vs_multi = welch_t_test(nsga2_hvs, multiweight_hvs)
     _, p_nsga2_vs_single = welch_t_test(nsga2_hvs, singleweight_hvs)
 

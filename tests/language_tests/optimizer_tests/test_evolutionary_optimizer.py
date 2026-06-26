@@ -815,3 +815,69 @@ class TestNSGA2Selection:
         # Should raise ValueError when trying to extract objective vectors with fallback
         with pytest.raises(ValueError, match="requires a true per-objective decomposition"):
             optimizer.run()
+
+    def test_nsga2_real_provider_metadata_path(self) -> None:
+        """Test NSGA-II reads fallback_used from real provider metadata structure.
+
+        This verifies the end-to-end path: providers write metadata via
+        _write_constraint_metadata(), which nests custom data under "data",
+        and NSGA-II reads from that exact path.
+        """
+        segment = Segment(sequence="A" * 20, sequence_type="dna")
+        mutation_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        mutation_gen.assign(segment)
+
+        # Create a mock constraint that uses the REAL _write_constraint_metadata path
+        # (same path as ESMFold/AF2/Protenix providers)
+        def real_path_constraint(input_sequences, config=None):
+            outputs = []
+            for _seq_tuple in input_sequences:
+                # Metadata will be nested under "data" by _write_constraint_metadata
+                outputs.append(
+                    ConstraintOutput(
+                        score=0.5,
+                        metadata={"fallback_used": True, "structure_tool": "real_backend"},
+                    )
+                )
+            return outputs
+
+        real_path_constraint._constraint_config_class = EmptyConfig
+        real_path_constraint._constraint_supported_sequence_types = ["dna"]
+
+        constraint = Constraint(
+            inputs=[segment],
+            function=real_path_constraint,
+            function_config=EmptyConfig(),
+            label="real_path",
+        )
+
+        config = EvolutionaryOptimizerConfig(
+            population_size=4,
+            num_generations=2,
+            selection="nsga2",
+        )
+
+        optimizer = EvolutionaryOptimizer(
+            constructs=[Construct([segment])],
+            generators=[mutation_gen],
+            constraints=[constraint],
+            config=config,
+        )
+
+        # First, verify that _write_constraint_metadata nests the metadata correctly
+        # by evaluating the constraint directly
+        constraint.evaluate()
+
+        # Check that metadata is structured like real providers write it
+        seq = segment.proposal_sequences[0]
+        constraint_meta = seq._constraints_metadata.get("real_path", {})
+        assert "data" in constraint_meta, "Metadata should have 'data' key"
+        assert "fallback_used" in constraint_meta["data"], "fallback_used should be in data"
+        assert constraint_meta["data"]["fallback_used"] is True
+        assert constraint_meta["data"]["structure_tool"] == "real_backend"
+
+        # Now verify NSGA-II refuses when reading from this real nested path
+        with pytest.raises(ValueError, match="requires a true per-objective decomposition"):
+            optimizer.run()

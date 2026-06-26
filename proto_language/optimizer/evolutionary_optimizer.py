@@ -348,6 +348,9 @@ class EvolutionaryOptimizer(Optimizer):
 
         # Evolutionary loop
         for generation in range(1, self.num_generations + 1):
+            # Save current population energies (needed for both modes)
+            current_population_energies = list(self.energy_scores)
+
             # 1. Select elites from current population (tournament mode only)
             if self.config.selection == "tournament":
                 elite_indices = self._select_elites()
@@ -408,7 +411,7 @@ class EvolutionaryOptimizer(Optimizer):
                 for survivor_idx in survivor_indices:
                     if survivor_idx < self.population_size:
                         # Survivor from current population
-                        new_energies.append(self.energy_scores[survivor_idx])
+                        new_energies.append(current_population_energies[survivor_idx])
                         for segment in self.segments:
                             new_population_per_segment[id(segment)].append(
                                 copy.deepcopy(segment.result_sequences[survivor_idx])

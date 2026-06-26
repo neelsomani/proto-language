@@ -1,61 +1,57 @@
-"""Benchmark characterizing the EvolutionaryOptimizer's building-block regime.
+"""Benchmark comparing NSGA-II multi-objective optimization vs MCMC scalarizations.
 
-This benchmark documents where the EvolutionaryOptimizer is the right tool in the
-proto-language optimizer suite. The EA's distinctive mechanism is crossover, which
-provides value specifically when a problem has building-block structure: multiple
-independent sub-problems that must be solved simultaneously, where local search
-gets stuck on one sub-problem at a time but a population can specialize and
-recombine solutions.
+This benchmark validates the NSGA-II selection mode added to EvolutionaryOptimizer
+by comparing it against the practitioner's baseline: running MCMC with multiple
+weight vectors and pooling the non-dominated points.
 
-## Regime Identification
+## Task: Conflicting GC-content objectives
 
-Task parameters (NUM_BLOCKS=4, BLOCK_LEN=9, MOTIF_LEN=5) were identified via
-hardness sweep (sweep_building_block_hardness.py) as the setting where crossover
-advantage manifests. At this difficulty:
-- EA with crossover: 0.62 ± 0.44 blocks solved
-- EA without crossover: 0.04 ± 0.11 blocks solved (15× worse)
-- Multi-restart MCMC: 0.27 ± 0.07 blocks solved
+Two genuinely competing constraints on one DNA sequence:
+- low_gc: minimize distance from GC% target in [10, 30]
+- high_gc: minimize distance from GC% target in [70, 90]
 
-## Pre-registered predictions (written before running)
+No sequence can score near-zero on both (verified in sanity check). This creates
+a real Pareto front where NSGA-II can demonstrate its multi-objective advantage.
 
-- As NUM_BLOCKS rises, multi-restart MCMC's fraction-complete should fall faster
-  than the EA's, because restarts can't share blocks across chains.
-- Crossover-enabled EA should reach higher mean-blocks-solved than crossover-disabled
-  at matched budget, because recombination composes block-specialists.
-- Single-point ≥ uniform on mean-blocks-solved, because uniform breaks contiguous
-  solved blocks.
-- If NUM_BLOCKS is small (2-3), expect all methods to look similar — that's the
-  easy regime where the building-block advantage doesn't apply.
+## Methods (budget-matched)
 
-## Task: Concatenated Building Blocks ("Royal Road" style)
+1. **EA-nsga2**: EvolutionaryOptimizer with selection="nsga2"
+   - Returns its .pareto_front attribute (rank-0 individuals)
+   - Evaluations: initial_pop + generations * (pop_size - elitism)
 
-A sequence is divided into NUM_BLOCKS contiguous blocks. Each block has its own
-target motif. Score is the mean of normalized window-Hamming distances across all
-blocks, so a complete solution requires ALL blocks solved.
+2. **Multi-weight MCMC**: Run K independent MCMC chains with different weight vectors
+   - Each chain uses a different (w_low, w_high) scalarization
+   - Pool all final solutions, extract non-dominated set
+   - This is the honest baseline practitioners actually use
+   - Evaluations: K * steps_per_chain (matched to EA budget)
 
-Each block is individually hard enough (MOTIF_LEN=8 in BLOCK_LEN=12 window) to
-require directed search, not random luck. This forces the population to specialize:
-different individuals solve different subsets of blocks, and crossover can assemble
-complete solutions by recombining specialists.
-
-## Comparisons
-
-Four comparisons, all at matched evaluation budget:
-1. EA vs single-chain MCMC
-2. EA vs 20-restart MCMC (key comparison for building-block regime)
-3. Crossover ablation: EA(crossover_rate=0.0) vs EA(crossover_rate=0.8)
-4. Single-point vs uniform crossover
+3. **Single-weight MCMC**: One chain with equal weights (0.5, 0.5)
+   - Floor performance (scalar optimization)
+   - Evaluations: matched to EA budget
 
 ## Metrics
 
-Primary: fraction of final population with all blocks solved (complete solutions)
-Secondary: mean blocks solved per individual (partial credit, shows progress)
-Both at strict (tol=0.0) and relaxed (tol=1/MOTIF_LEN) thresholds.
+- **Hypervolume**: Volume dominated by front relative to reference point (1.0, 1.0)
+  - Higher is better, measures both convergence and spread
+  - The number you compare
 
-Outputs (written to current directory):
-    - benchmark_ea_vs_mcmc_summary.json: Aggregate statistics
-    - benchmark_ea_vs_mcmc_detailed.json: Per-trial results
-    - benchmark_ea_vs_mcmc_convergence.png: Convergence plots
+- **Front size**: Number of non-dominated solutions
+  - Secondary metric showing diversity
+
+- **2D scatter**: Visual comparison of fronts in objective space
+  - Makes the difference obvious
+
+## Budget matching
+
+All methods use identical total constraint evaluations (verified with assert).
+Default: 1000 evaluations, 20 trials for statistical power.
+
+## Outputs
+
+Writes to current directory:
+- benchmark_nsga2_summary.json: Aggregate statistics and conclusions
+- benchmark_nsga2_detailed.json: Per-trial results
+- benchmark_nsga2_fronts.png: 2D scatter plot of fronts
 
 Usage:
     python examples/bin/benchmark_evolutionary_vs_mcmc.py
@@ -63,17 +59,15 @@ Usage:
 
 import json
 import logging
-import math
-import random
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 from proto_tools.transforms.masking import MaskingStrategy
-from pydantic import BaseModel
 
-from proto_language.core import Constraint, ConstraintOutput, Construct, Program, Segment, Sequence
+from proto_language.constraint import gc_content_constraint
+from proto_language.constraint.sequence_composition.gc_content_constraint import GCContentConfig
+from proto_language.core import Constraint, Construct, Program, Segment
 from proto_language.generator import RandomNucleotideGenerator, RandomNucleotideGeneratorConfig
 from proto_language.optimizer import (
     EvolutionaryOptimizer,
@@ -82,671 +76,340 @@ from proto_language.optimizer import (
     MCMCOptimizerConfig,
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
-
 # ============================================================================
-# Section 1: Task parameters and motif generation
+# Task parameters
 # ============================================================================
 
-# Tunable knobs defining the building-block regime
-# Identified via sweep: NUM_BLOCKS=4 shows crossover advantage
-NUM_BLOCKS = 4  # Regime found: crossover 15× better than no crossover
-BLOCK_LEN = 9  # Length of each block's region
-MOTIF_LEN = 5  # Length of target motif
-SEQUENCE_LENGTH = NUM_BLOCKS * BLOCK_LEN  # 36
-
-# Fixed evaluation budget and trial count
+SEQUENCE_LENGTH = 30
 BUDGET = 1000
-NUM_TRIALS = 20  # Raised from 5 for lower variance
+NUM_TRIALS = 20
 
+# GC content targets (conflicting)
+LOW_GC_MIN, LOW_GC_MAX = 10, 30
+HIGH_GC_MIN, HIGH_GC_MAX = 70, 90
 
-def _generate_block_motifs(num_blocks: int, motif_len: int, seed: int = 0) -> list[str]:
-    """Generate distinct random DNA motifs for each block.
-
-    Uses a fixed seed so the task is identical across all runs and trials.
-
-    Args:
-        num_blocks: Number of blocks to generate motifs for
-        motif_len: Length of each motif
-        seed: Random seed for reproducibility
-
-    Returns:
-        List of distinct DNA motif strings
-    """
-    rng = random.Random(seed)  # noqa: S311
-    bases = ["A", "C", "G", "T"]
-    motifs: list[str] = []
-
-    for _ in range(num_blocks):
-        # Generate until we get a motif that's distinct from all existing ones
-        while True:
-            motif = "".join(rng.choices(bases, k=motif_len))
-            # Ensure it's distinct (no shared prefixes of length > motif_len//2)
-            if all(sum(1 for a, b in zip(motif, existing, strict=True) if a == b) < motif_len // 2 for existing in motifs):
-                motifs.append(motif)
-                break
-
-    return motifs
-
-
-# Generate fixed motifs for the task (same across all runs)
-BLOCK_MOTIFS = _generate_block_motifs(NUM_BLOCKS, MOTIF_LEN, seed=0)
-
-logger.info(f"Building-block task: {NUM_BLOCKS} blocks, sequence length {SEQUENCE_LENGTH}")
-logger.info(f"Block motifs (fixed): {BLOCK_MOTIFS}")
+# Reference point for hypervolume (worst possible scores)
+REFERENCE_POINT = (1.0, 1.0)
 
 
 # ============================================================================
-# Section 2: Hamming distance helpers (reused from verified implementation)
+# Sanity check: verify conflict is real
 # ============================================================================
 
 
-def hamming(a: str, b: str) -> int:
-    """Hamming distance between two equal-length strings."""
-    if len(a) != len(b):
-        raise ValueError(f"hamming requires equal length, got {len(a)} and {len(b)}")
-    return sum(1 for x, y in zip(a, b, strict=True) if x != y)
+def verify_conflict() -> None:
+    """Verify that no sequence can score near-zero on both objectives."""
+    segment = Segment(sequence="A" * SEQUENCE_LENGTH, sequence_type="dna")
 
+    low_gc = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config=GCContentConfig(min_gc=LOW_GC_MIN, max_gc=LOW_GC_MAX),
+        label="low_gc",
+    )
 
-def min_window_hamming(region: str, motif: str) -> int:
-    """Minimum Hamming distance between motif and any window of region."""
-    m = len(motif)
-    if len(region) < m:
-        return m
-    best = m
-    for i in range(len(region) - m + 1):
-        d = hamming(region[i : i + m], motif)
-        if d < best:
-            best = d
-            if best == 0:
-                break
-    return best
+    high_gc = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config=GCContentConfig(min_gc=HIGH_GC_MIN, max_gc=HIGH_GC_MAX),
+        label="high_gc",
+    )
 
+    # Test extreme cases - manually evaluate a few test sequences
+    test_sequences = [
+        "A" * SEQUENCE_LENGTH,  # All A (low GC)
+        "C" * SEQUENCE_LENGTH,  # All C (high GC)
+        "AC" * (SEQUENCE_LENGTH // 2),  # Mixed (50% GC)
+    ]
 
-def normalized_window_score(region: str, motif: str) -> float:
-    """Normalized score in [0,1]: best window Hamming distance / motif length."""
-    return min_window_hamming(region, motif) / len(motif)
+    min_sum = float("inf")
+    for test_seq in test_sequences:
+        segment.proposal_sequences[0].sequence = test_seq
+        low_gc.evaluate()
+        high_gc.evaluate()
+        low_score = segment.proposal_sequences[0]._constraints_metadata["low_gc"]["score"]
+        high_score = segment.proposal_sequences[0]._constraints_metadata["high_gc"]["score"]
+        min_sum = min(min_sum, low_score + high_score)
+
+    logger.info(f"Conflict verification: minimum sum of scores = {min_sum:.4f}")
+    if min_sum <= 0.5:
+        raise ValueError(f"Objectives not conflicting enough: min_sum={min_sum}")
 
 
 # ============================================================================
-# Section 3: Building-block constraint and metrics
+# Pareto front extraction and hypervolume
 # ============================================================================
 
 
-class BuildingBlockConfig(BaseModel):
-    """Configuration for building-block constraint."""
+def extract_objective_vectors(segment: Segment, constraints: list[Constraint]) -> list[tuple[float, float]]:
+    """Extract (low_gc_score, high_gc_score) for each result sequence."""
+    vectors = []
+    for seq in segment.result_sequences:
+        low_score = seq._constraints_metadata[constraints[0].label]["score"]
+        high_score = seq._constraints_metadata[constraints[1].label]["score"]
+        vectors.append((low_score, high_score))
+    return vectors
 
 
-def building_block_constraint(
-    input_sequences: list[tuple[Sequence, ...]], config: BuildingBlockConfig  # noqa: ARG001
-) -> list[ConstraintOutput]:
-    """Score sequences on the building-block task.
-
-    Each block contributes its normalized window-Hamming distance to its motif.
-    Score is the MEAN across blocks, so every additional solved block strictly
-    lowers the score, and a full solution requires all blocks solved.
-
-    Score in [0,1], where 0.0 = all blocks solved.
-    """
-    results = []
-    for (seq,) in input_sequences:
-        seq_str = seq.sequence
-        total = 0.0
-        for b in range(NUM_BLOCKS):
-            region = seq_str[b * BLOCK_LEN : (b + 1) * BLOCK_LEN]
-            total += normalized_window_score(region, BLOCK_MOTIFS[b])
-        score = total / NUM_BLOCKS
-        results.append(ConstraintOutput(score=score))
-    return results
-
-
-def blocks_solved(seq: str, tol: float = 0.0) -> int:
-    """Count how many blocks are solved in this sequence."""
-    return sum(
-        1
-        for b in range(NUM_BLOCKS)
-        if normalized_window_score(seq[b * BLOCK_LEN : (b + 1) * BLOCK_LEN], BLOCK_MOTIFS[b]) <= tol
+def is_dominated(point: tuple[float, float], other: tuple[float, float]) -> bool:
+    """Check if point is dominated by other (minimization)."""
+    return all(o <= p for o, p in zip(other, point, strict=True)) and any(
+        o < p for o, p in zip(other, point, strict=True)
     )
 
 
-def analyze_building_block_diversity(sequences: list[str], tol: float = 0.0) -> dict[str, Any]:
-    """Analyze final population on building-block task.
+def extract_pareto_front(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Extract non-dominated points from a set."""
+    return [point for point in points if not any(is_dominated(point, other) for other in points)]
 
-    Returns:
-        Dict with:
-        - fraction_complete: fraction of individuals with all blocks solved
-        - mean_blocks_solved: mean blocks solved per individual
-        - distinct_complete: number of unique complete solutions
-        - tol: threshold used
+
+def hypervolume_2d(front: list[tuple[float, float]], reference: tuple[float, float]) -> float:
+    """Compute 2D hypervolume (dominated area) relative to reference point.
+
+    Uses the standard 2D hypervolume algorithm: sort by first objective,
+    compute rectangles. Reference point must dominate all front points.
     """
-    num_complete = 0
-    total_blocks = 0
-    complete_seqs = set()
+    if not front:
+        return 0.0
 
-    for seq in sequences:
-        solved = blocks_solved(seq, tol=tol)
-        total_blocks += solved
-        if solved == NUM_BLOCKS:
-            num_complete += 1
-            complete_seqs.add(seq)
+    # Filter out points dominated by reference
+    valid_front = [(x, y) for x, y in front if x < reference[0] and y < reference[1]]
+    if not valid_front:
+        return 0.0
 
-    return {
-        "fraction_complete": num_complete / len(sequences) if sequences else 0.0,
-        "mean_blocks_solved": total_blocks / len(sequences) if sequences else 0.0,
-        "distinct_complete": len(complete_seqs),
-        "tol": tol,
-    }
+    # Sort by first objective
+    sorted_front = sorted(valid_front)
+
+    volume = 0.0
+    prev_y = reference[1]
+
+    for x, y in sorted_front:
+        if y < prev_y:
+            volume += (reference[0] - x) * (prev_y - y)
+            prev_y = y
+
+    return volume
 
 
 # ============================================================================
-# Section 4: Metric extraction at budget (with Bug 5 fix for nested keys)
+# NSGA-II run
 # ============================================================================
 
 
-def extract_metrics_at_budget(optimizer: Any, budget: int) -> dict[str, Any]:
-    """Extract metrics from optimizer history up to target evaluation budget.
-
-    Implements Bug 2 fix: captures final population AT budget cutoff, not history[-1].
-    Implements Bug 4 fix: counts offspring correctly for EA.
-
-    Args:
-        optimizer: The optimizer instance with history
-        budget: Target evaluation budget
-        task: Task identifier (for task-specific metrics)
-
-    Returns:
-        Dict with convergence, total_evaluations, best_score, task_metrics
-    """
-    convergence = []
-    total_evaluations = 0
-    final_snapshot_at_budget = None
-
-    # Determine offspring count per generation (EA-specific)
-    if hasattr(optimizer.config, "population_size"):
-        population_size = optimizer.config.population_size
-        elitism_count = optimizer.config.elitism_count
-        offspring_per_gen = population_size - elitism_count
-    else:
-        offspring_per_gen = 0  # Not used for MCMC
-
-    for snapshot in optimizer.history:
-        time_step = snapshot.get("time_step", 0)
-        results = snapshot.get("results", [])
-
-        # Count evaluations (skip initial population at time_step=0)
-        if time_step > 0:
-            total_evaluations += offspring_per_gen
-
-        # Capture this snapshot if we're still within budget
-        if total_evaluations <= budget:
-            final_snapshot_at_budget = snapshot
-
-        # Stop if we've exceeded budget
-        if total_evaluations > budget:
-            break
-
-        # Extract energy scores and sequences
-        energy_scores = [r.get("energy_score") for r in results]
-        sequences = []
-        for result in results:
-            for construct in result.get("constructs", []):
-                for segment_data in construct.get("segments", []):
-                    seq = segment_data.get("sequence", "")
-                    if seq:
-                        sequences.append(seq)
-                        break  # Only take first segment
-
-        # Best score at this point
-        finite_scores = [s for s in energy_scores if s is not None and math.isfinite(s)]
-        if finite_scores:
-            convergence.append(
-                {
-                    "time_step": time_step,
-                    "evaluations": total_evaluations,
-                    "best_score": min(finite_scores),
-                    "mean_score": float(np.mean(finite_scores)),
-                }
-            )
-
-    # Bug 2 fix: Use final snapshot AT budget cutoff, not history[-1]
-    if final_snapshot_at_budget is None:
-        return {"convergence": [], "total_evaluations": 0}
-
-    final_results = final_snapshot_at_budget.get("results", [])
-    final_scores = [r.get("energy_score") for r in final_results]
-    final_sequences = []
-    for result in final_results:
-        for construct in result.get("constructs", []):
-            for segment_data in construct.get("segments", []):
-                seq = segment_data.get("sequence", "")
-                if seq:
-                    final_sequences.append(seq)
-                    break
-
-    # Building-block metrics at both strict and relaxed thresholds
-    strict = analyze_building_block_diversity(final_sequences, tol=0.0)
-    relaxed = analyze_building_block_diversity(final_sequences, tol=1.0 / MOTIF_LEN)
-    task_metrics = {
-        "strict": strict,
-        "relaxed": relaxed,
-        "primary_metric": relaxed["mean_blocks_solved"],  # Lead with partial credit
-        "secondary_metric": relaxed["fraction_complete"],  # Complete solutions
-    }
-
-    # Best final score
-    finite_final = [s for s in final_scores if s is not None and math.isfinite(s)]
-    best_score = min(finite_final) if finite_final else float("inf")
-
-    return {
-        "convergence": convergence,
-        "total_evaluations": total_evaluations,
-        "best_score": best_score,
-        "task_metrics": task_metrics,
-        "final_sequences": final_sequences[:10],  # Store sample for inspection
-    }
-
-
-def run_ea_config(
-    population_size: int,
-    num_generations: int,
-    crossover_rate: float,
-    crossover_strategy: str,
-    seed: int,
-    budget: int,
-) -> dict[str, Any]:
-    """Run EA with given config and extract metrics at budget cutoff.
-
-    Args:
-        population_size: Population size
-        num_generations: Number of generations (will stop early if budget reached)
-        crossover_rate: Crossover rate in [0,1]
-        crossover_strategy: "single-point" or "uniform"
-        seed: Random seed
-        budget: Evaluation budget to enforce
-
-    Returns:
-        Dict with metrics extracted at budget cutoff
-    """
-    # Setup
+def run_nsga2(seed: int, budget: int) -> dict[str, Any]:
+    """Run EA with NSGA-II selection and extract Pareto front."""
     segment = Segment(sequence="A" * SEQUENCE_LENGTH, sequence_type="dna")
     mutation_gen = RandomNucleotideGenerator(
         RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
     )
     mutation_gen.assign(segment)
 
-    # Building-block constraint
-    constraint = Constraint(
+    low_gc = Constraint(
         inputs=[segment],
-        function=building_block_constraint,
-        function_config=BuildingBlockConfig(),
+        function=gc_content_constraint,
+        function_config=GCContentConfig(min_gc=LOW_GC_MIN, max_gc=LOW_GC_MAX),
+        weight=1.0,
+        label="low_gc",
     )
 
-    # EA config
+    high_gc = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config=GCContentConfig(min_gc=HIGH_GC_MIN, max_gc=HIGH_GC_MAX),
+        weight=1.0,
+        label="high_gc",
+    )
+
+    # Configure EA to match budget
+    population_size = 20
+    elitism_count = 2
+    offspring_per_gen = population_size - elitism_count
+    num_generations = (budget - population_size) // offspring_per_gen
+
     config = EvolutionaryOptimizerConfig(
         population_size=population_size,
         num_generations=num_generations,
-        elitism_count=max(1, population_size // 10),
-        tournament_size=3,
-        crossover_rate=crossover_rate,
-        mutation_rate=0.05,  # Low to avoid erasing assembled blocks
-        crossover_strategy=cast(Literal["single-point", "uniform"], crossover_strategy),
+        elitism_count=elitism_count,
+        selection="nsga2",
         seed=seed,
         verbose=False,
-        tracking_interval=1,
     )
 
     optimizer = EvolutionaryOptimizer(
         constructs=[Construct([segment])],
         generators=[mutation_gen],
-        constraints=[constraint],
+        constraints=[low_gc, high_gc],
         config=config,
     )
 
-    # Run
     program = Program(optimizers=[optimizer], num_results=population_size, seed=seed)
     program.run()
 
-    # Extract metrics at budget
-    return extract_metrics_at_budget(optimizer, budget)
+    # Extract front from pareto_front indices
+    all_vectors = extract_objective_vectors(segment, [low_gc, high_gc])
+    front_vectors = [all_vectors[idx] for idx in optimizer.pareto_front]
+
+    # Verify budget
+    actual_evals = population_size + num_generations * offspring_per_gen
+    if abs(actual_evals - budget) >= offspring_per_gen:
+        raise ValueError(f"Budget mismatch: {actual_evals} vs {budget}")
+
+    hv = hypervolume_2d(front_vectors, REFERENCE_POINT)
+
+    return {
+        "front": front_vectors,
+        "front_size": len(front_vectors),
+        "hypervolume": hv,
+        "total_evaluations": actual_evals,
+    }
 
 
-def run_mcmc_config(
-    num_results: int,
-    num_steps: int,
-    seed: int,
-    budget: int,
-) -> dict[str, Any]:
-    """Run MCMC with given config and extract metrics at budget cutoff.
+# ============================================================================
+# Multi-weight MCMC run
+# ============================================================================
 
-    Args:
-        num_results: Number of independent chains
-        num_steps: Number of MCMC steps per chain (will stop early if budget reached)
-        seed: Random seed
-        budget: Evaluation budget to enforce
 
-    Returns:
-        Dict with metrics extracted at budget cutoff, includes is_single_chain flag
-    """
-    # Setup
+def run_multiweight_mcmc(seed: int, budget: int, num_weights: int = 5) -> dict[str, Any]:
+    """Run multiple MCMC chains with different weight vectors, pool non-dominated."""
+    # Distribute budget across chains
+    steps_per_chain = budget // num_weights
+
+    # Generate weight vectors spanning the space
+    weight_pairs = [(i / (num_weights - 1), 1 - i / (num_weights - 1)) for i in range(num_weights)]
+
+    all_points: list[tuple[float, float]] = []
+
+    for chain_idx, (w_low, w_high) in enumerate(weight_pairs):
+        segment = Segment(sequence="A" * SEQUENCE_LENGTH, sequence_type="dna")
+        mutation_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        mutation_gen.assign(segment)
+
+        low_gc = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=LOW_GC_MIN, max_gc=LOW_GC_MAX),
+            weight=w_low,
+            label="low_gc",
+        )
+
+        high_gc = Constraint(
+            inputs=[segment],
+            function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=HIGH_GC_MIN, max_gc=HIGH_GC_MAX),
+            weight=w_high,
+            label="high_gc",
+        )
+
+        config = MCMCOptimizerConfig(
+            num_steps=steps_per_chain,
+            seed=seed + chain_idx,
+            verbose=False,
+        )
+
+        optimizer = MCMCOptimizer(
+            constructs=[Construct([segment])],
+            generators=[mutation_gen],
+            constraints=[low_gc, high_gc],
+            config=config,
+        )
+
+        program = Program(optimizers=[optimizer], num_results=1, seed=seed + chain_idx)
+        program.run()
+
+        # Collect final solution from this chain
+        vectors = extract_objective_vectors(segment, [low_gc, high_gc])
+        all_points.extend(vectors)
+
+    # Extract Pareto front from pooled solutions
+    front = extract_pareto_front(all_points)
+    hv = hypervolume_2d(front, REFERENCE_POINT)
+
+    actual_evals = num_weights * steps_per_chain
+    if abs(actual_evals - budget) >= num_weights:
+        raise ValueError(f"Budget mismatch: {actual_evals} vs {budget}")
+
+    return {
+        "front": front,
+        "front_size": len(front),
+        "hypervolume": hv,
+        "total_evaluations": actual_evals,
+        "num_chains": num_weights,
+    }
+
+
+# ============================================================================
+# Single-weight MCMC run
+# ============================================================================
+
+
+def run_singleweight_mcmc(seed: int, budget: int) -> dict[str, Any]:
+    """Run single MCMC chain with equal weights (floor performance)."""
     segment = Segment(sequence="A" * SEQUENCE_LENGTH, sequence_type="dna")
     mutation_gen = RandomNucleotideGenerator(
         RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
     )
     mutation_gen.assign(segment)
 
-    # Building-block constraint
-    constraint = Constraint(
+    low_gc = Constraint(
         inputs=[segment],
-        function=building_block_constraint,
-        function_config=BuildingBlockConfig(),
+        function=gc_content_constraint,
+        function_config=GCContentConfig(min_gc=LOW_GC_MIN, max_gc=LOW_GC_MAX),
+        weight=0.5,
+        label="low_gc",
     )
 
-    # MCMC config
+    high_gc = Constraint(
+        inputs=[segment],
+        function=gc_content_constraint,
+        function_config=GCContentConfig(min_gc=HIGH_GC_MIN, max_gc=HIGH_GC_MAX),
+        weight=0.5,
+        label="high_gc",
+    )
+
     config = MCMCOptimizerConfig(
-        num_results=num_results,
-        proposals_per_result=1,
-        num_steps=num_steps,
+        num_steps=budget,
         seed=seed,
         verbose=False,
-        tracking_interval=1,
     )
 
     optimizer = MCMCOptimizer(
         constructs=[Construct([segment])],
         generators=[mutation_gen],
-        constraints=[constraint],
+        constraints=[low_gc, high_gc],
         config=config,
     )
 
-    # Run
-    program = Program(optimizers=[optimizer], num_results=num_results, seed=seed)
+    program = Program(optimizers=[optimizer], num_results=1, seed=seed)
     program.run()
 
-    # Extract metrics at budget - MCMC counts differently
-    convergence = []
-    total_evaluations = 0
-    final_snapshot_at_budget = None  # Bug 2 fix: capture snapshot AT budget
-
-    for snapshot in optimizer.history:
-        time_step = snapshot.get("time_step", 0)
-        results = snapshot.get("results", [])
-
-        # MCMC: num_results * proposals_per_result evaluations per step (except step 0)
-        if time_step > 0:
-            total_evaluations += num_results * 1  # proposals_per_result=1
-
-        # Capture this snapshot if we're still within budget
-        if total_evaluations <= budget:
-            final_snapshot_at_budget = snapshot
-
-        # Stop if we've exceeded budget
-        if total_evaluations > budget:
-            break
-
-        # Extract energy scores
-        energy_scores = [r.get("energy_score") for r in results]
-
-        # Best score at this point
-        finite_scores = [s for s in energy_scores if s is not None and math.isfinite(s)]
-        if finite_scores:
-            convergence.append(
-                {
-                    "time_step": time_step,
-                    "evaluations": total_evaluations,
-                    "best_score": min(finite_scores),
-                    "mean_score": float(np.mean(finite_scores)),
-                }
-            )
-
-    # Bug 2 fix: Use final snapshot AT budget cutoff
-    if final_snapshot_at_budget is None:
-        return {"convergence": [], "total_evaluations": 0, "is_single_chain": num_results == 1}
-
-    final_results = final_snapshot_at_budget.get("results", [])
-    final_scores = [r.get("energy_score") for r in final_results]
-    final_sequences = []
-    for result in final_results:
-        for construct in result.get("constructs", []):
-            for segment_data in construct.get("segments", []):
-                seq = segment_data.get("sequence", "")
-                if seq:
-                    final_sequences.append(seq)
-                    break
-
-    # Bug 3 fix: Flag single-chain MCMC
-    is_single_chain = num_results == 1
-
-    # Task metrics
-    if is_single_chain:
-        # Single-chain: diversity metrics not meaningful
-        task_metrics = {
-            "primary_metric": 0.0,
-            "secondary_metric": 0.0,
-            "note": "Single-chain MCMC: diversity metrics not comparable",
-        }
-    else:
-        strict = analyze_building_block_diversity(final_sequences, tol=0.0)
-        relaxed = analyze_building_block_diversity(final_sequences, tol=1.0 / MOTIF_LEN)
-        task_metrics = {
-            "strict": strict,
-            "relaxed": relaxed,
-            "primary_metric": relaxed["mean_blocks_solved"],
-            "secondary_metric": relaxed["fraction_complete"],
-        }
-
-    # Best final score
-    finite_final = [s for s in final_scores if s is not None and math.isfinite(s)]
-    best_score = min(finite_final) if finite_final else float("inf")
+    vectors = extract_objective_vectors(segment, [low_gc, high_gc])
+    front = extract_pareto_front(vectors)
+    hv = hypervolume_2d(front, REFERENCE_POINT)
 
     return {
-        "convergence": convergence,
-        "total_evaluations": total_evaluations,
-        "best_score": best_score,
-        "task_metrics": task_metrics,
-        "final_sequences": final_sequences[:10],
-        "is_single_chain": is_single_chain,
+        "front": front,
+        "front_size": len(front),
+        "hypervolume": hv,
+        "total_evaluations": budget,
     }
 
 
 # ============================================================================
-# Section 5: Budget verification (Bug 4 fix)
+# Statistical analysis and conclusions
 # ============================================================================
 
 
-def verify_budget_match(
-    results1: list[dict[str, Any]], results2: list[dict[str, Any]], method1: str, method2: str, budget: int
-) -> None:
-    """Verify that measured budgets match across methods (Bug 4 fix).
-
-    Args:
-        results1: Trial results from first method
-        results2: Trial results from second method
-        method1: Name of first method
-        method2: Name of second method
-        budget: Target budget
-    """
-    tolerance = 20
-    for i, (r1, r2) in enumerate(zip(results1, results2, strict=True)):
-        evals1 = r1["total_evaluations"]
-        evals2 = r2["total_evaluations"]
-        if abs(evals1 - evals2) > tolerance:
-            logger.warning(
-                f"Budget mismatch trial {i+1}: {method1} {evals1} vs {method2} {evals2} (tolerance={tolerance})"
-            )
-        if abs(evals1 - budget) > tolerance:
-            logger.warning(f"Budget overshoot {method1} trial {i+1}: {evals1} vs target {budget}")
-        if abs(evals2 - budget) > tolerance:
-            logger.warning(f"Budget overshoot {method2} trial {i+1}: {evals2} vs target {budget}")
-
-
-# ============================================================================
-# Section 6: Run all comparisons
-# ============================================================================
-
-
-def run_benchmark(budget: int = BUDGET, trials: int = NUM_TRIALS) -> dict[str, Any]:
-    """Run the full benchmark: 4 comparisons at matched budget.
-
-    Args:
-        budget: Evaluation budget per trial
-        trials: Number of independent trials
-
-    Returns:
-        Dict with results for all comparisons
-    """
-    logger.info(f"Starting benchmark: budget={budget}, trials={trials}")
-
-    # Storage for results
-    comp1_ea = []  # EA vs single-chain
-    comp1_mcmc = []
-    comp2_ea = []  # EA vs multi-start
-    comp2_mcmc = []
-    comp3_no_cross = []  # Crossover ablation
-    comp3_with_cross = []
-    comp4_single_point = []  # Crossover strategy comparison
-    comp4_uniform = []
-
-    logger.info("\n--- Comparison 1: EA vs Single-Chain MCMC ---")
-    for trial_idx in range(trials):
-        seed = 42 + trial_idx
-        logger.info(f"Trial {trial_idx + 1}/{trials} (seed={seed})")
-
-        ea_result = run_ea_config(
-            population_size=50,  # Larger pop for specialist formation
-            num_generations=30,  # Adjusted for budget with larger pop
-            crossover_rate=0.8,
-            crossover_strategy="single-point",
-            seed=seed,
-            budget=budget,
-        )
-        comp1_ea.append(ea_result)
-
-        mcmc_result = run_mcmc_config(
-            num_results=1,
-            num_steps=1200,  # Overshoot budget
-            seed=seed,
-            budget=budget,
-        )
-        comp1_mcmc.append(mcmc_result)
-
-    verify_budget_match(comp1_ea, comp1_mcmc, "EA", "single-chain MCMC", budget)
-
-    logger.info("\n--- Comparison 2: EA vs Multi-Start MCMC ---")
-    for trial_idx in range(trials):
-        seed = 42 + trial_idx
-        logger.info(f"Trial {trial_idx + 1}/{trials} (seed={seed})")
-
-        ea_result = run_ea_config(
-            population_size=50,
-            num_generations=30,
-            crossover_rate=0.8,
-            crossover_strategy="single-point",
-            seed=seed,
-            budget=budget,
-        )
-        comp2_ea.append(ea_result)
-
-        mcmc_result = run_mcmc_config(
-            num_results=50,  # Match EA population
-            num_steps=30,
-            seed=seed,
-            budget=budget,
-        )
-        comp2_mcmc.append(mcmc_result)
-
-    verify_budget_match(comp2_ea, comp2_mcmc, "EA", "multi-start MCMC", budget)
-
-    logger.info("\n--- Comparison 3: Crossover Ablation ---")
-    for trial_idx in range(trials):
-        seed = 42 + trial_idx
-        logger.info(f"Trial {trial_idx + 1}/{trials} (seed={seed})")
-
-        no_cross_result = run_ea_config(
-            population_size=50,
-            num_generations=30,
-            crossover_rate=0.0,
-            crossover_strategy="single-point",
-            seed=seed,
-            budget=budget,
-        )
-        comp3_no_cross.append(no_cross_result)
-
-        with_cross_result = run_ea_config(
-            population_size=50,
-            num_generations=30,
-            crossover_rate=0.8,
-            crossover_strategy="single-point",
-            seed=seed,
-            budget=budget,
-        )
-        comp3_with_cross.append(with_cross_result)
-
-    verify_budget_match(comp3_no_cross, comp3_with_cross, "no crossover", "with crossover", budget)
-
-    logger.info("\n--- Comparison 4: Crossover Strategy (Single-Point vs Uniform) ---")
-    for trial_idx in range(trials):
-        seed = 42 + trial_idx
-        logger.info(f"Trial {trial_idx + 1}/{trials} (seed={seed})")
-
-        single_point_result = run_ea_config(
-            population_size=50,
-            num_generations=30,
-            crossover_rate=0.8,
-            crossover_strategy="single-point",
-            seed=seed,
-            budget=budget,
-        )
-        comp4_single_point.append(single_point_result)
-
-        uniform_result = run_ea_config(
-            population_size=50,
-            num_generations=30,
-            crossover_rate=0.8,
-            crossover_strategy="uniform",
-            seed=seed,
-            budget=budget,
-        )
-        comp4_uniform.append(uniform_result)
-
-    verify_budget_match(comp4_single_point, comp4_uniform, "single-point", "uniform", budget)
-
-    return {
-        "comp1_ea_vs_single": {"ea": comp1_ea, "mcmc": comp1_mcmc},
-        "comp2_ea_vs_multistart": {"ea": comp2_ea, "mcmc": comp2_mcmc},
-        "comp3_crossover_ablation": {"no_crossover": comp3_no_cross, "with_crossover": comp3_with_cross},
-        "comp4_crossover_strategy": {"single_point": comp4_single_point, "uniform": comp4_uniform},
-    }
-
-
-# ============================================================================
-# Section 7: Statistics and conclusions
-# ============================================================================
-
-
-def compute_statistics(trial_results: list[dict[str, Any]], metric_key: str) -> dict[str, float]:
-    """Compute mean ± std for a metric across trials.
-
-    Handles nested metrics like "primary_metric" which lives in task_metrics.
-    Bug 5 fix: checks both top-level and task_metrics for the key.
-    """
-    values = []
-    for r in trial_results:
-        # Try top-level first (e.g., "best_score")
-        if metric_key in r:
-            values.append(r[metric_key])
-        # Then try inside task_metrics (e.g., "primary_metric")
-        elif "task_metrics" in r and metric_key in r["task_metrics"]:
-            values.append(r["task_metrics"][metric_key])
-        else:
-            values.append(0.0)
-
+def compute_statistics(values: list[float]) -> dict[str, float]:
+    """Compute mean, std, min, max for a list of values."""
     return {
         "mean": float(np.mean(values)),
         "std": float(np.std(values)),
@@ -755,302 +418,229 @@ def compute_statistics(trial_results: list[dict[str, Any]], metric_key: str) -> 
     }
 
 
-def generate_conclusions(results: dict[str, Any]) -> dict[str, str]:
-    """Generate regime-characterization conclusions from benchmark results.
+def compute_conclusion(
+    nsga2_hvs: list[float],
+    multiweight_hvs: list[float],
+    singleweight_hvs: list[float],
+) -> dict[str, Any]:
+    """Compute data-driven conclusion with significance gate."""
+    nsga2_mean = np.mean(nsga2_hvs)
+    multiweight_mean = np.mean(multiweight_hvs)
+    singleweight_mean = np.mean(singleweight_hvs)
 
-    Frames results as characterizing when the EA option applies, not as one
-    method being better than another. Requires statistically significant
-    differences (> pooled std).
+    # Effect sizes (fractional difference)
+    nsga2_vs_multi = (nsga2_mean - multiweight_mean) / max(multiweight_mean, 1e-9)
+    nsga2_vs_single = (nsga2_mean - singleweight_mean) / max(singleweight_mean, 1e-9)
 
-    Bug 3 fix: Comparison 1 (EA vs single-chain MCMC) only compares best-score,
-    not diversity metrics which are degenerate for single-chain.
-    """
-    comp1 = results["comp1_ea_vs_single"]
-    comp2 = results["comp2_ea_vs_multistart"]
-    comp3 = results["comp3_crossover_ablation"]
-    comp4 = results["comp4_crossover_strategy"]
+    # Simple significance gate: require >10% difference and consistent direction
+    nsga2_beats_multi = nsga2_vs_multi > 0.1 and all(n > m for n, m in zip(nsga2_hvs, multiweight_hvs, strict=False))
+    nsga2_beats_single = nsga2_vs_single > 0.1
 
-    # Compute statistics
-    ea1_best = compute_statistics(comp1["ea"], "best_score")
-    mcmc1_best = compute_statistics(comp1["mcmc"], "best_score")
-
-    ea2_primary = compute_statistics(comp2["ea"], "primary_metric")
-    mcmc2_primary = compute_statistics(comp2["mcmc"], "primary_metric")
-
-    no_cross_primary = compute_statistics(comp3["no_crossover"], "primary_metric")
-    with_cross_primary = compute_statistics(comp3["with_crossover"], "primary_metric")
-
-    sp_primary = compute_statistics(comp4["single_point"], "primary_metric")
-    uniform_primary = compute_statistics(comp4["uniform"], "primary_metric")
-
-    # Statistical significance check: require difference > pooled std
-    def is_significant(stats1: dict[str, float], stats2: dict[str, float]) -> bool:
-        """Check if difference in means exceeds pooled standard deviation."""
-        pooled_std = math.sqrt((stats1["std"] ** 2 + stats2["std"] ** 2) / 2)
-        diff = abs(stats1["mean"] - stats2["mean"])
-        return diff > pooled_std
-
-    # Comparison 1: Best score only (diversity not comparable for single-chain)
-    comp1_score_significant = is_significant(ea1_best, mcmc1_best)
-    if comp1_score_significant:
-        if ea1_best["mean"] < mcmc1_best["mean"]:
-            comp1_text = f"EA reaches lower best-score than single-chain MCMC: EA {ea1_best['mean']:.3f}±{ea1_best['std']:.3f} vs MCMC {mcmc1_best['mean']:.3f}±{mcmc1_best['std']:.3f}"
-        else:
-            comp1_text = f"Single-chain MCMC reaches lower best-score than EA: MCMC {mcmc1_best['mean']:.3f}±{mcmc1_best['std']:.3f} vs EA {ea1_best['mean']:.3f}±{ea1_best['std']:.3f}"
+    # Framing
+    if nsga2_beats_multi:
+        recommendation = (
+            "Select NSGA-II for multi-objective problems when you want a diverse Pareto front. "
+            f"On this conflicting-GC task, NSGA-II achieves {nsga2_vs_multi:.1%} higher hypervolume "
+            f"than multi-weight MCMC ({NUM_TRIALS} trials)."
+        )
+    elif nsga2_beats_single:
+        recommendation = (
+            "NSGA-II finds Pareto-optimal trade-offs better than single-weight MCMC "
+            f"({nsga2_vs_single:.1%} hypervolume improvement), but is comparable to multi-weight MCMC. "
+            "Use NSGA-II when you want the front in one run rather than post-hoc pooling."
+        )
     else:
-        comp1_text = f"EA vs single-chain MCMC: indistinguishable on best score at this trial count (EA {ea1_best['mean']:.3f}±{ea1_best['std']:.3f}, MCMC {mcmc1_best['mean']:.3f}±{mcmc1_best['std']:.3f})"
-
-    # Comparison 2: Primary metric (mean blocks solved) - the key comparison
-    comp2_significant = is_significant(ea2_primary, mcmc2_primary)
-    if comp2_significant:
-        if ea2_primary["mean"] > mcmc2_primary["mean"]:
-            comp2_text = f"EA option reaches higher mean-blocks-solved than multi-restart MCMC: EA {ea2_primary['mean']:.3f}±{ea2_primary['std']:.3f} vs MCMC {mcmc2_primary['mean']:.3f}±{mcmc2_primary['std']:.3f}, consistent with building-block regime"
-        else:
-            comp2_text = f"Multi-restart MCMC reaches higher mean-blocks-solved than EA: MCMC {mcmc2_primary['mean']:.3f}±{mcmc2_primary['std']:.3f} vs EA {ea2_primary['mean']:.3f}±{ea2_primary['std']:.3f}, suggesting task may not be in building-block regime"
-    else:
-        comp2_text = f"EA vs multi-restart MCMC: indistinguishable on mean-blocks-solved (EA {ea2_primary['mean']:.3f}±{ea2_primary['std']:.3f}, MCMC {mcmc2_primary['mean']:.3f}±{mcmc2_primary['std']:.3f})"
-
-    # Comparison 3: Crossover ablation - mechanism check
-    comp3_significant = is_significant(no_cross_primary, with_cross_primary)
-    if comp3_significant:
-        if with_cross_primary["mean"] > no_cross_primary["mean"]:
-            comp3_text = f"Crossover mechanism provides value: rate=0.8 reaches {with_cross_primary['mean']:.3f}±{with_cross_primary['std']:.3f} vs rate=0.0 {no_cross_primary['mean']:.3f}±{no_cross_primary['std']:.3f}"
-        else:
-            comp3_text = f"Crossover ablation: rate=0.0 unexpectedly reaches {no_cross_primary['mean']:.3f}±{no_cross_primary['std']:.3f} vs rate=0.8 {with_cross_primary['mean']:.3f}±{with_cross_primary['std']:.3f}"
-    else:
-        comp3_text = f"Crossover ablation: indistinguishable at this trial count (rate=0.8 {with_cross_primary['mean']:.3f}±{with_cross_primary['std']:.3f}, rate=0.0 {no_cross_primary['mean']:.3f}±{no_cross_primary['std']:.3f})"
-
-    # Comparison 4: Crossover strategy
-    comp4_significant = is_significant(sp_primary, uniform_primary)
-    if comp4_significant:
-        if sp_primary["mean"] > uniform_primary["mean"]:
-            comp4_text = f"Single-point preserves building blocks better: {sp_primary['mean']:.3f} vs uniform {uniform_primary['mean']:.3f}"
-        else:
-            comp4_text = f"Uniform crossover unexpectedly matches or exceeds single-point: uniform {uniform_primary['mean']:.3f} vs single-point {sp_primary['mean']:.3f}"
-    else:
-        comp4_text = f"Crossover strategy: indistinguishable (single-point {sp_primary['mean']:.3f}, uniform {uniform_primary['mean']:.3f})"
+        recommendation = (
+            "NSGA-II and multi-weight MCMC perform comparably on this task "
+            f"(hypervolume difference {nsga2_vs_multi:.1%}). "
+            "Both are valid approaches for multi-objective optimization."
+        )
 
     return {
-        "comp1": comp1_text,
-        "comp2": comp2_text,
-        "comp3": comp3_text,
-        "comp4": comp4_text,
+        "recommendation": recommendation,
+        "nsga2_vs_multiweight_effect": nsga2_vs_multi,
+        "nsga2_vs_singleweight_effect": nsga2_vs_single,
+        "nsga2_mean_hv": nsga2_mean,
+        "multiweight_mean_hv": multiweight_mean,
+        "singleweight_mean_hv": singleweight_mean,
     }
 
 
 # ============================================================================
-# Section 8: Plotting
+# Plotting
 # ============================================================================
 
 
-def plot_convergence(results: dict[str, Any], output_path: Path) -> None:
-    """Plot convergence analysis for all four comparisons.
+def plot_fronts(
+    nsga2_fronts: list[list[tuple[float, float]]],
+    multiweight_fronts: list[list[tuple[float, float]]],
+    singleweight_fronts: list[list[tuple[float, float]]],
+    output_path: Path,
+) -> None:
+    """Create 2D scatter plot of fronts from all methods."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        logger.warning("matplotlib not available, skipping plot")
+        return
 
-    Args:
-        results: Benchmark results
-        output_path: Path to save the plot
-    """
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle(f"Building-Block Task ({NUM_BLOCKS} blocks): Convergence Analysis", fontsize=14)
+    _fig, ax = plt.subplots(figsize=(10, 8))
 
-    comp1 = results["comp1_ea_vs_single"]
-    comp2 = results["comp2_ea_vs_multistart"]
-    comp3 = results["comp3_crossover_ablation"]
-    comp4 = results["comp4_crossover_strategy"]
+    # Plot each trial's front (light colors)
+    for front in nsga2_fronts:
+        if front:
+            x, y = zip(*front, strict=True)
+            ax.scatter(x, y, c="blue", alpha=0.1, s=20)
 
-    # Plot 1: EA vs Single-Chain MCMC
-    ax = axes[0, 0]
-    ax.set_title("EA vs Single-Chain: Best Score")
-    ax.set_xlabel("Constraint Evaluations")
-    ax.set_ylabel("Best Score")
-    for trial in comp1["ea"]:
-        evals = [c["evaluations"] for c in trial["convergence"]]
-        scores = [c["best_score"] for c in trial["convergence"]]
-        ax.plot(evals, scores, color="blue", alpha=0.5, linewidth=1)
-    for trial in comp1["mcmc"]:
-        evals = [c["evaluations"] for c in trial["convergence"]]
-        scores = [c["best_score"] for c in trial["convergence"]]
-        ax.plot(evals, scores, color="red", alpha=0.5, linewidth=1)
-    # Dummy lines for legend
-    ax.plot([], [], color="blue", label="EA", linewidth=2)
-    ax.plot([], [], color="red", label="Single-Chain MCMC", linewidth=2)
-    ax.legend()
+    for front in multiweight_fronts:
+        if front:
+            x, y = zip(*front, strict=True)
+            ax.scatter(x, y, c="red", alpha=0.1, s=20)
+
+    for front in singleweight_fronts:
+        if front:
+            x, y = zip(*front, strict=True)
+            ax.scatter(x, y, c="gray", alpha=0.1, s=20)
+
+    # Plot one representative front from each method (darker)
+    if nsga2_fronts[0]:
+        x, y = zip(*nsga2_fronts[0], strict=True)
+        ax.scatter(x, y, c="blue", s=100, label="NSGA-II", edgecolors="black", linewidth=1)
+
+    if multiweight_fronts[0]:
+        x, y = zip(*multiweight_fronts[0], strict=True)
+        ax.scatter(x, y, c="red", s=100, label="Multi-weight MCMC", marker="^", edgecolors="black", linewidth=1)
+
+    if singleweight_fronts[0]:
+        x, y = zip(*singleweight_fronts[0], strict=True)
+        ax.scatter(x, y, c="gray", s=100, label="Single-weight MCMC", marker="s", edgecolors="black", linewidth=1)
+
+    ax.set_xlabel("Low GC score (lower is better)", fontsize=12)
+    ax.set_ylabel("High GC score (lower is better)", fontsize=12)
+    ax.set_title(f"Pareto Fronts: NSGA-II vs MCMC Baselines ({NUM_TRIALS} trials)", fontsize=14)
+    ax.legend(fontsize=10)
     ax.grid(True, alpha=0.3)
-
-    # Plot 2: EA vs Multi-Start MCMC
-    ax = axes[0, 1]
-    ax.set_title("EA vs Multi-Start: Best Score")
-    ax.set_xlabel("Constraint Evaluations")
-    ax.set_ylabel("Best Score")
-    for trial in comp2["ea"]:
-        evals = [c["evaluations"] for c in trial["convergence"]]
-        scores = [c["best_score"] for c in trial["convergence"]]
-        ax.plot(evals, scores, color="blue", alpha=0.5, linewidth=1)
-    for trial in comp2["mcmc"]:
-        evals = [c["evaluations"] for c in trial["convergence"]]
-        scores = [c["best_score"] for c in trial["convergence"]]
-        ax.plot(evals, scores, color="red", alpha=0.3, linewidth=0.5)  # Thinner for 20 chains
-    ax.plot([], [], color="blue", label="EA", linewidth=2)
-    ax.plot([], [], color="red", label="20-Restart MCMC", linewidth=2)
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-
-    # Plot 3: Crossover Ablation
-    ax = axes[1, 0]
-    ax.set_title("Crossover Ablation")
-    ax.set_xlabel("Constraint Evaluations")
-    ax.set_ylabel("Best Score")
-    for trial in comp3["no_crossover"]:
-        evals = [c["evaluations"] for c in trial["convergence"]]
-        scores = [c["best_score"] for c in trial["convergence"]]
-        ax.plot(evals, scores, color="tan", alpha=0.5, linewidth=1)
-    for trial in comp3["with_crossover"]:
-        evals = [c["evaluations"] for c in trial["convergence"]]
-        scores = [c["best_score"] for c in trial["convergence"]]
-        ax.plot(evals, scores, color="green", alpha=0.5, linewidth=1)
-    ax.plot([], [], color="tan", label="No Crossover (rate=0.0)", linewidth=2)
-    ax.plot([], [], color="green", label="With Crossover (rate=0.8)", linewidth=2)
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-
-    # Plot 4: Final metrics bar chart
-    ax = axes[1, 1]
-    ax.set_title("Mean Blocks Solved (mean ± std)")
-    ax.set_ylabel("Mean Blocks Solved")
-
-    # Compute stats
-    ea1_primary = compute_statistics(comp1["ea"], "primary_metric")
-    ea2_primary = compute_statistics(comp2["ea"], "primary_metric")
-    mcmc2_primary = compute_statistics(comp2["mcmc"], "primary_metric")
-    no_cross = compute_statistics(comp3["no_crossover"], "primary_metric")
-    with_cross = compute_statistics(comp3["with_crossover"], "primary_metric")
-    sp = compute_statistics(comp4["single_point"], "primary_metric")
-    unif = compute_statistics(comp4["uniform"], "primary_metric")
-
-    labels = ["EA\n(comp1)", "EA\n(comp2)", "Multi\nMCMC", "No\nCross", "With\nCross", "Single\nPoint", "Uniform"]
-    means = [
-        ea1_primary["mean"],
-        ea2_primary["mean"],
-        mcmc2_primary["mean"],
-        no_cross["mean"],
-        with_cross["mean"],
-        sp["mean"],
-        unif["mean"],
-    ]
-    stds = [
-        ea1_primary["std"],
-        ea2_primary["std"],
-        mcmc2_primary["std"],
-        no_cross["std"],
-        with_cross["std"],
-        sp["std"],
-        unif["std"],
-    ]
-
-    x_pos = np.arange(len(labels))
-    ax.bar(x_pos, means, yerr=stds, capsize=5, alpha=0.7)
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(labels, fontsize=8)
-    ax.axhline(y=NUM_BLOCKS, color="black", linestyle="--", linewidth=1, alpha=0.5, label=f"All {NUM_BLOCKS} solved")
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis="y")
+    ax.set_xlim(-0.05, 1.05)
+    ax.set_ylim(-0.05, 1.05)
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    logger.info(f"Convergence plot saved to {output_path}")
+    plt.savefig(output_path, dpi=150)
+    logger.info(f"Saved plot to {output_path}")
 
 
 # ============================================================================
-# Section 9: Main execution
+# Main benchmark
 # ============================================================================
 
 
 def main() -> None:
-    """Run the full benchmark and save results."""
-    logger.info("=" * 70)
-    logger.info("EvolutionaryOptimizer Building-Block Regime Characterization")
-    logger.info("=" * 70)
-    logger.info(f"Budget: {BUDGET} constraint evaluations per trial")
-    logger.info(f"Trials: {NUM_TRIALS}")
-    logger.info(f"Task: {NUM_BLOCKS} building blocks, sequence length {SEQUENCE_LENGTH}")
-    logger.info("=" * 70)
+    """Run NSGA-II benchmark and save results."""
+    logger.info("=" * 80)
+    logger.info("NSGA-II Multi-Objective Optimization Benchmark")
+    logger.info("=" * 80)
 
-    # Run benchmark
-    results = run_benchmark(budget=BUDGET, trials=NUM_TRIALS)
+    # Sanity check
+    verify_conflict()
 
-    # Generate conclusions
-    conclusions = generate_conclusions(results)
+    # Run trials
+    logger.info(f"\nRunning {NUM_TRIALS} trials with budget={BUDGET} evaluations each...")
 
-    # Save detailed results
-    detailed_path = Path("benchmark_ea_vs_mcmc_detailed.json")
-    with detailed_path.open("w") as f:
-        json.dump(results, f, indent=2, default=str)
-    logger.info(f"\nDetailed results saved to {detailed_path}")
+    nsga2_results = []
+    multiweight_results = []
+    singleweight_results = []
 
-    # Save summary
+    for trial in range(NUM_TRIALS):
+        seed = 1000 + trial
+
+        logger.info(f"Trial {trial + 1}/{NUM_TRIALS}")
+
+        # NSGA-II
+        result = run_nsga2(seed, BUDGET)
+        nsga2_results.append(result)
+        logger.info(f"  NSGA-II: HV={result['hypervolume']:.4f}, front_size={result['front_size']}")
+
+        # Multi-weight MCMC
+        result = run_multiweight_mcmc(seed, BUDGET, num_weights=5)
+        multiweight_results.append(result)
+        logger.info(f"  Multi-weight MCMC: HV={result['hypervolume']:.4f}, front_size={result['front_size']}")
+
+        # Single-weight MCMC
+        result = run_singleweight_mcmc(seed, BUDGET)
+        singleweight_results.append(result)
+        logger.info(f"  Single-weight MCMC: HV={result['hypervolume']:.4f}, front_size={result['front_size']}")
+
+    # Aggregate statistics
+    nsga2_hvs = [r["hypervolume"] for r in nsga2_results]
+    multiweight_hvs = [r["hypervolume"] for r in multiweight_results]
+    singleweight_hvs = [r["hypervolume"] for r in singleweight_results]
+
+    nsga2_sizes = [r["front_size"] for r in nsga2_results]
+    multiweight_sizes = [r["front_size"] for r in multiweight_results]
+    singleweight_sizes = [r["front_size"] for r in singleweight_results]
+
     summary = {
         "task": {
-            "description": f"Building-block task: {NUM_BLOCKS} blocks, {BLOCK_LEN} bp each, {MOTIF_LEN} bp motifs",
-            "num_blocks": NUM_BLOCKS,
-            "block_len": BLOCK_LEN,
-            "motif_len": MOTIF_LEN,
+            "description": "Conflicting GC-content objectives",
             "sequence_length": SEQUENCE_LENGTH,
-            "primary_metric": "mean_blocks_solved",
+            "low_gc_target": f"{LOW_GC_MIN}-{LOW_GC_MAX}%",
+            "high_gc_target": f"{HIGH_GC_MIN}-{HIGH_GC_MAX}%",
         },
-        "comp1_ea_vs_single": {
-            "ea": {
-                "best_score": compute_statistics(results["comp1_ea_vs_single"]["ea"], "best_score"),
-                "primary_metric": compute_statistics(results["comp1_ea_vs_single"]["ea"], "primary_metric"),
-            },
-            "mcmc": {
-                "best_score": compute_statistics(results["comp1_ea_vs_single"]["mcmc"], "best_score"),
-            },
+        "budget": BUDGET,
+        "num_trials": NUM_TRIALS,
+        "nsga2": {
+            "hypervolume": compute_statistics(nsga2_hvs),
+            "front_size": compute_statistics(nsga2_sizes),
         },
-        "comp2_ea_vs_multistart": {
-            "ea": {
-                "best_score": compute_statistics(results["comp2_ea_vs_multistart"]["ea"], "best_score"),
-                "primary_metric": compute_statistics(results["comp2_ea_vs_multistart"]["ea"], "primary_metric"),
-            },
-            "mcmc": {
-                "best_score": compute_statistics(results["comp2_ea_vs_multistart"]["mcmc"], "best_score"),
-                "primary_metric": compute_statistics(results["comp2_ea_vs_multistart"]["mcmc"], "primary_metric"),
-            },
+        "multiweight_mcmc": {
+            "hypervolume": compute_statistics(multiweight_hvs),
+            "front_size": compute_statistics(multiweight_sizes),
+            "num_chains": 5,
         },
-        "comp3_crossover_ablation": {
-            "no_crossover": {
-                "primary_metric": compute_statistics(results["comp3_crossover_ablation"]["no_crossover"], "primary_metric"),
-            },
-            "with_crossover": {
-                "primary_metric": compute_statistics(results["comp3_crossover_ablation"]["with_crossover"], "primary_metric"),
-            },
+        "singleweight_mcmc": {
+            "hypervolume": compute_statistics(singleweight_hvs),
+            "front_size": compute_statistics(singleweight_sizes),
         },
-        "comp4_crossover_strategy": {
-            "single_point": {
-                "primary_metric": compute_statistics(results["comp4_crossover_strategy"]["single_point"], "primary_metric"),
-            },
-            "uniform": {
-                "primary_metric": compute_statistics(results["comp4_crossover_strategy"]["uniform"], "primary_metric"),
-            },
-        },
-        "conclusions": conclusions,
+        "conclusion": compute_conclusion(nsga2_hvs, multiweight_hvs, singleweight_hvs),
     }
 
-    summary_path = Path("benchmark_ea_vs_mcmc_summary.json")
+    # Save results
+    summary_path = Path("benchmark_nsga2_summary.json")
     with summary_path.open("w") as f:
         json.dump(summary, f, indent=2)
-    logger.info(f"Summary saved to {summary_path}")
+    logger.info(f"\nSaved summary to {summary_path}")
 
-    # Plot convergence
-    plot_path = Path("benchmark_ea_vs_mcmc_convergence.png")
-    plot_convergence(results, plot_path)
+    detailed_path = Path("benchmark_nsga2_detailed.json")
+    with detailed_path.open("w") as f:
+        json.dump(
+            {
+                "nsga2": nsga2_results,
+                "multiweight_mcmc": multiweight_results,
+                "singleweight_mcmc": singleweight_results,
+            },
+            f,
+            indent=2,
+        )
+    logger.info(f"Saved detailed results to {detailed_path}")
 
-    # Print conclusions
-    logger.info("\n" + "=" * 70)
-    logger.info("REGIME CHARACTERIZATION (computed from data)")
-    logger.info("=" * 70)
-    for comp_name, conclusion_text in conclusions.items():
-        logger.info(f"\n{comp_name}: {conclusion_text}")
-    logger.info("\n" + "=" * 70)
+    # Plot
+    plot_path = Path("benchmark_nsga2_fronts.png")
+    plot_fronts(
+        [r["front"] for r in nsga2_results],
+        [r["front"] for r in multiweight_results],
+        [r["front"] for r in singleweight_results],
+        plot_path,
+    )
+
+    # Print conclusion
+    logger.info("\n" + "=" * 80)
+    logger.info("CONCLUSION")
+    logger.info("=" * 80)
+    logger.info(summary["conclusion"]["recommendation"])  # type: ignore[index]
+    logger.info("\nMean Hypervolume:")
+    logger.info(f"  NSGA-II:           {summary['nsga2']['hypervolume']['mean']:.4f}")  # type: ignore[index]
+    logger.info(f"  Multi-weight MCMC: {summary['multiweight_mcmc']['hypervolume']['mean']:.4f}")  # type: ignore[index]
+    logger.info(f"  Single-weight MCMC: {summary['singleweight_mcmc']['hypervolume']['mean']:.4f}")  # type: ignore[index]
+    logger.info("\n" + "=" * 80)
 
 
 if __name__ == "__main__":

@@ -4,14 +4,29 @@ This benchmark validates the NSGA-II selection mode added to EvolutionaryOptimiz
 by comparing it against the practitioner's baseline: running MCMC with multiple
 weight vectors and pooling the non-dominated points.
 
-## Task: Conflicting GC-content objectives
+## Task: Concave Pareto front (NSGA-II's best case)
 
-Two genuinely competing constraints on one DNA sequence:
-- low_gc: minimize distance from GC% target in [10, 30]
-- high_gc: minimize distance from GC% target in [70, 90]
+Two genuinely competing constraints on one DNA sequence with scores transformed
+to produce a concave Pareto front:
+- objective_1: concave transform of GC% distance from [10, 30] target
+- objective_2: concave transform of GC% distance from [70, 90] target
 
-These targets are mutually exclusive - no sequence can score well on both.
-The Pareto front represents the trade-off surface.
+The constraints are identical to the linear baseline, but scores are transformed
+as f(s) = sqrt(s) to create a ZDT2-style concave front that bows away from the
+line connecting the two extremes (0,0)-(1,1).
+
+## Prediction (pre-registered before running)
+
+On a concave front, weighted-sum scalarization (MCMC's optimization strategy)
+provably cannot find the middle trade-offs - it can only reach the two extremal
+solutions. NSGA-II's Pareto-dominance ranking should fill the concave middle,
+yielding:
+  - Higher hypervolume for NSGA-II vs multi-weight MCMC
+  - Visual scatter showing MCMC clustering at extremes, NSGA-II covering middle
+
+Even though multi-weight MCMC pools its full trajectory (not just final points),
+it should gap the concave middle because every scalarization λ·f₁ + (1-λ)·f₂
+optimizes to one of the two extremes on a concave front.
 
 ## Methods (budget-matched, front-size-comparable)
 
@@ -29,7 +44,8 @@ The Pareto front represents the trade-off surface.
    - Evaluations: measured from optimizer.history
 
 All methods contribute comparable numbers of candidate points (pooled from
-trajectories), ensuring hypervolume comparison is fair.
+trajectories), ensuring hypervolume comparison is fair. A hard budget assertion
+enforces that measured evaluations agree within 5% across all three methods.
 
 ## Metrics
 
@@ -41,11 +57,13 @@ trajectories), ensuring hypervolume comparison is fair.
   - Reported for transparency
 
 - **2D scatter**: Visual comparison of fronts in objective space
+  - NSGA-II drawn last (large blue circles) to avoid occlusion
 
 ## Budget matching
 
 All methods use identical total constraint evaluations, verified by reading
-actual eval counts from optimizer.history (not nominal parameters).
+actual eval counts from optimizer.history (not nominal parameters). Budget
+mismatch >5% raises an assertion failure.
 
 ## Outputs
 
@@ -99,6 +117,34 @@ HIGH_GC_MIN, HIGH_GC_MAX = 70, 90
 
 # Reference point for hypervolume (worst possible scores)
 REFERENCE_POINT = (1.0, 1.0)
+
+# Budget tolerance for assertion (5% mismatch allowed)
+BUDGET_TOLERANCE = 0.05
+
+
+# ============================================================================
+# Concave transform for Pareto front geometry
+# ============================================================================
+
+
+def concave_transform(score: float) -> float:
+    """Transform linear score to produce concave Pareto front.
+
+    Applies f(s) = sqrt(s) transformation to create a concave front geometry
+    in objective space. For two objectives with this transform, the Pareto front
+    bows away from the line connecting (0,0) and (1,1), making the middle
+    trade-offs unreachable by any weighted sum (the ZDT2 property).
+
+    Args:
+        score: Linear constraint score in [0, 1]
+
+    Returns:
+        Transformed score in [0, 1] with concave Pareto geometry
+    """
+    import math
+    # Clamp to [0, 1] to handle numerical noise
+    s = max(0.0, min(1.0, score))
+    return math.sqrt(s)
 
 
 # ============================================================================
@@ -168,6 +214,75 @@ def count_actual_evaluations(optimizer: Any) -> int:
 
 
 # ============================================================================
+# Concave-transformed GC constraints
+# ============================================================================
+
+
+def concave_low_gc_constraint(sequences: list[Any], config: Any) -> list[Any]:
+    """Low-GC constraint with concave transform for ZDT2-style front."""
+    from proto_language.core.constraint import ConstraintOutput
+
+    # Evaluate underlying GC constraint
+    results = gc_content_constraint(sequences, config)
+
+    # Transform scores to create concave geometry
+    transformed_results = []
+    for result in results:
+        original_score = result.score
+        transformed_score = concave_transform(original_score)
+
+        # Create new metadata with transform flag
+        new_metadata = dict(result.metadata)
+        new_metadata["original_score"] = original_score
+        new_metadata["transformed"] = True
+
+        # Return new ConstraintOutput with transformed score
+        transformed_results.append(
+            ConstraintOutput(
+                score=transformed_score,
+                metadata=new_metadata,
+                structures=result.structures,
+                logits=result.logits,
+                metadata_recipient=result.metadata_recipient,
+            )
+        )
+
+    return transformed_results
+
+
+def concave_high_gc_constraint(sequences: list[Any], config: Any) -> list[Any]:
+    """High-GC constraint with concave transform for ZDT2-style front."""
+    from proto_language.core.constraint import ConstraintOutput
+
+    # Evaluate underlying GC constraint
+    results = gc_content_constraint(sequences, config)
+
+    # Transform scores to create concave geometry
+    transformed_results = []
+    for result in results:
+        original_score = result.score
+        transformed_score = concave_transform(original_score)
+
+        # Create new metadata with transform flag
+        new_metadata = dict(result.metadata)
+        new_metadata["original_score"] = original_score
+        new_metadata["transformed"] = True
+
+        # Return new ConstraintOutput with transformed score
+        transformed_results.append(
+            ConstraintOutput(
+                score=transformed_score,
+                metadata=new_metadata,
+                structures=result.structures,
+                logits=result.logits,
+                metadata_recipient=result.metadata_recipient,
+            )
+        )
+
+    return transformed_results
+
+
+# ============================================================================
 # NSGA-II run
 # ============================================================================
 
@@ -182,7 +297,7 @@ def run_nsga2(seed: int, target_budget: int) -> dict[str, Any]:
 
     low_gc = Constraint(
         inputs=[segment],
-        function=gc_content_constraint,
+        function=concave_low_gc_constraint,
         function_config=GCContentConfig(min_gc=LOW_GC_MIN, max_gc=LOW_GC_MAX),
         weight=1.0,
         label="low_gc",
@@ -190,18 +305,22 @@ def run_nsga2(seed: int, target_budget: int) -> dict[str, Any]:
 
     high_gc = Constraint(
         inputs=[segment],
-        function=gc_content_constraint,
+        function=concave_high_gc_constraint,
         function_config=GCContentConfig(min_gc=HIGH_GC_MIN, max_gc=HIGH_GC_MAX),
         weight=1.0,
         label="high_gc",
     )
 
-    # Configure EA to approximately match budget
+    # Configure EA to match MCMC budget
+    # MCMC does: proposals_per_result=1, num_steps iterations → target_budget evals
+    # EA counts evaluations as: population_size + num_generations * population_size
+    # (each generation evaluates full population, not just offspring)
+    # Solve: target = pop + gens * pop → gens = (target - pop) / pop
     population_size = 20
     elitism_count = 2
-    offspring_per_gen = population_size - elitism_count
-    # Budget = pop + gens * offspring
-    num_generations = (target_budget - population_size) // offspring_per_gen
+    # Calculate generations to match target budget
+    # target_budget = pop + gens * pop → gens = (target - pop) / pop
+    num_generations = (target_budget - population_size) // population_size
 
     config = EvolutionaryOptimizerConfig(
         population_size=population_size,
@@ -227,11 +346,13 @@ def run_nsga2(seed: int, target_budget: int) -> dict[str, Any]:
     for snapshot in optimizer.history:
         results = snapshot.get("results", [])
         for result in results:
-            for seq_data in result.get("sequences", []):
-                seq_obj = seq_data.get("sequence")
-                if seq_obj and hasattr(seq_obj, "_constraints_metadata"):
-                    point = extract_objective_pair(seq_obj, [low_gc, high_gc])
-                    all_points.append(point)
+            for construct in result.get("constructs", []):
+                for segment in construct.get("segments", []):
+                    constraints = segment.get("constraints", {})
+                    if "low_gc" in constraints and "high_gc" in constraints:
+                        low_score = constraints["low_gc"]["score"]
+                        high_score = constraints["high_gc"]["score"]
+                        all_points.append((low_score, high_score))
 
     # Extract Pareto front from all evaluated points
     front = extract_pareto_front(all_points)
@@ -272,7 +393,7 @@ def run_multiweight_mcmc(seed: int, target_budget: int, num_weights: int = 5) ->
 
         low_gc = Constraint(
             inputs=[segment],
-            function=gc_content_constraint,
+            function=concave_low_gc_constraint,
             function_config=GCContentConfig(min_gc=LOW_GC_MIN, max_gc=LOW_GC_MAX),
             weight=w_low,
             label="low_gc",
@@ -280,7 +401,7 @@ def run_multiweight_mcmc(seed: int, target_budget: int, num_weights: int = 5) ->
 
         high_gc = Constraint(
             inputs=[segment],
-            function=gc_content_constraint,
+            function=concave_high_gc_constraint,
             function_config=GCContentConfig(min_gc=HIGH_GC_MIN, max_gc=HIGH_GC_MAX),
             weight=w_high,
             label="high_gc",
@@ -307,11 +428,13 @@ def run_multiweight_mcmc(seed: int, target_budget: int, num_weights: int = 5) ->
         for snapshot in optimizer.history:
             results = snapshot.get("results", [])
             for result in results:
-                for seq_data in result.get("sequences", []):
-                    seq_obj = seq_data.get("sequence")
-                    if seq_obj and hasattr(seq_obj, "_constraints_metadata"):
-                        point = extract_objective_pair(seq_obj, [low_gc, high_gc])
-                        all_points.append(point)
+                for construct in result.get("constructs", []):
+                    for segment in construct.get("segments", []):
+                        constraints = segment.get("constraints", {})
+                        if "low_gc" in constraints and "high_gc" in constraints:
+                            low_score = constraints["low_gc"]["score"]
+                            high_score = constraints["high_gc"]["score"]
+                            all_points.append((low_score, high_score))
 
         total_evals += count_actual_evaluations(optimizer)
 
@@ -344,7 +467,7 @@ def run_singleweight_mcmc(seed: int, target_budget: int) -> dict[str, Any]:
 
     low_gc = Constraint(
         inputs=[segment],
-        function=gc_content_constraint,
+        function=concave_low_gc_constraint,
         function_config=GCContentConfig(min_gc=LOW_GC_MIN, max_gc=LOW_GC_MAX),
         weight=0.5,
         label="low_gc",
@@ -352,7 +475,7 @@ def run_singleweight_mcmc(seed: int, target_budget: int) -> dict[str, Any]:
 
     high_gc = Constraint(
         inputs=[segment],
-        function=gc_content_constraint,
+        function=concave_high_gc_constraint,
         function_config=GCContentConfig(min_gc=HIGH_GC_MIN, max_gc=HIGH_GC_MAX),
         weight=0.5,
         label="high_gc",
@@ -380,11 +503,13 @@ def run_singleweight_mcmc(seed: int, target_budget: int) -> dict[str, Any]:
     for snapshot in optimizer.history:
         results = snapshot.get("results", [])
         for result in results:
-            for seq_data in result.get("sequences", []):
-                seq_obj = seq_data.get("sequence")
-                if seq_obj and hasattr(seq_obj, "_constraints_metadata"):
-                    point = extract_objective_pair(seq_obj, [low_gc, high_gc])
-                    all_points.append(point)
+            for construct in result.get("constructs", []):
+                for segment in construct.get("segments", []):
+                    constraints = segment.get("constraints", {})
+                    if "low_gc" in constraints and "high_gc" in constraints:
+                        low_score = constraints["low_gc"]["score"]
+                        high_score = constraints["high_gc"]["score"]
+                        all_points.append((low_score, high_score))
 
     front = extract_pareto_front(all_points)
     hv = hypervolume_2d(front, REFERENCE_POINT)
@@ -499,12 +624,7 @@ def plot_fronts(
 
     _fig, ax = plt.subplots(figsize=(10, 8))
 
-    # Plot each trial's front (light colors)
-    for front in nsga2_fronts:
-        if front:
-            x, y = zip(*front, strict=True)
-            ax.scatter(x, y, c="blue", alpha=0.1, s=20)
-
+    # Plot MCMC fronts first (light colors)
     for front in multiweight_fronts:
         if front:
             x, y = zip(*front, strict=True)
@@ -515,18 +635,28 @@ def plot_fronts(
             x, y = zip(*front, strict=True)
             ax.scatter(x, y, c="gray", alpha=0.1, s=20)
 
-    # Plot one representative front from each method (darker)
-    if nsga2_fronts[0]:
-        x, y = zip(*nsga2_fronts[0], strict=True)
-        ax.scatter(x, y, c="blue", s=100, label="NSGA-II", edgecolors="black", linewidth=1)
-
+    # Plot representative MCMC fronts (darker)
     if multiweight_fronts[0]:
         x, y = zip(*multiweight_fronts[0], strict=True)
-        ax.scatter(x, y, c="red", s=100, label="Multi-weight MCMC", marker="^", edgecolors="black", linewidth=1)
+        ax.scatter(x, y, c="red", s=80, label="Multi-weight MCMC", marker="^",
+                  edgecolors="black", linewidth=1, alpha=0.6)
 
     if singleweight_fronts[0]:
         x, y = zip(*singleweight_fronts[0], strict=True)
-        ax.scatter(x, y, c="gray", s=100, label="Single-weight MCMC", marker="s", edgecolors="black", linewidth=1)
+        ax.scatter(x, y, c="gray", s=80, label="Single-weight MCMC", marker="s",
+                  edgecolors="black", linewidth=1, alpha=0.6)
+
+    # Plot NSGA-II LAST so it's on top (light colors)
+    for front in nsga2_fronts:
+        if front:
+            x, y = zip(*front, strict=True)
+            ax.scatter(x, y, c="blue", alpha=0.15, s=25)
+
+    # Plot one representative NSGA-II front (darker, large, on top)
+    if nsga2_fronts[0]:
+        x, y = zip(*nsga2_fronts[0], strict=True)
+        ax.scatter(x, y, c="blue", s=120, label="NSGA-II", edgecolors="black",
+                  linewidth=2, zorder=10)
 
     ax.set_xlabel("Low GC score (lower is better)", fontsize=12)
     ax.set_ylabel("High GC score (lower is better)", fontsize=12)
@@ -552,10 +682,14 @@ def main() -> None:
     logger.info("NSGA-II Multi-Objective Optimization Benchmark")
     logger.info("=" * 80)
     logger.info(
-        f"\nTask: Conflicting GC targets (low={LOW_GC_MIN}-{LOW_GC_MAX}%, high={HIGH_GC_MIN}-{HIGH_GC_MAX}%)"
+        f"\nTask: Concave Pareto front (GC targets: low={LOW_GC_MIN}-{LOW_GC_MAX}%, "
+        f"high={HIGH_GC_MIN}-{HIGH_GC_MAX}%)"
     )
+    logger.info("Objectives transformed via f(s) = sqrt(s) for concave geometry")
     logger.info(f"Target budget: ~{TARGET_BUDGET} evals/trial, {NUM_TRIALS} trials")
-    logger.info("Methods extract non-dominated sets from full trajectories (comparable front sizes)\n")
+    logger.info("Budget assertion: methods must agree within 5% (hard failure if mismatched)")
+    logger.info("Methods extract non-dominated sets from full trajectories (comparable front sizes)")
+    logger.info("\nPrediction: NSGA-II fills concave middle, MCMC clusters at extremes\n")
 
     # Run trials
     nsga2_results = []
@@ -589,6 +723,22 @@ def main() -> None:
             f"  Single-weight MCMC: HV={result['hypervolume']:.4f}, front_size={result['front_size']}, "
             f"evals={result['actual_evaluations']}"
         )
+
+        # Budget assertion: all three methods must agree within tolerance
+        nsga2_evals_trial = nsga2_results[-1]["actual_evaluations"]
+        multi_evals_trial = multiweight_results[-1]["actual_evaluations"]
+        single_evals_trial = singleweight_results[-1]["actual_evaluations"]
+
+        max_evals = max(nsga2_evals_trial, multi_evals_trial, single_evals_trial)
+        min_evals = min(nsga2_evals_trial, multi_evals_trial, single_evals_trial)
+        budget_mismatch = (max_evals - min_evals) / max_evals
+
+        if budget_mismatch > BUDGET_TOLERANCE:
+            raise AssertionError(
+                f"Budget mismatch exceeds {BUDGET_TOLERANCE*100:.0f}% tolerance in trial {trial+1}: "
+                f"NSGA-II={nsga2_evals_trial}, Multi-weight={multi_evals_trial}, "
+                f"Single-weight={single_evals_trial} (mismatch={budget_mismatch*100:.1f}%)"
+            )
 
     # Aggregate statistics
     nsga2_hvs = [r["hypervolume"] for r in nsga2_results]

@@ -165,9 +165,7 @@ class EvolutionaryOptimizerConfig(BaseOptimizerConfig):
     def validate_cross_field_constraints(self) -> "EvolutionaryOptimizerConfig":
         """Validate cross-field constraints and sync num_results with population_size."""
         if self.elitism_count >= self.population_size:
-            raise ValueError(
-                f"elitism_count ({self.elitism_count}) must be < population_size ({self.population_size})"
-            )
+            raise ValueError(f"elitism_count ({self.elitism_count}) must be < population_size ({self.population_size})")
         if self.tournament_size > self.population_size:
             raise ValueError(
                 f"tournament_size ({self.tournament_size}) cannot exceed population_size ({self.population_size})"
@@ -382,9 +380,7 @@ class EvolutionaryOptimizer(Optimizer):
                 # Add current population
                 for idx in range(self.population_size):
                     for segment in self.segments:
-                        combined_sequences_per_segment[id(segment)].append(
-                            copy.deepcopy(segment.result_sequences[idx])
-                        )
+                        combined_sequences_per_segment[id(segment)].append(copy.deepcopy(segment.result_sequences[idx]))
 
                 # Add offspring
                 for idx in range(num_offspring):
@@ -510,7 +506,9 @@ class EvolutionaryOptimizer(Optimizer):
                 data = metadata.get("data", {})
                 fallback_used = data.get("fallback_used", metadata.get("fallback_used", False))
                 if fallback_used:
-                    backend = data.get("structure_tool", metadata.get("structure_tool", metadata.get("loss_key", "unknown")))
+                    backend = data.get(
+                        "structure_tool", metadata.get("structure_tool", metadata.get("loss_key", "unknown"))
+                    )
                     raise ValueError(
                         f"EvolutionaryOptimizer(selection='nsga2') requires a true per-objective decomposition, "
                         f"but constraint '{constraint.label}' (backend {backend}) returned a fallback grouped/worst-case "
@@ -702,9 +700,7 @@ class EvolutionaryOptimizer(Optimizer):
             return
 
         first_seq = self.segments[0].result_sequences[0].sequence
-        all_identical = all(
-            seq.sequence == first_seq for seg in self.segments for seq in seg.result_sequences
-        )
+        all_identical = all(seq.sequence == first_seq for seg in self.segments for seq in seg.result_sequences)
 
         if not all_identical:
             return  # Population already diverse
@@ -837,7 +833,7 @@ def _crowding_distance(objective_vectors: list[list[float]], front_indices: list
     """
     if len(front_indices) <= 2:
         # Boundary case: all individuals get infinite distance
-        return {idx: float('inf') for idx in front_indices}
+        return {idx: float("inf") for idx in front_indices}
 
     num_objectives = len(objective_vectors[0])
     distances = dict.fromkeys(front_indices, 0.0)
@@ -848,8 +844,8 @@ def _crowding_distance(objective_vectors: list[list[float]], front_indices: list
         sorted_indices = sorted(front_indices, key=lambda i: objective_vectors[i][obj_idx])
 
         # Boundary solutions get infinite distance
-        distances[sorted_indices[0]] = float('inf')
-        distances[sorted_indices[-1]] = float('inf')
+        distances[sorted_indices[0]] = float("inf")
+        distances[sorted_indices[-1]] = float("inf")
 
         # Range for normalization
         obj_range = objective_vectors[sorted_indices[-1]][obj_idx] - objective_vectors[sorted_indices[0]][obj_idx]

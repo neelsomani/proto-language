@@ -253,7 +253,7 @@ class TestEvolutionaryOptimizer:
         # With elitism, best score should never increase (get worse)
         for i in range(1, len(best_scores)):
             assert best_scores[i] <= best_scores[i - 1], (
-                f"Best score regressed at generation {i}: " f"{best_scores[i-1]:.4f} -> {best_scores[i]:.4f}"
+                f"Best score regressed at generation {i}: {best_scores[i - 1]:.4f} -> {best_scores[i]:.4f}"
             )
 
     def test_crossover_single_point(self) -> None:
@@ -359,7 +359,9 @@ class TestEvolutionaryOptimizer:
         segment = Segment(sequence="A" * 20, sequence_type="dna")
         construct = Construct([segment])  # Create construct once and reuse
 
-        gen1 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
+        gen1 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
         gen1.assign(segment)
 
         constraint1 = Constraint(
@@ -379,7 +381,9 @@ class TestEvolutionaryOptimizer:
         )
 
         # Stage 2: Another EA optimizer (chained)
-        gen2 = RandomNucleotideGenerator(RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1)))
+        gen2 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
         gen2.assign(segment)
 
         constraint2 = Constraint(
@@ -571,8 +575,8 @@ class TestNSGA2Selection:
 
         # Two or fewer individuals get infinite distance
         distances = _crowding_distance([[1.0, 1.0], [2.0, 2.0]], [0, 1])
-        assert distances[0] == float('inf')
-        assert distances[1] == float('inf')
+        assert distances[0] == float("inf")
+        assert distances[1] == float("inf")
 
         # Three individuals on a line (middle one gets finite distance)
         objective_vectors = [
@@ -581,9 +585,9 @@ class TestNSGA2Selection:
             [3.0, 3.0],  # Boundary
         ]
         distances = _crowding_distance(objective_vectors, [0, 1, 2])
-        assert distances[0] == float('inf')
-        assert distances[2] == float('inf')
-        assert 0 < distances[1] < float('inf')
+        assert distances[0] == float("inf")
+        assert distances[2] == float("inf")
+        assert 0 < distances[1] < float("inf")
 
     def test_nsga2_select_survivors(self) -> None:
         """Test NSGA-II survivor selection fills front-by-front."""
@@ -672,7 +676,7 @@ class TestNSGA2Selection:
         gc_contents = []
         for idx in optimizer.pareto_front:
             seq = segment.result_sequences[idx].sequence
-            gc_count = seq.count('G') + seq.count('C')
+            gc_count = seq.count("G") + seq.count("C")
             gc_pct = (gc_count / len(seq)) * 100
             gc_contents.append(gc_pct)
 
@@ -841,16 +845,14 @@ class TestNSGA2Selection:
         # Create a mock constraint that uses the REAL _write_constraint_metadata path
         # (same path as ESMFold/AF2/Protenix providers)
         def real_path_constraint(input_sequences, config=None):
-            outputs = []
-            for _seq_tuple in input_sequences:
-                # Metadata will be nested under "data" by _write_constraint_metadata
-                outputs.append(
-                    ConstraintOutput(
-                        score=0.5,
-                        metadata={"fallback_used": True, "structure_tool": "real_backend"},
-                    )
+            # Metadata will be nested under "data" by _write_constraint_metadata
+            return [
+                ConstraintOutput(
+                    score=0.5,
+                    metadata={"fallback_used": True, "structure_tool": "real_backend"},
                 )
-            return outputs
+                for _seq_tuple in input_sequences
+            ]
 
         real_path_constraint._constraint_config_class = EmptyConfig
         real_path_constraint._constraint_supported_sequence_types = ["dna"]
@@ -953,6 +955,5 @@ class TestNSGA2Selection:
         # (the key is that it's NOT 1, which would indicate failed diversification)
         unique_vectors = {tuple(vec) for vec in objective_vectors}
         assert len(unique_vectors) >= 2, (
-            f"Objective vectors collapsed to {len(unique_vectors)} unique values "
-            f"(expected ≥2 from diversification)"
+            f"Objective vectors collapsed to {len(unique_vectors)} unique values (expected ≥2 from diversification)"
         )

@@ -484,7 +484,9 @@ class EvolutionaryOptimizer(Optimizer):
 
         Reads the per-proposal metadata written by scoring constraints and builds
         objective vectors. Refuses with clear error if any constraint used a
-        fallback/grouped score.
+        fallback/grouped score. Proposals with no metadata for a constraint (e.g.
+        rejected by a filter before scoring) receive a worst-case ``+inf`` objective
+        so they are dominated rather than treated as non-dominated.
 
         Args:
             num_proposals (int | None): Number of proposals to extract vectors for. If None,
@@ -523,8 +525,13 @@ class EvolutionaryOptimizer(Optimizer):
                         f"Use selection='tournament', or use constraints/backends that expose per-term scores."
                     )
 
-                # Extract weighted score (check nested data first, fallback to top-level)
-                score = data.get("score", metadata.get("score", float("nan")))
+                # Extract weighted score (check nested data first, fallback to top-level).
+                # A proposal rejected by a filter skips scoring and has no metadata for
+                # this constraint; treat that as the worst possible objective (+inf) so it
+                # is dominated by any scored proposal. Defaulting to NaN would make the
+                # proposal incomparable under _dominates(), placing rejected individuals in
+                # Pareto front 0 where they can survive selection over valid solutions.
+                score = data.get("score", metadata.get("score", float("inf")))
                 objective_vector.append(score)
 
             objective_vectors.append(objective_vector)

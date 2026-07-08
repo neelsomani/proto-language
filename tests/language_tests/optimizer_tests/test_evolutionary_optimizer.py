@@ -957,3 +957,92 @@ class TestNSGA2Selection:
         assert len(unique_vectors) >= 2, (
             f"Objective vectors collapsed to {len(unique_vectors)} unique values (expected ≥2 from diversification)"
         )
+
+    def test_nsga2_filter_rejected_proposal_is_dominated(self) -> None:
+        """Filter-rejected proposals (no scoring metadata) get +inf objectives and stay out of Pareto front 0."""
+        from proto_language.core.sequence import Sequence
+        from proto_language.optimizer.evolutionary_optimizer import _dominates, _non_dominated_sort
+
+        segment = Segment(sequence="A" * 20, sequence_type="dna")
+        mutation_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        mutation_gen.assign(segment)
+        low_gc = Constraint(
+            inputs=[segment], function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=10, max_gc=30), label="low_gc",
+        )
+        high_gc = Constraint(
+            inputs=[segment], function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=70, max_gc=90), label="high_gc",
+        )
+        optimizer = EvolutionaryOptimizer(
+            constructs=[Construct([segment])],
+            generators=[mutation_gen],
+            constraints=[low_gc, high_gc],
+            config=EvolutionaryOptimizerConfig(population_size=4, num_generations=1, selection="nsga2"),
+        )
+
+        # Two filter-passing proposals with real per-objective metadata, plus one
+        # proposal with NO metadata, as if a filter rejected it before scoring.
+        scored_a = Sequence(sequence="A" * 20, sequence_type="dna")
+        scored_a._constraints_metadata = {"low_gc": {"data": {"score": 0.2}}, "high_gc": {"data": {"score": 0.8}}}
+        scored_b = Sequence(sequence="C" * 20, sequence_type="dna")
+        scored_b._constraints_metadata = {"low_gc": {"data": {"score": 0.8}}, "high_gc": {"data": {"score": 0.2}}}
+        rejected = Sequence(sequence="G" * 20, sequence_type="dna")  # rejected: no scoring metadata
+        segment.proposal_sequences = [scored_a, scored_b, rejected]
+
+        vectors = optimizer._extract_objective_vectors()
+
+        assert vectors[0] == [0.2, 0.8]
+        assert vectors[1] == [0.8, 0.2]
+        # Rejected proposal must be worst-case (+inf), never NaN (which is incomparable).
+        assert vectors[2] == [float("inf"), float("inf")]
+        assert not any(math.isnan(x) for x in vectors[2])
+
+        # It must be dominated by both scored proposals, so it never sits in Pareto front 0.
+        assert _dominates(vectors[0], vectors[2])
+        assert _dominates(vectors[1], vectors[2])
+        fronts = _non_dominated_sort(vectors)
+        assert 2 not in fronts[0], "Filter-rejected proposal must not be in Pareto front 0"
+
+    def test_nsga2_run_with_satisfiable_filter_keeps_only_passing(self) -> None:
+        """End-to-end: nsga2 with a satisfiable filter must not return filter-rejected (inf-energy) results."""
+        segment = Segment(sequence="A" * 20, sequence_type="dna")
+        mutation_gen = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=2))
+        )
+        mutation_gen.assign(segment)
+        # Wide, easily satisfiable hard filter (GC 30-70%).
+        gc_filter = Constraint(
+            inputs=[segment], function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=30, max_gc=70), threshold=0.001, label="gc_filter",
+        )
+        # Two competing objectives, both satisfiable inside the filter band.
+        near40 = Constraint(
+            inputs=[segment], function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40, max_gc=40), label="near40",
+        )
+        near60 = Constraint(
+            inputs=[segment], function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=60, max_gc=60), label="near60",
+        )
+        optimizer = EvolutionaryOptimizer(
+            constructs=[Construct([segment])],
+            generators=[mutation_gen],
+            constraints=[gc_filter, near40, near60],
+            config=EvolutionaryOptimizerConfig(
+                population_size=10, num_generations=15, selection="nsga2", seed=3
+            ),
+        )
+        Program(optimizers=[optimizer], num_results=10, seed=3).run()
+
+        # No returned result may be a filter-rejected (inf-energy) individual.
+        assert all(math.isfinite(e) for e in optimizer.energy_scores), (
+            f"nsga2 returned filter-rejected results: {optimizer.energy_scores}"
+        )
+        # And every Pareto-front member must satisfy the hard filter.
+        for idx in optimizer.pareto_front:
+            seq = segment.result_sequences[idx].sequence
+            gc_pct = 100.0 * (seq.count("G") + seq.count("C")) / len(seq)
+            assert 30.0 <= gc_pct <= 70.0, f"Pareto front member violates filter: GC={gc_pct:.1f}%"

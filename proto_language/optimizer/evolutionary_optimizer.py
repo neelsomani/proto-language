@@ -482,11 +482,12 @@ class EvolutionaryOptimizer(Optimizer):
     def _extract_objective_vectors(self, num_proposals: int | None = None) -> list[list[float]]:
         """Extract per-constraint weighted scores for NSGA-II Pareto ranking.
 
-        Reads the per-proposal metadata written by scoring constraints and builds
-        objective vectors. Refuses with clear error if any constraint used a
-        fallback/grouped score. Proposals with no metadata for a constraint (e.g.
-        rejected by a filter before scoring) receive a worst-case ``+inf`` objective
-        so they are dominated rather than treated as non-dominated.
+        Reads the per-proposal metadata written by scoring constraints (from each
+        constraint's own input segment) and builds objective vectors. Refuses with
+        clear error if any constraint used a fallback/grouped score. Proposals with no
+        metadata for a constraint (e.g. rejected by a filter before scoring) receive a
+        worst-case ``+inf`` objective so they are dominated rather than treated as
+        non-dominated.
 
         Args:
             num_proposals (int | None): Number of proposals to extract vectors for. If None,
@@ -504,11 +505,16 @@ class EvolutionaryOptimizer(Optimizer):
             num_proposals = len(self.segments[0].proposal_sequences)
         objective_vectors: list[list[float]] = []
 
+        # Each constraint writes its metadata onto its own input segments, so read from
+        # one of the constraint's inputs rather than assuming segments[0] is an input of
+        # every constraint (it may not be in multi-segment constructs).
+        metadata_segments = [constraint.inputs[0] for constraint in scoring_constraints]
+
         for proposal_idx in range(num_proposals):
             objective_vector: list[float] = []
-            for constraint in scoring_constraints:
+            for constraint, metadata_segment in zip(scoring_constraints, metadata_segments, strict=True):
                 # Read metadata written by constraint evaluation
-                seq = self.segments[0].proposal_sequences[proposal_idx]
+                seq = metadata_segment.proposal_sequences[proposal_idx]
                 metadata = seq._constraints_metadata.get(constraint.label, {})
 
                 # Check for fallback flag (in top-level metadata or nested data)

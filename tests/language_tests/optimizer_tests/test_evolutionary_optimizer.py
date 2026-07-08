@@ -1006,6 +1006,46 @@ class TestNSGA2Selection:
         fronts = _non_dominated_sort(vectors)
         assert 2 not in fronts[0], "Filter-rejected proposal must not be in Pareto front 0"
 
+    def test_nsga2_extract_reads_each_constraints_own_input_segment(self) -> None:
+        """Objectives are read from each constraint's input segment, not always segments[0] (multi-segment)."""
+        from proto_language.core.sequence import Sequence
+
+        seg0 = Segment(sequence="A" * 10, sequence_type="dna")
+        seg1 = Segment(sequence="A" * 10, sequence_type="dna")
+        gen0 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        gen0.assign(seg0)
+        gen1 = RandomNucleotideGenerator(
+            RandomNucleotideGeneratorConfig(masking_strategy=MaskingStrategy(num_mutations=1))
+        )
+        gen1.assign(seg1)
+        # Scoring constraint on the SECOND segment only (not segments[0]).
+        gc_seg1 = Constraint(
+            inputs=[seg1], function=gc_content_constraint,
+            function_config=GCContentConfig(min_gc=40, max_gc=60), label="gc_seg1",
+        )
+        optimizer = EvolutionaryOptimizer(
+            constructs=[Construct([seg0, seg1])],
+            generators=[gen0, gen1],
+            constraints=[gc_seg1],
+            config=EvolutionaryOptimizerConfig(population_size=4, num_generations=1, selection="nsga2"),
+        )
+
+        # Metadata lives on the constraint's input segment (seg1), NOT on segments[0] (seg0).
+        a = Sequence(sequence="A" * 10, sequence_type="dna")
+        a._constraints_metadata = {"gc_seg1": {"data": {"score": 0.25}}}
+        b = Sequence(sequence="C" * 10, sequence_type="dna")
+        b._constraints_metadata = {"gc_seg1": {"data": {"score": 0.75}}}
+        seg1.proposal_sequences = [a, b]
+        seg0.proposal_sequences = [
+            Sequence(sequence="A" * 10, sequence_type="dna"),
+            Sequence(sequence="A" * 10, sequence_type="dna"),
+        ]
+
+        vectors = optimizer._extract_objective_vectors()
+        assert vectors == [[0.25], [0.75]], f"expected scores read from seg1, got {vectors}"
+
     def test_nsga2_run_with_satisfiable_filter_keeps_only_passing(self) -> None:
         """End-to-end: nsga2 with a satisfiable filter must not return filter-rejected (inf-energy) results."""
         segment = Segment(sequence="A" * 20, sequence_type="dna")

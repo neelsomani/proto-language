@@ -505,9 +505,7 @@ class EvolutionaryOptimizer(Optimizer):
             num_proposals = len(self.segments[0].proposal_sequences)
         objective_vectors: list[list[float]] = []
 
-        # Each constraint writes its metadata onto its own input segments, so read from
-        # one of the constraint's inputs rather than assuming segments[0] is an input of
-        # every constraint (it may not be in multi-segment constructs).
+        # Read each constraint's metadata from its own input segment, not segments[0].
         metadata_segments = [constraint.inputs[0] for constraint in scoring_constraints]
 
         for proposal_idx in range(num_proposals):
@@ -531,12 +529,7 @@ class EvolutionaryOptimizer(Optimizer):
                         f"Use selection='tournament', or use constraints/backends that expose per-term scores."
                     )
 
-                # Extract weighted score (check nested data first, fallback to top-level).
-                # A proposal rejected by a filter skips scoring and has no metadata for
-                # this constraint; treat that as the worst possible objective (+inf) so it
-                # is dominated by any scored proposal. Defaulting to NaN would make the
-                # proposal incomparable under _dominates(), placing rejected individuals in
-                # Pareto front 0 where they can survive selection over valid solutions.
+                # Missing score (filter-rejected proposal) -> +inf so it is dominated, not NaN (incomparable).
                 score = data.get("score", metadata.get("score", float("inf")))
                 objective_vector.append(score)
 

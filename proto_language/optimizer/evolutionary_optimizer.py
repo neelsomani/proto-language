@@ -482,9 +482,12 @@ class EvolutionaryOptimizer(Optimizer):
     def _extract_objective_vectors(self, num_proposals: int | None = None) -> list[list[float]]:
         """Extract per-constraint weighted scores for NSGA-II Pareto ranking.
 
-        Reads the per-proposal metadata written by scoring constraints and builds
-        objective vectors. Refuses with clear error if any constraint used a
-        fallback/grouped score.
+        Reads the per-proposal metadata written by scoring constraints (from each
+        constraint's own input segment) and builds objective vectors. Refuses with
+        clear error if any constraint used a fallback/grouped score. Proposals with no
+        metadata for a constraint (e.g. rejected by a filter before scoring) receive a
+        worst-case ``+inf`` objective so they are dominated rather than treated as
+        non-dominated.
 
         Args:
             num_proposals (int | None): Number of proposals to extract vectors for. If None,
@@ -502,11 +505,14 @@ class EvolutionaryOptimizer(Optimizer):
             num_proposals = len(self.segments[0].proposal_sequences)
         objective_vectors: list[list[float]] = []
 
+        # Read each constraint's metadata from its own input segment, not segments[0].
+        metadata_segments = [constraint.inputs[0] for constraint in scoring_constraints]
+
         for proposal_idx in range(num_proposals):
             objective_vector: list[float] = []
-            for constraint in scoring_constraints:
+            for constraint, metadata_segment in zip(scoring_constraints, metadata_segments, strict=True):
                 # Read metadata written by constraint evaluation
-                seq = self.segments[0].proposal_sequences[proposal_idx]
+                seq = metadata_segment.proposal_sequences[proposal_idx]
                 metadata = seq._constraints_metadata.get(constraint.label, {})
 
                 # Check for fallback flag (in top-level metadata or nested data)
@@ -523,8 +529,8 @@ class EvolutionaryOptimizer(Optimizer):
                         f"Use selection='tournament', or use constraints/backends that expose per-term scores."
                     )
 
-                # Extract weighted score (check nested data first, fallback to top-level)
-                score = data.get("score", metadata.get("score", float("nan")))
+                # Missing score (filter-rejected proposal) -> +inf so it is dominated, not NaN (incomparable).
+                score = data.get("score", metadata.get("score", float("inf")))
                 objective_vector.append(score)
 
             objective_vectors.append(objective_vector)
